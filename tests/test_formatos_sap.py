@@ -163,3 +163,15 @@ def test_ip19_geral():
     assert ch.loc["2026-09-15", "Situação"] == planos.ATRASADA      # em espera e já venceu
     assert ch.loc["2026-10-01", "Situação"] == planos.SALTADA       # ignorada
     assert ch.loc["2026-11-01", "Situação"] == planos.PROGRAMADA
+
+
+def test_concluida_so_com_conf_e_ente():
+    iw = iw38_2026().iloc[:1]
+    iw = pd.concat([iw] * 5, ignore_index=True)
+    iw["Ordem"] = ["1", "2", "3", "4", "5"]
+    iw["Status do sistema"] = ["CONF ENTE CAPC", "ENTE CAPC NOLQ", "ENCE", "LIB CONF CAPC", "ABER"]
+    prep, _ = bases.preparar_iw38(iw, hoje=pd.Timestamp(2026, 10, 4))
+    sit = dict(zip(prep["Ordem"], prep["Situação"]))
+    assert sit == {"1": "Concluída", "2": bases.ENCERRADA_SEM_CONF, "3": bases.ENCERRADA_SEM_CONF,
+                   "4": "Liberada", "5": "Aberta"}
+    assert set(prep.loc[prep["Situação"].isin(bases.PENDENTES), "Ordem"]) == {"2", "3", "4", "5"}

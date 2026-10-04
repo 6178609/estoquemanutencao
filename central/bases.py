@@ -208,10 +208,11 @@ STATUS_USUARIO = {
     "PLA": "Em planejamento", "PRO": "Programado", "ELP": "Em planejamento (ELP)", "CAN": "Cancelada",
 }
 
-SITUACOES = ["Aberta", "Liberada", "Concluída", "Cancelada", "Sem status"]
+ENCERRADA_SEM_CONF = "Encerrada sem confirmação"
+SITUACOES = ["Aberta", "Liberada", ENCERRADA_SEM_CONF, "Concluída", "Cancelada", "Sem status"]
 NAT_PLANO, NAT_BACKLOG = "Plano de manutenção", "Backlog"
 NATUREZAS = [NAT_PLANO, NAT_BACKLOG]
-PENDENTES = ("Aberta", "Liberada")
+PENDENTES = ("Aberta", "Liberada", ENCERRADA_SEM_CONF)  # tudo que ainda não está concluído
 
 
 def _situacao(sistema: str, usuario: str) -> str:
@@ -219,8 +220,11 @@ def _situacao(sistema: str, usuario: str) -> str:
     usu = set(usuario.split())
     if "CAN" in usu or sis & {"DLFL", "MREL", "MEEL"}:
         return "Cancelada"
-    if sis & {"ENCE", "ENTE"}:
+    # regra do PCM: concluída só com CONF (confirmada) + ENTE (encerrada tecnicamente) juntos
+    if {"CONF", "ENTE"} <= sis:
         return "Concluída"
+    if sis & {"ENCE", "ENTE"}:
+        return ENCERRADA_SEM_CONF
     if "LIB" in sis:
         return "Liberada"
     if "ABER" in sis:
