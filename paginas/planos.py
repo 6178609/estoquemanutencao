@@ -50,7 +50,7 @@ if ch.empty:
 anos = sorted({int(a) for a in ch["Ano"].dropna().unique()}, reverse=True)
 ano_atual = hoje.isocalendar().year
 with ui.caixa_filtros():
-    f = st.columns([1, 3, 2, 2])
+    f = st.columns([1, 3, 2, 2, 2])
     padrao = {"index": anos.index(ano_atual) if ano_atual in anos else 0} if "p_ano" not in st.session_state else {}
     ano = f[0].selectbox("Ano", anos, key="p_ano", **padrao)
     busca = f[1].text_input("Buscar plano", placeholder="nº do plano, descrição, equipamento…", key="p_busca")
@@ -59,8 +59,13 @@ with ui.caixa_filtros():
     sel_ctr = f[2].multiselect("Centro de trabalho", centros, key="p_ctr", placeholder="Todos")
     sel_sit = f[3].multiselect("Situação", planos.SITUACOES, key="p_sit", placeholder="Todas",
                                help="Mostra só os planos com alguma chamada nessa situação no ano")
+    atividades = sorted(a for a in doano["Atividade"].unique() if a) if "Atividade" in doano else []
+    sel_atv = f[4].multiselect("Atividade", atividades, key="p_atv", placeholder="Todas",
+                               help="Inspeção, preventiva, preditiva… (vem da situação da chamada na IP19)")
 
 filtro = ch
+if sel_atv:
+    filtro = filtro[filtro["Atividade"].isin(sel_atv)]
 if sel_ctr:
     filtro = filtro[filtro["Centro de trabalho"].isin(sel_ctr)]
 if busca.strip():
@@ -88,7 +93,7 @@ c[2].metric("Aderência até hoje", pct(concl_venc, len(vencidas)), f"{inteiro(c
             delta_color="off", border=True, delta_arrow="off",
             help="Chamadas com data até hoje que foram concluídas (saltadas e canceladas não contam).")
 c[3].metric("Atrasadas", inteiro((no_ano["Situação"] == planos.ATRASADA).sum()), border=True, delta_arrow="off")
-c[4].metric("Custo das ordens dos planos", brl(no_ano["Custo real"].sum()) if iw38 is not None else "—",
+c[4].metric("Custo das ordens", brl(no_ano["Custo real"].sum()) if iw38 is not None else "—",
             border=True, delta_arrow="off")
 
 # ----------------------------------------------------------------------------
@@ -224,9 +229,11 @@ if plano:
     k[2].metric("Próxima chamada", d.loc[d["Data"] > hoje, "Data"].min().strftime("%d/%m/%Y")
                 if (d["Data"] > hoje).any() else "—", border=True, delta_arrow="off")
     k[3].metric("Custo das ordens", brl(d["Custo real"].sum()), border=True, delta_arrow="off")
-    cols = ["Data planejada", "Data chamada", "Data conclusão", "Semana", "Situação", "Ordem", "Situação IW38",
-            "Custo real", "Tipo de programação", "Objeto técnico", "Centro de trabalho"]
+    cols = [c for c in ["Data planejada", "Data chamada", "Data conclusão", "Semana", "Situação", "Ordem", "Situação IW38",
+                        "Custo real", "Tipo de programação", "Atividade", "Pacote", "Operações", "Horas",
+                        "Objeto técnico", "Centro de trabalho"] if c in d and (d[c] != "").any()]
     st.dataframe(d[cols].sort_values("Data planejada", ascending=False), hide_index=True, width="stretch",
                  height=ui.altura_tabela(320),
                  column_config={"Data planejada": ui.col_data(), "Data chamada": ui.col_data(), "Data conclusão": ui.col_data(),
-                                "Custo real": ui.col_moeda()})
+                                "Custo real": ui.col_moeda(),
+                                "Horas": st.column_config.NumberColumn(format="%.1f")})

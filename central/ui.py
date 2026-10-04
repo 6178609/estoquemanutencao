@@ -180,7 +180,9 @@ def barra_lateral(usuario: dict | None = None) -> None:
                 st.toast("Arquivo novo encontrado — dados atualizados.", icon=":material/sync:")
                 st.rerun(scope="app")
             chips = "".join([chip_base(bases.iw38(), "IW38"), chip_base(bases.ip19(), "IP19"),
-                             chip_base(bases.mb52(), "MB52"), chip_base(bases.requisicoes(), "Requisições")])
+                             chip_base(bases.operacoes(), "IW38OP"), chip_base(bases.notas(), "IW28"),
+                             chip_base(bases.equipamentos(), "IH08"), chip_base(bases.mb52(), "MB52"),
+                             chip_base(bases.requisicoes(), "Requisições")])
             st.markdown(chips, unsafe_allow_html=True)
             st.caption(f":material/sync: Verificação automática a cada {cfg.intervalo_verificacao}s · "
                        f"última às {datetime.now(FUSO):%H:%M:%S}")

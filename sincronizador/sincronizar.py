@@ -28,6 +28,7 @@ import logging
 import math
 import os
 import platform
+import re
 import sys
 import time
 import tomllib
@@ -42,13 +43,14 @@ sys.path.insert(0, str(RAIZ))
 from central import leitura  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
 from central.fontes import GitHub, Pastas  # noqa: E402
-from central.leitura import IP19, IW38, MB52, REQ, TIPOS  # noqa: E402
+from central.leitura import EQUIP, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 ARQ_CONFIG = AQUI / "config.toml"
 ARQ_ESTADO = AQUI / "estado.json"
 DESTINO = {IW38: "bases/IW38.parquet", MB52: "bases/MB52.parquet", REQ: "bases/REQUISICOES.parquet",
-           IP19: "bases/IP19.parquet"}
+           IP19: "bases/IP19.parquet", OPER: "bases/IW38OP.parquet", NOTAS: "bases/IW28.parquet",
+           EQUIP: "bases/IH08.parquet"}
 
 log = logging.getLogger("sincronizador")
 
@@ -87,21 +89,31 @@ def _salvar_estado(est: dict) -> None:
 # ----------------------------------------------------------------------------
 # Achar o export mais recente de cada base
 # ----------------------------------------------------------------------------
-def localizar(pastas: list[Path], est: dict) -> dict[str, tuple]:
-    """{tipo: (Arquivo, aba, linha)} com o arquivo mais novo de cada base.
+class _Origem:
+    def __init__(self, arquivo, aba, linha):
+        self.arquivo, self.aba, self.linha = arquivo, aba, linha
 
-    Mesma regra do app: do mais novo para o mais velho, para quando todas as
-    bases foram achadas. O que já foi identificado fica no estado (não reabre)."""
+    @property
+    def rotulo(self) -> str:
+        return self.arquivo.nome + (f" › aba {self.aba}" if self.aba else "")
+
+
+_PISTA = re.compile(r"IW38|IW39|IW28|IW29|IP19|IP24|IH08|IE05|MB52|MB51|REQUISI|SOLICITA", re.I)
+
+
+def localizar(pastas: list[Path], est: dict) -> dict[str, list[_Origem]]:
+    """{tipo: [origens]} — o arquivo mais novo de cada base, ou vários somados nas bases
+    que se somam (IW38 + histórico, notas). Mesma regra do app: arquivos com nome de
+    export do SAP são sempre verificados; os demais, até todas as bases serem achadas.
+    O que já foi identificado fica no estado (não reabre o arquivo)."""
     sondagens = est.setdefault("sondagens", {})
     arquivos = sorted(Pastas(pastas, pastas[0], profundidade=4).listar(), key=lambda a: a.modificado, reverse=True)
-    achados: dict[str, tuple] = {}
-    vistos = set()
+    candidatos: dict[str, list[_Origem]] = {}
     for arq in arquivos:
         if arq.arquivo.lower().endswith(".json"):
             continue
-        if len(achados) == len(TIPOS):
-            break
-        vistos.add(arq.assinatura)
+        if len(candidatos) == len(TIPOS) and not _PISTA.search(arq.arquivo):
+            continue
         if arq.assinatura not in sondagens:
             try:
                 sondagens[arq.assinatura] = [list(x) for x in leitura.sondar(arq.id, Path(arq.id).read_bytes())]
@@ -109,13 +121,13 @@ def localizar(pastas: list[Path], est: dict) -> dict[str, tuple]:
                 log.warning("não consegui abrir %s: %s", arq.nome, e)
                 continue
         for tipo, aba, linha in sondagens[arq.assinatura]:
-            achados.setdefault(tipo, (arq, aba, linha))
+            candidatos.setdefault(tipo, []).append(_Origem(arq, aba, linha))
     # esquece sondagens de arquivos que não existem mais (o estado não cresce para sempre)
     existentes = {a.assinatura for a in arquivos}
     for k in list(sondagens):
         if k not in existentes:
             del sondagens[k]
-    return achados
+    return {t: leitura.escolher_origens(t, lst) for t, lst in candidatos.items()}
 
 
 # ----------------------------------------------------------------------------
@@ -157,15 +169,17 @@ def rodada(cfg: dict, gh=None, testar: bool = False) -> list[str]:
     enviados = est.setdefault("enviados", {})
     achados = localizar(cfg["pastas"], est)
     mandou, manifesto = [], {}
-    for tipo, (arq, aba, linha) in achados.items():
-        chave = f"{arq.assinatura}|{aba}|{linha}"
+    for tipo, origens in achados.items():
+        chave = ";".join(f"{o.arquivo.assinatura}|{o.aba}|{o.linha}" for o in origens)
         if enviados.get(tipo) == chave:
             continue
-        rotulo = arq.nome + (f" › aba {aba}" if aba else "")
+        rotulo = " + ".join(o.rotulo for o in origens)
         if testar:
             log.info("[teste] enviaria %s ← %s", DESTINO[tipo], rotulo)
             continue
-        df = leitura.ler_arquivo(arq.id, Path(arq.id).read_bytes(), aba, linha)
+        df = leitura.mesclar(tipo, [leitura.ler_arquivo(o.arquivo.id, Path(o.arquivo.id).read_bytes(), o.aba, o.linha)
+                                    for o in origens])
+        arq = origens[0].arquivo
         gh.gravar_caminho(DESTINO[tipo], para_parquet(df), f"{tipo.upper()}: {arq.arquivo} ({len(df)} linhas)")
         manifesto[DESTINO[tipo]] = {
             "modificado": arq.modificado.isoformat(timespec="seconds"),

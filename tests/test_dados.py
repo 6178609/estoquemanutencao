@@ -161,7 +161,9 @@ def test_inventario_usa_o_mais_recente_e_respeita_fixado(tmp_path, monkeypatch):
     inv = bases.inventario()
     assert inv.ativos[IW38].arquivo.id == str(novo)
     assert MB52 not in inv.ativos
-    assert len(bases.iw38().df) == 2
+    # vários exports do IW38 se somam: ordens 1 e 2 do novo + 3 e 5 do antigo (a 4 é da Fábrica Piloto)
+    assert sorted(bases.iw38().df["Ordem"]) == ["1", "2", "3", "5"]
+    assert [o.arquivo.id for o in inv.usados[IW38]] == [str(novo), str(velho)]
 
     bases.fixar_origem(IW38, str(velho))
     assert bases.inventario().ativos[IW38].arquivo.id == str(velho)

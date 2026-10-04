@@ -44,24 +44,35 @@ _COLUNAS = {
     "Objeto técnico": [r"DENOMINACAO.*(OBJETO|EQUIP)", r"OBJETO TECNICO", r"DESCRICAO.*EQUIP"],
     "Local de instalação": [r"DENOMINACAO.*LOC", r"LOC.*INSTAL"],
     "Centro de trabalho": [r"CENTRO TRAB", r"CENTRO DE TRABALHO", r"CEN TRAB"],
-    "Grupo de planejamento": [r"GRUPO.*PLANEJ", r"GRP.*PLAN"],
-    "Ciclo": [r"CICLO", r"ESTRATEGIA", r"PACOTE", r"PERIODICIDADE", r"FREQUENCIA", r"INTERVALO"],
+    "Grupo de planejamento": [r"GRUPO.*PLANEJ", r"GRP.*PLAN", r"GRP PLNJ"],
+    "Ciclo": [r"CICLO", r"PERIODICIDADE", r"FREQUENCIA", r"INTERVALO"],
+    "Pacote": [r"PACOTES? VENCIDOS?", r"^PACOTE"],
+    "Estratégia": [r"ESTRAT"],
+    "Tipo de ordem": [r"TIPO DE ORDEM"],
+    "Trabalho": [r"^TRABALHO$"],
+    "Unidade do trabalho": [r"UNIDADE DO TRABALHO"],
     "Data planejada": [r"DATA PLAN", r"DT PLAN", r"PLANEJAD", r"DATA PROGRAM"],
     "Data chamada": [r"DATA (DE )?CHAMADA", r"DT CHAM", r"CHAMADA EM"],
     "Data conclusão": [r"DATA (DE )?CONCL", r"DATA (DE )?ENCERR", r"DT CONCL", r"CONCLUSAO"],
-    "Tipo de programação": [r"TIPO (DE )?PROGRAM", r"STATUS", r"TIPO (DE )?CHAMADA", r"AGENDAMENTO", r"PROGRAMACAO"],
+    "Tipo de programação": [r"TIPO (DE )?PROGRAM", r"^ST SOLICIT", r"SOLICITACAO", r"STATUS", r"TIPO (DE )?CHAMADA",
+                            r"AGENDAMENTO", r"PROGRAMACAO"],
     "Ordem": [r"^ORDEM$", r"^ORDEM", r"ORDEM"],
 }
 _TEXTO = ["Plano", "Item", "Texto", "Equipamento", "Objeto técnico", "Local de instalação", "Centro de trabalho",
-          "Grupo de planejamento", "Ciclo", "Tipo de programação", "Ordem"]
+          "Grupo de planejamento", "Ciclo", "Pacote", "Estratégia", "Tipo de ordem", "Unidade do trabalho",
+          "Tipo de programação", "Ordem"]
 
 
-def preparar_ip19(cru: pd.DataFrame) -> pd.DataFrame:
+def preparar_ip19(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
+    """Uma linha por chamada (plano + item + data planejada).
+
+    A IP19 costuma vir com uma linha por operação da lista de tarefas; elas são
+    juntadas na chamada, somando o trabalho (horas) e contando as operações."""
     df = pd.DataFrame(index=cru.index)
     usadas: set[str] = set()
     for nome, padroes in _COLUNAS.items():
-        excluir = {"Ordem": r"TIPO|STATUS", "Texto": r"OBJETO|EQUIP|LOC", "Data conclusão": r"PLAN|CHAMADA",
-                   "Tipo de programação": r"USUARIO|SISTEMA"}.get(nome)
+        excluir = {"Ordem": r"TIPO|STATUS", "Texto": r"OBJETO|EQUIP|LOC|OPERACAO", "Data conclusão": r"PLAN|CHAMADA",
+                   "Tipo de programação": r"USUARIO|SISTEMA|ROTEIRO|ATIVIDAD", "Item": r"GRUPO"}.get(nome)
         col = achar_coluna([c for c in cru.columns if c not in usadas], *padroes, excluir=excluir)
         if col:
             usadas.add(col)
@@ -71,7 +82,33 @@ def preparar_ip19(cru: pd.DataFrame) -> pd.DataFrame:
     for c in ["Data planejada", "Data chamada", "Data conclusão"]:
         df[c] = para_data(df[c])
     df = df[(df["Plano"] != "") & (df["Data planejada"].notna() | df["Data chamada"].notna())]
-    return df.reset_index(drop=True)
+    if excluir_piloto_matriz:  # mesma regra das ordens: Fábrica Piloto e Matrizaria ficam fora
+        fora = (df["Centro de trabalho"].str.upper().isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])
+                | df["Texto"].map(chave).str.contains(r"PILOT|MATRIZARIA")
+                | df["Local de instalação"].map(chave).str.contains(r"PILOT|MATRIZARIA"))
+        df = df[~fora]
+
+    fator = df["Unidade do trabalho"].str.upper().map({"MIN": 1 / 60, "H": 1, "HR": 1, "STD": 1}).fillna(1.0)
+    df["Horas"] = from_num(df["Trabalho"]) * fator
+    # "Programado,espera (Inspeção)" → atividade "Inspeção"
+    df["Atividade"] = df["Tipo de programação"].str.extract(r"\(([^)]+)\)\s*$", expand=False).fillna("")
+    df.loc[df["Atividade"].map(chave).str.contains("SIMULA"), "Atividade"] = ""
+
+    chave_chamada = ["Plano", "Item", "Data planejada"]
+    df["_n"] = 1
+    primeiro = {c: "first" for c in df.columns if c not in chave_chamada + ["Horas", "_n"]}
+    df = (df.sort_values(chave_chamada)
+            .groupby(chave_chamada, dropna=False, sort=False)
+            .agg({**primeiro, "Horas": "sum", "_n": "sum"})
+            .reset_index()
+            .rename(columns={"_n": "Operações"}))
+    return df.drop(columns=["Trabalho", "Unidade do trabalho"])
+
+
+def from_num(serie: pd.Series) -> pd.Series:
+    from .util import para_numero
+
+    return para_numero(serie).fillna(0.0)
 
 
 def de_iw38(iw38: pd.DataFrame) -> pd.DataFrame:
@@ -83,7 +120,8 @@ def de_iw38(iw38: pd.DataFrame) -> pd.DataFrame:
         "Local de instalação": o["Local de instalação"].values, "Centro de trabalho": o["Centro de trabalho"].values,
         "Grupo de planejamento": "", "Ciclo": "", "Data planejada": o["Início"].values,
         "Data chamada": o["Entrada"].values, "Data conclusão": pd.NaT, "Tipo de programação": "",
-        "Ordem": o["Ordem"].values, "_do_iw38": True,
+        "Ordem": o["Ordem"].values, "_do_iw38": True, "Pacote": "", "Estratégia": "",
+        "Tipo de ordem": o["Tipo"].values, "Atividade": "", "Horas": 0.0, "Operações": 0,
     })
 
 
@@ -94,6 +132,8 @@ def classificar(ch: pd.DataFrame, iw38: pd.DataFrame | None, hoje: pd.Timestamp 
     """Acrescenta Situação, Data (referência da semana), situação/custo da ordem no IW38."""
     hoje = (hoje or pd.Timestamp.now()).normalize()
     ch = ch.copy()
+    if iw38 is not None and len(iw38) and "_do_iw38" not in ch and (ch["Ordem"] == "").all():
+        ch = _ordem_por_plano_e_data(ch, iw38)
     if iw38 is not None and len(iw38):
         ref = iw38[iw38["Ordem"] != ""].drop_duplicates("Ordem").set_index("Ordem")
         ordem = ch["Ordem"].where(ch["Ordem"] != "")  # chamada sem ordem não cruza com nada
@@ -111,10 +151,11 @@ def classificar(ch: pd.DataFrame, iw38: pd.DataFrame | None, hoje: pd.Timestamp 
     sit = ch["Situação IW38"]
     ch["Data"] = ch["Data planejada"].fillna(ch["Data chamada"])
     vencida = ch["Data"] < hoje
-    chamada = (ch["Ordem"] != "") | tp.str.contains("CHAMAD")
+    # "solicitado"/"chamado" = a ordem já foi gerada; "espera" = ainda não
+    chamada = (ch["Ordem"] != "") | tp.str.contains("CHAMAD|SOLICITAD")
     ch["Situação"] = np.select(
         [
-            tp.str.contains("SALT|PULAD|SKIP") | (sit == "Cancelada"),
+            tp.str.contains("SALT|PULAD|SKIP|IGNORAD") | (sit == "Cancelada"),
             ch["Data conclusão"].notna() | tp.str.contains("CONCLU|ENCERR") | (sit == "Concluída"),
             # ordem antiga sem status no export do IW38: só vale quando o calendário vem do próprio IW38;
             # com a IP19, quem decide é a programação do plano
@@ -130,6 +171,32 @@ def classificar(ch: pd.DataFrame, iw38: pd.DataFrame | None, hoje: pd.Timestamp 
     ch["Ano"] = iso["year"].astype("Int64")
     ch["Semana"] = iso["week"].astype("Int64")
     ch["Chave"] = np.where(ch["Item"] != "", ch["Plano"] + " / " + ch["Item"], ch["Plano"])
+    return ch
+
+
+JANELA_DIAS = 10
+
+
+def _ordem_por_plano_e_data(ch: pd.DataFrame, iw38: pd.DataFrame) -> pd.DataFrame:
+    """A IP19 sem coluna de ordem: liga cada chamada à ordem do IW38 do mesmo plano com
+    data-base de início mais próxima da data planejada (até JANELA_DIAS de diferença).
+    Cada ordem fica com uma chamada só (a mais próxima)."""
+    o = iw38[iw38["Com plano"] & iw38["Início"].notna()][["Plano", "Início", "Ordem"]].rename(columns={"Ordem": "_ordem"})
+    c = ch.reset_index().rename(columns={"index": "_i"})
+    # só chamadas que já geraram ordem ("solicitado", "chamado", "concluído") ou sem status nenhum;
+    # "espera" e "ignorado" ainda não têm ordem e não podem roubar a de outra chamada
+    tp = c["Tipo de programação"].map(chave)
+    c = c[c["Data planejada"].notna() & (tp.str.contains("SOLICITAD|CHAMAD|CONCLU") | (tp == ""))]
+    if o.empty or c.empty:
+        return ch
+    par = pd.merge_asof(c.sort_values("Data planejada")[["_i", "Plano", "Data planejada"]],
+                        o.sort_values("Início"), left_on="Data planejada", right_on="Início", by="Plano",
+                        direction="nearest", tolerance=pd.Timedelta(days=JANELA_DIAS))
+    par = par.dropna(subset=["_ordem"])
+    par["_dist"] = (par["Data planejada"] - par["Início"]).abs()
+    par = par.sort_values("_dist").drop_duplicates("_ordem")
+    ch = ch.copy()
+    ch.loc[par["_i"].values, "Ordem"] = par["_ordem"].values
     return ch
 
 
@@ -170,7 +237,10 @@ def montar_calendario(ch: pd.DataFrame, ano: int) -> tuple[pd.DataFrame, pd.Data
     for chave_plano, g in doano.groupby("Chave", sort=True):
         h = todas[todas["Chave"] == chave_plano]
         moda = lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""  # noqa: E731
-        ciclo = moda(h["Ciclo"]) or _ciclo_estimado(h["Data"])
+        ciclo = moda(h["Ciclo"]) if "Ciclo" in h else ""
+        ciclo = ciclo or _ciclo_estimado(h["Data"])
+        if not ciclo and "Pacote" in h and moda(h["Pacote"]):
+            ciclo = f"pacote {moda(h['Pacote'])}"
         info = {"Plano": chave_plano, "Descrição": moda(g["Texto"]), "Equipamento": moda(g["Objeto técnico"]) or moda(g["Equipamento"]),
                 "Centro": moda(g["Centro de trabalho"]), "Ciclo": ciclo,
                 "Chamadas": len(g), "Atrasadas": int((g["Situação"] == ATRASADA).sum())}

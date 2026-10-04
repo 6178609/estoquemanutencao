@@ -1,7 +1,8 @@
 # Central de Manutenção · PCM F26
 
-App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38**, **planos da IP19**,
-**estoque do MB52**, **equipamentos** e **requisições de compra** numa tela só, e que **se atualiza sozinho**:
+App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38** (com as operações
+do IW38OP), **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52** e **requisições de
+compra** numa tela só, e que **se atualiza sozinho**:
 ninguém precisa importar planilha. Funciona no computador e no celular, com login e perfis de acesso.
 
 Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embutida e dados salvos só no navegador).
@@ -29,7 +30,11 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 - A pasta **Downloads** também é olhada, porque é onde o navegador e o SAP costumam salvar. Planilhas
   baixadas do próprio site (botão "Baixar Excel") e arquivos com "filtrado" no nome são ignorados, para um
   recorte nunca substituir a base completa.
-- Para cada base usa **o arquivo mais recente**. Se pegar a planilha errada, fixe o arquivo certo em
+- Para cada base usa **o arquivo mais recente**. IW38 e notas (IW28) são exceção: os arquivos se **somam** (ex.:
+  `IW38.xlsx` do ano + `IW38BK.XLSX` com o histórico); se a mesma ordem/nota aparece em mais de um, vale a do arquivo
+  mais novo. Entram os 6 mais recentes e qualquer arquivo com BK ou HIST no nome.
+- A criticidade dos equipamentos vem do **código ABC da IH08** (A = alta, B = média, C = baixa), a não ser que
+  alguém cadastre outra no site. Se pegar a planilha errada, fixe o arquivo certo em
   **Configuração › Fontes de dados** (um arquivo fixado continua sendo relido quando é sobrescrito).
 - Base mais velha que 2 dias aparece em laranja, com aviso, em todas as telas.
 - Cadastros feitos no app (criticidade e peças de cada equipamento, estoque mínimo, usuários) ficam em
@@ -88,6 +93,8 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
   colorida como concluída, em aberto, atrasada, programada ou saltada, cruzando a ordem com o IW38.
   Mostra aderência até hoje, carga de chamadas por semana e o histórico do plano. Sem IP19 nas pastas,
   usa as ordens do IW38 que têm plano.
+- **Notas** — notas da IW28: quantas ainda não viraram ordem e há quanto tempo, paradas de máquina, notas por
+  semana e os equipamentos que mais geram notas.
 - **Equipamentos** — lista montada automaticamente a partir do IW38 com custo, corretivas e pendências;
   ficha com intervalo médio entre corretivas (aprox. MTBF), histórico anual e cadastro de criticidade,
   categoria e peças de reposição (com situação do estoque de cada peça).

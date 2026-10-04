@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from central import auth, bases, config, leitura, ui
-from central.leitura import IP19, IW38, MB52, NOMES_BASE, REQ, TIPOS
+from central.leitura import EQUIP, IP19, IW38, MB52, NOMES_BASE, NOTAS, OPER, REQ, TIPOS
 from central.util import inteiro
 
 ui.cabecalho("Fontes de dados", "De onde o app lê cada base e como mantê-las sempre atualizadas")
@@ -47,7 +47,8 @@ with st.container(border=True):
     if inv.erro:
         st.error(inv.erro)
 
-carregadas = {IW38: bases.iw38(), MB52: bases.mb52(), REQ: bases.requisicoes(), IP19: bases.ip19()}
+carregadas = {IW38: bases.iw38(), MB52: bases.mb52(), REQ: bases.requisicoes(), IP19: bases.ip19(),
+               OPER: bases.operacoes(), NOTAS: bases.notas(), EQUIP: bases.equipamentos()}
 
 for tipo in TIPOS:
     b = carregadas[tipo]
@@ -55,7 +56,11 @@ for tipo in TIPOS:
         st.markdown(f"#### {NOMES_BASE[tipo]}")
         if b.origem:
             c = st.columns([4, 2, 2])
-            c[0].markdown(f"**Em uso:** `{b.origem.rotulo}`")
+            if len(b.origens) > 1:
+                c[0].markdown("**Em uso (somados, o mais novo vale em caso de repetição):**  \n"
+                              + "  \n".join(f"`{o.rotulo}`" for o in b.origens))
+            else:
+                c[0].markdown(f"**Em uso:** `{b.origem.rotulo}`")
             c[1].markdown(f"**Arquivo de:** {ui.local(b.atualizado)}  \n({ui.idade(b.atualizado)})")
             if b.df is not None:
                 extra = f"  \n{inteiro(b.extra)} da Fábrica Piloto/Matrizaria fora" if tipo == IW38 and b.extra else ""
@@ -111,7 +116,7 @@ with st.expander("Como deixar tudo automático (sem ninguém importar nada)", ic
 
 with st.expander("Todos os arquivos reconhecidos"):
     linhas = [{"Base": NOMES_BASE[o.tipo], "Arquivo": o.rotulo, "Modificado": o.arquivo.modificado.astimezone(ui.FUSO).replace(tzinfo=None),
-               "Tamanho (KB)": round(o.arquivo.tamanho / 1024), "Em uso": inv.ativos.get(o.tipo) == o}
+               "Tamanho (KB)": round(o.arquivo.tamanho / 1024), "Em uso": o in inv.usados.get(o.tipo, [])}
               for lst in inv.candidatos.values() for o in lst]
     if linhas:
         st.dataframe(pd.DataFrame(linhas).sort_values("Modificado", ascending=False), hide_index=True, width="stretch",

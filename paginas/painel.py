@@ -59,6 +59,31 @@ else:
     c[4].metric("Compras a aprovar", "—", "base de requisições não encontrada", delta_color="off", border=True, delta_arrow="off")
 
 # ----------------------------------------------------------------------------
+# Notas (IW28) e carga em horas (IW38OP)
+# ----------------------------------------------------------------------------
+notas = bases.notas().df
+oper = bases.operacoes().df
+hh_pend = None
+if oper is not None:
+    abertas = set(pend["Ordem"])  # ordens abertas/liberadas hoje, com os filtros de centro e tipo
+    hh_pend = oper[oper["Ordem"].isin(abertas) & ~oper["Concluída"] & ~oper["Cancelada"]]
+if notas is not None or hh_pend is not None:
+    c = st.columns(4)
+    if notas is not None:
+        sem_ordem = notas[~notas["Com ordem"]]
+        recentes = notas[notas["Data"] >= pd.Timestamp.now().normalize() - pd.Timedelta(days=30)]
+        c[0].metric("Notas sem ordem", inteiro(len(sem_ordem)), f"{inteiro((sem_ordem['Dias'] > 7).sum())} há mais de 7 dias",
+                    delta_color="off", border=True, delta_arrow="off", help="Pedidos da fábrica (IW28) que ainda não viraram ordem.")
+        c[1].metric("Paradas de máquina (30 dias)", inteiro(recentes["Com parada"].sum()),
+                    f"{inteiro(len(recentes))} notas no período", delta_color="off", border=True, delta_arrow="off")
+    if hh_pend is not None:
+        c[2].metric("Backlog em horas (HH)", f"{hh_pend['Horas'].sum():,.0f} h".replace(",", "."),
+                    f"{inteiro(hh_pend['Ordem'].nunique())} ordens com operação aberta", delta_color="off", border=True,
+                    delta_arrow="off", help="Trabalho planejado das operações não confirmadas das ordens abertas (IW38OP).")
+        c[3].metric("Pessoas-hora por dia útil", f"{hh_pend['Horas'].sum() / 22:,.0f} h/dia".replace(",", "."),
+                    "para zerar o backlog em 1 mês", delta_color="off", border=True, delta_arrow="off")
+
+# ----------------------------------------------------------------------------
 # Evolução mensal
 # ----------------------------------------------------------------------------
 mensal = df.dropna(subset=["Data"]).assign(Mês=lambda d: d["Data"].dt.to_period("M").dt.to_timestamp())
@@ -138,6 +163,13 @@ with c3, st.container(border=True):
     else:
         st.caption("Nenhuma ordem pendente.")
 
+if hh_pend is not None and len(hh_pend):
+    with st.container(border=True):
+        st.markdown("**Backlog em horas por centro de trabalho** — operações abertas (IW38OP)")
+        hh = hh_pend.assign(Centro=hh_pend["Centro de trabalho"].replace("", "—")).groupby("Centro")["Horas"].sum()
+        hh = hh.round(0).astype(int).nlargest(12).rename_axis("Centro").reset_index(name="Horas")
+        ui.mostrar(ui.grafico_barras_h(hh, "Centro", "Horas", ui.AZUL))
+
 # ----------------------------------------------------------------------------
 # Leitura rápida
 # ----------------------------------------------------------------------------
@@ -164,6 +196,13 @@ if estoque.df is not None:
         abaixo = estoque.df[estoque.df["Material"].map(minimos).fillna(-1) > estoque.df["Estoque"]]
         if len(abaixo):
             frases.append(f"Estoque: **{inteiro(len(abaixo))}** materiais abaixo do mínimo cadastrado.")
+if notas is not None and (~notas["Com ordem"]).any():
+    velhas = notas[~notas["Com ordem"] & (notas["Dias"] > 30)]
+    frases.append(f"Notas: **{inteiro((~notas['Com ordem']).sum())}** sem ordem"
+                  + (f", {inteiro(len(velhas))} delas há mais de 30 dias." if len(velhas) else "."))
+if hh_pend is not None and len(hh_pend):
+    frases.append(f"Carga pendente: **{hh_pend['Horas'].sum():,.0f} horas** de operações abertas".replace(",", ".")
+                  + f", a maior em {hh_pend.groupby('Centro de trabalho')['Horas'].sum().idxmax()}.")
 if req.df is not None and req.df["Pendente"].any():
     p = req.df[req.df["Pendente"]]
     frases.append(f"Compras: **{inteiro(len(p))}** requisições aguardando aprovação ({brl(p['Total'].sum())}), "
