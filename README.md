@@ -1,6 +1,6 @@
 # Central de Manutenção · PCM F26
 
-App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38**,
+App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38**, **planos da IP19**,
 **estoque do MB52**, **equipamentos** e **requisições de compra** numa tela só, e que **se atualiza sozinho**:
 ninguém precisa importar planilha. Funciona no computador e no celular, com login e perfis de acesso.
 
@@ -15,7 +15,8 @@ SAP (IW38 / MB52 / requisições)
 Pastas do SharePoint sincronizadas pelo OneDrive
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\0.1 - Indicadores
-   ~\Downloads  (só a própria pasta, sem subpastas)
+   ~\Downloads\1.3 - Controle de Estoque  e  ~\Downloads\0.1 - Indicadores  (cópias, com subpastas)
+   ~\Downloads  (só a própria pasta)
    │  o app varre as pastas a cada 60 s
    ▼
 Central de Manutenção  →  todas as telas abertas recarregam quando chega arquivo novo
@@ -82,6 +83,10 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 - **Ordens** — busca em todas as colunas, filtros (situação, plano, status do usuário, prioridade, só
   atrasadas, só com custo), escolha de colunas, detalhe da ordem com histórico do equipamento, exportação
   para Excel.
+- **Planos** — calendário de 52 semanas de cada plano de manutenção a partir da **IP19**: cada chamada
+  colorida como concluída, em aberto, atrasada, programada ou saltada, cruzando a ordem com o IW38.
+  Mostra aderência até hoje, carga de chamadas por semana e o histórico do plano. Sem IP19 nas pastas,
+  usa as ordens do IW38 que têm plano.
 - **Equipamentos** — lista montada automaticamente a partir do IW38 com custo, corretivas e pendências;
   ficha com intervalo médio entre corretivas (aprox. MTBF), histórico anual e cadastro de criticidade,
   categoria e peças de reposição (com situação do estoque de cada peça).

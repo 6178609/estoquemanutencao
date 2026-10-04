@@ -72,12 +72,14 @@ class Pastas:
                 r = p.resolve()
             except OSError:
                 continue
-            if r.exists() and r not in vistas and not any(v in r.parents for v in vistas):
+            # uma pasta dentro de outra é varrida pelas duas regras (ex.: Downloads só no 1º nível,
+            # Downloads/0.1 - Indicadores com subpastas); listar() descarta o arquivo repetido
+            if r.exists() and r not in vistas:
                 vistas.add(r)
                 yield p, r
 
     def listar(self) -> list[Arquivo]:
-        itens = []
+        itens, vistos = [], set()
         for original, raiz in self._raizes():
             # Downloads: só a própria pasta (as subpastas costumam ser ZIPs extraídos e outras coisas)
             limite = 1 if eh_downloads(raiz) else self.profundidade
@@ -90,6 +92,9 @@ class Pastas:
                     if _ignorar(f):
                         continue
                     p = Path(dirpath) / f
+                    if p in vistos:  # pasta configurada dentro de outra: não lista duas vezes
+                        continue
+                    vistos.add(p)
                     try:
                         st = p.stat()
                     except OSError:  # arquivo sumiu ou está bloqueado no meio da sincronização

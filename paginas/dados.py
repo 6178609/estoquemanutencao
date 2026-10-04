@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from central import auth, bases, config, leitura, ui
-from central.leitura import IW38, MB52, NOMES_BASE, REQ
+from central.leitura import IP19, IW38, MB52, NOMES_BASE, REQ, TIPOS
 from central.util import inteiro
 
 ui.cabecalho("Fontes de dados", "De onde o app lê cada base e como mantê-las sempre atualizadas")
@@ -47,9 +47,9 @@ with st.container(border=True):
     if inv.erro:
         st.error(inv.erro)
 
-carregadas = {IW38: bases.iw38(), MB52: bases.mb52(), REQ: bases.requisicoes()}
+carregadas = {IW38: bases.iw38(), MB52: bases.mb52(), REQ: bases.requisicoes(), IP19: bases.ip19()}
 
-for tipo in (IW38, MB52, REQ):
+for tipo in TIPOS:
     b = carregadas[tipo]
     with st.container(border=True):
         st.markdown(f"#### {NOMES_BASE[tipo]}")

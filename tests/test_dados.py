@@ -238,6 +238,14 @@ def test_downloads_sem_subpastas_e_sem_cadastros(tmp_path, monkeypatch):
     nomes = [a.arquivo for a in Pastas([dl], tmp_path / "app").listar()]
     assert nomes == ["IW38.xlsx"]
 
+    # cópias das pastas do OneDrive dentro da Downloads entram com subpastas, sem repetir arquivos
+    ind = dl / "0.1 - Indicadores" / "2026"
+    ind.mkdir(parents=True)
+    (ind / "IP19.xlsx").write_bytes(b"x")
+    for ordem in ([dl, dl / "0.1 - Indicadores"], [dl / "0.1 - Indicadores", dl]):
+        nomes = sorted(a.arquivo for a in Pastas(ordem, tmp_path / "app").listar())
+        assert nomes == ["IP19.xlsx", "IW38.xlsx"]
+
     monkeypatch.setenv("CENTRAL_PASTAS", str(dl))
     monkeypatch.delenv("CENTRAL_PASTA_APP", raising=False)
     assert config.carregar().pasta_app == config.RAIZ / "dados"  # nada é gravado na Downloads

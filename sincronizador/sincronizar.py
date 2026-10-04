@@ -42,12 +42,13 @@ sys.path.insert(0, str(RAIZ))
 from central import leitura  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
 from central.fontes import GitHub, Pastas  # noqa: E402
-from central.leitura import IW38, MB52, REQ  # noqa: E402
+from central.leitura import IP19, IW38, MB52, REQ, TIPOS  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 ARQ_CONFIG = AQUI / "config.toml"
 ARQ_ESTADO = AQUI / "estado.json"
-DESTINO = {IW38: "bases/IW38.parquet", MB52: "bases/MB52.parquet", REQ: "bases/REQUISICOES.parquet"}
+DESTINO = {IW38: "bases/IW38.parquet", MB52: "bases/MB52.parquet", REQ: "bases/REQUISICOES.parquet",
+           IP19: "bases/IP19.parquet"}
 
 log = logging.getLogger("sincronizador")
 
@@ -89,7 +90,7 @@ def _salvar_estado(est: dict) -> None:
 def localizar(pastas: list[Path], est: dict) -> dict[str, tuple]:
     """{tipo: (Arquivo, aba, linha)} com o arquivo mais novo de cada base.
 
-    Mesma regra do app: do mais novo para o mais velho, para quando as três
+    Mesma regra do app: do mais novo para o mais velho, para quando todas as
     bases foram achadas. O que já foi identificado fica no estado (não reabre)."""
     sondagens = est.setdefault("sondagens", {})
     arquivos = sorted(Pastas(pastas, pastas[0], profundidade=4).listar(), key=lambda a: a.modificado, reverse=True)
@@ -98,7 +99,7 @@ def localizar(pastas: list[Path], est: dict) -> dict[str, tuple]:
     for arq in arquivos:
         if arq.arquivo.lower().endswith(".json"):
             continue
-        if len(achados) == 3:
+        if len(achados) == len(TIPOS):
             break
         vistos.add(arq.assinatura)
         if arq.assinatura not in sondagens:
@@ -178,7 +179,7 @@ def rodada(cfg: dict, gh=None, testar: bool = False) -> list[str]:
         log.info("enviado %s ← %s (%d linhas)", DESTINO[tipo], rotulo, len(df))
     if manifesto:
         gh.registrar_no_manifesto(manifesto)
-    faltando = {IW38, MB52, REQ} - set(achados)
+    faltando = set(TIPOS) - set(achados)
     if faltando:
         log.info("sem arquivo nas pastas para: %s", ", ".join(sorted(faltando)))
     if not testar:

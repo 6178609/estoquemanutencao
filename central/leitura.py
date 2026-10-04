@@ -18,8 +18,10 @@ from .util import chave
 
 EXTENSOES = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".htm", ".html", ".parquet")
 
-IW38, MB52, REQ = "iw38", "mb52", "requisicoes"
-NOMES_BASE = {IW38: "Ordens (IW38)", MB52: "Estoque (MB52)", REQ: "Requisições de compra"}
+IW38, MB52, REQ, IP19 = "iw38", "mb52", "requisicoes", "ip19"
+NOMES_BASE = {IW38: "Ordens (IW38)", MB52: "Estoque (MB52)", REQ: "Requisições de compra",
+              IP19: "Planos de manutenção (IP19)"}
+TIPOS = (IW38, MB52, REQ, IP19)
 
 
 class LeituraErro(ValueError):
@@ -229,6 +231,11 @@ def identificar(colunas) -> str | None:
 
     if tem(_COLUNAS_DO_APP):
         return None
+    # IP19 (programação dos planos): plano + data planejada/de chamada. Vem antes do IW38
+    # porque a IP19 também pode trazer a coluna Ordem; o IW38 tem "Data-base do início".
+    if tem(r"^PLANO|PLANO (DE )?MANUT") and tem(r"DATA PLAN|DT PLAN|DATA (DE )?CHAMADA|DT CHAM") \
+            and not tem(r"DATA BASE DO INICIO"):
+        return IP19
 
     if tem(r"^ORDEM$") and (tem(r"STATUS USUARIO") or tem(r"STATUS DO SISTEMA") or tem(r"TIPO DE ORDEM")):
         return IW38

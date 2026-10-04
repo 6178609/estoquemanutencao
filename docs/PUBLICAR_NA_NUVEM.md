@@ -59,7 +59,7 @@ O registro do que ele faz fica em `sincronizador\sincronizador.log`. O token fic
 
 O que o sincronizador faz:
 - a cada 5 minutos procura nas duas pastas do OneDrive (com subpastas) e na **Downloads** (só a pasta) o
-  export **mais recente** de cada base, reconhecido pelo conteúdo, inclusive dentro de uma aba de planilha
+  export **mais recente** de cada base (IW38, IP19, MB52 e requisições), reconhecido pelo conteúdo, inclusive dentro de uma aba de planilha
   de indicadores. Planilhas baixadas do próprio site são ignoradas;
 - quando algum mudou, envia **só a tabela daquela base**, compactada (`bases/IW38.parquet`, etc.). Se nada
   mudou, não envia nada;

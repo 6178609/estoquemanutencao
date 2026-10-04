@@ -20,7 +20,7 @@ import pandas as pd
 import streamlit as st
 
 from . import config, fontes, leitura
-from .leitura import IW38, MB52, REQ
+from .leitura import IP19, IW38, MB52, REQ, TIPOS
 from .util import achar_coluna, chave, para_data, para_numero, sem_acento, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
@@ -28,7 +28,8 @@ ARQ_CAD_MAT = "cadastro_materiais.json"
 ARQ_PREF = "preferencias.json"
 
 # Pista pelo nome do arquivo: arquivos com pista são verificados primeiro.
-_PISTAS = [(IW38, r"IW38|IW39|ORDENS?"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"), (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS")]
+_PISTAS = [(IP19, r"IP19|IP24|PLANOS?\b"), (IW38, r"IW38|IW39|ORDENS?"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"),
+           (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS")]
 
 
 # ----------------------------------------------------------------------------
@@ -132,7 +133,7 @@ def _inventario() -> Inventario:
     dados = [a for a in lista if not a.arquivo.lower().endswith(".json")]
     # arquivos com pista no nome primeiro (mantendo a ordem por data dentro de cada grupo)
     dados.sort(key=lambda a: _pista(a) is None)
-    pendentes = {IW38, MB52, REQ} - {t for t, id_ in inv.fixados.items() if any(a.id == id_ for a in dados)}
+    pendentes = set(TIPOS) - {t for t, id_ in inv.fixados.items() if any(a.id == id_ for a in dados)}
     limite = None  # data do arquivo mais velho em uso entre os tipos já achados
     fixos = set(inv.fixados.values())
     for arq in dados:
@@ -373,6 +374,16 @@ def preparar_requisicoes(cru: pd.DataFrame, hoje: pd.Timestamp | None = None) ->
 
 
 # ----------------------------------------------------------------------------
+# IP19 — programação dos planos de manutenção
+# ----------------------------------------------------------------------------
+@st.cache_resource(show_spinner="Preparando planos (IP19)…", max_entries=4)
+def _ip19(o: Origem) -> pd.DataFrame:
+    from .planos import preparar_ip19
+
+    return preparar_ip19(_ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha))
+
+
+# ----------------------------------------------------------------------------
 # Cadastros feitos no próprio app (JSON na pasta do app, compartilhada)
 # ----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -430,7 +441,7 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
             f"o arquivo não parece ser de {esperado}"
             + (f" (parece {leitura.NOMES_BASE[outro]})" if outro else " — confira as colunas do export"))
     ext = PurePath(nome_original).suffix.lower() or ".xlsx"
-    prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES"}[tipo]
+    prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES", IP19: "IP19"}[tipo]
     nome = f"{prefixo}_{datetime.now():%Y-%m-%d_%H%M%S}{ext}"
     fonte().gravar(nome, conteudo)
     recarregar()
@@ -482,3 +493,7 @@ def mb52() -> Base:
 
 def requisicoes() -> Base:
     return _carregar(REQ, lambda o: Base(_req(o), o))
+
+
+def ip19() -> Base:
+    return _carregar(IP19, lambda o: Base(_ip19(o), o))

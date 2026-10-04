@@ -1,5 +1,5 @@
 ' ============================================================================
-'  Exporta IW38 e MB52 do SAP GUI direto para a pasta monitorada pelo app.
+'  Exporta IW38, MB52 e IP19 do SAP GUI direto para a pasta monitorada pelo app.
 '  Agende no Agendador de Tarefas do Windows (ver README) para rodar sozinho.
 '
 '  PRÉ-REQUISITOS
@@ -38,6 +38,7 @@ Set session = connection.Children(0)
 
 Exportar "IW38", "/CENTRAL", "IW38.XLSX"
 Exportar "MB52", "/CENTRAL", "MB52.XLSX"
+Exportar "IP19", "/CENTRAL", "IP19.XLSX"   ' IP19 em modo lista (não o gráfico)
 
 Sub Exportar(transacao, variante, arquivo)
     ' 1) abre a transação
