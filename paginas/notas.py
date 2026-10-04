@@ -1,10 +1,10 @@
-from datetime import date, timedelta
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, ui
+from central import bases, contexto, ui
+from central import indicadores as ind
 from central.leitura import NOTAS
 from central.util import MESES, inteiro, pct, sem_acento
 
@@ -22,21 +22,22 @@ if len(base.origens) > 1:
 # ----------------------------------------------------------------------------
 # Filtros
 # ----------------------------------------------------------------------------
-hoje = date.today()
+fg = contexto.filtros_globais()
+ini, fim = fg.ini, fg.fim
+if bases.iw38().df is not None:
+    atual, anterior = contexto.resultados(fg)
+    contexto.grade([ind.POR_ID[k] for k in ["quebras", "quebras_a", "reincidencia", "notas_7d"]], atual, anterior,
+                   contexto.metas(), contexto.serie_mensal(fg), colunas=4, prefixo="n-", link=False)
+df = fg.notas(df)
 with ui.caixa_filtros():
-    f = st.columns([3, 3, 2, 2])
-    with f[0]:
-        ini, fim = ui.filtro_datas("n_faixa", "Data da nota (de / até)", (hoje - timedelta(days=90), hoje), df["Data"])
-    busca = f[1].text_input("Buscar", placeholder="nº da nota, descrição, equipamento, notificador…", key="n_busca")
+    f = st.columns([3, 2, 2, 2, 2])
+    busca = f[0].text_input("Buscar", placeholder="nº da nota, descrição, equipamento, notificador…", key="n_busca")
     tipos = sorted(t for t in df["Tipo de nota"].unique() if t)
-    sel_tipo = f[2].multiselect("Tipo de nota", tipos, key="n_tipo", placeholder="Todos")
-    centros = sorted(c for c in df["Centro de trabalho"].unique() if c)
-    sel_ctr = f[3].multiselect("Centro de trabalho", centros, key="n_ctr", placeholder="Todos")
-    g = st.columns([2, 2, 2, 3])
-    so_sem_ordem = g[0].toggle("Só sem ordem", key="n_sem", help="Notas que ainda não viraram ordem de manutenção")
-    so_parada = g[1].toggle("Só com parada", key="n_par", help="Notas marcadas com parada de equipamento")
+    sel_tipo = f[1].multiselect("Tipo de nota", tipos, key="n_tipo", placeholder="Todos")
     abcs = [a for a in ["A", "B", "C"] if (df["Código ABC"] == a).any()]
-    sel_abc = g[2].multiselect("Criticidade ABC", abcs, key="n_abc", placeholder="Todas")
+    sel_abc = f[2].multiselect("Criticidade ABC", abcs, key="n_abc", placeholder="Todas")
+    so_sem_ordem = f[3].toggle("Só sem ordem", key="n_sem", help="Notas que ainda não viraram ordem de manutenção")
+    so_parada = f[4].toggle("Só com parada", key="n_par", help="Notas marcadas com parada de equipamento (quebras)")
 
 m = pd.Series(True, index=df.index)
 m &= ui.entre(df["Data"], ini, fim)
@@ -47,8 +48,6 @@ if busca.strip():
         m &= hay.str.contains(termo, regex=False)
 if sel_tipo:
     m &= df["Tipo de nota"].isin(sel_tipo)
-if sel_ctr:
-    m &= df["Centro de trabalho"].isin(sel_ctr)
 if so_sem_ordem:
     m &= ~df["Com ordem"]
 if so_parada:

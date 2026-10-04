@@ -183,7 +183,8 @@ def barra_lateral(usuario: dict | None = None) -> None:
             chips = "".join([chip_base(bases.iw38(), "IW38"), chip_base(bases.ip19(), "IP19"),
                              chip_base(bases.operacoes(), "IW38OP"), chip_base(bases.notas(), "IW28"),
                              chip_base(bases.equipamentos(), "IH08"), chip_base(bases.mb52(), "MB52"),
-                             chip_base(bases.requisicoes(), "Requisições")])
+                             chip_base(bases.requisicoes(), "Requisições"), chip_base(bases.confirmacoes(), "IW47"),
+                             chip_base(bases.equipe(), "Equipe")])
             st.markdown(chips, unsafe_allow_html=True)
             st.caption(f":material/sync: Verificação automática a cada {cfg.intervalo_verificacao}s · "
                        f"última às {datetime.now(FUSO):%H:%M:%S}")
@@ -227,7 +228,7 @@ def logos() -> None:
 # ----------------------------------------------------------------------------
 # Filtros globais das ordens (valem para Painel, Ordens e Equipamentos)
 # ----------------------------------------------------------------------------
-FILTROS_PERSISTENTES = ("f_faixa", "f_centros", "f_tipos")
+FILTROS_PERSISTENTES = ("f_faixa", "f_areas", "f_centros", "f_tipos")
 
 
 def manter_filtros() -> None:
@@ -307,40 +308,15 @@ def entre(serie: pd.Series, ini: date, fim: date) -> pd.Series:
 
 
 def filtros_ordens(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, str]:
-    """Desenha os filtros de período/centro/tipo na barra lateral.
+    """Filtros globais (barra lateral) aplicados às ordens.
 
     Devolve (ordens do período, ordens de qualquer data com os mesmos filtros de
-    centro/tipo — usada para "em aberto hoje", que é uma foto de hoje —, descrição)."""
-    ss = st.session_state
-    hoje = date.today()
-    padrao = ((pd.Timestamp(hoje) - pd.DateOffset(months=12)).date(), hoje)
-    with st.sidebar:
-        st.divider()
-        st.markdown("**Filtros das ordens**")
-        ini, fim = filtro_datas("f_faixa", "Período (data-base de início)", padrao, df["Data"])
-        centros = sorted(c for c in df["Centro de trabalho"].unique() if c)
-        sel_ctr = st.multiselect("Centro de trabalho", centros, key="f_centros", placeholder="Todos")
-        tipos = sorted(t for t in df["Tipo"].unique() if t)
-        sel_tipo = st.multiselect("Tipo de ordem", tipos, key="f_tipos", placeholder="Todos")
-        if any([(ini, fim) != padrao, sel_ctr, sel_tipo]):
-            if st.button("Limpar filtros", icon=":material/filter_alt_off:", width="stretch"):
-                for k in FILTROS_PERSISTENTES:
-                    ss.pop(k, None)
-                st.rerun()
+    área/centro/tipo — usada para "em aberto hoje", que é uma foto de hoje —, descrição)."""
+    from . import contexto
 
-    m = pd.Series(True, index=df.index)
-    if sel_ctr:
-        m &= df["Centro de trabalho"].isin(sel_ctr)
-    if sel_tipo:
-        m &= df["Tipo"].isin(sel_tipo)
-    sem_periodo = df.loc[m]
-    m &= entre(df["Data"], ini, fim)
-    desc = descrever(ini, fim)
-    if sel_ctr:
-        desc += " · " + ", ".join(sel_ctr)
-    if sel_tipo:
-        desc += " · " + ", ".join(sel_tipo)
-    return df.loc[m], sem_periodo, desc
+    f = contexto.filtros_globais()
+    sem_periodo = f.ordens(df)
+    return f.periodo(sem_periodo), sem_periodo, f.desc
 
 
 # ----------------------------------------------------------------------------
@@ -380,7 +356,7 @@ def grafico_barras_h(dados: pd.DataFrame, cat: str, val: str, cor: str = AZUL, f
     dados = dados.assign(_rot=dados[val].map(fmt))
     altura = altura or max(120, 26 * len(dados))
     base = alt.Chart(dados).encode(
-        y=alt.Y(f"{cat}:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180)),
+        y=alt.Y(f"{cat}:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180, labelOverlap=False)),
         x=alt.X(f"{val}:Q", title=titulo_val or None, axis=alt.Axis(format="~s", grid=False),
                 scale=alt.Scale(domainMax=float(dados[val].max() or 1) * 1.25)),
         tooltip=[alt.Tooltip(f"{cat}:N"), alt.Tooltip("_rot:N", title=val)],

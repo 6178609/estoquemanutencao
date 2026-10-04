@@ -8,6 +8,7 @@ novo, a próxima execução já usa ele — sem botão de importar, sem recarreg
 
 from __future__ import annotations
 
+import io
 import json
 import re
 import time
@@ -20,7 +21,7 @@ import pandas as pd
 import streamlit as st
 
 from . import config, fontes, fotos, leitura
-from .leitura import EQUIP, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
+from .leitura import CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
 from .util import achar_coluna, chave, para_data, para_numero, sem_acento, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
@@ -28,7 +29,8 @@ ARQ_CAD_MAT = "cadastro_materiais.json"
 ARQ_PREF = "preferencias.json"
 
 # Pista pelo nome do arquivo: arquivos com pista são verificados primeiro.
-_PISTAS = [(OPER, r"IW38OP|IW37|OPERAC"), (IP19, r"IP19|IP24|PLANOS?\b"), (IW38, r"IW38|IW39|ORDENS?"),
+_PISTAS = [(CONF, r"IW47|IW41|CONFIRMA|APONTAMENTO"), (EQUIPE, r"GESTAO.*HH|EQUIPE|EFETIVO"),
+           (OPER, r"IW38OP|IW37|OPERAC"), (IP19, r"IP19|IP24|PLANOS?\b"), (IW38, r"IW38|IW39|ORDENS?"),
            (NOTAS, r"IW28|IW29|NOTAS?\b"), (EQUIP, r"IH08|IE05|EQUIPAMENT"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"),
            (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS|SOLICITA")]
 
@@ -520,6 +522,108 @@ def _equip(origens: tuple) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------------------
+# IW47 — confirmações (horas apontadas por pessoa)
+# ----------------------------------------------------------------------------
+_CONF_COLUNAS = {
+    "Nº pessoal": [r"^N PESSOAL$", r"NUMERO PESSOAL"], "Nome": [r"NOME DO EMPREGADO", r"^NOME$"],
+    "Ordem": [r"^ORDEM$"], "Operação": [r"^OPERACAO$"], "Status sistema": [r"STATUS DO SISTEMA"],
+    "Trabalho": [r"^TRABALHO REAL$"], "Unidade": [r"UNID TRABALHO REAL", r"UNID.*TRAB"],
+    "Centro de trabalho": [r"CENTRO TRAB REAL", r"^CENTRO DE TRABALHO$", r"CENTRO TRAB"],
+    "Atividade": [r"TP ATIVIDADE REAL", r"TIPO ATIVID.*REAL"], "Atividade planejada": [r"TIPO ATIVID.*PLAN"],
+    "Data": [r"DATA LANCAMENTO", r"DATA DO FIM REAL", r"CRIADO EM"],
+    "Tipo": [r"^TIPO ORDEM$", r"^TIPO DE ORDEM$"], "Equipamento": [r"^EQUIPAMENTO$"],
+    "Texto": [r"TEXTO DE CONFIRMACAO"], "Causa do desvio": [r"CAUSA DO DESVIO"],
+}
+
+
+def preparar_confirmacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
+    df = _padronizar(cru, _CONF_COLUNAS, ["Nº pessoal", "Nome", "Ordem", "Operação", "Status sistema", "Unidade",
+                                           "Centro de trabalho", "Atividade", "Atividade planejada", "Tipo",
+                                           "Equipamento", "Texto", "Causa do desvio"])
+    df = df[(df["Ordem"] != "") & (df["Nº pessoal"] != "")].copy()
+    if excluir_piloto_matriz:
+        df = df[~df["Centro de trabalho"].str.upper().isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])]
+    fator = df["Unidade"].str.upper().map(_HORAS_POR).fillna(1 / 60)
+    # estornos vêm com trabalho negativo e anulam o apontamento original: a soma fica certa
+    df["Horas"] = (para_numero(df["Trabalho"]).fillna(0.0) * fator).round(3)
+    df["Data"] = para_data(df["Data"])
+    df["Atividade"] = df["Atividade"].where(df["Atividade"] != "", df["Atividade planejada"])
+    return df.drop(columns=["Trabalho", "Atividade planejada"]).reset_index(drop=True)
+
+
+@st.cache_resource(show_spinner="Preparando apontamentos de horas (IW47)…", max_entries=4)
+def _conf(origens: tuple, excluir: bool) -> pd.DataFrame:
+    return preparar_confirmacoes(_cru(CONF, origens), excluir)
+
+
+# ----------------------------------------------------------------------------
+# Gestão de HH — dados das pessoas (só a lista da equipe)
+# ----------------------------------------------------------------------------
+_EQUIPE_COLUNAS = {
+    "Nº pessoal": [r"^N PESSOAL$", r"NUMERO PESSOAL", r"MATRICULA"], "Nome": [r"^NOME$", r"^NOME"],
+    "Cargo": [r"^CARGO$", r"^FUNCAO$"], "Centro de trabalho": [r"^CENTRO TRABALHO$", r"CENTRO TRAB"],
+    "Área": [r"^AREA$"], "Turma": [r"^TURMA$", r"^TURNO$"], "Supervisor": [r"SUPERVISOR"],
+}
+
+
+def preparar_equipe(cru: pd.DataFrame) -> pd.DataFrame:
+    df = _padronizar(cru, _EQUIPE_COLUNAS, list(_EQUIPE_COLUNAS))
+    df = df[df["Nº pessoal"].str.fullmatch(r"\d{3,}") & (df["Nome"] != "")]
+    df = df[~df["Nome"].str.upper().str.startswith("#")]  # fórmulas quebradas (#REF!, #N/A)
+    for c in ["Cargo", "Área", "Turma", "Supervisor"]:
+        df[c] = df[c].where(~df[c].str.startswith("#"), "")
+    df["Especialidade"] = df["Cargo"].map(_especialidade)
+    return df.drop_duplicates("Nº pessoal", keep="last").reset_index(drop=True)
+
+
+def _especialidade(cargo: str) -> str:
+    k = chave(cargo)
+    for rx, nome in [(r"MATRIZ", "Matrizaria"), (r"^GPM$|PLANEJ|PROGRAMAD", "Planejamento (GPM)"),
+                     (r"ELETROMEC", "Eletromecânica"), (r"ELETRIC|ELETRON", "Elétrica"), (r"MECANIC", "Mecânica"),
+                     (r"LUBRIF", "Lubrificação"), (r"INSTRUM|AUTOMA", "Instrumentação"), (r"SOLDA|CALDEIR", "Caldeiraria"),
+                     (r"ANALISTA|ASSIST|SUPERV|COORD|ENGENH|SPV|ANL|AST", "Apoio / gestão")]:
+        if re.search(rx, k):
+            return nome
+    return "Outros"
+
+
+@st.cache_resource(show_spinner="Preparando equipe (Gestão de HH)…", max_entries=4)
+def _equipe(origens: tuple) -> pd.DataFrame:
+    return preparar_equipe(_cru(EQUIPE, origens))
+
+
+@st.cache_data(show_spinner=False, max_entries=4)
+def _tipos_da_gestao(id: str, assinatura: str) -> dict[str, str]:
+    """Nomes dos tipos de ordem (YM11 Corretiva Emergencial…) da aba de apoio da planilha de Gestão de HH."""
+    try:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(io.BytesIO(_bytes(id, assinatura)), read_only=True, data_only=True)
+        for ws in wb.worksheets:
+            linhas = list(ws.iter_rows(max_row=60, values_only=True))
+            if not linhas:
+                continue
+            cab = [chave(c) for c in linhas[0]]
+            if "TIPO DE OM" in cab and "TIPO" in cab:
+                i, j = cab.index("TIPO"), cab.index("TIPO DE OM")
+                out = {str(r[i]).strip(): str(r[j]).strip() for r in linhas[1:]
+                       if len(r) > max(i, j) and r[i] and r[j] and re.fullmatch(r"[A-Z]{1,3}\d{2}", str(r[i]).strip())}
+                wb.close()
+                return out
+        wb.close()
+    except Exception:  # noqa: BLE001 — planilha sem a aba de apoio
+        pass
+    return {}
+
+
+def tipos_de_ordem_padrao() -> dict[str, str]:
+    b = equipe()
+    if b.origem is None or not b.origem.arquivo.arquivo.lower().endswith((".xlsx", ".xlsm")):
+        return {}
+    return _tipos_da_gestao(b.origem.arquivo.id, b.origem.arquivo.assinatura)
+
+
+# ----------------------------------------------------------------------------
 # Cadastros feitos no próprio app (JSON na pasta do app, compartilhada)
 # ----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -628,7 +732,7 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
             + (f" (parece {leitura.NOMES_BASE[outro]})" if outro else " — confira as colunas do export"))
     ext = PurePath(nome_original).suffix.lower() or ".xlsx"
     prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES", IP19: "IP19", OPER: "IW38OP", NOTAS: "IW28",
-               EQUIP: "IH08"}[tipo]
+               EQUIP: "IH08", CONF: "IW47", EQUIPE: "GESTAO_HH"}[tipo]
     nome = f"{prefixo}_{datetime.now():%Y-%m-%d_%H%M%S}{ext}"
     fonte().gravar(nome, conteudo)
     recarregar()
@@ -687,6 +791,14 @@ def mb52() -> Base:
 
 def requisicoes() -> Base:
     return _carregar(REQ, lambda us: Base(_req(us), None))
+
+
+def confirmacoes() -> Base:
+    return _carregar(CONF, lambda us: Base(_conf(us, _excluir()), None))
+
+
+def equipe() -> Base:
+    return _carregar(EQUIPE, lambda us: Base(_equipe(us), None))
 
 
 def ip19() -> Base:

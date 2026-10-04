@@ -1,215 +1,193 @@
+import io
+
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, ui
+from central import bases, contexto, ui
+from central import indicadores as ind
 from central.leitura import IW38
-from central.util import MESES, brl, brl_curto, inteiro, pct
+from central.util import brl, inteiro
 
-ui.cabecalho("Painel de manutenção", "Ordens, custos, estoque e compras numa tela só — atualiza sozinho quando chega export novo")
+ui.cabecalho("Painel WCM · Manutenção Profissional",
+             "Indicadores do pilar com meta, farol e tendência — cada cartão leva à aba onde ele é detalhado")
 
 base = bases.iw38()
 if not ui.aviso_base(base, IW38):
     st.stop()
 
-df, todas, desc = ui.filtros_ordens(base.df)
-estoque = bases.mb52()
-req = bases.requisicoes()
-
-st.caption(f"Período: **{desc}** · {inteiro(len(df))} ordens no recorte · base IW38 de {ui.local(base.atualizado)}")
-
-# ----------------------------------------------------------------------------
-# Indicadores
-# ----------------------------------------------------------------------------
-total = len(df)
-prev = int(df["Com plano"].sum())
-corr = total - prev
-custo = df["Custo real"].sum()
-custo_corr = df.loc[~df["Com plano"], "Custo real"].sum()
-com_custo = int((df["Custo real"] != 0).sum())
-pend = todas[todas["Situação"].isin(bases.PENDENTES)]
-atrasadas = int(pend["Atrasada"].sum())
-
-c = st.columns(5)
-c[0].metric("Ordens no período", inteiro(total), border=True, delta_arrow="off")
-c[1].metric("Plano de manutenção", pct(prev, total), f"{inteiro(prev)} ordens", delta_color="off", border=True, delta_arrow="off",
-            help="Ordens com número na coluna Plano de manutenção. Referência de classe mundial: acima de 70%.")
-c[2].metric("Backlog", inteiro(corr), f"{pct(corr, total)} do total", delta_color="off", border=True, delta_arrow="off",
-            help="Ordens sem número na coluna Plano de manutenção.")
-c[3].metric("Em aberto hoje", inteiro(len(pend)), f"{inteiro(atrasadas)} atrasadas", delta_color="inverse"
-            if atrasadas else "off", border=True, delta_arrow="off", help="Ordens abertas ou liberadas (plano e backlog), de qualquer data, com os filtros de centro e tipo.")
-c[4].metric("Duração média", f"{df['Duração (dias)'].mean():.1f} d".replace(".", ",") if df["Duração (dias)"].notna().any() else "—",
-            "início → fim", delta_color="off", border=True, delta_arrow="off")
-
-c = st.columns(5)
-c[0].metric("Custo real", brl_curto(custo), border=True, delta_arrow="off", help=brl(custo))
-c[1].metric("Custo do backlog", brl_curto(custo_corr), f"{pct(custo_corr, custo)} do custo", delta_color="off", border=True, delta_arrow="off",
-            help=brl(custo_corr))
-c[2].metric("Custo médio", "R$ " + inteiro(round(custo / com_custo)) if com_custo else "—", f"por ordem · {inteiro(com_custo)} c/ custo",
-            delta_color="off", border=True, delta_arrow="off")
-if estoque.df is not None:
-    zerados = int((estoque.df["Estoque"] <= 0).sum())
-    c[3].metric("Itens zerados", inteiro(zerados), f"de {inteiro(len(estoque.df))} no MB52", delta_color="off", border=True, delta_arrow="off")
-else:
-    c[3].metric("Itens zerados", "—", "MB52 não encontrado", delta_color="off", border=True, delta_arrow="off")
-if req.df is not None:
-    p = req.df[req.df["Pendente"]]
-    c[4].metric("Compras a aprovar", brl_curto(p["Total"].sum()), f"{inteiro(len(p))} requisições",
-                delta_color="off", border=True, delta_arrow="off", help=brl(p["Total"].sum()))
-else:
-    c[4].metric("Compras a aprovar", "—", "base de requisições não encontrada", delta_color="off", border=True, delta_arrow="off")
+f = contexto.filtros_globais()
+cad = contexto.metas()
+atual, anterior = contexto.resultados(f)
+serie = contexto.serie_mensal(f)
+a_ini, a_fim = ind.periodo_anterior(f.ini, f.fim)
+st.caption(f"Recorte: **{f.desc}** · variações contra {ui.descrever(a_ini, a_fim)} · passe o mouse no título de "
+           "cada indicador para ver a fórmula")
 
 # ----------------------------------------------------------------------------
-# Notas (IW28) e carga em horas (IW38OP)
+# Índice WCM
 # ----------------------------------------------------------------------------
-notas = bases.notas().df
-oper = bases.operacoes().df
-hh_pend = None
-if oper is not None:
-    abertas = set(pend["Ordem"])  # ordens abertas/liberadas hoje, com os filtros de centro e tipo
-    hh_pend = oper[oper["Ordem"].isin(abertas) & ~oper["Concluída"] & ~oper["Cancelada"]]
-if notas is not None or hh_pend is not None:
-    c = st.columns(4)
-    if notas is not None:
-        sem_ordem = notas[~notas["Com ordem"]]
-        recentes = notas[notas["Data"] >= pd.Timestamp.now().normalize() - pd.Timedelta(days=30)]
-        c[0].metric("Notas sem ordem", inteiro(len(sem_ordem)), f"{inteiro((sem_ordem['Dias'] > 7).sum())} há mais de 7 dias",
-                    delta_color="off", border=True, delta_arrow="off", help="Pedidos da fábrica (IW28) que ainda não viraram ordem.")
-        c[1].metric("Paradas de máquina (30 dias)", inteiro(recentes["Com parada"].sum()),
-                    f"{inteiro(len(recentes))} notas no período", delta_color="off", border=True, delta_arrow="off")
-    if hh_pend is not None:
-        c[2].metric("Carga em aberto (HH)", f"{hh_pend['Horas'].sum():,.0f} h".replace(",", "."),
-                    f"{inteiro(hh_pend['Ordem'].nunique())} ordens com operação aberta", delta_color="off", border=True,
-                    delta_arrow="off", help="Trabalho planejado das operações não confirmadas das ordens abertas (IW38OP).")
-        c[3].metric("Pessoas-hora por dia útil", f"{hh_pend['Horas'].sum() / 22:,.0f} h/dia".replace(",", "."),
-                    "para zerar a carga em 1 mês", delta_color="off", border=True, delta_arrow="off")
+cores = {k.id: ind.farol(k, atual.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
+n = {c: sum(v == c for v in cores.values()) for c in (ind.VERDE, ind.AMARELO, ind.VERMELHO, ind.NEUTRO)}
+com_meta = n[ind.VERDE] + n[ind.AMARELO] + n[ind.VERMELHO]
+indice = (n[ind.VERDE] + 0.5 * n[ind.AMARELO]) / com_meta * 100 if com_meta else None
+cor_indice = ui.VERDE if (indice or 0) >= 80 else ("#F2B705" if (indice or 0) >= 60 else ui.VERMELHO)
+st.markdown(contexto.CSS, unsafe_allow_html=True)
+c = st.columns([1.4, 1, 1, 1, 1])
+with c[0], st.container(border=True):
+    st.markdown(f'<div class="cm-kpi-t">Índice WCM do pilar</div><div class="cm-indice" style="color:{cor_indice}">'
+                f'{"—" if indice is None else f"{indice:.0f}%"}</div>', unsafe_allow_html=True,
+                help="(indicadores na meta + metade dos em atenção) ÷ indicadores com meta. Metas em Configuração › "
+                     "Metas e parâmetros.")
+for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Atenção"),
+                                     (ind.VERMELHO, "Fora da meta"), (ind.NEUTRO, "Sem meta definida")]):
+    with col, st.container(border=True, key=f"kpi-{cor}-resumo"):
+        st.markdown(f'<div class="cm-kpi-t"><span class="cm-dot" style="background:{contexto.COR_FAROL[cor]}"></span>'
+                    f'{nome}</div><div class="cm-kpi-v">{n[cor]}</div>', unsafe_allow_html=True)
+
+VISOES = ["Indicadores", "Scorecard por área", "Scorecard por centro de trabalho", "Evolução mensal",
+          "Pontos de atenção"]
+visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_visao", label_visibility="collapsed") or VISOES[0]
+ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PLANEJAMENTO: ":material/event_available:",
+          ind.MAO_DE_OBRA: ":material/engineering:", ind.CUSTOS: ":material/payments:",
+          ind.SUPRIMENTOS: ":material/inventory_2:"}
+CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emergencial", "no_prazo", "idade_backlog",
+               "hh", "pct_hh_plano", "custo", "pct_custo_corr"]
 
 # ----------------------------------------------------------------------------
-# Evolução mensal
-# ----------------------------------------------------------------------------
-mensal = df.dropna(subset=["Data"]).assign(Mês=lambda d: d["Data"].dt.to_period("M").dt.to_timestamp())
-mensal["Rótulo"] = mensal["Mês"].map(lambda m: f"{MESES[m.month - 1]}/{m:%y}")
-with st.container(border=True):
-    st.markdown("**Ordens e custo por mês**")
-    if mensal.empty:
-        st.caption("Sem ordens datadas no período.")
-    else:
-        qtd = mensal.groupby(["Mês", "Rótulo", "Natureza"], observed=True).size().reset_index(name="Ordens")
-        cst = mensal.groupby(["Mês", "Rótulo"])["Custo real"].sum().reset_index()
-        ordem_x = list(cst.sort_values("Mês")["Rótulo"])
-        x = alt.X("Rótulo:N", title=None, sort=ordem_x, axis=alt.Axis(labelAngle=0))
-        barras = alt.Chart(qtd).mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
-            x=x, y=alt.Y("Ordens:Q", title="Ordens"),
-            color=alt.Color("Natureza:N", scale=alt.Scale(domain=bases.NATUREZAS,
-                                                          range=[ui.VERDE, ui.LARANJA]),
-                            legend=alt.Legend(orient="top", title=None)),
-            tooltip=[alt.Tooltip("Rótulo:N", title="Mês"), "Natureza:N", "Ordens:Q"],
-        )
-        linha = alt.Chart(cst).mark_line(color=ui.AZUL, point=True, strokeWidth=2).encode(
-            x=x, y=alt.Y("Custo real:Q", title="Custo real (R$)", axis=alt.Axis(format="~s")),
-            tooltip=[alt.Tooltip("Rótulo:N", title="Mês"), alt.Tooltip("Custo real:Q", format=",.2f")],
-        )
-        ui.mostrar(alt.layer(barras, linha).resolve_scale(y="independent").properties(height=280))
-        st.caption("Barras: quantidade de ordens (verde = plano de manutenção, laranja = backlog) · linha azul: custo real no mês.")
+if visao == "Indicadores":
+    for grupo in ind.GRUPOS:
+        ks = [k for k in ind.KPIS if k.grupo == grupo]
+        st.markdown(f"#### {ICONES[grupo]} {grupo}")
+        contexto.grade(ks, atual, anterior, cad, serie, colunas=4)
 
-# ----------------------------------------------------------------------------
-# Equipamentos que mais pesam
-# ----------------------------------------------------------------------------
-por_eq = (df[df["Equip. (chave)"] != ""]
-          .groupby("Equip. (chave)")
-          .agg(Nome=("Objeto técnico", "first"), Ordens=("Ordem", "size"), Backlog=("Com plano", lambda s: int((~s).sum())),
-               Custo=("Custo real", "sum"))
-          .reset_index())
-por_eq["Equipamento"] = por_eq.apply(lambda r: f"{r['Nome'] or r['Equip. (chave)']}"[:45], axis=1)
+elif visao in ("Scorecard por área", "Scorecard por centro de trabalho"):
+    por_area = visao == "Scorecard por área"
+    o = f.ordens(base.df)
+    o = f.periodo(o)
+    campo = "Localização" if por_area else "Centro de trabalho"
+    topo = o[o[campo] != ""][campo].value_counts().head(10 if por_area else 14).index.tolist()
+    if not topo:
+        st.info("Sem ordens no recorte para montar o scorecard.")
+        st.stop()
+    valores = contexto.por_dimensao(f, "areas" if por_area else "centros", topo)
+    total = {"TOTAL DO RECORTE": atual}
+    ks = [ind.POR_ID[k] for k in CHAVE_SCORE]
+    st.caption(f"{len(topo)} {'áreas' if por_area else 'centros de trabalho'} com mais ordens no período · verde = na meta, "
+               "amarelo = até 10% da meta, vermelho = fora · indicadores de suprimentos não têm área")
+    st.dataframe(contexto.scorecard({**valores, **total}, ks, cad, "Área" if por_area else "Centro de trabalho"),
+                 hide_index=True, width="stretch")
+    # ranking visual
+    k_sel = st.selectbox("Comparar pelo indicador", ks, index=4, format_func=lambda k: k.nome, key="p_rank")
+    dfr = pd.DataFrame({"Nome": list(valores), "Valor": [v.get(k_sel.id) for v in valores.values()]}).dropna()
+    if len(dfr):
+        alvo = ind.meta(k_sel, cad)
+        dfr["Farol"] = dfr["Valor"].map(lambda v: ind.farol(k_sel, v, alvo))
+        dfr["Rótulo"] = dfr["Valor"].map(lambda v: ind.formatar(k_sel, v))
+        b = alt.Chart(dfr).encode(
+            y=alt.Y("Nome:N", sort="-x" if k_sel.sentido > 0 else "x", title=None),
+            x=alt.X("Valor:Q", title=k_sel.nome), tooltip=["Nome:N", alt.Tooltip("Rótulo:N", title=k_sel.nome)])
+        ch = b.mark_bar(cornerRadiusEnd=3, height=18).encode(
+            color=alt.Color("Farol:N", legend=None, scale=alt.Scale(domain=list(contexto.COR_FAROL),
+                                                                     range=list(contexto.COR_FAROL.values()))))
+        ch = ch + b.mark_text(align="left", dx=4, fontSize=11).encode(text="Rótulo:N")
+        if alvo is not None:
+            ch = ch + alt.Chart(pd.DataFrame({"m": [alvo]})).mark_rule(color=ui.VERDE, strokeDash=[5, 4]).encode(x="m:Q")
+        ui.mostrar(ch.properties(height=max(160, 28 * len(dfr))))
 
-e, d = st.columns(2)
-with e, st.container(border=True):
-    st.markdown("**Top 10 — custo por equipamento**")
-    top = por_eq.nlargest(10, "Custo")
-    if top["Custo"].sum() > 0:
-        ui.mostrar(ui.grafico_barras_h(top, "Equipamento", "Custo", ui.AZUL, ",.2f"))
-    else:
-        st.caption("Sem custo lançado no período.")
-with d, st.container(border=True):
-    st.markdown("**Top 10 — reincidência de backlog**")
-    top = por_eq[por_eq["Backlog"] > 0].nlargest(10, "Backlog")
-    if len(top):
-        ui.mostrar(ui.grafico_barras_h(top, "Equipamento", "Backlog", ui.LARANJA))
-        st.caption("Muitas ordens de backlog no mesmo equipamento = candidato a análise de causa raiz ou a um plano de manutenção.")
-    else:
-        st.caption("Nenhuma ordem de backlog no período.")
+elif visao == "Evolução mensal":
+    ks = [k for k in ind.KPIS if k.mensal]
+    st.caption("Últimos 12 meses até o fim do período · linha verde tracejada = meta")
+    for i in range(0, len(ks), 2):
+        cols = st.columns(2)
+        for col, k in zip(cols, ks[i:i + 2]):
+            with col, st.container(border=True):
+                st.markdown(f"**{k.nome}** · {k.grupo}", help=k.formula)
+                if k.id in serie and serie[k.id].notna().sum():
+                    cor = ui.LARANJA if k.sentido < 0 else ui.AZUL
+                    ui.mostrar(contexto.grafico_mensal(serie, k, ind.meta(k, cad), cor,
+                                                       barras=k.unidade in ("un", "h", "R$")))
+                else:
+                    st.caption("Sem dados para este indicador no recorte.")
 
-# ----------------------------------------------------------------------------
-# Distribuições
-# ----------------------------------------------------------------------------
-a, b, c3 = st.columns(3)
-with a, st.container(border=True):
-    st.markdown("**Ordens por centro de trabalho**")
-    s = df["Centro de trabalho"].replace("", "—").value_counts().head(10).rename_axis("Centro").reset_index(name="Ordens")
-    ui.mostrar(ui.grafico_barras_h(s, "Centro", "Ordens", ui.VERDE))
-with b, st.container(border=True):
-    st.markdown("**Ordens por tipo**")
-    s = df["Tipo"].replace("", "—").value_counts().head(10).rename_axis("Tipo").reset_index(name="Ordens")
-    ui.mostrar(ui.grafico_barras_h(s, "Tipo", "Ordens", ui.CIANO))
-with c3, st.container(border=True):
-    st.markdown("**Idade das ordens em aberto (hoje)**")
-    if len(pend):
-        faixas = pd.cut(pend["Dias em aberto"], [-1, 30, 90, 180, 365, 10**6],
-                        labels=["até 30 d", "31–90 d", "91–180 d", "181–365 d", "mais de 1 ano"])
-        s = faixas.value_counts(sort=False).rename_axis("Idade").reset_index(name="Ordens")
-        ch = alt.Chart(s).mark_bar(color=ui.VERMELHO, cornerRadiusEnd=3, height=16).encode(
-            y=alt.Y("Idade:N", sort=list(s["Idade"]), title=None), x=alt.X("Ordens:Q", title=None),
-            tooltip=["Idade:N", "Ordens:Q"]).properties(height=170)
-        ui.mostrar(ch)
-    else:
-        st.caption("Nenhuma ordem pendente.")
-
-if hh_pend is not None and len(hh_pend):
+else:  # Pontos de atenção
+    d = contexto.dados(f)
+    vermelhos = [k for k in ind.KPIS if cores[k.id] == ind.VERMELHO]
+    amarelos = [k for k in ind.KPIS if cores[k.id] == ind.AMARELO]
     with st.container(border=True):
-        st.markdown("**Carga em aberto por centro de trabalho (horas)** — operações abertas (IW38OP)")
-        hh = hh_pend.assign(Centro=hh_pend["Centro de trabalho"].replace("", "—")).groupby("Centro")["Horas"].sum()
-        hh = hh.round(0).astype(int).nlargest(12).rename_axis("Centro").reset_index(name="Horas")
-        ui.mostrar(ui.grafico_barras_h(hh, "Centro", "Horas", ui.AZUL))
+        st.markdown("**Indicadores fora da meta**")
+        if not vermelhos and not amarelos:
+            st.success("Todos os indicadores com meta estão dentro dela no recorte.", icon=":material/verified:")
+        for k in vermelhos + amarelos:
+            alvo = ind.meta(k, cad)
+            cols = st.columns([5, 1.2])
+            simbolo = ":red[:material/error:]" if k in vermelhos else ":orange[:material/warning:]"
+            cols[0].markdown(f"{simbolo} **{k.nome}**: {ind.formatar(k, atual.get(k.id))} "
+                             f"(meta {'≥' if k.sentido > 0 else '≤'} {ind.formatar(k, alvo)}) — {k.formula}")
+            cols[1].page_link(k.pagina, label="Detalhar", icon=":material/arrow_forward:")
+    e, dd = st.columns(2)
+    with e, st.container(border=True):
+        st.markdown("**Equipamentos com mais quebras no período** (bad actors)")
+        q = ind.quebras(d)
+        q = q[ui.entre(q["Data"], f.ini, f.fim) & (q["Equip. (chave)"] != "")] if len(q) else q
+        if len(q):
+            t = (q.groupby("Equip. (chave)").agg(Equipamento=("Objeto técnico", "first"), Quebras=("Nota", "size"),
+                                                  Reincidentes=("Reincidente", "sum"))
+                 .reset_index().nlargest(8, "Quebras"))
+            st.dataframe(t, hide_index=True, width="stretch",
+                         column_config={"Equip. (chave)": "Código"})
+            st.page_link("paginas/confiabilidade.py", label="Análise de confiabilidade", icon=":material/arrow_forward:")
+        else:
+            st.caption("Nenhuma quebra registrada no período.")
+    with dd, st.container(border=True):
+        st.markdown("**Ordens mais antigas no backlog**")
+        bk = ind.backlog(d).nlargest(8, "Idade (dias)")
+        if len(bk):
+            st.dataframe(bk[["Ordem", "Tipo", "Texto", "Centro de trabalho", "Idade (dias)", "Situação"]], hide_index=True,
+                         width="stretch", column_config={"Texto": st.column_config.TextColumn(width="medium")})
+            st.page_link("paginas/ordens.py", label="Abrir ordens", icon=":material/arrow_forward:")
+        else:
+            st.caption("Sem ordens em aberto.")
+    e, dd = st.columns(2)
+    with e, st.container(border=True):
+        st.markdown("**Peças de equipamentos críticos em falta**")
+        pc = ind.pecas_criticas_em_falta(d)
+        if len(pc):
+            st.dataframe(pc, hide_index=True, width="stretch")
+        else:
+            st.caption("Nenhuma peça de equipamento de criticidade Alta em falta (cadastre as peças em Equipamentos).")
+        st.page_link("paginas/estoque.py", label="Abrir estoque", icon=":material/arrow_forward:")
+    with dd, st.container(border=True):
+        st.markdown("**Compras aguardando aprovação**")
+        r = d.requisicoes
+        if r is not None and r["Pendente"].any():
+            p = r[r["Pendente"]].sort_values("Dias aguardando", ascending=False)
+            st.markdown(f"{inteiro(len(p))} requisições · {brl(p['Total'].sum())} · a mais antiga há "
+                        f"{int(p['Dias aguardando'].max() or 0)} dias")
+            st.dataframe(p[["Requisição", "Aprovador", "Total", "Dias aguardando"]].head(8), hide_index=True,
+                         width="stretch", column_config={"Total": ui.col_moeda()})
+        else:
+            st.caption("Nenhuma requisição pendente.")
+        st.page_link("paginas/requisicoes.py", label="Abrir requisições", icon=":material/arrow_forward:")
 
 # ----------------------------------------------------------------------------
-# Leitura rápida
+# Scorecard para baixar
 # ----------------------------------------------------------------------------
-frases = []
-if total:
-    frases.append(("Boa participação do plano de manutenção" if prev / total >= 0.7 else "Plano de manutenção abaixo do ideal")
-                  + f": **{pct(prev, total)}** das ordens são de plano de manutenção (referência: acima de 70%).")
-if custo:
-    frases.append(f"O backlog representa **{pct(custo_corr, custo)}** do gasto ({brl(custo_corr)} de {brl(custo)}).")
-if len(por_eq) and por_eq["Custo"].max() > 0:
-    t = por_eq.nlargest(1, "Custo").iloc[0]
-    frases.append(f"Maior consumidor: **{t['Equipamento']}** — {brl(t['Custo'])} em {t['Ordens']} ordens.")
-if len(por_eq) and por_eq["Backlog"].max() > 1:
-    t = por_eq.nlargest(1, "Backlog").iloc[0]
-    frases.append(f"Maior reincidência: **{t['Equipamento']}** com {t['Backlog']} ordens de backlog no período.")
-if atrasadas:
-    velhas = int((pend["Dias em aberto"] > 365).sum())
-    frases.append(f"**{inteiro(atrasadas)}** ordens pendentes já passaram da data-base"
-                  + (f"; {inteiro(velhas)} estão abertas há mais de 1 ano — vale uma limpeza no SAP." if velhas else "."))
-if estoque.df is not None:
-    cad = bases.ler_cadastro(bases.ARQ_CAD_MAT)
-    minimos = {k: v.get("minimo") for k, v in cad.items() if v.get("minimo") is not None}
-    if minimos:
-        abaixo = estoque.df[estoque.df["Material"].map(minimos).fillna(-1) > estoque.df["Estoque"]]
-        if len(abaixo):
-            frases.append(f"Estoque: **{inteiro(len(abaixo))}** materiais abaixo do mínimo cadastrado.")
-if notas is not None and (~notas["Com ordem"]).any():
-    velhas = notas[~notas["Com ordem"] & (notas["Dias"] > 30)]
-    frases.append(f"Notas: **{inteiro((~notas['Com ordem']).sum())}** sem ordem"
-                  + (f", {inteiro(len(velhas))} delas há mais de 30 dias." if len(velhas) else "."))
-if hh_pend is not None and len(hh_pend):
-    frases.append(f"Carga pendente: **{hh_pend['Horas'].sum():,.0f} horas** de operações abertas".replace(",", ".")
-                  + f", a maior em {hh_pend.groupby('Centro de trabalho')['Horas'].sum().idxmax()}.")
-if req.df is not None and req.df["Pendente"].any():
-    p = req.df[req.df["Pendente"]]
-    frases.append(f"Compras: **{inteiro(len(p))}** requisições aguardando aprovação ({brl(p['Total'].sum())}), "
-                  f"a mais antiga há {int(p['Dias aguardando'].max() or 0)} dias.")
-
-if frases:
-    with st.container(border=True):
-        st.markdown("**Leitura rápida**")
-        st.markdown("\n".join(f"- {f}" for f in frases))
+linhas = []
+for k in ind.KPIS:
+    alvo = ind.meta(k, cad)
+    delta, melhorou = ind.variacao(k, atual.get(k.id), anterior.get(k.id))
+    linhas.append({"Grupo": k.grupo, "Indicador": k.nome, "Valor": atual.get(k.id), "Unidade": k.unidade,
+                   "Meta": alvo, "Sentido": "maior é melhor" if k.sentido > 0 else "menor é melhor",
+                   "Farol": contexto.NOME_FAROL[cores[k.id]], "Período anterior": anterior.get(k.id),
+                   "Variação": delta, "Melhorou": {True: "sim", False: "não"}.get(melhorou, ""), "Fórmula": k.formula})
+tabela = pd.DataFrame(linhas)
+buf = io.BytesIO()
+with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+    pd.DataFrame({"Recorte": [f.desc], "Período anterior": [ui.descrever(a_ini, a_fim)],
+                  "Índice WCM": [None if indice is None else round(indice, 1)]}).to_excel(xw, sheet_name="Resumo", index=False)
+    tabela.to_excel(xw, sheet_name="Indicadores", index=False)
+    if len(serie):
+        serie.rename(columns={k.id: k.nome for k in ind.KPIS}).to_excel(xw, sheet_name="Mês a mês", index=False)
+st.download_button("Baixar scorecard WCM (Excel)", buf.getvalue(), "scorecard_wcm.xlsx", icon=":material/download:",
+                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

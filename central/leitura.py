@@ -20,10 +20,12 @@ EXTENSOES = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".htm", ".html", ".parque
 
 IW38, MB52, REQ, IP19 = "iw38", "mb52", "requisicoes", "ip19"
 OPER, NOTAS, EQUIP = "iw38op", "iw28", "ih08"
+CONF, EQUIPE = "iw47", "equipe"
 NOMES_BASE = {IW38: "Ordens (IW38)", IP19: "Planos de manutenção (IP19)", OPER: "Operações das ordens (IW38OP)",
               NOTAS: "Notas de manutenção (IW28)", EQUIP: "Cadastro de equipamentos (IH08)",
-              MB52: "Estoque (MB52)", REQ: "Requisições de compra"}
-TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ)
+              MB52: "Estoque (MB52)", REQ: "Requisições de compra",
+              CONF: "Apontamentos de horas (IW47)", EQUIPE: "Equipe de manutenção (Gestão de HH)"}
+TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ, CONF, EQUIPE)
 
 # Cada base é UM arquivo: vale o export mais recente (o PCM gera um IW38 único com plano
 # de manutenção e backlog, e um IW28 único). O mecanismo abaixo permite que uma base
@@ -233,6 +235,10 @@ def sondar(nome: str, conteudo: bytes) -> list[tuple[str, str | None, int | None
                 if tipo:
                     achados.append((tipo, titulo, i))
                     break
+        # A planilha de Gestão de HH traz cópias antigas de outras bases (aba IW47, "DadosExtras (IW38)"…):
+        # dela só vale a lista de pessoas — as bases vêm dos exports do SAP.
+        if any(t == EQUIPE for t, _, _ in achados):
+            achados = [a for a in achados if a[0] == EQUIPE]
         return achados
     try:
         tipo = identificar(ler_arquivo(nome, conteudo).columns)
@@ -292,6 +298,13 @@ def identificar(colunas) -> str | None:
 
     if tem(_COLUNAS_DO_APP):
         return None
+    # IW47: confirmações (horas apontadas por pessoa). Antes do IW38, que também tem Ordem + Status.
+    if tem(r"^TRABALHO REAL$") and tem(r"^ORDEM$") and tem(r"^N PESSOAL$|NUMERO PESSOAL"):
+        return CONF
+    # Gestão de HH: cadastro das pessoas da manutenção (nº pessoal, nome, cargo, centro de trabalho…)
+    if tem(r"^N PESSOAL$|NUMERO PESSOAL|MATRICULA") and tem(r"^NOME") and tem(r"^CARGO$|^FUNCAO$") \
+            and not tem(r"TRABALHO REAL"):
+        return EQUIPE
     # IW38 com operações (IW38OP): uma linha por operação, com o trabalho planejado
     if tem(r"^ORDEM$") and tem(r"^OPERACAO$") and tem(r"^TRABALHO$|DURACAO NORMAL"):
         return OPER

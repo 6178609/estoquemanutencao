@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, planos, ui
+from central import bases, contexto, planos, ui
 from central.leitura import IP19
 from central.util import brl, inteiro, pct, sem_acento
 
@@ -47,8 +47,15 @@ if ch.empty:
     st.stop()
 
 # ----------------------------------------------------------------------------
-# Filtros
+# Filtros (área não existe na IP19; centro e tipo vêm dos filtros globais)
 # ----------------------------------------------------------------------------
+fg = contexto.filtros_globais()
+if fg.centros:
+    ch = ch[ch["Centro de trabalho"].isin(fg.centros)]
+if fg.tipos and "Tipo de ordem" in ch:
+    ch = ch[ch["Tipo de ordem"].isin(fg.tipos) | (ch["Tipo de ordem"] == "")]
+st.caption("O calendário usa o período próprio abaixo (pode incluir semanas futuras); centro de trabalho e tipo de "
+           "ordem seguem os filtros globais da barra lateral.")
 ano_atual = hoje.date().year
 with ui.caixa_filtros():
     f = st.columns([3, 3, 2, 2, 2])

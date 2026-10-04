@@ -1,11 +1,33 @@
 # Central de Manutenção · PCM F26
 
-App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38** (com as operações
-do IW38OP), **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52** e **requisições de
-compra** numa tela só, e que **se atualiza sozinho**:
-ninguém precisa importar planilha. Funciona no computador e no celular, com login e perfis de acesso.
+App web de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção Profissional · Alpargatas F26. Junta
+**ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe da planilha de Gestão de
+HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52** e **requisições de compra**
+numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
+Funciona no computador e no celular, com login e perfis de acesso.
 
 Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embutida e dados salvos só no navegador).
+
+## Indicadores WCM
+
+Cada indicador tem fórmula (passe o mouse no título), meta editável, farol (verde = na meta, amarelo = até 10% pior,
+vermelho = fora), variação contra o período anterior de mesma duração e tendência dos últimos 12 meses. O cálculo está
+em `central/indicadores.py` (pandas puro, com testes).
+
+| Grupo | Indicadores |
+|---|---|
+| Confiabilidade | Quebras (notas com parada), MTBF, MTTR, reincidência (≤ 30 dias), quebras em classe A |
+| Planejamento e controle | Manutenção planejada (% com plano), corretiva emergencial, aderência ao plano (IP19), ordens concluídas no prazo, backlog em semanas, idade do backlog, notas sem ordem > 7 dias |
+| Mão de obra | HH apontadas (IW47), utilização da equipe, % HH em plano, % HH em corretiva emergencial |
+| Custos | Custo médio mensal (meta = orçamento), % custo do backlog, custo médio por ordem |
+| Suprimentos | Itens zerados, peças críticas em falta, dias aguardando aprovação |
+
+**Filtros globais** (barra lateral): período (de/até), área (localização), centro de trabalho e tipo de ordem — valem
+para todas as abas, e cada cartão do Painel leva à aba onde o indicador é detalhado.
+
+> O IW38 exportado hoje não traz os tipos YM11/YM12 (corretivas). As horas da IW47 dessas ordens aparecem como
+> "Ordem fora do IW38" e ficam fora dos % de plano e de emergencial. Exportando o IW38 com todos os tipos, o site
+> passa a usá-los sozinho.
 
 ## Como os dados se atualizam sozinhos
 
@@ -82,33 +104,37 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 
 ## Telas
 
-- **Painel** — ordens no período, % com plano (preventiva) × sem plano, backlog e atrasos, custo real e
-  corretivo, evolução mensal, top 10 de custo e de reincidência, idade do backlog, alertas de estoque e de
-  compras, e uma leitura rápida em texto.
-- **Ordens** — busca em todas as colunas, filtros (situação, plano, status do usuário, prioridade, só
-  atrasadas, só com custo), escolha de colunas, detalhe da ordem com histórico do equipamento, exportação
-  para Excel.
-- **Planos** — calendário de 52 semanas de cada plano de manutenção a partir da **IP19**: cada chamada
-  colorida como concluída, em aberto, atrasada, programada ou saltada, cruzando a ordem com o IW38.
-  Mostra aderência até hoje, carga de chamadas por semana e o histórico do plano. Sem IP19 nas pastas,
-  usa as ordens do IW38 que têm plano.
-- **Notas** — notas da IW28: quantas ainda não viraram ordem e há quanto tempo, paradas de máquina, notas por
-  semana e os equipamentos que mais geram notas.
-- **Equipamentos** — **gerenciamento de equipamentos** no formato da tela antiga: botão **Novo equipamento** com
-  TAG, nome (sugerido pelo SAP quando a TAG é um equipamento do IW38/IH08), categoria, criticidade, visão geral e
-  **componentes vinculados da base de material** (busca e marcação dos materiais do MB52). A lista mostra cada
-  equipamento com categoria, criticidade, nº de componentes e alerta de peça sem estoque; abre para ver os
-  componentes com o saldo, editar ou remover. A visão **Análise pelas ordens (IW38)** mantém a lista automática com
-  custo, backlog, notas e a ficha com histórico e intervalo médio entre corretivas (aprox. MTBF).
-- **Estoque** — saldo do MB52 por material e por depósito, **estoque mínimo editável na própria tabela**,
-  alerta de peças de equipamentos críticos em falta e **foto de cada material** (envio de arquivo ou câmera do
-  celular; a foto aparece em miniatura na tabela e fica em `fotos_materiais/` na pasta do app).
+- **Painel WCM** — índice WCM do pilar, cartões por grupo, scorecard por área e por centro de trabalho (com farol),
+  evolução mensal de cada indicador, pontos de atenção (fora da meta, bad actors, backlog mais antigo, peças críticas,
+  compras paradas) e scorecard para baixar em Excel.
+- **Quebras, MTBF e MTTR** — quebras e MTTR por mês, Pareto 80/20 (equipamento, local, centro, área, tipo de nota),
+  confiabilidade por equipamento com link para a ficha, matriz criticidade × frequência, dia da semana e reincidências.
+- **Equipamentos** — gerenciamento no formato da tela antiga (TAG, nome, categoria, criticidade, visão geral e
+  componentes vinculados da base de material) e análise pelas ordens, com ficha (quebras, MTBF, MTTR, HH, histórico).
+- **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
+- **Ordens** — busca, filtros (situação, plano/backlog, classe WCM, status), fim real, lead time, prazo, HH apontadas,
+  detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.
+- **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
+- **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e
+  emergencial, HH por semana/centro/classe/atividade, semanas de backlog por centro, idade do backlog e carga das
+  próximas 12 semanas.
+- **Custos** — custo por mês e classe (com orçamento), por tipo, área, centro de trabalho, Pareto por equipamento e
+  ordens mais caras.
+- **Estoque** — saldo do MB52, estoque mínimo editável, alerta de peças críticas e **foto de cada material**.
 - **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.
+- **Metas e parâmetros** — meta de cada indicador, jornada semanal, capacidade por centro de trabalho e classe WCM de
+  cada tipo de ordem (nomes padrão lidos da planilha de Gestão de HH).
 - **Fontes de dados** — de onde vem cada base, data do arquivo, troca/fixação de arquivo e envio manual.
 
-Os filtros de **período, centro de trabalho e tipo de ordem** ficam na barra lateral e valem para Painel,
-Ordens e Equipamentos. Por padrão o período é "últimos 12 meses" (até hoje); ordens com data-base futura
-entram em "Tudo" ou num período personalizado.
+Por padrão o período é "últimos 12 meses" (até hoje); ordens com data-base futura entram em "Tudo" ou num
+período personalizado.
+
+### IW47 e Gestão de HH
+
+- **IW47** é a base principal de horas: cada apontamento (nº pessoal, ordem, operação, trabalho real, centro de
+  trabalho real, tipo de atividade, data de lançamento). Estornos (trabalho negativo) são somados e anulam o original.
+- A planilha **Gestão de HH** serve só para os dados das pessoas (nº pessoal, nome, cargo, centro de trabalho, área,
+  turma). As outras abas dela (cópias de IW47/IW38) são ignoradas; da aba de apoio vêm os nomes dos tipos de ordem.
 
 ## Robô do SAP (exportação automática)
 
