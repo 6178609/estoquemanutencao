@@ -34,6 +34,10 @@ paginas = st.navigation(
             st.Page("paginas/equipamentos.py", title="Equipamentos", icon=":material/precision_manufacturing:"),
             st.Page("paginas/notas.py", title="Notas", icon=":material/notification_important:"),
         ],
+        "Análise de falhas": [
+            st.Page("paginas/af_planos.py", title="Planos de AF", icon=":material/troubleshoot:"),
+            st.Page("paginas/af_acoes.py", title="Ações de AF", icon=":material/task_alt:"),
+        ],
         "Planejamento": [
             st.Page("paginas/ordens.py", title="Ordens", icon=":material/assignment:"),
             st.Page("paginas/planos.py", title="Planos", icon=":material/calendar_month:"),

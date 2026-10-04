@@ -758,6 +758,12 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
 
 def recarregar() -> None:
     _listar.clear()
+    # o arquivo mudou por gravação feita nesta sessão: o vigia da barra lateral não deve tratar isso
+    # como "arquivo novo" e reiniciar o app (o que apagaria o estado dos widgets da página)
+    try:
+        st.session_state["_assinatura"] = None
+    except Exception:  # noqa: BLE001 — fora de uma sessão (testes, sincronizador)
+        pass
 
 
 # ----------------------------------------------------------------------------

@@ -38,7 +38,7 @@ with c[0], st.container(border=True):
     st.markdown(f'<div class="cm-kpi-t">Índice WCM do pilar</div><div class="cm-indice" style="color:{cor_indice}">'
                 f'{"—" if indice is None else f"{indice:.0f}%"}</div>', unsafe_allow_html=True,
                 help="(indicadores na meta + metade dos em atenção) ÷ indicadores com meta. Metas em Configuração › "
-                     "Metas e parâmetros.")
+                     "Metas e parâmetros. Os de análise de falhas (AF) valem sempre para a fábrica inteira.")
 for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Atenção"),
                                      (ind.VERMELHO, "Fora da meta"), (ind.NEUTRO, "Sem meta definida")]):
     with col, st.container(border=True, key=f"kpi-{cor}-resumo"):
@@ -49,8 +49,9 @@ VISOES = ["Indicadores", "Scorecard por área", "Scorecard por centro de trabalh
           "Pontos de atenção"]
 visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_visao", label_visibility="collapsed") or VISOES[0]
 ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PLANEJAMENTO: ":material/event_available:",
-          ind.MAO_DE_OBRA: ":material/engineering:", ind.CUSTOS: ":material/payments:",
-          ind.SUPRIMENTOS: ":material/inventory_2:"}
+          ind.ANALISE_FALHA: ":material/troubleshoot:", ind.MAO_DE_OBRA: ":material/engineering:",
+          ind.CUSTOS: ":material/payments:", ind.SUPRIMENTOS: ":material/inventory_2:"}
+FILTRADO = bool(f.areas or f.centros or f.tipos)
 CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emergencial", "no_prazo", "idade_backlog",
                "hh", "pct_hh_plano", "custo", "pct_custo_corr"]
 
@@ -59,6 +60,9 @@ if visao == "Indicadores":
     for grupo in ind.GRUPOS:
         ks = [k for k in ind.KPIS if k.grupo == grupo]
         st.markdown(f"#### {ICONES[grupo]} {grupo}")
+        if grupo == ind.ANALISE_FALHA:
+            st.caption("Do Gerenciador de AF, com a fábrica inteira: só o período vale (as áreas do gerenciador não são "
+                       "as do SAP)" + (" — os filtros de área, centro e tipo não se aplicam aqui." if FILTRADO else "."))
         contexto.grade(ks, atual, anterior, cad, serie, colunas=4)
 
 elif visao in ("Scorecard por área", "Scorecard por centro de trabalho"):
@@ -74,7 +78,8 @@ elif visao in ("Scorecard por área", "Scorecard por centro de trabalho"):
     total = {"TOTAL DO RECORTE": atual}
     ks = [ind.POR_ID[k] for k in CHAVE_SCORE]
     st.caption(f"{len(topo)} {'áreas' if por_area else 'centros de trabalho'} com mais ordens no período · verde = na meta, "
-               "amarelo = até 10% da meta, vermelho = fora · indicadores de suprimentos não têm área")
+               "amarelo = até 10% da meta, vermelho = fora · indicadores de suprimentos e de análise de falhas não têm "
+               "área")
     st.dataframe(contexto.scorecard({**valores, **total}, ks, cad, "Área" if por_area else "Centro de trabalho"),
                  hide_index=True, width="stretch")
     # ranking visual

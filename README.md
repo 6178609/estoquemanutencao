@@ -2,8 +2,8 @@
 
 App web de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção Profissional · Alpargatas F26. Junta
 **ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe da planilha de Gestão de
-HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52** e **requisições de compra**
-numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
+HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52**, **requisições de compra** e o
+**Gerenciador de AF** (análises de falha e plano de ação) numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
 Funciona no computador e no celular, com login e perfis de acesso.
 
 Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embutida e dados salvos só no navegador).
@@ -18,6 +18,7 @@ em `central/indicadores.py` (pandas puro, com testes).
 |---|---|
 | Confiabilidade | Quebras (notas com parada), MTBF, MTTR, reincidência (≤ 30 dias), quebras em classe A |
 | Planejamento e controle | Manutenção planejada (% com plano), corretiva emergencial, aderência ao plano (IP19), ordens concluídas no prazo, backlog em semanas, idade do backlog, notas sem ordem > 7 dias |
+| Análise de falhas (AF) | Taxa de análise de quebra crítica (A), execução de AFs, AFs analisadas no prazo, AFs atrasadas, ações de AFs (execução), ações no prazo, ações atrasadas — do Gerenciador de AF; só o período vale (as áreas do gerenciador são outras) |
 | Mão de obra | HH apontadas (IW47), utilização da equipe, % HH em plano, % HH em corretiva emergencial |
 | Custos | Custo médio mensal (meta = orçamento), % custo do backlog, custo médio por ordem |
 | Suprimentos | Itens zerados, peças críticas em falta, dias aguardando aprovação |
@@ -122,6 +123,7 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
   ordens mais caras.
 - **Estoque** — saldo do MB52, estoque mínimo editável, alerta de peças críticas e **foto de cada material**.
 - **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.
+- **Planos de AF** e **Ações de AF** — gestão das análises de falha e do plano de ação (veja abaixo).
 - **Metas e parâmetros** — meta de cada indicador, jornada semanal, capacidade por centro de trabalho e classe WCM de
   cada tipo de ordem (nomes padrão lidos da planilha de Gestão de HH).
 - **Fontes de dados** — de onde vem cada base, data do arquivo, troca/fixação de arquivo e envio manual.
@@ -135,6 +137,48 @@ período personalizado.
   trabalho real, tipo de atividade, data de lançamento). Estornos (trabalho negativo) são somados e anulam o original.
 - A planilha **Gestão de HH** serve só para os dados das pessoas (nº pessoal, nome, cargo, centro de trabalho, área,
   turma). As outras abas dela (cópias de IW47/IW38) são ignoradas; da aba de apoio vêm os nomes dos tipos de ordem.
+
+## Análise de falhas (Gerenciador de AF)
+
+O site lê o **Gerenciador de AF** (pasta de trabalho do PCM) como qualquer outra base: basta o arquivo estar numa das
+pastas sincronizadas. A leitura e os indicadores estão em `central/af.py` (pandas puro, com testes em
+`tests/test_af.py`).
+
+- **Abas lidas:** **Análise de Falha** (uma linha por AF) e **Plano de ação AF** (uma linha por ação de cada AF).
+  As abas ocultas (cópias de backup, listas de apoio) e a aba de e-mails são ignoradas.
+- **Planos de AF** — situação de cada análise (prazo, atraso, risco), acompanhamento semanal e mensal no formato do
+  resumo corporativo, Pareto de causa raiz, área, pilar, especialidade e turno, e a ficha de cada AF com as suas ações
+  e o link para o equipamento.
+- **Ações de AF** — execução e prazo das ações por data limite, fila de prioridade (atrasadas e que vencem em 7 dias),
+  cumprimento por responsável e supervisor e tipos de ação WCM (causa raiz, TTR, padronização, expansão).
+
+**Legenda de status** (a mesma do gerenciador):
+
+| Código | Significado |
+|---|---|
+| AP | Analisada (ou ação concluída) no prazo |
+| AFP | Analisada (ou ação concluída) fora do prazo |
+| EA | Em andamento |
+| R | Risco de atraso |
+| NA | Não analisada |
+| CANCELADA | Cancelada — não entra em nenhum indicador |
+
+Sem código, a situação é deduzida das datas: com data da análise (ou realizada), compara com a data limite; sem ela e
+com o prazo vencido, fica **atrasada**. Ação sem status e sem data realizada é **não iniciada**.
+
+**Indicadores corporativos** (definições da aba RESUMO CORPORATIVO; canceladas nunca contam):
+
+- **Taxa de análise de quebra crítica (A)** = AFs de criticidade A com data da falha no período já analisadas ÷ AFs
+  de criticidade A com data da falha no período (meta 100%).
+- **Execução de AFs** = AFs com data limite no período (até hoje) analisadas ÷ AFs com data limite no período
+  (meta 100%); **AFs analisadas no prazo** conta só as analisadas até a data limite (meta 90%).
+- **Ações de AFs** = ações com data limite no período (até hoje) realizadas ÷ ações com data limite no período
+  (meta 90%); **ações no prazo** conta só as realizadas até a data limite (meta 90%).
+- **AFs atrasadas** e **ações atrasadas** = retrato de hoje: em aberto com a data limite vencida (meta 0).
+
+Esses indicadores aparecem no Painel WCM (grupo "Análise de falhas (AF)"), com meta editável em Metas e parâmetros.
+Como as áreas do gerenciador não são as localizações do SAP, os filtros de área, centro e tipo não se aplicam a eles —
+só o período.
 
 ## Robô do SAP (exportação automática)
 
