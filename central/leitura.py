@@ -18,8 +18,20 @@ from .util import chave
 
 EXTENSOES = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".htm", ".html", ".parquet")
 
-IW38, MB52, REQ = "iw38", "mb52", "requisicoes"
-NOMES_BASE = {IW38: "Ordens (IW38)", MB52: "Estoque (MB52)", REQ: "Requisições de compra"}
+IW38, MB52, REQ, IP19 = "iw38", "mb52", "requisicoes", "ip19"
+OPER, NOTAS, EQUIP = "iw38op", "iw28", "ih08"
+NOMES_BASE = {IW38: "Ordens (IW38)", IP19: "Planos de manutenção (IP19)", OPER: "Operações das ordens (IW38OP)",
+              NOTAS: "Notas de manutenção (IW28)", EQUIP: "Cadastro de equipamentos (IH08)",
+              MB52: "Estoque (MB52)", REQ: "Requisições de compra"}
+TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ)
+
+# Bases em que vários arquivos se somam (ex.: IW38 do ano + IW38BK com o histórico):
+# junta os arquivos pela chave e, se a mesma ordem/nota aparece em mais de um, vale
+# a do arquivo mais novo. Entram os MAX_MESCLA mais recentes e todo arquivo com
+# BK/HIST no nome (o histórico, por mais antigo que seja).
+MESCLAR = {IW38: r"^ORDEM$", NOTAS: r"^NOTA$"}
+MAX_MESCLA = 6
+_HISTORICO = re.compile(r"BK|HIST", re.I)
 
 
 class LeituraErro(ValueError):
@@ -113,26 +125,44 @@ def _num_br(t: str):
         return None
 
 
+_QTD = re.compile(r"-?\d[\d.]*(,\d+)?-?")
+_UNIDADE = re.compile(r"[A-Za-zÀ-ÿ]{1,3}\d?")
+
+
 def _lista_agrupada_mb52(linhas: list[str]) -> pd.DataFrame:
-    """Uma linha que começa com número abre um material; as seguintes (UM + quantidade
-    [+ depósito]) são somadas no total desse material."""
+    """Lista do MB52 salva como HTML pelo SAP GUI, em árvore:
+
+        48737      LAMPADA V MET OVOIDE LEIT E40 400W        ← material (código + texto)
+                   UN                                  6     ← saldo (UM + quantidade)
+        84518      PROD QUIM PRT 601 07
+                   KG                          2.475,000
+        0099378    PAR   A                         3.442     ← saldo de um lote/avaliação
+
+    Uma linha de saldo tem uma quantidade; a de material, não (só código e texto).
+    Por isso um lote que começa com número não vira material novo. Os saldos de
+    cada material são somados."""
     grupos, atual = [], None
     for linha in linhas:
         toks = _tokens(linha)
-        if not toks:
+        if not toks or "total" in linha.lower():
             continue
-        if re.match(r"^\d", toks[0]) and "total" not in linha.lower():
+        qtds = [t for t in toks[1:] if _QTD.fullmatch(t)]
+        if re.match(r"^\d", toks[0]) and not qtds and len(toks) >= 2:
             atual = {"Material": toks[0], "Texto breve material": " ".join(toks[1:]), "UM": "", "Utilização livre": 0.0}
             grupos.append(atual)
-        elif atual is not None and len(toks) >= 2:
-            ultimo = toks[-1]
-            tem_dep = len(toks) >= 3 and not re.fullmatch(r"[\d.,]+", ultimo)
-            q = _num_br(toks[-2] if tem_dep else ultimo)
-            if q is None:
-                continue
-            atual["Utilização livre"] += q
-            if not atual["UM"] and re.fullmatch(r"[A-Za-zÀ-ÿ]{1,3}\d?", toks[0]):
-                atual["UM"] = toks[0]
+            continue
+        if atual is None:
+            continue
+        if not qtds and _QTD.fullmatch(toks[0]):
+            qtds = [toks[0]]
+        if not qtds:
+            continue
+        q = _num_br(qtds[-1])
+        if q is None:
+            continue
+        atual["Utilização livre"] += q
+        if not atual["UM"]:
+            atual["UM"] = next((t for t in toks if _UNIDADE.fullmatch(t) and not t.isdigit()), "")
     if not grupos:
         raise LeituraErro("lista do SAP sem materiais reconhecíveis")
     return pd.DataFrame(grupos)
@@ -181,6 +211,8 @@ def sondar(nome: str, conteudo: bytes) -> list[tuple[str, str | None, int | None
     """Descobre quais bases existem no arquivo, sem ler tudo quando é Excel:
     devolve [(tipo, aba, linha do cabeçalho)]. Uma pasta de trabalho pode ter
     mais de uma base (ex.: uma aba IW38 e outra MB52)."""
+    if eh_recorte(nome):
+        return []
     achados = []
     if _eh_xlsx(conteudo) or _eh_xls(conteudo):
         try:
@@ -209,11 +241,71 @@ def sondar(nome: str, conteudo: bytes) -> list[tuple[str, str | None, int | None
     return [(tipo, None, None)] if tipo else []
 
 
+# Colunas que só existem nas planilhas baixadas do próprio site (botão "Baixar Excel").
+# Elas parecem um export do SAP, mas são recortes filtrados: nunca podem virar a base.
+_COLUNAS_DO_APP = r"^(NATUREZA|SITUACAO|DIAS EM ABERTO|DIAS AGUARDANDO|PECAS EM FALTA|USADO EM|COM PLANO|ATRASADA)$"
+
+
+def eh_recorte(nome: str) -> bool:
+    """Exports filtrados (deste site ou do site antigo: ordens_filtradas, IW38_filtrado.csv…)."""
+    return bool(re.search(r"filtrad", PurePath(nome).stem, re.I))
+
+
+def escolher_origens(tipo: str, candidatos: list) -> list:
+    """Dos candidatos de uma base (do mais novo para o mais velho; cada um com
+    `.arquivo.nome`), quais usar: o mais novo, ou — nas bases que se somam — os
+    MAX_MESCLA mais novos + os arquivos de histórico."""
+    if not candidatos:
+        return []
+    if tipo not in MESCLAR:
+        return candidatos[:1]
+    return [c for i, c in enumerate(candidatos)
+            if i < MAX_MESCLA or _HISTORICO.search(PurePath(c.arquivo.nome).stem)]
+
+
+def mesclar(tipo: str, frames: list[pd.DataFrame]) -> pd.DataFrame:
+    """Junta os arquivos de uma base (o 1º é o mais novo) pela chave; linhas sem chave
+    — como as de fórmulas arrastadas até o fim da planilha — são descartadas."""
+    from .util import achar_coluna, texto
+
+    rx = MESCLAR.get(tipo)
+    partes, chave_col = [], None
+    for df in frames:
+        col = achar_coluna(df.columns, rx) if rx else None
+        if col:
+            chave_col = chave_col or col
+            df = df.copy()
+            df[col] = texto(df[col])
+            df = df[df[col] != ""].rename(columns={col: chave_col})
+        partes.append(df)
+    junto = partes[0] if len(partes) == 1 else pd.concat(partes, ignore_index=True, sort=False)
+    if chave_col:
+        junto = junto.drop_duplicates(chave_col, keep="first")
+    return junto.reset_index(drop=True)
+
+
 def identificar(colunas) -> str | None:
     ks = {chave(c) for c in colunas}
 
     def tem(rx):
         return any(re.search(rx, k) for k in ks)
+
+    if tem(_COLUNAS_DO_APP):
+        return None
+    # IW38 com operações (IW38OP): uma linha por operação, com o trabalho planejado
+    if tem(r"^ORDEM$") and tem(r"^OPERACAO$") and tem(r"^TRABALHO$|DURACAO NORMAL"):
+        return OPER
+    # IW28: notas de manutenção
+    if tem(r"^NOTA$") and tem(r"TIPO DE NOTA|DATA DA NOTA"):
+        return NOTAS
+    # IH08: cadastro de equipamentos (sem ordem, nota, plano ou material)
+    if tem(r"^EQUIPAMENTO$") and tem(r"DENOMINACAO") and not tem(r"^ORDEM$|^NOTA$|PLANO|^MATERIAL$|DATA BASE"):
+        return EQUIP
+    # IP19 (programação dos planos): plano + data planejada/de chamada. Vem antes do IW38
+    # porque a IP19 também pode trazer a coluna Ordem; o IW38 tem "Data-base do início".
+    if tem(r"^PLANO|PLANO (DE )?MANUT") and tem(r"DATA PLAN|DT PLAN|DATA (DE )?CHAMADA|DT CHAM") \
+            and not tem(r"DATA BASE DO INICIO"):
+        return IP19
 
     if tem(r"^ORDEM$") and (tem(r"STATUS USUARIO") or tem(r"STATUS DO SISTEMA") or tem(r"TIPO DE ORDEM")):
         return IW38

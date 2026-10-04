@@ -109,6 +109,16 @@ if linhas:
     st.caption(f"Status do sistema: `{o['Status sistema'] or '—'}` · status do usuário: `{o['Status usuário'] or '—'}` · "
                f"criada por {o['Criado por'] or '—'}")
 
+    oper = bases.operacoes().df
+    if oper is not None:
+        ops = oper[oper["Ordem"] == o["Ordem"]].sort_values("Operação")
+        if len(ops):
+            st.markdown(f"**Operações (IW38OP)** — {len(ops)} operação(ões), {ops['Horas'].sum():.1f} h planejadas".replace(".", ","))
+            st.dataframe(ops[["Operação", "Texto da operação", "Centro de trabalho", "Horas", "Pessoas", "Concluída",
+                              "Início", "Fim real"]], hide_index=True, width="stretch",
+                         column_config={"Horas": st.column_config.NumberColumn(format="%.1f"), "Início": ui.col_data(),
+                                        "Fim real": ui.col_data(), "Concluída": st.column_config.CheckboxColumn("Confirmada")})
+
     if o["Equip. (chave)"]:
         hist = base.df[base.df["Equip. (chave)"] == o["Equip. (chave)"]].sort_values("Data", ascending=False)
         st.markdown(f"**Histórico do equipamento** — {inteiro(len(hist))} ordens, {brl(hist['Custo real'].sum())} no total "

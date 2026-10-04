@@ -20,7 +20,7 @@ import pandas as pd
 import streamlit as st
 
 from . import config, fontes, leitura
-from .leitura import IW38, MB52, REQ
+from .leitura import EQUIP, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
 from .util import achar_coluna, chave, para_data, para_numero, sem_acento, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
@@ -28,7 +28,9 @@ ARQ_CAD_MAT = "cadastro_materiais.json"
 ARQ_PREF = "preferencias.json"
 
 # Pista pelo nome do arquivo: arquivos com pista são verificados primeiro.
-_PISTAS = [(IW38, r"IW38|IW39|ORDENS?"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"), (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS")]
+_PISTAS = [(OPER, r"IW38OP|IW37|OPERAC"), (IP19, r"IP19|IP24|PLANOS?\b"), (IW38, r"IW38|IW39|ORDENS?"),
+           (NOTAS, r"IW28|IW29|NOTAS?\b"), (EQUIP, r"IH08|IE05|EQUIPAMENT"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"),
+           (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS|SOLICITA")]
 
 
 # ----------------------------------------------------------------------------
@@ -88,7 +90,8 @@ class Origem:
 
 @dataclass
 class Inventario:
-    ativos: dict[str, Origem] = field(default_factory=dict)       # tipo -> origem em uso
+    ativos: dict[str, Origem] = field(default_factory=dict)       # tipo -> arquivo principal (o mais novo)
+    usados: dict[str, list[Origem]] = field(default_factory=dict)  # tipo -> todos os arquivos somados
     candidatos: dict[str, list[Origem]] = field(default_factory=dict)  # tipo -> todas encontradas
     fixados: dict[str, str] = field(default_factory=dict)          # tipo -> id fixado pelo usuário
     verificados: int = 0
@@ -118,8 +121,9 @@ def inventario() -> Inventario:
 def _inventario() -> Inventario:
     """Percorre os arquivos do mais novo para o mais velho e identifica cada base.
 
-    Para assim que as três bases foram achadas: arquivos mais velhos que o mais
-    antigo em uso não têm como ser "o mais recente", então nem são abertos. A
+    Arquivos com nome de export do SAP (IW38, IP19, MB52…) são sempre verificados;
+    os demais só até todas as bases terem sido achadas — um arquivo qualquer mais
+    velho que o mais antigo em uso não tem como ser "o mais recente". A
     identificação de cada arquivo fica em cache até ele mudar.
     """
     inv = Inventario()
@@ -132,11 +136,12 @@ def _inventario() -> Inventario:
     dados = [a for a in lista if not a.arquivo.lower().endswith(".json")]
     # arquivos com pista no nome primeiro (mantendo a ordem por data dentro de cada grupo)
     dados.sort(key=lambda a: _pista(a) is None)
-    pendentes = {IW38, MB52, REQ} - {t for t, id_ in inv.fixados.items() if any(a.id == id_ for a in dados)}
+    pendentes = set(TIPOS) - {t for t, id_ in inv.fixados.items() if any(a.id == id_ for a in dados)}
     limite = None  # data do arquivo mais velho em uso entre os tipos já achados
     fixos = set(inv.fixados.values())
     for arq in dados:
-        if not pendentes and arq.id not in fixos and (limite is None or arq.modificado < limite):
+        if (not pendentes and arq.id not in fixos and _pista(arq) is None
+                and (limite is None or arq.modificado < limite)):
             continue
         achados = _sondar(arq.id, arq.assinatura)
         inv.verificados += 1
@@ -150,7 +155,8 @@ def _inventario() -> Inventario:
         lista_tipo.sort(key=lambda o: o.arquivo.modificado, reverse=True)
         fixo = inv.fixados.get(tipo)
         escolhido = next((o for o in lista_tipo if o.arquivo.id == fixo), None) if fixo else None
-        inv.ativos[tipo] = escolhido or lista_tipo[0]
+        inv.usados[tipo] = [escolhido] if escolhido else leitura.escolher_origens(tipo, lista_tipo)
+        inv.ativos[tipo] = inv.usados[tipo][0]
     return inv
 
 
@@ -231,10 +237,15 @@ def _piloto_ou_matriz(df: pd.DataFrame) -> pd.Series:
             | obj.str.contains("PILOT"))
 
 
+@st.cache_data(show_spinner=False, max_entries=12)
+def _cru(tipo: str, origens: tuple) -> pd.DataFrame:
+    """Tabela crua da base: um arquivo, ou vários somados (IW38 + histórico, notas)."""
+    return leitura.mesclar(tipo, [_ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha) for o in origens])
+
+
 @st.cache_resource(show_spinner="Preparando ordens (IW38)…", max_entries=4)
-def _iw38(o: Origem, excluir: bool) -> tuple[pd.DataFrame, int]:
-    cru = _ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha)
-    return preparar_iw38(cru, excluir_piloto_matriz=excluir)
+def _iw38(origens: tuple, excluir: bool) -> tuple[pd.DataFrame, int]:
+    return preparar_iw38(_cru(IW38, origens), excluir_piloto_matriz=excluir)
 
 
 def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
@@ -253,6 +264,9 @@ def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
               "Centro de trabalho", "Centro de custo", "Localização", "Centro", "Plano", "Status sistema",
               "Status usuário", "Criado por"]:
         df[c] = texto(df[c])
+    # linhas sem ordem (ex.: fórmula de "Status" arrastada até o fim da planilha) não são ordens
+    df = df[df["Ordem"] != ""]
+    cru = cru.loc[df.index]
     df["Status sistema"] = df["Status sistema"].str.split().str.join(" ")
     df["Status usuário"] = df["Status usuário"].str.split().str.join(" ")
     for c in ["Início", "Fim", "Entrada"]:
@@ -293,8 +307,8 @@ def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
 # MB52 — estoque
 # ----------------------------------------------------------------------------
 @st.cache_resource(show_spinner="Preparando estoque (MB52)…", max_entries=4)
-def _mb52(o: Origem) -> tuple[pd.DataFrame, pd.DataFrame]:
-    return preparar_mb52(_ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha))
+def _mb52(origens: tuple) -> tuple[pd.DataFrame, pd.DataFrame]:
+    return preparar_mb52(_cru(MB52, origens))
 
 
 def preparar_mb52(cru: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -348,8 +362,8 @@ _REQ_COLUNAS = {
 
 
 @st.cache_resource(show_spinner="Preparando requisições…", max_entries=4)
-def _req(o: Origem) -> pd.DataFrame:
-    return preparar_requisicoes(_ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha))
+def _req(origens: tuple) -> pd.DataFrame:
+    return preparar_requisicoes(_cru(REQ, origens))
 
 
 def preparar_requisicoes(cru: pd.DataFrame, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
@@ -373,6 +387,128 @@ def preparar_requisicoes(cru: pd.DataFrame, hoje: pd.Timestamp | None = None) ->
 
 
 # ----------------------------------------------------------------------------
+# IP19 — programação dos planos de manutenção
+# ----------------------------------------------------------------------------
+@st.cache_resource(show_spinner="Preparando planos (IP19)…", max_entries=4)
+def _ip19(origens: tuple, excluir: bool) -> pd.DataFrame:
+    from .planos import preparar_ip19
+
+    return preparar_ip19(_cru(IP19, origens), excluir_piloto_matriz=excluir)
+
+
+# ----------------------------------------------------------------------------
+# IW38OP — operações das ordens (trabalho planejado em horas)
+# ----------------------------------------------------------------------------
+_OPER_COLUNAS = {
+    "Ordem": [r"^ORDEM$"], "Operação": [r"^OPERACAO$"], "Tipo": [r"TIPO DE ORDEM"],
+    "Centro de trabalho": [r"^CENTRO DE TRABALHO$", r"CENTRO TRAB"],
+    "Equipamento": [r"^EQUIPAMENTO$"], "Objeto técnico": [r"DENOMINACAO DO OBJETO", r"OBJETO TECNICO"],
+    "Local de instalação": [r"DENOMINACAO DO LOC"], "Texto da operação": [r"TXT BREVE OPERACAO", r"TEXTO.*OPERACAO"],
+    "Trabalho": [r"^TRABALHO$"], "Unidade": [r"UNIDADE DO TRABALHO", r"UNID.*TRAB"],
+    "Pessoas": [r"^NUMERO$", r"N PESSOAS"], "Status sistema": [r"STATUS DO SISTEMA"],
+    "Início": [r"1A DATA DE INICIO", r"DATA DE INICIO", r"ULTIMA DATA INICIO"], "Fim real": [r"DATA DO FIM REAL"],
+}
+_HORAS_POR = {"MIN": 1 / 60, "H": 1, "HR": 1, "STD": 1, "HRS": 1, "D": 8, "DIA": 8}
+
+
+def _padronizar(cru: pd.DataFrame, mapa: dict, textos: list[str]) -> pd.DataFrame:
+    df = pd.DataFrame(index=cru.index)
+    usadas: set[str] = set()
+    for nome, padroes in mapa.items():
+        col = achar_coluna([c for c in cru.columns if c not in usadas], *padroes)
+        if col:
+            usadas.add(col)
+        df[nome] = cru[col] if col else ""
+    for c in textos:
+        df[c] = texto(df[c])
+    return df
+
+
+def preparar_operacoes(cru: pd.DataFrame) -> pd.DataFrame:
+    df = _padronizar(cru, _OPER_COLUNAS, ["Ordem", "Operação", "Tipo", "Centro de trabalho", "Equipamento",
+                                           "Objeto técnico", "Local de instalação", "Texto da operação", "Unidade",
+                                           "Status sistema"])
+    df = df[df["Ordem"] != ""].copy()
+    fator = df["Unidade"].str.upper().map(_HORAS_POR).fillna(1 / 60)
+    df["Horas"] = (para_numero(df["Trabalho"]).fillna(0.0) * fator).round(2)
+    df["Pessoas"] = para_numero(df["Pessoas"]).fillna(0).astype(int)
+    for c in ["Início", "Fim real"]:
+        df[c] = para_data(df[c])
+    toks = df["Status sistema"].str.split().map(set)
+    df["Concluída"] = toks.map(lambda t: bool(t & {"CONF", "ENTE", "ENCE"}))
+    df["Cancelada"] = toks.map(lambda t: bool(t & {"DLFL", "MREL", "MEEL"}))
+    return df.drop(columns=["Trabalho"]).reset_index(drop=True)
+
+
+@st.cache_resource(show_spinner="Preparando operações (IW38OP)…", max_entries=4)
+def _oper(origens: tuple) -> pd.DataFrame:
+    return preparar_operacoes(_cru(OPER, origens))
+
+
+# ----------------------------------------------------------------------------
+# IW28 — notas de manutenção
+# ----------------------------------------------------------------------------
+_NOTAS_COLUNAS = {
+    "Nota": [r"^NOTA$"], "Ordem": [r"^ORDEM$"], "Tipo de nota": [r"TIPO DE NOTA"],
+    "Descrição": [r"^DESCRICAO$", r"TEXTO BREVE", r"DESCRICAO"], "Equipamento": [r"^EQUIPAMENTO$"],
+    "Objeto técnico": [r"DENOMINACAO DO OBJETO", r"OBJETO TECNICO"], "Local de instalação": [r"DENOMINACAO DO LOC"],
+    "Centro de trabalho": [r"CENTRO TRAB RESPONS", r"^CENTRO DE TRABALHO$"], "Localização": [r"^LOCALIZACAO$"],
+    "Notificador": [r"NOTIFICADOR"], "Parada": [r"^PARADA$"], "Duração da parada": [r"DURACAO DA PARADA"],
+    "Início avaria": [r"INICIO AVARIA", r"INICIO DA AVARIA"], "Fim avaria": [r"^FIM DA AVARIA$", r"FIM AVARIA"],
+    "Data da nota": [r"DATA DA NOTA"], "Criado por": [r"CRIADO POR"], "Código ABC": [r"CODIGO ABC", r"^ABC$"],
+    "Plano": [r"PLANO DE MANUTENCAO"],
+}
+
+
+def preparar_notas(cru: pd.DataFrame, hoje: pd.Timestamp | None = None, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
+    hoje = (hoje or pd.Timestamp.now()).normalize()
+    df = _padronizar(cru, _NOTAS_COLUNAS, ["Nota", "Ordem", "Tipo de nota", "Descrição", "Equipamento", "Objeto técnico",
+                                            "Local de instalação", "Centro de trabalho", "Localização", "Notificador",
+                                            "Parada", "Criado por", "Código ABC", "Plano"])
+    df = df[df["Nota"] != ""].copy()
+    if excluir_piloto_matriz:
+        fora = (df["Centro de trabalho"].str.upper().isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])
+                | df["Local de instalação"].map(chave).str.contains("PILOT|MATRIZARIA"))
+        df = df[~fora]
+    for c in ["Início avaria", "Fim avaria", "Data da nota"]:
+        df[c] = para_data(df[c])
+    df["Com parada"] = df["Parada"].str.upper().isin(["X", "SIM", "S", "1"])
+    df["Horas parado"] = para_numero(df["Duração da parada"]).fillna(0.0)
+    df["Com ordem"] = df["Ordem"] != ""
+    df["Data"] = df["Data da nota"].fillna(df["Início avaria"])
+    df["Dias"] = (hoje - df["Data"]).dt.days
+    df["Equip. (chave)"] = np.where(df["Equipamento"] != "", df["Equipamento"], df["Objeto técnico"])
+    return df.drop(columns=["Parada", "Duração da parada"]).reset_index(drop=True)
+
+
+@st.cache_resource(show_spinner="Preparando notas (IW28)…", max_entries=4)
+def _notas(origens: tuple) -> pd.DataFrame:
+    return preparar_notas(_cru(NOTAS, origens), excluir_piloto_matriz=config.carregar().excluir_piloto_matriz)
+
+
+# ----------------------------------------------------------------------------
+# IH08 — cadastro de equipamentos
+# ----------------------------------------------------------------------------
+ABC_PARA_CRITICIDADE = {"A": "Alta", "B": "Média", "C": "Baixa"}
+
+
+def preparar_equipamentos(cru: pd.DataFrame) -> pd.DataFrame:
+    df = _padronizar(cru, {"Equipamento": [r"^EQUIPAMENTO$"], "Denominação": [r"DENOMINACAO"],
+                           "Localização": [r"^LOCALIZACAO$"], "Código ABC": [r"CODIGO ABC", r"^ABC$"],
+                           "Local de instalação": [r"LOCAL DE INSTALACAO", r"LOC INSTAL"]},
+                     ["Equipamento", "Denominação", "Localização", "Código ABC", "Local de instalação"])
+    df = df[df["Equipamento"] != ""].drop_duplicates("Equipamento").copy()
+    df["Código ABC"] = df["Código ABC"].str.upper().str.strip()
+    df["Desativado"] = df["Denominação"].map(chave).str.contains(r"DESATIV|INATIV|NAO ESTA NA FABRICA|SUCATA|BAIXAD")
+    return df.reset_index(drop=True)
+
+
+@st.cache_resource(show_spinner="Preparando cadastro de equipamentos (IH08)…", max_entries=4)
+def _equip(origens: tuple) -> pd.DataFrame:
+    return preparar_equipamentos(_cru(EQUIP, origens))
+
+
+# ----------------------------------------------------------------------------
 # Cadastros feitos no próprio app (JSON na pasta do app, compartilhada)
 # ----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -388,6 +524,12 @@ def _ler_json_agora(nome: str) -> dict:
         return json.loads(fonte().ler(fonte().id_de(nome)).decode("utf-8"))
     except Exception:  # noqa: BLE001 — arquivo ainda não existe
         return {}
+
+
+def manifesto() -> dict:
+    """Manifesto do repositório de dados (modo GitHub): de onde e quando veio cada base."""
+    arq = next((a for a in arquivos() if a.id == fontes.MANIFESTO), None)
+    return _ler_json(arq.id, arq.assinatura) if arq else {}
 
 
 def ler_cadastro(nome: str) -> dict:
@@ -424,7 +566,8 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
             f"o arquivo não parece ser de {esperado}"
             + (f" (parece {leitura.NOMES_BASE[outro]})" if outro else " — confira as colunas do export"))
     ext = PurePath(nome_original).suffix.lower() or ".xlsx"
-    prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES"}[tipo]
+    prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES", IP19: "IP19", OPER: "IW38OP", NOTAS: "IW28",
+               EQUIP: "IH08"}[tipo]
     nome = f"{prefixo}_{datetime.now():%Y-%m-%d_%H%M%S}{ext}"
     fonte().gravar(nome, conteudo)
     recarregar()
@@ -441,9 +584,10 @@ def recarregar() -> None:
 @dataclass
 class Base:
     df: pd.DataFrame | None
-    origem: Origem | None
+    origem: Origem | None          # arquivo principal (o mais novo)
     erro: str = ""
-    extra: object = None  # IW38: nº removidas · MB52: detalhe por depósito
+    extra: object = None           # IW38: nº removidas · MB52: detalhe por depósito
+    origens: tuple = ()            # todos os arquivos somados
 
     @property
     def atualizado(self) -> datetime | None:
@@ -451,28 +595,50 @@ class Base:
 
 
 def _carregar(tipo: str, fn) -> Base:
-    o = inventario().ativos.get(tipo)
-    if not o:
+    usados = tuple(inventario().usados.get(tipo, []))
+    if not usados:
         return Base(None, None)
     try:
-        return fn(o)
+        b = fn(usados)
+        b.origem, b.origens = usados[0], usados
+        return b
     except Exception as e:  # noqa: BLE001
-        return Base(None, o, erro=str(e))
+        return Base(None, usados[0], erro=str(e), origens=usados)
+
+
+def _excluir() -> bool:
+    return config.carregar().excluir_piloto_matriz
 
 
 def iw38() -> Base:
-    def fn(o):
-        df, removidas = _iw38(o, config.carregar().excluir_piloto_matriz)
-        return Base(df, o, extra=removidas)
+    def fn(us):
+        df, removidas = _iw38(us, _excluir())
+        return Base(df, None, extra=removidas)
     return _carregar(IW38, fn)
 
 
 def mb52() -> Base:
-    def fn(o):
-        resumo, det = _mb52(o)
-        return Base(resumo, o, extra=det)
+    def fn(us):
+        resumo, det = _mb52(us)
+        return Base(resumo, None, extra=det)
     return _carregar(MB52, fn)
 
 
 def requisicoes() -> Base:
-    return _carregar(REQ, lambda o: Base(_req(o), o))
+    return _carregar(REQ, lambda us: Base(_req(us), None))
+
+
+def ip19() -> Base:
+    return _carregar(IP19, lambda us: Base(_ip19(us, _excluir()), None))
+
+
+def operacoes() -> Base:
+    return _carregar(OPER, lambda us: Base(_oper(us), None))
+
+
+def notas() -> Base:
+    return _carregar(NOTAS, lambda us: Base(_notas(us), None))
+
+
+def equipamentos() -> Base:
+    return _carregar(EQUIP, lambda us: Base(_equip(us), None))

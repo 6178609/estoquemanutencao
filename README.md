@@ -1,7 +1,8 @@
 # Central de Manutenção · PCM F26
 
-App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38**,
-**estoque do MB52**, **equipamentos** e **requisições de compra** numa tela só, e que **se atualiza sozinho**:
+App web da manutenção (SIM Manutenção Profissional · Alpargatas F26) que junta **ordens do IW38** (com as operações
+do IW38OP), **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52** e **requisições de
+compra** numa tela só, e que **se atualiza sozinho**:
 ninguém precisa importar planilha. Funciona no computador e no celular, com login e perfis de acesso.
 
 Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embutida e dados salvos só no navegador).
@@ -10,12 +11,15 @@ Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embut
 
 ```
 SAP (IW38 / MB52 / requisições)
-   │  export manual ou automatico (automacao/exportar_sap.vbs + Agendador de Tarefas)
+   │  export manual ou pelo robô do SAP (automacao/robo_sap.py: agendado ou pelo botão do site)
    ▼
 Pastas do SharePoint sincronizadas pelo OneDrive
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\0.1 - Indicadores
-   │  o app varre as pastas (e subpastas) a cada 60 s
+   ~\Downloads\SITE  (pasta base do site, com subpastas)
+   ~\Downloads\1.3 - Controle de Estoque  e  ~\Downloads\0.1 - Indicadores  (cópias, com subpastas)
+   ~\Downloads  (só a própria pasta)
+   │  o app varre as pastas a cada 60 s
    ▼
 Central de Manutenção  →  todas as telas abertas recarregam quando chega arquivo novo
 ```
@@ -23,7 +27,14 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 - O app **reconhece cada arquivo pelo conteúdo** (cabeçalhos), não pelo nome: pode ser `.xlsx`, `.xls`,
   `.csv`, `.txt` (lista do SAP com `|`), `.htm` ("salvar como HTML" do SAP GUI) ou `.parquet`. Também acha
   a base dentro de uma aba qualquer de uma pasta de trabalho, mesmo com o cabeçalho fora da linha 1.
-- Para cada base usa **o arquivo mais recente**. Se pegar a planilha errada, fixe o arquivo certo em
+- A pasta **Downloads** também é olhada, porque é onde o navegador e o SAP costumam salvar. Planilhas
+  baixadas do próprio site (botão "Baixar Excel") e arquivos com "filtrado" no nome são ignorados, para um
+  recorte nunca substituir a base completa.
+- Para cada base usa **o arquivo mais recente**. IW38 e notas (IW28) são exceção: os arquivos se **somam** (ex.:
+  `IW38.xlsx` do ano + `IW38BK.XLSX` com o histórico); se a mesma ordem/nota aparece em mais de um, vale a do arquivo
+  mais novo. Entram os 6 mais recentes e qualquer arquivo com BK ou HIST no nome.
+- A criticidade dos equipamentos vem do **código ABC da IH08** (A = alta, B = média, C = baixa), a não ser que
+  alguém cadastre outra no site. Se pegar a planilha errada, fixe o arquivo certo em
   **Configuração › Fontes de dados** (um arquivo fixado continua sendo relido quando é sobrescrito).
 - Base mais velha que 2 dias aparece em laranja, com aviso, em todas as telas.
 - Cadastros feitos no app (criticidade e peças de cada equipamento, estoque mínimo, usuários) ficam em
@@ -33,13 +44,16 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 ## Site online 24h (nuvem)
 
 O app pode ficar publicado no **Streamlit Community Cloud**, com um endereço que abre de qualquer lugar.
-Nesse modo ele lê as mesmas pastas direto do SharePoint pela API da Microsoft. Para isso a TI precisa
-registrar um aplicativo com acesso ao site PCMF26 (uma vez só).
+Na nuvem ele não enxerga o OneDrive, então os dados chegam por um de dois caminhos:
 
-- Passo a passo de publicação: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
-- Texto pronto para a TI: [`docs/PEDIDO_TI_SHAREPOINT.md`](docs/PEDIDO_TI_SHAREPOINT.md)
-- O workflow `.github/workflows/manter-app-acordado.yml` visita o app a cada 6 h para ele não entrar em
-  modo de espera.
+- **Sincronizador no PC (sem TI):** `sincronizador/` roda em segundo plano no PC com as pastas do OneDrive.
+  A cada 5 min envia o export mais novo de cada base para um repositório **privado** de dados no GitHub, de
+  onde o site lê.
+- **SharePoint direto:** o site lê as pastas pela API da Microsoft. Precisa de um aplicativo registrado pela
+  TI (texto pronto em [`docs/PEDIDO_TI_SHAREPOINT.md`](docs/PEDIDO_TI_SHAREPOINT.md)).
+
+Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md). O workflow
+`.github/workflows/manter-app-acordado.yml` visita o app a cada 6 h para ele não entrar em modo de espera.
 
 ## Como usar no PC (Windows)
 
@@ -75,6 +89,12 @@ registrar um aplicativo com acesso ao site PCMF26 (uma vez só).
 - **Ordens** — busca em todas as colunas, filtros (situação, plano, status do usuário, prioridade, só
   atrasadas, só com custo), escolha de colunas, detalhe da ordem com histórico do equipamento, exportação
   para Excel.
+- **Planos** — calendário de 52 semanas de cada plano de manutenção a partir da **IP19**: cada chamada
+  colorida como concluída, em aberto, atrasada, programada ou saltada, cruzando a ordem com o IW38.
+  Mostra aderência até hoje, carga de chamadas por semana e o histórico do plano. Sem IP19 nas pastas,
+  usa as ordens do IW38 que têm plano.
+- **Notas** — notas da IW28: quantas ainda não viraram ordem e há quanto tempo, paradas de máquina, notas por
+  semana e os equipamentos que mais geram notas.
 - **Equipamentos** — lista montada automaticamente a partir do IW38 com custo, corretivas e pendências;
   ficha com intervalo médio entre corretivas (aprox. MTBF), histórico anual e cadastro de criticidade,
   categoria e peças de reposição (com situação do estoque de cada peça).
@@ -87,18 +107,25 @@ Os filtros de **período, centro de trabalho e tipo de ordem** ficam na barra la
 Ordens e Equipamentos. Por padrão o período é "últimos 12 meses" (até hoje); ordens com data-base futura
 entram em "Tudo" ou num período personalizado.
 
-## Exportação automática do SAP (opcional)
+## Robô do SAP (exportação automática)
 
-`automacao/exportar_sap.vbs` abre a IW38 e a MB52 com uma variante salva (`/CENTRAL`) e grava `IW38.XLSX` e
-`MB52.XLSX` em `0.1 - Indicadores\Exportacao SAP`. Requer SAP GUI aberto e **SAP GUI Scripting habilitado**.
-Os IDs de tela variam com a versão do SAP GUI: se algum passo falhar, grave a exportação uma vez com
-*Script Recording and Playback* e ajuste o trecho indicado no script.
+`automacao/robo_sap.py` faz no SAP GUI o que uma pessoa faria: usa a sessão do SAP já aberta (ou abre o SAP Logon
+e faz login no mandante 702), roda cada transação de `automacao/transacoes.toml` com os filtros definidos lá e grava
+o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior.
 
-Para rodar todo dia às 7h:
-
-```bat
-schtasks /create /tn "Central Manutencao - export SAP" /tr "wscript.exe \"C:\CentralManutencao\automacao\exportar_sap.vbs\"" /sc daily /st 07:00
-```
+- **Hoje:** MB52 — centro A026, depósito I26, estoques de lotes, sem linhas zeradas, sem valores, representação
+  hierárquica, variante de exibição `/JEFERSON`, gravada como HTML em `MB52.htm`.
+- **Instalar (uma vez, no PC com SAP GUI):** `automacao\configurar_robo.bat`. Ele pede usuário, senha e o nome da
+  conexão no SAP Logon, testa uma exportação e agenda o robô nos dias úteis (padrão 06:30 e 12:30).
+- **Senha:** fica no Gerenciador de Credenciais do Windows, criptografada para o seu usuário. Nunca vai para
+  arquivo do projeto nem para o GitHub. Trocou a senha do SAP? Rode o `configurar_robo.bat` de novo.
+- **No site:** quem é editor ou administrador vê o botão **Buscar no SAP agora** (barra lateral e Fontes de
+  dados) quando o site roda nesse mesmo PC. A página Fontes de dados mostra o resultado de cada transação e o
+  registro do robô.
+- **Pré-requisito:** SAP GUI Scripting habilitado (SAP GUI › Opções › Acessibilidade e scripting › Scripting).
+- **Nova transação:** acrescente um bloco `[[transacao]]` em `transacoes.toml`. Se um campo tiver outro ID no seu
+  SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
+  o ID.
 
 ## Configuração
 
@@ -125,5 +152,5 @@ uv run streamlit run streamlit_app.py
 uv run pytest
 ```
 
-Estrutura: `central/` (leitura dos arquivos, fontes, preparação das bases, login, interface),
-`paginas/` (uma por tela), `tests/`.
+Estrutura: `central/` (leitura dos arquivos, fontes — pastas, SharePoint ou GitHub —, preparação das
+bases, login, interface), `paginas/` (uma por tela), `sincronizador/` (agente PC → nuvem), `tests/`.

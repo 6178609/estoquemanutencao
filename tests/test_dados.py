@@ -161,7 +161,9 @@ def test_inventario_usa_o_mais_recente_e_respeita_fixado(tmp_path, monkeypatch):
     inv = bases.inventario()
     assert inv.ativos[IW38].arquivo.id == str(novo)
     assert MB52 not in inv.ativos
-    assert len(bases.iw38().df) == 2
+    # vários exports do IW38 se somam: ordens 1 e 2 do novo + 3 e 5 do antigo (a 4 é da Fábrica Piloto)
+    assert sorted(bases.iw38().df["Ordem"]) == ["1", "2", "3", "5"]
+    assert [o.arquivo.id for o in inv.usados[IW38]] == [str(novo), str(velho)]
 
     bases.fixar_origem(IW38, str(velho))
     assert bases.inventario().ativos[IW38].arquivo.id == str(velho)
@@ -206,3 +208,59 @@ def test_regras_de_senha_e_login():
     assert not auth.validar_senha("boa12345")
     assert auth.validar_login("Jeferson")  # maiúscula não
     assert not auth.validar_login("jeferson.silva")
+
+
+# ----------------------------------------------------------------------------
+# pasta Downloads
+# ----------------------------------------------------------------------------
+def test_planilhas_baixadas_do_site_nao_viram_base(tmp_path):
+    from central.leitura import eh_recorte
+
+    # "Baixar Excel" das telas Ordens e Requisições: colunas parecidas com as do SAP, mas são recortes
+    ordens_site = pd.DataFrame({"Ordem": ["1"], "Tipo": ["YM01"], "Status usuário": ["PLA"], "Situação": ["Aberta"],
+                                "Natureza": ["Corretiva / avulsa"]})
+    req_site = pd.DataFrame({"Requisição": ["R1"], "Status": ["Pendente"], "Dias aguardando": [3], "Total": [10.0]})
+    assert leitura.identificar(ordens_site.columns) is None
+    assert leitura.identificar(req_site.columns) is None
+    assert eh_recorte("IW38_filtrado.csv") and eh_recorte("ordens_filtradas.xlsx")
+    assert not eh_recorte("IW38BK.XLSX")
+    buf = io.BytesIO()
+    iw38_cru().to_excel(buf, index=False)
+    assert leitura.sondar("IW38_filtrado.xlsx", buf.getvalue()) == []
+    assert leitura.sondar("export.XLSX", buf.getvalue()) == [(IW38, "Sheet1", 0)]
+
+
+def test_downloads_sem_subpastas_e_sem_cadastros(tmp_path, monkeypatch):
+    from central import config
+
+    dl = tmp_path / "Downloads"
+    (dl / "zip extraido").mkdir(parents=True)
+    (dl / "IW38.xlsx").write_bytes(b"x")
+    (dl / "zip extraido" / "outra.xlsx").write_bytes(b"x")
+    nomes = [a.arquivo for a in Pastas([dl], tmp_path / "app").listar()]
+    assert nomes == ["IW38.xlsx"]
+
+    # cópias das pastas do OneDrive dentro da Downloads entram com subpastas, sem repetir arquivos
+    ind = dl / "0.1 - Indicadores" / "2026"
+    ind.mkdir(parents=True)
+    (ind / "IP19.xlsx").write_bytes(b"x")
+    for ordem in ([dl, dl / "0.1 - Indicadores"], [dl / "0.1 - Indicadores", dl]):
+        nomes = sorted(a.arquivo for a in Pastas(ordem, tmp_path / "app").listar())
+        assert nomes == ["IP19.xlsx", "IW38.xlsx"]
+
+    monkeypatch.setenv("CENTRAL_PASTAS", str(dl))
+    monkeypatch.delenv("CENTRAL_PASTA_APP", raising=False)
+    assert config.carregar().pasta_app == config.RAIZ / "dados"  # nada é gravado na Downloads
+    onedrive = tmp_path / "1.3 - Controle de Estoque"
+    monkeypatch.setenv("CENTRAL_PASTAS", f"{dl};{onedrive}")
+    assert config.carregar().pasta_app == onedrive / config.NOME_PASTA_APP
+
+
+def test_pasta_site_entra_nas_padrao_sem_virar_pasta_dos_cadastros(tmp_path, monkeypatch):
+    from central import config
+
+    assert "~/Downloads/SITE" in config.PASTAS_PADRAO
+    onedrive = tmp_path / "1.3 - Controle de Estoque"
+    site = tmp_path / "Downloads" / "SITE"
+    monkeypatch.setenv("CENTRAL_PASTAS", f"{onedrive};{site}")
+    assert config.carregar().pasta_app == onedrive / config.NOME_PASTA_APP

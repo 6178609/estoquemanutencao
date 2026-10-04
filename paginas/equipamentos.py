@@ -16,6 +16,8 @@ if not ui.aviso_base(base, IW38):
 
 df, todas, desc = ui.filtros_ordens(base.df)
 estoque = bases.mb52()
+ih08 = bases.equipamentos().df        # cadastro do SAP (nome, localização, código ABC)
+notas = bases.notas().df
 cad = bases.ler_cadastro(bases.ARQ_CAD_EQUIP)
 cad_mat = bases.ler_cadastro(bases.ARQ_CAD_MAT)
 CRITICIDADES = ["Alta", "Média", "Baixa"]
@@ -61,14 +63,30 @@ extras = [k for k in cad if k not in set(tab["Código"])]
 if extras:
     tab = pd.concat([tab, pd.DataFrame({"Código": extras, "Nome": [cad[k].get("nome", "") for k in extras]})], ignore_index=True)
     tab = tab.fillna({"Ordens": 0, "Corretivas": 0, "Custo": 0.0, "Pendentes": 0, "Local": "", "Centro": ""})
-tab["Criticidade"] = tab["Código"].map(lambda k: (cad.get(k) or {}).get("criticidade", ""))
+if ih08 is not None:
+    ref = ih08.set_index("Equipamento")
+    tab["ABC"] = tab["Código"].map(ref["Código ABC"]).fillna("")
+    tab["Nome"] = tab["Nome"].where(tab["Nome"].fillna("") != "", tab["Código"].map(ref["Denominação"])).fillna("")
+    tab["Desativado"] = tab["Código"].map(ref["Desativado"]).fillna(False).astype(bool)
+else:
+    tab["ABC"], tab["Desativado"] = "", False
+# criticidade: a cadastrada no site vale; sem cadastro, vem do código ABC do SAP (IH08)
+tab["Criticidade"] = [(cad.get(k) or {}).get("criticidade") or bases.ABC_PARA_CRITICIDADE.get(a, "")
+                      for k, a in zip(tab["Código"], tab["ABC"])]
+if notas is not None:
+    por_eq = notas.groupby("Equip. (chave)").agg(Notas=("Nota", "size"), Paradas=("Com parada", "sum"),
+                                                  _sem=("Com ordem", lambda s: int((~s).sum())))
+    tab["Notas"] = tab["Código"].map(por_eq["Notas"]).fillna(0).astype(int)
+    tab["Notas sem ordem"] = tab["Código"].map(por_eq["_sem"]).fillna(0).astype(int)
+    tab["Paradas"] = tab["Código"].map(por_eq["Paradas"]).fillna(0).astype(int)
 tab["Categoria"] = tab["Código"].map(lambda k: (cad.get(k) or {}).get("categoria", ""))
 tab["Peças"] = tab["Código"].map(lambda k: len((cad.get(k) or {}).get("materiais", [])))
 tab["Peças em falta"] = tab["Código"].map(lambda k: sem_estoque((cad.get(k) or {}).get("materiais", [])))
 
 c = st.columns(4)
 c[0].metric("Equipamentos com ordens", inteiro((tab["Ordens"] > 0).sum()), f"período: {desc}", delta_color="off", border=True, delta_arrow="off")
-c[1].metric("Classificados", inteiro((tab["Criticidade"] != "").sum()), f"{inteiro((tab['Criticidade'] == 'Alta').sum())} de criticidade alta",
+c[1].metric("Criticidade alta", inteiro((tab["Criticidade"] == "Alta").sum()),
+            "classe A no SAP (IH08) ou cadastrada no site" if ih08 is not None else "cadastrada no site",
             delta_color="off", border=True, delta_arrow="off")
 c[2].metric("Com ordens pendentes", inteiro((tab["Pendentes"] > 0).sum()), border=True, delta_arrow="off")
 c[3].metric("Com peça em falta", inteiro((tab["Peças em falta"] > 0).sum()), "peças vinculadas sem estoque / abaixo do mínimo",
@@ -94,7 +112,8 @@ if so_periodo:
     m &= tab["Ordens"] > 0
 vis = tab.loc[m].sort_values(["Custo", "Ordens"], ascending=False).reset_index(drop=True)
 
-COLS = ["Código", "Nome", "Criticidade", "Categoria", "Local", "Centro", "Ordens", "Corretivas", "Custo", "Pendentes",
+COLS = ["Código", "Nome", "Criticidade", "ABC", "Categoria", "Local", "Centro", "Ordens", "Corretivas", "Custo", "Pendentes",
+        *(["Notas", "Notas sem ordem", "Paradas"] if notas is not None else []),
         "Última", "Peças", "Peças em falta"]
 ev = st.dataframe(vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(380), on_select="rerun",
                   selection_mode="single-row", key="eq_tabela",
@@ -172,6 +191,15 @@ with g:
     st.dataframe(hist[["Ordem", "Data", "Tipo", "Natureza", "Texto", "Situação", "Custo real"]].head(300), hide_index=True,
                  width="stretch", height=ui.altura_tabela(280),
                  column_config={"Data": ui.col_data(), "Custo real": ui.col_moeda(), "Texto": st.column_config.TextColumn(width="large")})
+    if notas is not None:
+        ne = notas[notas["Equip. (chave)"] == sel].sort_values("Data", ascending=False)
+        st.markdown(f"**Notas do equipamento (IW28)** — {inteiro(len(ne))} notas, "
+                    f"{inteiro(ne['Com parada'].sum())} com parada, {inteiro((~ne['Com ordem']).sum())} sem ordem")
+        if len(ne):
+            st.dataframe(ne[["Nota", "Data", "Tipo de nota", "Descrição", "Com parada", "Ordem", "Notificador"]].head(200),
+                         hide_index=True, width="stretch", height=ui.altura_tabela(220),
+                         column_config={"Data": ui.col_data(), "Com parada": st.column_config.CheckboxColumn("Parada"),
+                                        "Descrição": st.column_config.TextColumn(width="large")})
 
 with form, st.container(border=True):
     st.markdown("**Cadastro** — fica salvo na pasta compartilhada; todos veem")
@@ -184,7 +212,9 @@ with form, st.container(border=True):
     if not edita:
         st.caption(":material/lock: Seu perfil é de consulta — peça a um editor para alterar o cadastro.")
     with st.form(f"cad_{sel}"):
-        cr = st.selectbox("Criticidade", CRITICIDADES, index=CRITICIDADES.index(info["criticidade"]) if info.get("criticidade") in CRITICIDADES else 1)
+        crit_atual = info.get("criticidade") or dict(zip(tab["Código"], tab["Criticidade"])).get(sel, "")
+        cr = st.selectbox("Criticidade", CRITICIDADES, index=CRITICIDADES.index(crit_atual) if crit_atual in CRITICIDADES else 1,
+                          help="Sem cadastro aqui, vale o código ABC do SAP (IH08): A = Alta, B = Média, C = Baixa.")
         ca = st.selectbox("Categoria", CATEGORIAS, index=CATEGORIAS.index(info["categoria"]) if info.get("categoria") in CATEGORIAS else 0)
         ob = st.text_area("Observações", info.get("observacoes", ""), placeholder="Função, cuidados, histórico relevante…")
         mats = st.multiselect("Peças de reposição (materiais do MB52)", opcoes_mat, default=atuais,

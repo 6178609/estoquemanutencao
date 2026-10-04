@@ -179,7 +179,9 @@ def barra_lateral(usuario: dict | None = None) -> None:
             if anterior is not None and anterior != ass:
                 st.toast("Arquivo novo encontrado — dados atualizados.", icon=":material/sync:")
                 st.rerun(scope="app")
-            chips = "".join([chip_base(bases.iw38(), "IW38"), chip_base(bases.mb52(), "MB52"),
+            chips = "".join([chip_base(bases.iw38(), "IW38"), chip_base(bases.ip19(), "IP19"),
+                             chip_base(bases.operacoes(), "IW38OP"), chip_base(bases.notas(), "IW28"),
+                             chip_base(bases.equipamentos(), "IH08"), chip_base(bases.mb52(), "MB52"),
                              chip_base(bases.requisicoes(), "Requisições")])
             st.markdown(chips, unsafe_allow_html=True)
             st.caption(f":material/sync: Verificação automática a cada {cfg.intervalo_verificacao}s · "
@@ -189,6 +191,30 @@ def barra_lateral(usuario: dict | None = None) -> None:
         if st.button("Atualizar agora", icon=":material/refresh:", width="stretch"):
             bases.recarregar()
             st.rerun()
+        botao_robo(lateral=True)
+
+
+def botao_robo(lateral: bool = False) -> None:
+    """Botão que manda o robô buscar os dados no SAP (só no PC com o robô configurado)."""
+    from . import auth, robo
+
+    if not robo.disponivel() or not auth.pode_editar(auth.usuario_atual()):
+        return
+    st_ = robo.status()
+    if robo.rodando():
+        st.caption(":material/hourglass_top: Robô do SAP trabalhando… as telas se atualizam quando os arquivos chegarem.")
+    elif st.button("Buscar no SAP agora", icon=":material/cloud_download:", width="stretch",
+                   key="robo_lateral" if lateral else "robo_pagina",
+                   help="Abre o SAP, exporta as transações configuradas e grava na pasta do site."):
+        robo.iniciar()
+        st.toast("Robô do SAP iniciado. Os dados aparecem sozinhos quando os arquivos forem gravados.",
+                 icon=":material/smart_toy:")
+    if st_.get("fim") and not st_.get("em_andamento"):
+        quando = local(datetime.fromisoformat(st_["fim"]))
+        if st_.get("ok"):
+            st.caption(f":material/check_circle: Última busca no SAP: {quando}")
+        else:
+            st.caption(f":material/error: Última busca no SAP falhou ({quando}) — veja Fontes de dados.")
 
 
 def logos() -> None:

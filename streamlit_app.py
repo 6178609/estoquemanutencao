@@ -29,6 +29,8 @@ paginas = st.navigation(
         "Gestão": [
             st.Page("paginas/painel.py", title="Painel", icon=":material/dashboard:", default=True),
             st.Page("paginas/ordens.py", title="Ordens", icon=":material/assignment:"),
+            st.Page("paginas/planos.py", title="Planos", icon=":material/calendar_month:"),
+            st.Page("paginas/notas.py", title="Notas", icon=":material/notification_important:"),
             st.Page("paginas/equipamentos.py", title="Equipamentos", icon=":material/precision_manufacturing:"),
         ],
         "Suprimentos": [

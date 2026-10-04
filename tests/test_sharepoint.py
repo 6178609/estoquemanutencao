@@ -123,7 +123,7 @@ def test_modo_nuvem_le_as_duas_pastas_e_grava_cadastro(graph):
     inv = bases.inventario()
     assert inv.ativos[IW38].arquivo.id == "0.1 - Indicadores/2026/Outubro/export.XLSX"  # o mais recente
     assert inv.ativos[MB52].arquivo.id == "1.3 - Controle de Estoque/MB52 atual.xlsx"
-    assert len(bases.iw38().df) == 2
+    assert sorted(bases.iw38().df["Ordem"]) == ["1", "2", "3", "5"]  # os dois exports somados
     assert bases.mb52().df["Estoque"].sum() == 3
 
     # 1º cadastro: a pasta do app não existe e é criada
