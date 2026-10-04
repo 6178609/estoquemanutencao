@@ -11,7 +11,7 @@ Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embut
 
 ```
 SAP (IW38 / MB52 / requisições)
-   │  export manual ou automatico (automacao/exportar_sap.vbs + Agendador de Tarefas)
+   │  export manual ou pelo robô do SAP (automacao/robo_sap.py: agendado ou pelo botão do site)
    ▼
 Pastas do SharePoint sincronizadas pelo OneDrive
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque
@@ -107,18 +107,25 @@ Os filtros de **período, centro de trabalho e tipo de ordem** ficam na barra la
 Ordens e Equipamentos. Por padrão o período é "últimos 12 meses" (até hoje); ordens com data-base futura
 entram em "Tudo" ou num período personalizado.
 
-## Exportação automática do SAP (opcional)
+## Robô do SAP (exportação automática)
 
-`automacao/exportar_sap.vbs` abre a IW38 e a MB52 com uma variante salva (`/CENTRAL`) e grava `IW38.XLSX` e
-`MB52.XLSX` em `0.1 - Indicadores\Exportacao SAP`. Requer SAP GUI aberto e **SAP GUI Scripting habilitado**.
-Os IDs de tela variam com a versão do SAP GUI: se algum passo falhar, grave a exportação uma vez com
-*Script Recording and Playback* e ajuste o trecho indicado no script.
+`automacao/robo_sap.py` faz no SAP GUI o que uma pessoa faria: usa a sessão do SAP já aberta (ou abre o SAP Logon
+e faz login no mandante 702), roda cada transação de `automacao/transacoes.toml` com os filtros definidos lá e grava
+o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior.
 
-Para rodar todo dia às 7h:
-
-```bat
-schtasks /create /tn "Central Manutencao - export SAP" /tr "wscript.exe \"C:\CentralManutencao\automacao\exportar_sap.vbs\"" /sc daily /st 07:00
-```
+- **Hoje:** MB52 — centro A026, depósito I26, estoques de lotes, sem linhas zeradas, sem valores, representação
+  hierárquica, variante de exibição `/JEFERSON`, gravada como HTML em `MB52.htm`.
+- **Instalar (uma vez, no PC com SAP GUI):** `automacao\configurar_robo.bat`. Ele pede usuário, senha e o nome da
+  conexão no SAP Logon, testa uma exportação e agenda o robô nos dias úteis (padrão 06:30 e 12:30).
+- **Senha:** fica no Gerenciador de Credenciais do Windows, criptografada para o seu usuário. Nunca vai para
+  arquivo do projeto nem para o GitHub. Trocou a senha do SAP? Rode o `configurar_robo.bat` de novo.
+- **No site:** quem é editor ou administrador vê o botão **Buscar no SAP agora** (barra lateral e Fontes de
+  dados) quando o site roda nesse mesmo PC. A página Fontes de dados mostra o resultado de cada transação e o
+  registro do robô.
+- **Pré-requisito:** SAP GUI Scripting habilitado (SAP GUI › Opções › Acessibilidade e scripting › Scripting).
+- **Nova transação:** acrescente um bloco `[[transacao]]` em `transacoes.toml`. Se um campo tiver outro ID no seu
+  SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
+  o ID.
 
 ## Configuração
 

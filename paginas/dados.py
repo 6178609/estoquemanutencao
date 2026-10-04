@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 
@@ -99,6 +101,27 @@ for tipo in TIPOS:
             except Exception as e:  # noqa: BLE001
                 st.error(f"Arquivo não aceito: {e}")
 
+from central import robo  # noqa: E402
+
+with st.container(border=True):
+    st.markdown("#### :material/smart_toy: Robô do SAP")
+    if robo.disponivel():
+        st_ = robo.status()
+        ui.botao_robo()
+        if st_.get("transacoes"):
+            st.dataframe(pd.DataFrame([{"Transação": k, "Resultado": "OK" if v.get("ok") else "Falhou",
+                                        "Quando": ui.local(datetime.fromisoformat(v["em"])) if v.get("em") else "",
+                                        "Detalhe": v.get("arquivo") or v.get("mensagem", "")}
+                                       for k, v in st_["transacoes"].items()]), hide_index=True, width="stretch")
+        if st_.get("erro"):
+            st.error(st_["erro"])
+        with st.expander("Últimas linhas do registro do robô"):
+            st.code(robo.ultimas_linhas_do_log() or "(vazio)", language=None)
+    else:
+        st.caption("O robô exporta sozinho as transações do SAP (hoje: MB52) para a pasta do site. Ele roda no PC "
+                   "que tem o SAP GUI: rode `automacao\\configurar_robo.bat` nesse PC e o botão **Buscar no SAP "
+                   "agora** aparece aqui e na barra lateral (quando o site estiver rodando nesse mesmo PC).")
+
 with st.expander("Como deixar tudo automático (sem ninguém importar nada)", icon=":material/bolt:", expanded=False):
     st.markdown(
         """
@@ -106,9 +129,9 @@ with st.expander("Como deixar tudo automático (sem ninguém importar nada)", ic
    Pode sobrescrever o mesmo arquivo (ex.: `IW38BK.XLSX`) ou criar um por dia: o app usa o mais recente.
 2. **O OneDrive sincroniza** a pasta com o SharePoint; o app percebe a mudança em até um minuto e
    atualiza todas as telas abertas.
-3. **Para tirar até o export manual**, use o script `automacao/exportar_sap.vbs` (SAP GUI Scripting)
-   agendado no Agendador de Tarefas do Windows — ele abre a IW38/MB52 com uma variante salva e grava o
-   arquivo na pasta. Instruções no `README.md` do projeto.
+3. **Para tirar até o export manual**, use o robô do SAP (`automacao\\configurar_robo.bat`): ele abre o
+   SAP, faz login se precisar, roda as transações de `automacao/transacoes.toml` e grava na pasta do site,
+   nos horários agendados ou quando alguém clica em **Buscar no SAP agora**.
 4. **Cadastros** (criticidade, peças por equipamento, estoque mínimo) ficam em arquivos `.json` na pasta
    do app, também sincronizada — todos que abrem o app veem as mesmas informações.
 """

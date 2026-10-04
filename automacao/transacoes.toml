@@ -1,0 +1,49 @@
+# Transações que o robô do SAP exporta (automacao/robo_sap.py).
+#
+# Cada [[transacao]] descreve o que uma pessoa faria na tela:
+#   campos      → texto digitado em cada campo da tela de seleção
+#   marcar      → caixas de seleção (true = marcada, false = desmarcada)
+#   selecionar  → botões de opção (radio) a escolher
+#   exportar    → como salvar o resultado:
+#                   "lista" = Lista › Gravar › Arquivo (botão "Gravar lista em file")
+#   formato     → formato na janela "Em que formato a lista deve ser gravada?":
+#                   "nao_convertido", "tabulado", "rtf", "html"
+#
+# Os nomes entre aspas ("wnd[0]/usr/ctxtWERKS-LOW"…) são os IDs dos campos no SAP GUI.
+# Se algum não bater com o seu SAP, o robô diz qual passo falhou; grave a transação
+# uma vez em Alt+F12 › Script Recording and Playback e copie o ID certo para cá.
+
+# Pasta onde os arquivos são gravados (o site e o sincronizador leem daqui).
+pasta_destino = '~\Downloads\SITE'
+
+[sap]
+mandante = "702"
+idioma = "PT"
+# Nome da conexão no SAP Logon (a linha que você clica duas vezes para entrar).
+# Só é usado quando o SAP não está aberto; com o SAP aberto, o robô usa a sessão atual.
+conexao = ""
+
+# ---------------------------------------------------------------------------
+# MB52 — estoque do depósito I26 (passo a passo enviado pelo PCM em 04/10/2026)
+# ---------------------------------------------------------------------------
+[[transacao]]
+nome = "MB52"
+codigo = "MB52"
+arquivo = "MB52.htm"
+exportar = "lista"
+formato = "html"
+
+[transacao.campos]
+"wnd[0]/usr/ctxtMATNR-LOW" = ""          # Material: todos
+"wnd[0]/usr/ctxtWERKS-LOW" = "A026"      # Centro
+"wnd[0]/usr/ctxtLGORT-LOW" = "I26"       # Depósito
+"wnd[0]/usr/ctxtP_VARI" = "/JEFERSON"    # Variante de exibição
+
+[transacao.marcar]
+"wnd[0]/usr/chkNEGATIV" = false          # Exibir só estoques negativos
+"wnd[0]/usr/chkXMCHB" = true             # Exibir estoques de lotes
+"wnd[0]/usr/chkNOZERO" = true            # Sem linhas estoque zero
+"wnd[0]/usr/chkNOVALUES" = true          # Não exibir valores
+
+[transacao.selecionar]
+hierarquica = "wnd[0]/usr/radPA_HIER"    # Representação hierárquica

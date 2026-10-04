@@ -176,3 +176,10 @@ sincronizador/estado.json
 sincronizador/*.log
 sincronizador/.trava
 sincronizador/*.tmp
+
+# Robô do SAP: dados deste PC
+automacao/robo_local.toml
+automacao/robo_status.json
+automacao/*.log
+automacao/.robo.trava
+automacao/*.tmp
