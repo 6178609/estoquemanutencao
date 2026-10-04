@@ -4,7 +4,8 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import auth, bases, ui
+from central import auth, bases, contexto, ui
+from central import indicadores as ind
 from central.leitura import IW38
 from central.util import brl, inteiro, sem_acento
 
@@ -276,7 +277,9 @@ if visao == VISOES[0]:
 if not ui.aviso_base(base, IW38):
     st.stop()
 
-df, todas, desc = ui.filtros_ordens(base.df)
+fg = contexto.filtros_globais()
+todas = fg.ordens(base.df)
+df, desc = fg.periodo(todas), fg.desc
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -396,6 +399,26 @@ k[3].metric("Intervalo médio do backlog", f"{intervalo:.0f} dias" if intervalo 
             help="Média de dias entre uma ordem de backlog (sem plano) e a seguinte (aproxima o MTBF).")
 k[4].metric("Pendentes hoje", inteiro(hist["Situação"].isin(bases.PENDENTES).sum()),
             f"{inteiro(hist['Atrasada'].sum())} atrasadas", delta_color="off", border=True, delta_arrow="off")
+
+q_eq = ind.quebras(contexto.dados(contexto.Filtros(fg.ini, fg.fim)))
+q_eq = q_eq[q_eq["Equip. (chave)"] == sel] if len(q_eq) else q_eq
+q_per = q_eq[ui.entre(q_eq["Data"], fg.ini, fg.fim)] if len(q_eq) else q_eq
+dias_per = (pd.Timestamp(fg.fim) - pd.Timestamp(fg.ini)).days + 1
+conf_all = bases.confirmacoes().df
+hh_eq = (conf_all[conf_all["Ordem"].isin(set(hist["Ordem"]))]["Horas"].sum() if conf_all is not None else None)
+k = st.columns(5)
+k[0].metric("Quebras no período", inteiro(len(q_per)), f"{inteiro(len(q_eq))} em todas as datas", delta_color="off",
+            border=True, delta_arrow="off", help="Notas da IW28 com parada de máquina neste equipamento.")
+k[1].metric("MTBF no período", f"{dias_per / len(q_per):.0f} dias" if len(q_per) else "—", border=True, delta_arrow="off",
+            help=ind.POR_ID["mtbf"].formula)
+rep = q_per["Horas de reparo"].dropna() if len(q_per) else pd.Series(dtype=float)
+rep = rep[rep > 0]
+k[2].metric("MTTR no período", f"{rep.mean():.1f} h".replace(".", ",") if len(rep) else "—", border=True,
+            delta_arrow="off", help=ind.POR_ID["mttr"].formula)
+k[3].metric("Reincidências (≤ 30 dias)", inteiro(q_per["Reincidente"].sum()) if len(q_per) else "0", border=True,
+            delta_arrow="off")
+k[4].metric("HH apontadas (IW47)", f"{inteiro(hh_eq)} h" if hh_eq is not None else "—",
+            "nas ordens do IW38 deste equipamento", delta_color="off", border=True, delta_arrow="off")
 
 g, lado = st.columns([3, 2])
 with g:
