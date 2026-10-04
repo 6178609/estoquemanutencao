@@ -1,0 +1,22 @@
+# Visita o app publicado no Streamlit Cloud a cada 6 horas para ele não "dormir".
+# Configure em Settings > Secrets and variables > Actions > Variables:
+#   APP_URL = endereço do app (ex.: https://central-manutencao-f26.streamlit.app)
+name: Manter app acordado
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  visitar:
+    if: ${{ vars.APP_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install playwright==1.56.0 && playwright install --with-deps chromium
+      - run: python ferramentas/acordar_app.py "${{ vars.APP_URL }}"

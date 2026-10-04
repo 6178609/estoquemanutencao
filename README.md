@@ -30,7 +30,18 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
   arquivos `.json` na subpasta **`Central de Manutenção (app)`**, dentro da pasta sincronizada — então
   são compartilhados com toda a equipe.
 
-## Como usar (Windows)
+## Site online 24h (nuvem)
+
+O app pode ficar publicado no **Streamlit Community Cloud**, com um endereço que abre de qualquer lugar.
+Nesse modo ele lê as mesmas pastas direto do SharePoint pela API da Microsoft. Para isso a TI precisa
+registrar um aplicativo com acesso ao site PCMF26 (uma vez só).
+
+- Passo a passo de publicação: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
+- Texto pronto para a TI: [`docs/PEDIDO_TI_SHAREPOINT.md`](docs/PEDIDO_TI_SHAREPOINT.md)
+- O workflow `.github/workflows/manter-app-acordado.yml` visita o app a cada 6 h para ele não entrar em
+  modo de espera.
+
+## Como usar no PC (Windows)
 
 1. Baixe o projeto (botão **Code › Download ZIP** no GitHub) e descompacte, por exemplo em `C:\CentralManutencao`.
 2. Dê **duplo clique em `iniciar.bat`**. Na primeira vez ele instala o Python/dependências (alguns minutos).
@@ -92,8 +103,8 @@ schtasks /create /tn "Central Manutencao - export SAP" /tr "wscript.exe \"C:\Cen
 ## Configuração
 
 Tudo tem padrão; só crie `.streamlit/secrets.toml` (modelo em `.streamlit/secrets.toml.exemplo`) se precisar
-mudar pastas, intervalo de verificação, desligar o login ou usar o **modo SharePoint** (lê direto da
-biblioteca pelo Microsoft Graph — útil para hospedar o app na nuvem; exige um app registrado no Azure pela TI).
+mudar pastas, intervalo de verificação, desligar o login ou ligar o **modo SharePoint**. Esse modo lê
+direto da biblioteca pelo Microsoft Graph e é o que o app usa na nuvem.
 
 Visual: verde e grafite do logo SIM e cores do logo Alpargatas (`.streamlit/config.toml`), com tema claro e
 escuro (menu ⋮ › Settings). Para trocar os logos, substitua `assets/logo_sim.png` e `assets/logo_alpargatas.png`.

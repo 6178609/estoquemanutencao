@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import PurePath
@@ -42,13 +43,17 @@ def fonte():
     return _fonte_cacheada(config.carregar().chave)
 
 
-@st.cache_data(ttl=15, show_spinner=False)
-def _listar(chave_cfg: str) -> list[fontes.Arquivo]:
+@st.cache_data(show_spinner=False, max_entries=4)
+def _listar(chave_cfg: str, janela: int) -> list[fontes.Arquivo]:  # janela = chave de tempo do cache
     return sorted(fonte().listar(), key=lambda a: a.modificado, reverse=True)
 
 
 def arquivos() -> list[fontes.Arquivo]:
-    return _listar(config.carregar().chave)
+    """Lista da fonte, compartilhada por todos os usuários. Pastas locais são relidas a
+    cada 15 s; o SharePoint, uma vez por intervalo de verificação (poupa a API)."""
+    cfg = config.carregar()
+    passo = cfg.intervalo_verificacao if cfg.fonte == "sharepoint" else 15
+    return _listar(cfg.chave, int(time.time() // passo))
 
 
 @st.cache_data(show_spinner=False, max_entries=24)

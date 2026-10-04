@@ -106,7 +106,12 @@ class Pastas:
 
 
 class SharePoint:
-    """Pasta de uma biblioteca do SharePoint via Microsoft Graph (credencial de aplicativo)."""
+    """Pastas de uma biblioteca do SharePoint via Microsoft Graph (credencial de aplicativo).
+
+    Usado quando o app roda na nuvem e não enxerga o OneDrive de ninguém. Lê as
+    mesmas pastas e grava cadastros/usuários na mesma subpasta do app que o modo
+    local usa — então os dois modos compartilham usuários e cadastros.
+    """
 
     GRAPH = "https://graph.microsoft.com/v1.0"
 
@@ -116,14 +121,17 @@ class SharePoint:
             raise FonteErro("Configuração do SharePoint incompleta: " + ", ".join(faltando))
         self.cfg = cfg
         self.profundidade = cfg.profundidade
-        self.descricao = f"SharePoint {cfg.sp_site}/{cfg.sp_pasta}"
+        self.pastas = list(cfg.sp_pastas)
+        self.pasta_app = cfg.sp_pasta_app
+        self.descricao = f"SharePoint {cfg.sp_site} › " + " · ".join(self.pastas)
         self._token = ("", 0.0)
         self._site_id = ""
+        self._sessao = requests.Session()
 
     def _cabecalhos(self) -> dict:
         token, expira = self._token
         if time.time() > expira - 120:
-            r = requests.post(
+            r = self._sessao.post(
                 f"https://login.microsoftonline.com/{self.cfg.sp_tenant_id}/oauth2/v2.0/token",
                 data={
                     "grant_type": "client_credentials",
@@ -140,8 +148,18 @@ class SharePoint:
             self._token = (token, expira)
         return {"Authorization": f"Bearer {token}"}
 
+    def _pedir(self, metodo: str, url: str, **kw) -> requests.Response:
+        """Requisição com nova tentativa quando o SharePoint pede para esperar (429/503)."""
+        extras, prazo = kw.pop("headers", {}), kw.pop("timeout", 120)
+        for tentativa in range(4):
+            r = self._sessao.request(metodo, url, headers={**self._cabecalhos(), **extras}, timeout=prazo, **kw)
+            if r.status_code not in (429, 503) or tentativa == 3:
+                return r
+            time.sleep(min(30, int(r.headers.get("Retry-After", 2 ** tentativa))))
+        return r
+
     def _get(self, url: str) -> requests.Response:
-        r = requests.get(url, headers=self._cabecalhos(), timeout=120)
+        r = self._pedir("GET", url)
         if r.status_code >= 400:
             raise FonteErro(f"Erro {r.status_code} no SharePoint: {r.text[:300]}")
         return r
@@ -156,39 +174,61 @@ class SharePoint:
         return f"{base}:/{quote(caminho)}:" if caminho else base
 
     def listar(self) -> list[Arquivo]:
-        itens = []
-        fila = [(self.cfg.sp_pasta, 0)]
-        while fila:
-            pasta, nivel = fila.pop()
-            url = f"{self._url_item(pasta)}/children?$select=name,lastModifiedDateTime,size,file,folder&$top=500"
-            while url:
-                j = self._get(url).json()
-                for it in j.get("value", []):
-                    caminho = f"{pasta}/{it['name']}" if pasta else it["name"]
-                    if "folder" in it and nivel + 1 < self.profundidade and not it["name"].startswith((".", "~")):
-                        fila.append((caminho, nivel + 1))
-                    elif "file" in it and not _ignorar(it["name"]):
-                        mod = datetime.fromisoformat(it["lastModifiedDateTime"].replace("Z", "+00:00"))
-                        itens.append(Arquivo(caminho, caminho, mod, int(it.get("size", 0))))
-                url = j.get("@odata.nextLink")
+        itens, vistos = [], set()
+        raizes = list(dict.fromkeys([*self.pastas, self.pasta_app]))
+        # a pasta do app normalmente fica dentro da primeira pasta: não lista duas vezes
+        raizes = [r for r in raizes if not any(r != o and r.startswith(o + "/") for o in raizes)]
+        for raiz in raizes:
+            fila = [(raiz, 0)]
+            while fila:
+                pasta, nivel = fila.pop()
+                url = f"{self._url_item(pasta)}/children?$select=name,lastModifiedDateTime,size,file,folder&$top=999"
+                while url:
+                    r = self._pedir("GET", url)
+                    if r.status_code == 404:  # pasta ainda não existe (ex.: pasta do app antes do 1º cadastro)
+                        break
+                    if r.status_code >= 400:
+                        raise FonteErro(f"Erro {r.status_code} ao listar '{pasta}' no SharePoint: {r.text[:300]}")
+                    j = r.json()
+                    for it in j.get("value", []):
+                        caminho = f"{pasta}/{it['name']}" if pasta else it["name"]
+                        if "folder" in it:
+                            if nivel + 1 < self.profundidade and not it["name"].startswith((".", "~")):
+                                fila.append((caminho, nivel + 1))
+                        elif "file" in it and not _ignorar(it["name"]) and caminho not in vistos:
+                            vistos.add(caminho)
+                            mod = datetime.fromisoformat(it["lastModifiedDateTime"].replace("Z", "+00:00"))
+                            itens.append(Arquivo(caminho, caminho, mod, int(it.get("size", 0))))
+                    url = j.get("@odata.nextLink")
         return itens
 
     def ler(self, id: str) -> bytes:
         return self._get(f"{self._url_item(id)}/content").content
 
     def id_de(self, nome: str) -> str:
-        return f"{self.cfg.sp_pasta}/{nome}" if self.cfg.sp_pasta else nome
+        return f"{self.pasta_app}/{nome}" if self.pasta_app else nome
+
+    def _criar_pastas(self, caminho: str) -> None:
+        atual = ""
+        for parte in [p for p in caminho.split("/") if p]:
+            pai = atual
+            atual = f"{atual}/{parte}" if atual else parte
+            if self._pedir("GET", self._url_item(atual)).status_code == 404:
+                r = self._pedir("POST", f"{self._url_item(pai)}/children",
+                                json={"name": parte, "folder": {}, "@microsoft.graph.conflictBehavior": "fail"})
+                if r.status_code >= 400 and r.status_code != 409:
+                    raise FonteErro(f"Erro {r.status_code} ao criar a pasta '{atual}' no SharePoint: {r.text[:300]}")
 
     def gravar(self, nome: str, conteudo: bytes) -> str:
         caminho = self.id_de(nome)
-        r = requests.put(
-            f"{self._url_item(caminho)}/content",
-            headers={**self._cabecalhos(), "Content-Type": "application/octet-stream"},
-            data=conteudo,
-            timeout=300,
-        )
+        url = f"{self._url_item(caminho)}/content"
+        cab = {"Content-Type": "application/octet-stream"}
+        r = self._pedir("PUT", url, headers=cab, data=conteudo, timeout=300)
+        if r.status_code == 404 and self.pasta_app:
+            self._criar_pastas(self.pasta_app)
+            r = self._pedir("PUT", url, headers=cab, data=conteudo, timeout=300)
         if r.status_code >= 400:
-            raise FonteErro(f"Erro {r.status_code} ao enviar para o SharePoint: {r.text[:300]}")
+            raise FonteErro(f"Erro {r.status_code} ao gravar no SharePoint: {r.text[:300]}")
         return caminho
 
 

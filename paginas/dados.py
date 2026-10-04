@@ -15,7 +15,10 @@ inv = bases.inventario()
 with st.container(border=True):
     st.markdown("**Pastas monitoradas** (com subpastas)")
     if cfg.fonte == "sharepoint":
-        st.markdown(f"- SharePoint `{cfg.sp_site}` › `{cfg.sp_pasta or '(raiz)'}`")
+        st.markdown(f"Lendo direto do SharePoint `{cfg.sp_site}`:")
+        for p in cfg.sp_pastas:
+            st.markdown(f"- `{p}`")
+        st.markdown(f"- Uploads, cadastros e usuários do app: `{cfg.sp_pasta_app}`")
     else:
         for p in cfg.pastas:
             st.markdown(f"- {':material/check_circle:' if p.exists() else ':material/error:'} `{p}`"
