@@ -14,7 +14,24 @@ inv = bases.inventario()
 
 with st.container(border=True):
     st.markdown("**Pastas monitoradas** (com subpastas)")
-    if cfg.fonte == "sharepoint":
+    if cfg.fonte == "github":
+        st.markdown(f"Site na nuvem lendo o repositório privado de dados `{cfg.gh_repo}`, alimentado pelo "
+                    "**sincronizador** que roda no PC com as pastas do OneDrive "
+                    "(`1.3 - Controle de Estoque` e `0.1 - Indicadores`).")
+        man = bases.manifesto()
+        if man:
+            linhas = [{"Base": k.rsplit("/", 1)[-1], "Arquivo de origem": v.get("origem", ""),
+                       "Export de": pd.to_datetime(v.get("modificado"), utc=True).tz_convert(ui.FUSO).tz_localize(None)
+                       if v.get("modificado") else None,
+                       "Enviado em": pd.to_datetime(v.get("enviado_em"), utc=True).tz_convert(ui.FUSO).tz_localize(None)
+                       if v.get("enviado_em") else None,
+                       "Por": v.get("pc", "")} for k, v in man.items()]
+            st.dataframe(pd.DataFrame(linhas), hide_index=True, width="stretch",
+                         column_config={c: st.column_config.DatetimeColumn(format="DD/MM/YYYY HH:mm")
+                                        for c in ("Export de", "Enviado em")})
+        else:
+            st.warning("O sincronizador ainda não enviou nenhuma base. Rode `sincronizador\\configurar.bat` no PC.")
+    elif cfg.fonte == "sharepoint":
         st.markdown(f"Lendo direto do SharePoint `{cfg.sp_site}`:")
         for p in cfg.sp_pastas:
             st.markdown(f"- `{p}`")
@@ -24,7 +41,7 @@ with st.container(border=True):
             st.markdown(f"- {':material/check_circle:' if p.exists() else ':material/error:'} `{p}`"
                         + ("" if p.exists() else " — **não encontrada neste computador**"))
         st.markdown(f"- Uploads e cadastros do app: `{cfg.pasta_app}`")
-    st.caption(f"O app verifica as pastas a cada {cfg.intervalo_verificacao} s. Quando aparece um arquivo mais novo "
+    st.caption(f"O app verifica a fonte a cada {cfg.intervalo_verificacao} s. Quando aparece um arquivo mais novo "
                "(ou um arquivo é sobrescrito), todas as telas abertas se atualizam sozinhas. "
                f"{inteiro(inv.verificados)} arquivo(s) analisado(s) nesta varredura.")
     if inv.erro:

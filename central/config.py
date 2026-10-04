@@ -65,11 +65,14 @@ class Config:
     sp_site: str                   # ex.: alpargatascombr.sharepoint.com:/sites/PCMF26
     sp_pastas: tuple[str, ...]     # pastas dentro da biblioteca, varridas com subpastas
     sp_pasta_app: str              # pasta (na biblioteca) dos uploads, cadastros e usuários
+    gh_repo: str                   # repositório privado de dados (modo GitHub), ex.: 6178609/estoquemanutencao-dados
+    gh_token: str                  # token do GitHub com acesso de leitura/escrita só a esse repositório
+    gh_branch: str
 
     @property
     def chave(self) -> str:
         return "|".join([self.fonte, *map(str, self.pastas), str(self.pasta_app), self.sp_site,
-                         *self.sp_pastas, self.sp_pasta_app])
+                         *self.sp_pastas, self.sp_pasta_app, self.gh_repo, self.gh_branch])
 
 
 def carregar() -> Config:
@@ -97,8 +100,14 @@ def carregar() -> Config:
         sp_pastas = sp_pastas.split(";")
     sp_pastas = tuple(p.strip().strip("/") for p in sp_pastas if p.strip().strip("/"))
     sp_pasta_app = str(_valor("sp_pasta_app", f"{sp_pastas[0]}/{NOME_PASTA_APP}" if sp_pastas else NOME_PASTA_APP)).strip("/")
-    # com credencial do SharePoint configurada, o padrão passa a ser ler de lá
-    fonte = _valor("fonte", "sharepoint" if _valor("sp_client_secret", "") else "pasta")
+    # com credencial configurada, o padrão passa a ser ler de lá
+    if _valor("sp_client_secret", ""):
+        padrao = "sharepoint"
+    elif _valor("gh_token", ""):
+        padrao = "github"
+    else:
+        padrao = "pasta"
+    fonte = _valor("fonte", padrao)
 
     return Config(
         fonte=str(fonte).strip().lower(),
@@ -115,4 +124,7 @@ def carregar() -> Config:
         sp_site=str(_valor("sp_site", SP_SITE_PADRAO)),
         sp_pastas=sp_pastas,
         sp_pasta_app=sp_pasta_app,
+        gh_repo=str(_valor("gh_repo", "")),
+        gh_token=str(_valor("gh_token", "")),
+        gh_branch=str(_valor("gh_branch", "main")),
     )

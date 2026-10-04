@@ -33,13 +33,16 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 ## Site online 24h (nuvem)
 
 O app pode ficar publicado no **Streamlit Community Cloud**, com um endereço que abre de qualquer lugar.
-Nesse modo ele lê as mesmas pastas direto do SharePoint pela API da Microsoft. Para isso a TI precisa
-registrar um aplicativo com acesso ao site PCMF26 (uma vez só).
+Na nuvem ele não enxerga o OneDrive, então os dados chegam por um de dois caminhos:
 
-- Passo a passo de publicação: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
-- Texto pronto para a TI: [`docs/PEDIDO_TI_SHAREPOINT.md`](docs/PEDIDO_TI_SHAREPOINT.md)
-- O workflow `.github/workflows/manter-app-acordado.yml` visita o app a cada 6 h para ele não entrar em
-  modo de espera.
+- **Sincronizador no PC (sem TI):** `sincronizador/` roda em segundo plano no PC com as pastas do OneDrive.
+  A cada 5 min envia o export mais novo de cada base para um repositório **privado** de dados no GitHub, de
+  onde o site lê.
+- **SharePoint direto:** o site lê as pastas pela API da Microsoft. Precisa de um aplicativo registrado pela
+  TI (texto pronto em [`docs/PEDIDO_TI_SHAREPOINT.md`](docs/PEDIDO_TI_SHAREPOINT.md)).
+
+Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md). O workflow
+`.github/workflows/manter-app-acordado.yml` visita o app a cada 6 h para ele não entrar em modo de espera.
 
 ## Como usar no PC (Windows)
 
@@ -125,5 +128,5 @@ uv run streamlit run streamlit_app.py
 uv run pytest
 ```
 
-Estrutura: `central/` (leitura dos arquivos, fontes, preparação das bases, login, interface),
-`paginas/` (uma por tela), `tests/`.
+Estrutura: `central/` (leitura dos arquivos, fontes — pastas, SharePoint ou GitHub —, preparação das
+bases, login, interface), `paginas/` (uma por tela), `sincronizador/` (agente PC → nuvem), `tests/`.

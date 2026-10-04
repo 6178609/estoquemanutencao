@@ -169,3 +169,10 @@ dados/*
 *.xls
 *.xlsm
 *.parquet
+
+# Sincronizador: token e estado ficam só no PC
+sincronizador/config.toml
+sincronizador/estado.json
+sincronizador/*.log
+sincronizador/.trava
+sincronizador/*.tmp

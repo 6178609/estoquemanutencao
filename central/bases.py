@@ -390,6 +390,12 @@ def _ler_json_agora(nome: str) -> dict:
         return {}
 
 
+def manifesto() -> dict:
+    """Manifesto do repositório de dados (modo GitHub): de onde e quando veio cada base."""
+    arq = next((a for a in arquivos() if a.id == fontes.MANIFESTO), None)
+    return _ler_json(arq.id, arq.assinatura) if arq else {}
+
+
 def ler_cadastro(nome: str) -> dict:
     alvo = fonte().id_de(nome)
     arq = next((a for a in arquivos() if a.id == alvo), None)
