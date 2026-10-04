@@ -48,6 +48,7 @@ CSS = """
   .cm-marca .cm-titulo { font-weight: 800; font-size: 1.05rem; line-height: 1.15; }
   .cm-marca .cm-titulo small { display:block; font-weight: 500; opacity: .65; font-size: .72rem; }
   .cm-rodape { opacity: .55; font-size: .72rem; margin-top: 1.2rem; }
+  .cm-rotulo { font-size: .74rem; letter-spacing: .05em; opacity: .7; margin: .6rem 0 .35rem; }
 
   /* ---------- celular ---------- */
   @media (max-width: 640px) {
