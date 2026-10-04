@@ -209,6 +209,8 @@ STATUS_USUARIO = {
 }
 
 SITUACOES = ["Aberta", "Liberada", "Concluída", "Cancelada", "Sem status"]
+NAT_PLANO, NAT_BACKLOG = "Plano de manutenção", "Backlog"
+NATUREZAS = [NAT_PLANO, NAT_BACKLOG]
 PENDENTES = ("Aberta", "Liberada")
 
 
@@ -239,7 +241,7 @@ def _piloto_ou_matriz(df: pd.DataFrame) -> pd.Series:
 
 @st.cache_data(show_spinner=False, max_entries=12)
 def _cru(tipo: str, origens: tuple) -> pd.DataFrame:
-    """Tabela crua da base: um arquivo, ou vários somados (IW38 + histórico, notas)."""
+    """Tabela crua da base (o export mais recente; ver leitura.MESCLAR)."""
     return leitura.mesclar(tipo, [_ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha) for o in origens])
 
 
@@ -283,8 +285,9 @@ def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
     removidas = int(fora.sum())
     df = df.loc[~fora].reset_index(drop=True)
 
-    df["Com plano"] = df["Plano"].str.strip() != ""
-    df["Natureza"] = np.where(df["Com plano"], "Preventiva (com plano)", "Corretiva / avulsa")
+    # regra do PCM: número na coluna Plano = ordem de plano de manutenção; sem número = backlog
+    df["Com plano"] = df["Plano"].str.contains(r"\d", regex=True)
+    df["Natureza"] = np.where(df["Com plano"], NAT_PLANO, NAT_BACKLOG)
     pares = pd.Series(list(zip(df["Status sistema"], df["Status usuário"])))
     cache = {p: _situacao(*p) for p in set(pares)}
     df["Situação"] = pd.Categorical(pares.map(cache), categories=SITUACOES)

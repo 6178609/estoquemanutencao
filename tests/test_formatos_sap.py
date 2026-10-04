@@ -41,21 +41,22 @@ def test_iw38_descarta_linhas_sem_ordem():
     assert list(prep["Situação"]) == ["Concluída", "Liberada"]
 
 
-def test_iw38_do_ano_soma_com_historico_bk():
-    novo = iw38_2026()
-    bk = novo.iloc[:2].copy()
-    bk["Ordem"] = ["31682290", "8666269"]          # uma repetida, uma só no histórico
-    bk["Status do sistema"] = ["", ""]
+def test_cada_base_e_um_arquivo_so():
     arquivos = [type("O", (), {"arquivo": type("A", (), {"nome": n})()})() for n in
-                ["IW38.xlsx", "IW38 (1).xlsx", "a.xlsx", "b.xlsx", "c.xlsx", "d.xlsx", "e.xlsx", "IW38BK.XLSX"]]
-    usados = leitura.escolher_origens(IW38, arquivos)
-    assert [u.arquivo.nome for u in usados] == ["IW38.xlsx", "IW38 (1).xlsx", "a.xlsx", "b.xlsx", "c.xlsx", "d.xlsx",
-                                                 "IW38BK.XLSX"]  # 6 mais novos + histórico
-    junto = leitura.mesclar(IW38, [novo, bk])
-    prep, _ = bases.preparar_iw38(junto)
-    assert sorted(prep["Ordem"]) == ["31682290", "31697096", "8666269"]
-    assert prep.set_index("Ordem").loc["31682290", "Situação"] == "Concluída"  # vale o arquivo mais novo
-    assert leitura.escolher_origens(MB52, arquivos[:3]) == arquivos[:1]          # MB52: só o mais novo
+                ["IW38.xlsx", "IW38 (1).xlsx", "a.xlsx", "IW38BK.XLSX"]]
+    assert leitura.escolher_origens(IW38, arquivos) == arquivos[:1]   # IW38: só o mais recente
+    assert leitura.escolher_origens(MB52, arquivos) == arquivos[:1]
+    assert leitura.escolher_origens(NOTAS, arquivos) == arquivos[:1]  # IW28: só o mais recente
+
+
+def test_numero_no_plano_e_plano_de_manutencao_sem_numero_e_backlog():
+    iw = iw38_2026().iloc[:2].copy()
+    iw = pd.concat([iw, iw.iloc[:1].assign(Ordem="31700000", **{"Plano de manutenção": "#"})], ignore_index=True)
+    iw.loc[0, "Plano de manutenção"] = "53149"
+    prep, _ = bases.preparar_iw38(iw)
+    nat = dict(zip(prep["Ordem"], prep["Natureza"]))
+    # 53149 e 41921 têm número → plano de manutenção; "#" não é número → backlog
+    assert nat == {"31682290": bases.NAT_PLANO, "31697096": bases.NAT_PLANO, "31700000": bases.NAT_BACKLOG}
 
 
 # ----------------------------------------------------------------------------
@@ -151,7 +152,7 @@ def test_ip19_geral():
     # IW38 com a ordem do plano 41921 criada para a chamada de 01/09 (data-base 02/09) e outra
     # ordem do mesmo plano perto da chamada "em espera" de 15/09, que não pode ser ligada a ela
     iw = iw38_2026().iloc[:2].copy()
-    iw["Plano de manutenção"] = ["", "41921"]
+    iw["Plano de manutenção"] = ["", "41921"]  # a 2ª ordem é do plano 41921
     iw.loc[1, "Data-base do início"] = datetime(2026, 9, 2)
     iw38, _ = bases.preparar_iw38(iw)
     ch = planos.classificar(ip, iw38, pd.Timestamp(2026, 10, 4)).set_index("Data planejada")

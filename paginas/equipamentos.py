@@ -50,10 +50,10 @@ def agregar(_todas: pd.DataFrame, _df: pd.DataFrame, chave: str) -> pd.DataFrame
         Pendentes=("Situação", lambda s: int(s.isin(bases.PENDENTES).sum())), Última=("Data", "max"),
     )
     p = _df[_df["Equip. (chave)"] != ""]
-    per = p.groupby("Equip. (chave)").agg(Ordens=("Ordem", "size"), Corretivas=("Com plano", lambda s: int((~s).sum())),
+    per = p.groupby("Equip. (chave)").agg(Ordens=("Ordem", "size"), Backlog=("Com plano", lambda s: int((~s).sum())),
                                           Custo=("Custo real", "sum"))
-    out = geral.join(per, how="left").fillna({"Ordens": 0, "Corretivas": 0, "Custo": 0.0})
-    out[["Ordens", "Corretivas"]] = out[["Ordens", "Corretivas"]].astype(int)
+    out = geral.join(per, how="left").fillna({"Ordens": 0, "Backlog": 0, "Custo": 0.0})
+    out[["Ordens", "Backlog"]] = out[["Ordens", "Backlog"]].astype(int)
     return out.reset_index().rename(columns={"Equip. (chave)": "Código"})
 
 
@@ -62,7 +62,7 @@ tab = agregar(todas, df, f"{base.origem.arquivo.assinatura}|{desc}|{pd.Timestamp
 extras = [k for k in cad if k not in set(tab["Código"])]
 if extras:
     tab = pd.concat([tab, pd.DataFrame({"Código": extras, "Nome": [cad[k].get("nome", "") for k in extras]})], ignore_index=True)
-    tab = tab.fillna({"Ordens": 0, "Corretivas": 0, "Custo": 0.0, "Pendentes": 0, "Local": "", "Centro": ""})
+    tab = tab.fillna({"Ordens": 0, "Backlog": 0, "Custo": 0.0, "Pendentes": 0, "Local": "", "Centro": ""})
 if ih08 is not None:
     ref = ih08.set_index("Equipamento")
     tab["ABC"] = tab["Código"].map(ref["Código ABC"]).fillna("")
@@ -112,7 +112,7 @@ if so_periodo:
     m &= tab["Ordens"] > 0
 vis = tab.loc[m].sort_values(["Custo", "Ordens"], ascending=False).reset_index(drop=True)
 
-COLS = ["Código", "Nome", "Criticidade", "ABC", "Categoria", "Local", "Centro", "Ordens", "Corretivas", "Custo", "Pendentes",
+COLS = ["Código", "Nome", "Criticidade", "ABC", "Categoria", "Local", "Centro", "Ordens", "Backlog", "Custo", "Pendentes",
         *(["Notas", "Notas sem ordem", "Paradas"] if notas is not None else []),
         "Última", "Peças", "Peças em falta"]
 ev = st.dataframe(vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(380), on_select="rerun",
@@ -171,9 +171,9 @@ intervalo = corr["Data"].diff().dt.days.mean() if len(corr) > 1 else None
 k = st.columns(5)
 k[0].metric("Ordens (todas as datas)", inteiro(len(hist)), border=True, delta_arrow="off")
 k[1].metric("Custo total", brl(hist["Custo real"].sum()), border=True, delta_arrow="off")
-k[2].metric("Corretivas", inteiro(len(corr)), f"{inteiro(hist['Com plano'].sum())} com plano", delta_color="off", border=True, delta_arrow="off")
-k[3].metric("Intervalo médio entre corretivas", f"{intervalo:.0f} dias" if intervalo else "—", border=True, delta_arrow="off",
-            help="Média de dias entre uma ordem sem plano e a seguinte (aproxima o MTBF).")
+k[2].metric("Backlog", inteiro(len(corr)), f"{inteiro(hist['Com plano'].sum())} de plano de manutenção", delta_color="off", border=True, delta_arrow="off")
+k[3].metric("Intervalo médio do backlog", f"{intervalo:.0f} dias" if intervalo else "—", border=True, delta_arrow="off",
+            help="Média de dias entre uma ordem de backlog (sem plano) e a seguinte (aproxima o MTBF).")
 k[4].metric("Pendentes hoje", inteiro(hist["Situação"].isin(bases.PENDENTES).sum()),
             f"{inteiro(hist['Atrasada'].sum())} atrasadas", delta_color="off", border=True, delta_arrow="off")
 
@@ -184,7 +184,7 @@ with g:
         q = anual.groupby(["Ano", "Natureza"]).agg(Ordens=("Ordem", "size"), Custo=("Custo real", "sum")).reset_index()
         ch = alt.Chart(q).mark_bar().encode(
             x=alt.X("Ano:N", title=None, axis=alt.Axis(labelAngle=0)), y=alt.Y("Ordens:Q"),
-            color=alt.Color("Natureza:N", scale=alt.Scale(domain=["Preventiva (com plano)", "Corretiva / avulsa"],
+            color=alt.Color("Natureza:N", scale=alt.Scale(domain=bases.NATUREZAS,
                                                           range=[ui.VERDE, ui.LARANJA]), legend=alt.Legend(orient="top", title=None)),
             tooltip=["Ano", "Natureza", "Ordens", alt.Tooltip("Custo:Q", format=",.2f")]).properties(height=ui.altura_tabela(220))
         ui.mostrar(ch)

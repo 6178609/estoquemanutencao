@@ -30,9 +30,8 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 - A pasta **Downloads** também é olhada, porque é onde o navegador e o SAP costumam salvar. Planilhas
   baixadas do próprio site (botão "Baixar Excel") e arquivos com "filtrado" no nome são ignorados, para um
   recorte nunca substituir a base completa.
-- Para cada base usa **o arquivo mais recente**. IW38 e notas (IW28) são exceção: os arquivos se **somam** (ex.:
-  `IW38.xlsx` do ano + `IW38BK.XLSX` com o histórico); se a mesma ordem/nota aparece em mais de um, vale a do arquivo
-  mais novo. Entram os 6 mais recentes e qualquer arquivo com BK ou HIST no nome.
+- Cada base é **um arquivo só**: vale o export mais recente. O IW38 traz tudo junto — **número na coluna "Plano de
+  manutenção" = ordem de plano de manutenção; sem número = backlog** — e a IW28 também é um arquivo único.
 - A criticidade dos equipamentos vem do **código ABC da IH08** (A = alta, B = média, C = baixa), a não ser que
   alguém cadastre outra no site. Se pegar a planilha errada, fixe o arquivo certo em
   **Configuração › Fontes de dados** (um arquivo fixado continua sendo relido quando é sobrescrito).
@@ -141,7 +140,7 @@ escuro (menu ⋮ › Settings). Para trocar os logos, substitua `assets/logo_sim
 O repositório é **público**: nenhuma planilha, base ou cadastro vai para o Git (`.gitignore` bloqueia
 `.xlsx`, `.xls`, `.parquet` e a pasta `dados/`). Os dados ficam só nas pastas do OneDrive/SharePoint.
 
-`ferramentas/extrair_base_html.py` tira a base IW38 embutida no HTML antigo, caso o `IW38BK.XLSX` original
+`ferramentas/extrair_base_html.py` tira a base IW38 embutida no HTML antigo, caso o export antigo
 não exista mais.
 
 ## Desenvolvimento

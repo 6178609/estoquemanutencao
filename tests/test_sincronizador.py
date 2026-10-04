@@ -121,9 +121,9 @@ def test_pc_envia_e_site_le(ambiente, monkeypatch):
     assert sorted(sincronizar.rodada(cfg)) == [IW38, MB52]
     assert set(gh.arquivos) == {"bases/IW38.parquet", "bases/MB52.parquet", "bases/manifesto.json"}
     man = json.loads(gh.arquivos["bases/manifesto.json"])
-    # os dois exports do IW38 vão somados (o mais novo primeiro): 3 ordens do novo + 2 só do antigo
-    assert man["bases/IW38.parquet"]["origem"].startswith("0.1 - Indicadores/2026/Indicadores.xlsx › aba Base + ")
-    assert man["bases/IW38.parquet"]["linhas"] == 5
+    # vale só o export mais recente do IW38
+    assert man["bases/IW38.parquet"]["origem"] == "0.1 - Indicadores/2026/Indicadores.xlsx › aba Base"
+    assert man["bases/IW38.parquet"]["linhas"] == 3
 
     # 1ª rodada já compacta (e só volta a compactar daqui a 7 dias)
     assert gh.historico == 1
@@ -145,7 +145,7 @@ def test_pc_envia_e_site_le(ambiente, monkeypatch):
         from central import config
         assert config.carregar().fonte == "github"
         df = bases.iw38().df
-        assert len(df) == 4 and df["Custo real"].sum() == pytest.approx(1800.0)  # 5 menos a da Fábrica Piloto
+        assert len(df) == 3 and df["Custo real"].sum() == pytest.approx(1800.0)
         assert bases.mb52().df.set_index("Material").loc["100200", "Estoque"] == 4.0  # código sem ".0"
         assert bases.iw38().atualizado.isoformat().startswith(man["bases/IW38.parquet"]["modificado"][:16])
 
