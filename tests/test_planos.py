@@ -50,23 +50,37 @@ def test_situacao_das_chamadas_cruzando_com_iw38():
     assert ch.loc[ch["Plano"] == "30001", "Centro de trabalho"].iat[0] == "ELET"
 
 
-def test_calendario_52_semanas():
+def test_calendario_entre_datas():
+    from datetime import date
+
     ch = planos.classificar(planos.preparar_ip19(ip19_cru()), None, HOJE)
-    grade, situ = planos.montar_calendario(ch, 2026)
+    grade, situ = planos.montar_calendario(ch, date(2026, 1, 1), date(2026, 12, 31))
     assert len(grade) == 1 and grade.loc[0, "Plano"] == "20976 / 1"
-    assert [c for c in grade.columns if c.startswith("S")][-1] == "S53"  # 2026 tem 53 semanas ISO
+    semanas = [c for c in grade.columns if c.startswith("S")]
+    assert semanas[0] == "S01" and semanas[-1] == "S53" and len(semanas) == 53  # 2026 tem 53 semanas ISO
     assert situ.loc[0, "S37"] == planos.CONCLUIDA and grade.loc[0, "S37"] == "✓"
     assert situ.loc[0, "S39"] == planos.ATRASADA
     assert grade.loc[0, "S42"] == "○2"  # duas chamadas na mesma semana
     assert grade.loc[0, "Ciclo"] == "Mensal"
-    assert planos.semanas_dos_meses(2026)[1] == "Jan" and "Out" in planos.semanas_dos_meses(2026).values()
-    cel = planos.celulas(ch, 2026, ["20976 / 1"], {"20976 / 1": "PREV"})
-    assert set(cel["Semana"]) == {37, 38, 39, 40, 41, 42}
+    assert planos.coluna_da_semana(date(2026, 10, 1), date(2026, 1, 1), date(2026, 12, 31)) == "S40"
+    marcas = planos.marcas_dos_meses(planos.semanas_entre(date(2026, 1, 1), date(2026, 12, 31)))
+    assert marcas["S01"] == "Jan" and "Out" in marcas.values()
+    cel = planos.celulas(ch, date(2026, 1, 1), date(2026, 12, 31), ["20976 / 1"], {"20976 / 1": "PREV"})
+    assert set(cel["Semana"]) == {"S37", "S38", "S39", "S40", "S41", "S42"}
+
+    # só um pedaço do ano, e um intervalo que atravessa o ano (rótulos com /aa)
+    grade, _ = planos.montar_calendario(ch, date(2026, 9, 14), date(2026, 9, 27))
+    assert [c for c in grade.columns if c.startswith("S")] == ["S38", "S39"] and grade.loc[0, "Chamadas"] == 2
+    grade, _ = planos.montar_calendario(ch, date(2025, 10, 1), date(2026, 10, 1))
+    assert "S41/25" in grade.columns and "S40/26" in grade.columns
+    assert set(grade["Plano"]) == {"20976 / 1", "30001"}
 
 
 def test_sem_ip19_usa_ordens_com_plano_do_iw38():
+    from datetime import date
+
     iw38, _ = bases.preparar_iw38(iw38_cru(), hoje=HOJE)
     ch = planos.classificar(planos.de_iw38(iw38), iw38, HOJE)
     assert list(ch["Plano"]) == ["20976"] and ch["Situação"].iat[0] == planos.ABERTA
-    grade, _ = planos.montar_calendario(ch, 2099)
+    grade, _ = planos.montar_calendario(ch, date(2099, 1, 1), date(2099, 12, 31))
     assert grade.loc[0, "Ciclo"] == ""  # uma chamada só: ciclo não estimável

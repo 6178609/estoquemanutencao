@@ -1,9 +1,11 @@
+from datetime import date, timedelta
+
 import pandas as pd
 import streamlit as st
 
 from central import bases, ui
 from central.leitura import REQ
-from central.util import MESES, brl, inteiro, sem_acento
+from central.util import brl, inteiro, sem_acento
 
 ui.cabecalho("Requisições de compra", "O que está aguardando aprovação, com quem está parado e há quanto tempo")
 
@@ -19,9 +21,11 @@ with ui.caixa_filtros():
     so_pend = f[1].toggle("Só pendentes de aprovação", value=True, key="r_pend")
     aprov = f[2].multiselect("Aprovador atual", sorted(a for a in df["Aprovador"].unique() if a), key="r_apr", placeholder="Todos")
     solic = f[3].multiselect("Solicitado por", sorted(a for a in df["Solicitante"].unique() if a), key="r_sol", placeholder="Todos")
-    meses = sorted(df["Enviado em"].dropna().dt.to_period("M").unique(), reverse=True)
-    sel_mes = st.multiselect("Mês de envio", meses, format_func=lambda p: f"{MESES[p.month - 1]}/{p.year}", key="r_mes",
-                             placeholder="Todos")
+    datas = df["Enviado em"].dropna()
+    padrao = (datas.min().date(), datas.max().date()) if len(datas) else (date.today() - timedelta(days=365), date.today())
+    g = st.columns([3, 6])
+    with g[0]:
+        ini, fim = ui.filtro_datas("r_faixa", "Enviado em (de / até)", padrao, df["Enviado em"])
 
 m = pd.Series(True, index=df.index)
 if busca.strip():
@@ -35,8 +39,8 @@ if aprov:
     m &= df["Aprovador"].isin(aprov)
 if solic:
     m &= df["Solicitante"].isin(solic)
-if sel_mes:
-    m &= df["Enviado em"].dt.to_period("M").isin(sel_mes)
+if (ini, fim) != padrao:  # requisição sem data de envio (rascunho) só some quando há filtro de data
+    m &= ui.entre(df["Enviado em"], ini, fim)
 f = df.loc[m].sort_values(["Pendente", "Total"], ascending=[False, False])
 
 pend = f[f["Pendente"]]

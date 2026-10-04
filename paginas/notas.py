@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -20,10 +22,11 @@ if len(base.origens) > 1:
 # ----------------------------------------------------------------------------
 # Filtros
 # ----------------------------------------------------------------------------
-PERIODOS = {"Últimos 30 dias": 30, "Últimos 90 dias": 90, "Últimos 12 meses": 365, "Tudo": None}
+hoje = date.today()
 with ui.caixa_filtros():
-    f = st.columns([2, 3, 2, 2])
-    periodo = f[0].selectbox("Período (data da nota)", list(PERIODOS), index=1, key="n_per")
+    f = st.columns([3, 3, 2, 2])
+    with f[0]:
+        ini, fim = ui.filtro_datas("n_faixa", "Data da nota (de / até)", (hoje - timedelta(days=90), hoje), df["Data"])
     busca = f[1].text_input("Buscar", placeholder="nº da nota, descrição, equipamento, notificador…", key="n_busca")
     tipos = sorted(t for t in df["Tipo de nota"].unique() if t)
     sel_tipo = f[2].multiselect("Tipo de nota", tipos, key="n_tipo", placeholder="Todos")
@@ -36,8 +39,7 @@ with ui.caixa_filtros():
     sel_abc = g[2].multiselect("Criticidade ABC", abcs, key="n_abc", placeholder="Todas")
 
 m = pd.Series(True, index=df.index)
-if PERIODOS[periodo]:
-    m &= df["Data"] >= pd.Timestamp.now().normalize() - pd.Timedelta(days=PERIODOS[periodo])
+m &= ui.entre(df["Data"], ini, fim)
 if busca.strip():
     hay = (df["Nota"] + " " + df["Ordem"] + " " + df["Descrição"] + " " + df["Objeto técnico"] + " " + df["Equipamento"]
            + " " + df["Notificador"] + " " + df["Local de instalação"]).map(lambda s: sem_acento(s).upper())
@@ -60,9 +62,9 @@ f_ = df.loc[m].sort_values("Data", ascending=False)
 # ----------------------------------------------------------------------------
 sem_ordem = f_[~f_["Com ordem"]]
 c = st.columns(5)
-c[0].metric("Notas", inteiro(len(f_)), periodo.lower(), delta_color="off", border=True, delta_arrow="off")
+c[0].metric("Notas", inteiro(len(f_)), ui.descrever(ini, fim), delta_color="off", border=True, delta_arrow="off")
 c[1].metric("Sem ordem", inteiro(len(sem_ordem)), f"{pct(len(sem_ordem), len(f_))} das notas", delta_color="off",
-            border=True, delta_arrow="off", help="Ainda não viraram ordem: é o backlog de pedidos da fábrica.")
+            border=True, delta_arrow="off", help="Ainda não viraram ordem: é a fila de pedidos da fábrica.")
 c[2].metric("Sem ordem há mais de 7 dias", inteiro((sem_ordem["Dias"] > 7).sum()), border=True, delta_arrow="off")
 c[3].metric("Com parada de máquina", inteiro(f_["Com parada"].sum()), f"{pct(int(f_['Com parada'].sum()), len(f_))} das notas",
             delta_color="off", border=True, delta_arrow="off")

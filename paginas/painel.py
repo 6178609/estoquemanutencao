@@ -32,17 +32,18 @@ atrasadas = int(pend["Atrasada"].sum())
 
 c = st.columns(5)
 c[0].metric("Ordens no período", inteiro(total), border=True, delta_arrow="off")
-c[1].metric("Com plano", pct(prev, total), f"{inteiro(prev)} preventivas", delta_color="off", border=True, delta_arrow="off",
-            help="Ordens com plano de manutenção. Referência de classe mundial: acima de 70%.")
-c[2].metric("Sem plano", inteiro(corr), f"{pct(corr, total)} do total", delta_color="off", border=True, delta_arrow="off")
-c[3].metric("Backlog hoje", inteiro(len(pend)), f"{inteiro(atrasadas)} atrasadas", delta_color="inverse"
-            if atrasadas else "off", border=True, delta_arrow="off", help="Ordens abertas ou liberadas, de qualquer data, com os filtros de centro e tipo.")
+c[1].metric("Plano de manutenção", pct(prev, total), f"{inteiro(prev)} ordens", delta_color="off", border=True, delta_arrow="off",
+            help="Ordens com número na coluna Plano de manutenção. Referência de classe mundial: acima de 70%.")
+c[2].metric("Backlog", inteiro(corr), f"{pct(corr, total)} do total", delta_color="off", border=True, delta_arrow="off",
+            help="Ordens sem número na coluna Plano de manutenção.")
+c[3].metric("Em aberto hoje", inteiro(len(pend)), f"{inteiro(atrasadas)} atrasadas", delta_color="inverse"
+            if atrasadas else "off", border=True, delta_arrow="off", help="Ordens abertas ou liberadas (plano e backlog), de qualquer data, com os filtros de centro e tipo.")
 c[4].metric("Duração média", f"{df['Duração (dias)'].mean():.1f} d".replace(".", ",") if df["Duração (dias)"].notna().any() else "—",
             "início → fim", delta_color="off", border=True, delta_arrow="off")
 
 c = st.columns(5)
 c[0].metric("Custo real", brl_curto(custo), border=True, delta_arrow="off", help=brl(custo))
-c[1].metric("Custo corretivo", brl_curto(custo_corr), f"{pct(custo_corr, custo)} do custo", delta_color="off", border=True, delta_arrow="off",
+c[1].metric("Custo do backlog", brl_curto(custo_corr), f"{pct(custo_corr, custo)} do custo", delta_color="off", border=True, delta_arrow="off",
             help=brl(custo_corr))
 c[2].metric("Custo médio", "R$ " + inteiro(round(custo / com_custo)) if com_custo else "—", f"por ordem · {inteiro(com_custo)} c/ custo",
             delta_color="off", border=True, delta_arrow="off")
@@ -77,11 +78,11 @@ if notas is not None or hh_pend is not None:
         c[1].metric("Paradas de máquina (30 dias)", inteiro(recentes["Com parada"].sum()),
                     f"{inteiro(len(recentes))} notas no período", delta_color="off", border=True, delta_arrow="off")
     if hh_pend is not None:
-        c[2].metric("Backlog em horas (HH)", f"{hh_pend['Horas'].sum():,.0f} h".replace(",", "."),
+        c[2].metric("Carga em aberto (HH)", f"{hh_pend['Horas'].sum():,.0f} h".replace(",", "."),
                     f"{inteiro(hh_pend['Ordem'].nunique())} ordens com operação aberta", delta_color="off", border=True,
                     delta_arrow="off", help="Trabalho planejado das operações não confirmadas das ordens abertas (IW38OP).")
         c[3].metric("Pessoas-hora por dia útil", f"{hh_pend['Horas'].sum() / 22:,.0f} h/dia".replace(",", "."),
-                    "para zerar o backlog em 1 mês", delta_color="off", border=True, delta_arrow="off")
+                    "para zerar a carga em 1 mês", delta_color="off", border=True, delta_arrow="off")
 
 # ----------------------------------------------------------------------------
 # Evolução mensal
@@ -99,7 +100,7 @@ with st.container(border=True):
         x = alt.X("Rótulo:N", title=None, sort=ordem_x, axis=alt.Axis(labelAngle=0))
         barras = alt.Chart(qtd).mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
             x=x, y=alt.Y("Ordens:Q", title="Ordens"),
-            color=alt.Color("Natureza:N", scale=alt.Scale(domain=["Preventiva (com plano)", "Corretiva / avulsa"],
+            color=alt.Color("Natureza:N", scale=alt.Scale(domain=bases.NATUREZAS,
                                                           range=[ui.VERDE, ui.LARANJA]),
                             legend=alt.Legend(orient="top", title=None)),
             tooltip=[alt.Tooltip("Rótulo:N", title="Mês"), "Natureza:N", "Ordens:Q"],
@@ -109,14 +110,14 @@ with st.container(border=True):
             tooltip=[alt.Tooltip("Rótulo:N", title="Mês"), alt.Tooltip("Custo real:Q", format=",.2f")],
         )
         ui.mostrar(alt.layer(barras, linha).resolve_scale(y="independent").properties(height=280))
-        st.caption("Barras: quantidade de ordens (verde = com plano, laranja = sem plano) · linha azul: custo real no mês.")
+        st.caption("Barras: quantidade de ordens (verde = plano de manutenção, laranja = backlog) · linha azul: custo real no mês.")
 
 # ----------------------------------------------------------------------------
 # Equipamentos que mais pesam
 # ----------------------------------------------------------------------------
 por_eq = (df[df["Equip. (chave)"] != ""]
           .groupby("Equip. (chave)")
-          .agg(Nome=("Objeto técnico", "first"), Ordens=("Ordem", "size"), Corretivas=("Com plano", lambda s: int((~s).sum())),
+          .agg(Nome=("Objeto técnico", "first"), Ordens=("Ordem", "size"), Backlog=("Com plano", lambda s: int((~s).sum())),
                Custo=("Custo real", "sum"))
           .reset_index())
 por_eq["Equipamento"] = por_eq.apply(lambda r: f"{r['Nome'] or r['Equip. (chave)']}"[:45], axis=1)
@@ -130,13 +131,13 @@ with e, st.container(border=True):
     else:
         st.caption("Sem custo lançado no período.")
 with d, st.container(border=True):
-    st.markdown("**Top 10 — reincidência de corretivas**")
-    top = por_eq[por_eq["Corretivas"] > 0].nlargest(10, "Corretivas")
+    st.markdown("**Top 10 — reincidência de backlog**")
+    top = por_eq[por_eq["Backlog"] > 0].nlargest(10, "Backlog")
     if len(top):
-        ui.mostrar(ui.grafico_barras_h(top, "Equipamento", "Corretivas", ui.LARANJA))
-        st.caption("Muitas corretivas no mesmo equipamento = candidato a análise de causa raiz ou a um plano preventivo.")
+        ui.mostrar(ui.grafico_barras_h(top, "Equipamento", "Backlog", ui.LARANJA))
+        st.caption("Muitas ordens de backlog no mesmo equipamento = candidato a análise de causa raiz ou a um plano de manutenção.")
     else:
-        st.caption("Nenhuma corretiva no período.")
+        st.caption("Nenhuma ordem de backlog no período.")
 
 # ----------------------------------------------------------------------------
 # Distribuições
@@ -151,7 +152,7 @@ with b, st.container(border=True):
     s = df["Tipo"].replace("", "—").value_counts().head(10).rename_axis("Tipo").reset_index(name="Ordens")
     ui.mostrar(ui.grafico_barras_h(s, "Tipo", "Ordens", ui.CIANO))
 with c3, st.container(border=True):
-    st.markdown("**Idade do backlog (hoje)**")
+    st.markdown("**Idade das ordens em aberto (hoje)**")
     if len(pend):
         faixas = pd.cut(pend["Dias em aberto"], [-1, 30, 90, 180, 365, 10**6],
                         labels=["até 30 d", "31–90 d", "91–180 d", "181–365 d", "mais de 1 ano"])
@@ -165,7 +166,7 @@ with c3, st.container(border=True):
 
 if hh_pend is not None and len(hh_pend):
     with st.container(border=True):
-        st.markdown("**Backlog em horas por centro de trabalho** — operações abertas (IW38OP)")
+        st.markdown("**Carga em aberto por centro de trabalho (horas)** — operações abertas (IW38OP)")
         hh = hh_pend.assign(Centro=hh_pend["Centro de trabalho"].replace("", "—")).groupby("Centro")["Horas"].sum()
         hh = hh.round(0).astype(int).nlargest(12).rename_axis("Centro").reset_index(name="Horas")
         ui.mostrar(ui.grafico_barras_h(hh, "Centro", "Horas", ui.AZUL))
@@ -175,16 +176,16 @@ if hh_pend is not None and len(hh_pend):
 # ----------------------------------------------------------------------------
 frases = []
 if total:
-    frases.append(("Boa aderência ao plano" if prev / total >= 0.7 else "Aderência ao plano abaixo do ideal")
-                  + f": **{pct(prev, total)}** das ordens têm plano de manutenção (referência: acima de 70%).")
+    frases.append(("Boa participação do plano de manutenção" if prev / total >= 0.7 else "Plano de manutenção abaixo do ideal")
+                  + f": **{pct(prev, total)}** das ordens são de plano de manutenção (referência: acima de 70%).")
 if custo:
-    frases.append(f"O custo corretivo representa **{pct(custo_corr, custo)}** do gasto ({brl(custo_corr)} de {brl(custo)}).")
+    frases.append(f"O backlog representa **{pct(custo_corr, custo)}** do gasto ({brl(custo_corr)} de {brl(custo)}).")
 if len(por_eq) and por_eq["Custo"].max() > 0:
     t = por_eq.nlargest(1, "Custo").iloc[0]
     frases.append(f"Maior consumidor: **{t['Equipamento']}** — {brl(t['Custo'])} em {t['Ordens']} ordens.")
-if len(por_eq) and por_eq["Corretivas"].max() > 1:
-    t = por_eq.nlargest(1, "Corretivas").iloc[0]
-    frases.append(f"Maior reincidência: **{t['Equipamento']}** com {t['Corretivas']} corretivas no período.")
+if len(por_eq) and por_eq["Backlog"].max() > 1:
+    t = por_eq.nlargest(1, "Backlog").iloc[0]
+    frases.append(f"Maior reincidência: **{t['Equipamento']}** com {t['Backlog']} ordens de backlog no período.")
 if atrasadas:
     velhas = int((pend["Dias em aberto"] > 365).sum())
     frases.append(f"**{inteiro(atrasadas)}** ordens pendentes já passaram da data-base"

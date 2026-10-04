@@ -126,7 +126,7 @@ with st.expander("Como deixar tudo automático (sem ninguém importar nada)", ic
     st.markdown(
         """
 1. **Salve os exports do SAP sempre no mesmo lugar** — em qualquer pasta monitorada acima (ou subpasta).
-   Pode sobrescrever o mesmo arquivo (ex.: `IW38BK.XLSX`) ou criar um por dia: o app usa o mais recente.
+   Pode sobrescrever o mesmo arquivo (ex.: `IW38.xlsx`) ou criar um por dia: o app usa o mais recente.
 2. **O OneDrive sincroniza** a pasta com o SharePoint; o app percebe a mudança em até um minuto e
    atualiza todas as telas abertas.
 3. **Para tirar até o export manual**, use o robô do SAP (`automacao\\configurar_robo.bat`): ele abre o

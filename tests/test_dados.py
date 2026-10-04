@@ -161,9 +161,9 @@ def test_inventario_usa_o_mais_recente_e_respeita_fixado(tmp_path, monkeypatch):
     inv = bases.inventario()
     assert inv.ativos[IW38].arquivo.id == str(novo)
     assert MB52 not in inv.ativos
-    # vários exports do IW38 se somam: ordens 1 e 2 do novo + 3 e 5 do antigo (a 4 é da Fábrica Piloto)
-    assert sorted(bases.iw38().df["Ordem"]) == ["1", "2", "3", "5"]
-    assert [o.arquivo.id for o in inv.usados[IW38]] == [str(novo), str(velho)]
+    # o IW38 é um arquivo só: vale o export mais recente, que já traz tudo
+    assert sorted(bases.iw38().df["Ordem"]) == ["1", "2"]
+    assert [o.arquivo.id for o in inv.usados[IW38]] == [str(novo)]
 
     bases.fixar_origem(IW38, str(velho))
     assert bases.inventario().ativos[IW38].arquivo.id == str(velho)
@@ -218,7 +218,7 @@ def test_planilhas_baixadas_do_site_nao_viram_base(tmp_path):
 
     # "Baixar Excel" das telas Ordens e Requisições: colunas parecidas com as do SAP, mas são recortes
     ordens_site = pd.DataFrame({"Ordem": ["1"], "Tipo": ["YM01"], "Status usuário": ["PLA"], "Situação": ["Aberta"],
-                                "Natureza": ["Corretiva / avulsa"]})
+                                "Natureza": ["Backlog"]})
     req_site = pd.DataFrame({"Requisição": ["R1"], "Status": ["Pendente"], "Dias aguardando": [3], "Total": [10.0]})
     assert leitura.identificar(ordens_site.columns) is None
     assert leitura.identificar(req_site.columns) is None

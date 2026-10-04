@@ -226,7 +226,7 @@ def logos() -> None:
 # ----------------------------------------------------------------------------
 # Filtros globais das ordens (valem para Painel, Ordens e Equipamentos)
 # ----------------------------------------------------------------------------
-FILTROS_PERSISTENTES = ("f_periodo", "f_faixa", "f_centros", "f_tipos")
+FILTROS_PERSISTENTES = ("f_faixa", "f_centros", "f_tipos")
 
 
 def manter_filtros() -> None:
@@ -237,48 +237,91 @@ def manter_filtros() -> None:
             st.session_state[k] = st.session_state[k]
 
 
-PERIODOS = ["Últimos 12 meses", "Ano atual", "Mês atual", "Últimos 90 dias", "Últimos 24 meses", "Tudo", "Personalizado"]
+# ----------------------------------------------------------------------------
+# Filtro de datas "entre" (de / até), usado em todas as telas com data
+# ----------------------------------------------------------------------------
+ATALHOS = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Ano atual", "Últimos 12 meses", "Tudo"]
 
 
-def _intervalo(nome: str) -> tuple[date | None, date | None]:
-    # Os períodos param em hoje: ordens com data-base futura (preventivas já
-    # programadas) só entram em "Tudo" ou num período personalizado.
+def _atalho(nome: str, minimo: date, maximo: date) -> tuple[date, date]:
     hoje = date.today()
     if nome == "Mês atual":
         return hoje.replace(day=1), hoje
-    if nome == "Ano atual":
-        return hoje.replace(month=1, day=1), hoje
+    if nome == "Últimos 30 dias":
+        return hoje - timedelta(days=30), hoje
     if nome == "Últimos 90 dias":
         return hoje - timedelta(days=90), hoje
+    if nome == "Próximos 30 dias":
+        return hoje, hoje + timedelta(days=30)
+    if nome == "Próximos 90 dias":
+        return hoje, hoje + timedelta(days=90)
+    if nome == "Ano atual":
+        return hoje.replace(month=1, day=1), hoje.replace(month=12, day=31)
     if nome == "Últimos 12 meses":
         return (pd.Timestamp(hoje) - pd.DateOffset(months=12)).date(), hoje
-    if nome == "Últimos 24 meses":
-        return (pd.Timestamp(hoje) - pd.DateOffset(months=24)).date(), hoje
-    return None, None
+    return minimo, maximo  # Tudo
+
+
+def filtro_datas(chave: str, rotulo: str, padrao: tuple[date, date], dados: pd.Series | None = None,
+                 atalhos: list[str] | None = None) -> tuple[date, date]:
+    """Calendário de/até com atalhos. `dados` (datas da base) define o "Tudo" e os limites.
+
+    Devolve (início, fim), ambos inclusivos; enquanto a pessoa escolhe só a 1ª data,
+    usa o mesmo dia como fim."""
+    ss = st.session_state
+    validas = dados.dropna() if dados is not None else pd.Series(dtype="datetime64[ns]")
+    minimo = min(validas.min().date(), padrao[0]) if len(validas) else padrao[0]
+    maximo = max(validas.max().date(), padrao[1]) if len(validas) else padrao[1]
+    minimo, maximo = min(minimo, date(2000, 1, 1)), max(maximo, date.today() + timedelta(days=730))
+    if chave not in ss:
+        ss[chave] = padrao
+    chave_atalho = f"{chave}__atalho"
+
+    def aplicar():
+        escolha = ss.get(chave_atalho)
+        if escolha:
+            ss[chave] = _atalho(escolha, validas.min().date() if len(validas) else padrao[0],
+                                validas.max().date() if len(validas) else padrao[1])
+            ss[chave_atalho] = None
+
+    faixa = st.date_input(rotulo, key=chave, format="DD/MM/YYYY", min_value=minimo, max_value=maximo,
+                          help="Escolha a data inicial e a final no calendário (análise entre datas).")
+    st.pills("Atalhos", atalhos or ATALHOS, key=chave_atalho, on_change=aplicar, label_visibility="collapsed")
+    if isinstance(faixa, (list, tuple)):
+        if len(faixa) == 2:
+            return faixa[0], faixa[1]
+        if len(faixa) == 1:
+            return faixa[0], faixa[0]
+        return padrao
+    return faixa, faixa
+
+
+def descrever(ini: date, fim: date) -> str:
+    return f"{ini:%d/%m/%Y} a {fim:%d/%m/%Y}"
+
+
+def entre(serie: pd.Series, ini: date, fim: date) -> pd.Series:
+    """Máscara das datas dentro do intervalo, com os dois extremos inclusos."""
+    return (serie >= pd.Timestamp(ini)) & (serie < pd.Timestamp(fim) + pd.Timedelta(days=1))
 
 
 def filtros_ordens(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     """Desenha os filtros de período/centro/tipo na barra lateral.
 
     Devolve (ordens do período, ordens de qualquer data com os mesmos filtros de
-    centro/tipo — usada para backlog, que é uma foto de hoje —, descrição)."""
+    centro/tipo — usada para "em aberto hoje", que é uma foto de hoje —, descrição)."""
     ss = st.session_state
+    hoje = date.today()
+    padrao = ((pd.Timestamp(hoje) - pd.DateOffset(months=12)).date(), hoje)
     with st.sidebar:
         st.divider()
         st.markdown("**Filtros das ordens**")
-        periodo = st.selectbox("Período (data-base de início)", PERIODOS, key="f_periodo")
-        ini, fim = _intervalo(periodo)
-        if periodo == "Personalizado":
-            if "f_faixa" not in ss:
-                ss["f_faixa"] = (date.today() - timedelta(days=365), date.today())
-            faixa = st.date_input("De / até", format="DD/MM/YYYY", key="f_faixa")
-            if isinstance(faixa, (list, tuple)) and len(faixa) == 2:
-                ini, fim = faixa
+        ini, fim = filtro_datas("f_faixa", "Período (data-base de início)", padrao, df["Data"])
         centros = sorted(c for c in df["Centro de trabalho"].unique() if c)
         sel_ctr = st.multiselect("Centro de trabalho", centros, key="f_centros", placeholder="Todos")
         tipos = sorted(t for t in df["Tipo"].unique() if t)
         sel_tipo = st.multiselect("Tipo de ordem", tipos, key="f_tipos", placeholder="Todos")
-        if any([periodo != PERIODOS[0], sel_ctr, sel_tipo]):
+        if any([(ini, fim) != padrao, sel_ctr, sel_tipo]):
             if st.button("Limpar filtros", icon=":material/filter_alt_off:", width="stretch"):
                 for k in FILTROS_PERSISTENTES:
                     ss.pop(k, None)
@@ -290,15 +333,8 @@ def filtros_ordens(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     if sel_tipo:
         m &= df["Tipo"].isin(sel_tipo)
     sem_periodo = df.loc[m]
-    if ini:
-        m &= df["Data"] >= pd.Timestamp(ini)
-    if fim:
-        m &= df["Data"] < pd.Timestamp(fim) + pd.Timedelta(days=1)
-
-    if periodo == "Personalizado" and ini and fim:
-        desc = f"{ini:%d/%m/%Y} a {fim:%d/%m/%Y}"
-    else:
-        desc = periodo.lower()
+    m &= entre(df["Data"], ini, fim)
+    desc = descrever(ini, fim)
     if sel_ctr:
         desc += " · " + ", ".join(sel_ctr)
     if sel_tipo:

@@ -25,11 +25,11 @@ NOMES_BASE = {IW38: "Ordens (IW38)", IP19: "Planos de manutenção (IP19)", OPER
               MB52: "Estoque (MB52)", REQ: "Requisições de compra"}
 TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ)
 
-# Bases em que vários arquivos se somam (ex.: IW38 do ano + IW38BK com o histórico):
-# junta os arquivos pela chave e, se a mesma ordem/nota aparece em mais de um, vale
-# a do arquivo mais novo. Entram os MAX_MESCLA mais recentes e todo arquivo com
-# BK/HIST no nome (o histórico, por mais antigo que seja).
-MESCLAR = {IW38: r"^ORDEM$", NOTAS: r"^NOTA$"}
+# Cada base é UM arquivo: vale o export mais recente (o PCM gera um IW38 único com plano
+# de manutenção e backlog, e um IW28 único). O mecanismo abaixo permite que uma base
+# some vários arquivos pela chave (vale o mais novo para a mesma chave; entram os
+# MAX_MESCLA mais recentes e os com BK/HIST no nome) — hoje nenhuma base usa.
+MESCLAR: dict[str, str] = {}
 MAX_MESCLA = 6
 _HISTORICO = re.compile(r"BK|HIST", re.I)
 

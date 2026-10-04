@@ -25,7 +25,8 @@ with ui.caixa_filtros():
     l1 = st.columns([3, 2, 2, 2])
     busca = l1[0].text_input("Buscar", placeholder="nº da ordem, texto, equipamento, local, plano…", key="o_busca")
     situacoes = l1[1].multiselect("Situação", bases.SITUACOES, key="o_sit", placeholder="Todas")
-    natureza = l1[2].segmented_control("Plano de manutenção", ["Todas", "Com plano", "Sem plano"], default="Todas", key="o_nat")
+    natureza = l1[2].segmented_control("Tipo de trabalho", ["Todas", bases.NAT_PLANO, bases.NAT_BACKLOG], default="Todas",
+                                       key="o_nat", help="Plano de manutenção = número na coluna Plano; Backlog = sem número")
     tokens = sorted({t for s in df["Status usuário"].unique() for t in s.split()})
     rot = {t: f"{t} · {bases.STATUS_USUARIO[t]}" if t in bases.STATUS_USUARIO else t for t in tokens}
     sel_tok = l1[3].multiselect("Status do usuário", tokens, format_func=rot.get, key="o_tok", placeholder="Todos")
@@ -44,9 +45,9 @@ if busca.strip():
         m &= df["_busca"].str.contains(termo, regex=False)
 if situacoes:
     m &= df["Situação"].isin(situacoes)
-if natureza == "Com plano":
+if natureza == bases.NAT_PLANO:
     m &= df["Com plano"]
-elif natureza == "Sem plano":
+elif natureza == bases.NAT_BACKLOG:
     m &= ~df["Com plano"]
 if sel_tok:
     alvo = set(sel_tok)
@@ -122,7 +123,7 @@ if linhas:
     if o["Equip. (chave)"]:
         hist = base.df[base.df["Equip. (chave)"] == o["Equip. (chave)"]].sort_values("Data", ascending=False)
         st.markdown(f"**Histórico do equipamento** — {inteiro(len(hist))} ordens, {brl(hist['Custo real'].sum())} no total "
-                    f"({inteiro((~hist['Com plano']).sum())} corretivas)")
+                    f"({inteiro((~hist['Com plano']).sum())} de backlog)")
         st.dataframe(hist[["Ordem", "Data", "Tipo", "Natureza", "Texto", "Situação", "Custo real"]].head(200),
                      hide_index=True, width="stretch", height=ui.altura_tabela(260),
                      column_config={"Data": ui.col_data(), "Custo real": ui.col_moeda(),
