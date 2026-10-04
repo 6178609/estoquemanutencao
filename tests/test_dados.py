@@ -264,3 +264,26 @@ def test_pasta_site_entra_nas_padrao_sem_virar_pasta_dos_cadastros(tmp_path, mon
     site = tmp_path / "Downloads" / "SITE"
     monkeypatch.setenv("CENTRAL_PASTAS", f"{onedrive};{site}")
     assert config.carregar().pasta_app == onedrive / config.NOME_PASTA_APP
+
+
+
+
+def test_lista_de_arquivos_sobrevive_a_recarga_do_codigo(tmp_path, monkeypatch):
+    """Na nuvem, uma nova publicação faz o Streamlit descartar e reimportar central.fontes;
+    a fonte guardada em cache_resource é da versão velha e a lista não pode sair com a
+    classe antiga de Arquivo (UnserializableReturnValueError)."""
+    import importlib
+    import pickle
+    import sys
+
+    from central import fontes as velho
+    (tmp_path / "IW38.xlsx").write_bytes(b"x")
+    fonte_velha = velho.Pastas([str(tmp_path)], str(tmp_path / "app"))
+    monkeypatch.delitem(sys.modules, "central.fontes")
+    novo = importlib.import_module("central.fontes")
+    monkeypatch.setattr(bases, "fontes", novo)
+    assert id(novo.Arquivo) != id(velho.Arquivo)  # fonte() passa a criar uma fonte nova
+    monkeypatch.setattr(bases, "fonte", lambda: fonte_velha)
+    lista = bases._listar.__wrapped__("teste", 0)
+    assert lista and all(type(a) is novo.Arquivo for a in lista)
+    pickle.dumps(lista)

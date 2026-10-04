@@ -123,7 +123,7 @@ def _login_por_cookie() -> str | None:
         token = st.context.cookies.get(COOKIE)
     except Exception:  # noqa: BLE001
         return None
-    if not token or st.session_state.get("_saiu"):
+    if not isinstance(token, str) or not token or st.session_state.get("_saiu"):
         return None
     h = _hash_token(token)
     agora = datetime.now(timezone.utc).isoformat()

@@ -37,17 +37,21 @@ _PISTAS = [(OPER, r"IW38OP|IW37|OPERAC"), (IP19, r"IP19|IP24|PLANOS?\b"), (IW38,
 # Fonte e inventário de arquivos
 # ----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
-def _fonte_cacheada(chave_cfg: str):
+def _fonte_cacheada(chave_cfg: str, versao_modulo: int):
     return fontes.criar(config.carregar())
 
 
 def fonte():
-    return _fonte_cacheada(config.carregar().chave)
+    # versao_modulo: quando o código é atualizado (nova publicação na nuvem) o módulo fontes
+    # é recarregado; a fonte antiga criaria Arquivo da classe velha, que o cache não grava.
+    return _fonte_cacheada(config.carregar().chave, id(fontes.Arquivo))
 
 
 @st.cache_data(show_spinner=False, max_entries=4)
 def _listar(chave_cfg: str, janela: int) -> list[fontes.Arquivo]:  # janela = chave de tempo do cache
-    return sorted(fonte().listar(), key=lambda a: a.modificado, reverse=True)
+    lista = sorted(fonte().listar(), key=lambda a: a.modificado, reverse=True)
+    # Sempre com a classe atual (ver fonte()), senão o cache falha com UnserializableReturnValueError.
+    return [fontes.Arquivo(a.id, a.nome, a.modificado, a.tamanho, a.versao) for a in lista]
 
 
 def arquivos() -> list[fontes.Arquivo]:
