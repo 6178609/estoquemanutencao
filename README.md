@@ -15,6 +15,7 @@ SAP (IW38 / MB52 / requisições)
 Pastas do SharePoint sincronizadas pelo OneDrive
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\0.1 - Indicadores
+   ~\Downloads\SITE  (pasta base do site, com subpastas)
    ~\Downloads\1.3 - Controle de Estoque  e  ~\Downloads\0.1 - Indicadores  (cópias, com subpastas)
    ~\Downloads  (só a própria pasta)
    │  o app varre as pastas a cada 60 s

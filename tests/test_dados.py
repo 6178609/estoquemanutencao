@@ -252,3 +252,13 @@ def test_downloads_sem_subpastas_e_sem_cadastros(tmp_path, monkeypatch):
     onedrive = tmp_path / "1.3 - Controle de Estoque"
     monkeypatch.setenv("CENTRAL_PASTAS", f"{dl};{onedrive}")
     assert config.carregar().pasta_app == onedrive / config.NOME_PASTA_APP
+
+
+def test_pasta_site_entra_nas_padrao_sem_virar_pasta_dos_cadastros(tmp_path, monkeypatch):
+    from central import config
+
+    assert "~/Downloads/SITE" in config.PASTAS_PADRAO
+    onedrive = tmp_path / "1.3 - Controle de Estoque"
+    site = tmp_path / "Downloads" / "SITE"
+    monkeypatch.setenv("CENTRAL_PASTAS", f"{onedrive};{site}")
+    assert config.carregar().pasta_app == onedrive / config.NOME_PASTA_APP

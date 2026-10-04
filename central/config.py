@@ -20,6 +20,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 PASTAS_PADRAO = [
     "~/OneDrive - Alpargatas S.A/PCM F26 - Documentos/1.3 - Controle de Estoque",
     "~/OneDrive - Alpargatas S.A/PCM F26 - Documentos/0.1 - Indicadores",
+    # pasta base do site (com subpastas): os exports do SAP salvos aqui alimentam todas as abas
+    "~/Downloads/SITE",
     # cópias das mesmas pastas dentro da Downloads (com subpastas)
     "~/Downloads/1.3 - Controle de Estoque",
     "~/Downloads/0.1 - Indicadores",
