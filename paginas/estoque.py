@@ -9,7 +9,19 @@ from central.util import brl, brl_curto, inteiro, sem_acento
 ui.cabecalho("Estoque de manutenção · MB52", "Saldo atual do almoxarifado, com estoque mínimo por item e as peças ligadas a cada equipamento")
 
 eu = auth.usuario_atual()
-edita = auth.pode_editar(eu)
+edita = auth.pode_editar(eu)  # estoque mínimo e remover foto: só editor/administrador
+envia = bool(eu)              # enviar foto: qualquer usuário logado
+ss = st.session_state
+VISOES = ["Lista de materiais", "Fotos dos materiais"]
+
+
+def apos_gravar() -> None:
+    """Depois de gravar mínimo ou foto: o vigia da barra lateral não deve tratar a gravação
+    como "arquivo novo" — o st.rerun dele roda antes desta página e apagaria as escolhas
+    da tela (visão de fotos, material escolhido)."""
+    ss["_assinatura"] = bases.assinatura_geral()
+
+
 base = bases.mb52()
 if not ui.aviso_base(base, MB52):
     st.stop()
@@ -48,6 +60,135 @@ c[3].metric("Peças de equipamento crítico em falta", inteiro(len(criticos)), b
 c[4].metric("Valor em estoque", brl_curto(t["Valor"].sum()) if t["Valor"].any() else "—",
             border=True, delta_arrow="off", help=brl(t["Valor"].sum()) if t["Valor"].any() else "O export não tem coluna de valor.")
 
+# a visão de fotos fica no topo, logo abaixo dos cartões, para ninguém precisar procurar
+com_foto = sorted(k for k, v in cad_mat.items() if (v or {}).get("foto"))
+visao = st.segmented_control(
+    "Visão", VISOES, default=VISOES[0], required=True, key="m_visao", label_visibility="collapsed",
+    # rótulos fixos (sem contagem): se mudassem entre execuções, o widget seria recriado e voltaria à lista
+    format_func=lambda v: f":material/photo_camera: {v}" if v == VISOES[1] else f":material/inventory_2: {v}")
+
+# ============================================================================
+# Visão · Fotos dos materiais
+# ============================================================================
+rotulo = dict(zip(t["Material"], t["Descrição"]))
+POR_PAGINA = 40
+
+
+def abrir_foto(codigo: str) -> None:
+    ss["m_foto_mat"] = codigo
+
+
+@st.cache_data(show_spinner=False, max_entries=512)
+def foto_galeria(caminho: str, versao: str) -> str | None:
+    """Foto reduzida da galeria, em cache pela versão: sem isso cada clique na tela relia até
+    40 fotos inteiras da pasta (no SharePoint/GitHub, 40 downloads por execução)."""
+    conteudo = bases.foto_material({"foto": caminho, "foto_versao": versao})
+    try:
+        return fotos.miniatura(conteudo, 360) if conteudo else None
+    except fotos.FotoErro:
+        return None
+
+
+if visao == VISOES[1]:
+    # materiais da MB52 + os que têm foto mas saíram do export (a foto continua valendo)
+    opcoes = list(t.sort_values("Descrição")["Material"]) + [c for c in com_foto if c not in rotulo]
+    if ss.get("m_foto_mat") is not None and ss["m_foto_mat"] not in opcoes:
+        del ss["m_foto_mat"]
+    with st.container(border=True):
+        st.markdown("**:material/add_a_photo: Foto do material** — fica na pasta compartilhada do app; todos veem")
+        # index fixo: se mudasse entre execuções o Streamlit recriaria o widget e perderia a escolha
+        mat = st.selectbox("Material", opcoes, key="m_foto_mat", index=None,
+                           format_func=lambda c: f"{c} · {rotulo.get(c, '(fora da MB52 atual)')}",
+                           placeholder="Digite o código ou a descrição do material…")
+        if not mat:
+            st.caption("Escolha um material acima ou clique em **Abrir** numa foto da galeria abaixo.")
+        else:
+            info = cad_mat.get(mat) or {}
+            atual = bases.foto_material(info)
+            esq, dir_ = st.columns([3, 2])
+            with esq:
+                if atual:
+                    st.image(atual, width="stretch")
+                    if info.get("atualizado_em"):
+                        st.caption(f"Última alteração por {info.get('atualizado_por') or 'sem nome'} em "
+                                   f"{info['atualizado_em'][:16].replace('T', ' ')} (UTC)")
+                else:
+                    st.info("Este material ainda não tem foto.", icon=":material/hide_image:")
+            with dir_:
+                linhas = t[t["Material"] == mat]
+                if len(linhas):
+                    linha = linhas.iloc[0]
+                    qtd = f"{linha['Estoque']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                    st.markdown(f"**{mat}** · {rotulo.get(mat, '')}  \nEstoque: **{qtd} {linha['UM']}** · "
+                                f"{linha['Situação']}" + (f"  \nUsado em: {linha['Usado em']}" if linha["Usado em"] else ""))
+                else:
+                    st.markdown(f"**{mat}**  \n:gray[Não está no export atual da MB52.]")
+                if envia:
+                    n = ss.get("_m_fotos", 0)
+                    origem = st.segmented_control("Origem da foto", ["Arquivo", "Câmera"], default="Arquivo",
+                                                  required=True, key="m_foto_origem")
+                    if origem == "Câmera":
+                        nova = st.camera_input("Tirar foto", key=f"m_cam_{mat}_{n}")
+                    else:
+                        nova = st.file_uploader("Enviar foto (JPG, PNG ou WEBP)", type=fotos.TIPOS,
+                                                key=f"m_up_{mat}_{n}")
+                    a1, a2 = st.columns(2)
+                    if a1.button("Trocar foto" if atual else "Salvar foto", icon=":material/save:", type="primary",
+                                 width="stretch", disabled=nova is None):
+                        try:
+                            bases.gravar_foto_material(mat, nova.getvalue(), auth.nome_de(eu))
+                        except fotos.FotoErro as e:
+                            st.error(f"Não foi possível usar a foto: {e}.")
+                        else:
+                            ss["_m_fotos"] = n + 1
+                            apos_gravar()
+                            st.toast(f"Foto do material {mat} salva.", icon=":material/check:")
+                            st.rerun()
+                    if atual and edita and a2.button("Remover foto", icon=":material/delete:", width="stretch"):
+                        bases.remover_foto_material(mat, auth.nome_de(eu))
+                        apos_gravar()
+                        st.rerun()
+
+    # ------------------------------ galeria ---------------------------------
+    st.markdown(f"#### :material/photo_library: Galeria · {inteiro(len(com_foto))} materiais com foto")
+    if not com_foto:
+        st.caption("Nenhum material tem foto ainda — escolha um material acima e envie a primeira.")
+        st.stop()
+    g1, g2 = st.columns([3, 1], vertical_alignment="bottom")
+    filtro = g1.text_input("Filtrar galeria", key="m_gal_busca", placeholder="código ou descrição…",
+                           icon=":material/search:", label_visibility="collapsed")
+    gal = com_foto
+    if filtro.strip():
+        termos = sem_acento(filtro).upper().split()
+        gal = [c for c in gal if all(x in sem_acento(f"{c} {rotulo.get(c, '')}").upper() for x in termos)]
+    paginas = max(1, -(-len(gal) // POR_PAGINA))
+    # a chave muda com o filtro: a página volta para 1 e nunca passa do novo máximo
+    pagina = (g2.number_input("Página", min_value=1, max_value=paginas, value=1, step=1, key=f"m_gal_pag_{filtro}")
+              if paginas > 1 else 1)
+    pagina = min(int(pagina), paginas)
+    trecho = gal[(pagina - 1) * POR_PAGINA:pagina * POR_PAGINA]
+    if not trecho:
+        st.caption("Nenhuma foto com esse filtro.")
+    elif paginas > 1:
+        st.caption(f"Mostrando {len(trecho)} de {inteiro(len(gal))} fotos · página {pagina} de {paginas}")
+    for i in range(0, len(trecho), 4):
+        cols = st.columns(4)
+        for col, cod in zip(cols, trecho[i:i + 4]):
+            with col.container(border=True):
+                info_g = cad_mat.get(cod) or {}
+                img = foto_galeria(info_g["foto"], info_g.get("foto_versao", "")) if info_g.get("foto") else None
+                if img:
+                    st.image(img, width="stretch")
+                else:
+                    st.caption(":material/broken_image: arquivo da foto não encontrado")
+                st.markdown(f"**{cod}**  \n:gray[{rotulo.get(cod, '(fora da MB52 atual)')}]")
+                st.button("Abrir", icon=":material/open_in_full:", key=f"m_gal_{cod}", width="stretch",
+                          on_click=abrir_foto, args=(cod,))
+    st.stop()
+
+# ============================================================================
+# Visão · Lista de materiais
+# ============================================================================
 if len(criticos):
     st.error(f"**{len(criticos)} peça(s) de equipamentos críticos sem estoque suficiente:** "
              + "; ".join(f"{r['Material']} {r['Descrição'][:40]} → {r['Usado em']}" for _, r in criticos.head(8).iterrows()),
@@ -90,7 +231,8 @@ editado = st.data_editor(
         "Mínimo": st.column_config.NumberColumn(format="%.2f", min_value=0, help="Estoque mínimo / ponto de reposição"),
         "Valor": ui.col_moeda(),
         "Descrição": st.column_config.TextColumn(width="large"),
-        "Foto": st.column_config.ImageColumn("Foto", width="small", help="Envie a foto em **Foto do material**, abaixo"),
+        "Foto": st.column_config.ImageColumn("Foto", width="small",
+                                             help="Envie a foto na visão **Fotos dos materiais**, no topo da página"),
     },
 )
 b1, b2 = st.columns([1, 4])
@@ -101,65 +243,11 @@ if edita and b1.button(f"Salvar mínimos ({int(mudou.sum())})", icon=":material/
              for _, r in editado[mudou].iterrows()}
     bases.gravar_cadastro_lote(bases.ARQ_CAD_MAT, itens, auth.nome_de(eu), mesclar=True)
     st.session_state["_m_salvos"] = st.session_state.get("_m_salvos", 0) + 1
+    apos_gravar()
     st.toast(f"{len(itens)} mínimo(s) salvo(s).", icon=":material/check:")
     st.rerun()
 with b2:
     ui.baixar(vis[[c for c in COLS if c != "Foto"]], "estoque_filtrado", "Baixar lista (Excel)")
-
-# ----------------------------------------------------------------------------
-# Foto do material
-# ----------------------------------------------------------------------------
-ss = st.session_state
-with st.container(border=True):
-    st.markdown("**:material/photo_camera: Foto do material** — fica na pasta compartilhada do app; todos veem")
-    rotulo = dict(zip(t["Material"], t["Descrição"]))
-    opcoes = list(vis["Material"])
-    if ss.get("m_foto_mat") and ss["m_foto_mat"] not in opcoes:
-        opcoes = [ss["m_foto_mat"], *opcoes] if ss["m_foto_mat"] in rotulo else opcoes
-    # index fixo: se mudasse entre execuções o Streamlit recriaria o widget e perderia a escolha
-    mat = st.selectbox("Material", opcoes, key="m_foto_mat", index=None, format_func=lambda c: f"{c} · {rotulo.get(c, '')}",
-                       placeholder="Escolha o material (a busca acima filtra esta lista)…")
-    if mat:
-        info = cad_mat.get(mat) or {}
-        atual = bases.foto_material(info)
-        esq, dir_ = st.columns([2, 3])
-        with esq:
-            if atual:
-                st.image(atual, width="stretch")
-                if info.get("atualizado_em"):
-                    st.caption(f"Enviada por {info.get('atualizado_por') or 'sem nome'} em "
-                               f"{info['atualizado_em'][:16].replace('T', ' ')} (UTC)")
-            else:
-                st.info("Este material ainda não tem foto.", icon=":material/hide_image:")
-        with dir_:
-            linha = t[t["Material"] == mat].iloc[0]
-            qtd = f"{linha['Estoque']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            st.markdown(f"**{mat}** · {rotulo.get(mat, '')}  \nEstoque: **{qtd} {linha['UM']}** · {linha['Situação']}"
-                        + (f"  \nUsado em: {linha['Usado em']}" if linha["Usado em"] else ""))
-            if not edita:
-                st.caption(":material/lock: Seu perfil é de consulta — peça a um editor para enviar a foto.")
-            else:
-                n = ss.get("_m_fotos", 0)
-                origem = st.segmented_control("Origem da foto", ["Arquivo", "Câmera"], default="Arquivo",
-                                              key="m_foto_origem")
-                if origem == "Câmera":
-                    nova = st.camera_input("Tirar foto", key=f"m_cam_{mat}_{n}")
-                else:
-                    nova = st.file_uploader("Enviar foto (JPG, PNG ou WEBP)", type=fotos.TIPOS, key=f"m_up_{mat}_{n}")
-                a1, a2 = st.columns(2)
-                if a1.button("Salvar foto" if not atual else "Trocar foto", icon=":material/save:", type="primary",
-                             width="stretch", disabled=nova is None):
-                    try:
-                        bases.gravar_foto_material(mat, nova.getvalue(), auth.nome_de(eu))
-                    except fotos.FotoErro as e:
-                        st.error(f"Não foi possível usar a foto: {e}.")
-                    else:
-                        ss["_m_fotos"] = n + 1
-                        st.toast(f"Foto do material {mat} salva.", icon=":material/check:")
-                        st.rerun()
-                if atual and a2.button("Remover foto", icon=":material/delete:", width="stretch"):
-                    bases.remover_foto_material(mat, auth.nome_de(eu))
-                    st.rerun()
 
 with st.expander("Saldo por depósito"):
     d = det if not sel_dep else det[det["Depósito"].isin(sel_dep)]

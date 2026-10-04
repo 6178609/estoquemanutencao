@@ -21,11 +21,13 @@ EXTENSOES = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".htm", ".html", ".parque
 IW38, MB52, REQ, IP19 = "iw38", "mb52", "requisicoes", "ip19"
 OPER, NOTAS, EQUIP = "iw38op", "iw28", "ih08"
 CONF, EQUIPE = "iw47", "equipe"
+AF, ACAO_AF = "af", "acoes_af"
 NOMES_BASE = {IW38: "Ordens (IW38)", IP19: "Planos de manutenção (IP19)", OPER: "Operações das ordens (IW38OP)",
               NOTAS: "Notas de manutenção (IW28)", EQUIP: "Cadastro de equipamentos (IH08)",
               MB52: "Estoque (MB52)", REQ: "Requisições de compra",
-              CONF: "Apontamentos de horas (IW47)", EQUIPE: "Equipe de manutenção (Gestão de HH)"}
-TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ, CONF, EQUIPE)
+              CONF: "Apontamentos de horas (IW47)", EQUIPE: "Equipe de manutenção (Gestão de HH)",
+              AF: "Análises de falha (Gerenciador de AF)", ACAO_AF: "Ações das análises de falha (Gerenciador de AF)"}
+TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ, CONF, EQUIPE, AF, ACAO_AF)
 
 # Cada base é UM arquivo: vale o export mais recente (o PCM gera um IW38 único com plano
 # de manutenção e backlog, e um IW28 único). O mecanismo abaixo permite que uma base
@@ -222,23 +224,37 @@ def sondar(nome: str, conteudo: bytes) -> list[tuple[str, str | None, int | None
                 from openpyxl import load_workbook
 
                 wb = load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
-                abas = [(ws.title, list(ws.iter_rows(max_row=15, values_only=True))) for ws in wb.worksheets]
+                abas = [(ws.title, list(ws.iter_rows(max_row=15, values_only=True)),
+                         getattr(ws, "sheet_state", "visible") == "visible") for ws in wb.worksheets]
                 wb.close()
             else:
                 folhas = pd.read_excel(io.BytesIO(conteudo), engine="xlrd", sheet_name=None, header=None, nrows=15)
-                abas = [(t, f.values.tolist()) for t, f in folhas.items()]
+                abas = [(t, f.values.tolist(), True) for t, f in folhas.items()]
         except Exception:  # noqa: BLE001
             return []
-        for titulo, linhas in abas:
+        visiveis = []
+        for titulo, linhas, visivel in abas:
             for i, linha in enumerate(linhas):
                 tipo = identificar([str(c) for c in linha if c is not None and str(c).strip()])
                 if tipo:
                     achados.append((tipo, titulo, i))
+                    visiveis.append(visivel)
                     break
-        # A planilha de Gestão de HH traz cópias antigas de outras bases (aba IW47, "DadosExtras (IW38)"…):
-        # dela só vale a lista de pessoas — as bases vêm dos exports do SAP.
-        if any(t == EQUIPE for t, _, _ in achados):
-            achados = [a for a in achados if a[0] == EQUIPE]
+        # uma aba por base em cada arquivo: a visível vence a oculta (ex.: "Análise de Falha" e a
+        # "Análise de Falha (Backup)" escondida no Gerenciador de AF)
+        ordem = sorted(range(len(achados)), key=lambda k: not visiveis[k])
+        vistos, unicos = set(), []
+        for k in ordem:
+            if achados[k][0] not in vistos:
+                vistos.add(achados[k][0])
+                unicos.append(achados[k])
+        achados = unicos
+        # Planilhas de gestão trazem cópias antigas de outras bases: da Gestão de HH só vale a lista de
+        # pessoas (aba IW47, "DadosExtras (IW38)"… ficam de fora) e do Gerenciador de AF só as análises e
+        # as ações (a aba "Gargalos" parece um IH08) — as demais bases vêm dos exports do SAP.
+        for proprios in ({EQUIPE}, {AF, ACAO_AF}):
+            if any(t in proprios for t, _, _ in achados):
+                achados = [a for a in achados if a[0] in proprios]
         return achados
     try:
         tipo = identificar(ler_arquivo(nome, conteudo).columns)
@@ -298,6 +314,11 @@ def identificar(colunas) -> str | None:
 
     if tem(_COLUNAS_DO_APP):
         return None
+    # Gerenciador de AF: ações (nº da análise + nº da ação + ação) e as análises de falha
+    if tem(r"^N DA ANALISE$") and tem(r"^N DA ACAO$") and tem(r"^ACAO$"):
+        return ACAO_AF
+    if tem(r"^N DA ANALISE$") and tem(r"^STATUS DA ANALISE$") and tem(r"^DATA DA FALHA$"):
+        return AF
     # IW47: confirmações (horas apontadas por pessoa). Antes do IW38, que também tem Ordem + Status.
     if tem(r"^TRABALHO REAL$") and tem(r"^ORDEM$") and tem(r"^N PESSOAL$|NUMERO PESSOAL"):
         return CONF

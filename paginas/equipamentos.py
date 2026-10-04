@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import auth, bases, contexto, ui
+from central import auth, bases, contexto, fotos, ui
 from central import indicadores as ind
 from central.leitura import IW38
 from central.util import brl, inteiro, sem_acento
@@ -16,7 +16,8 @@ VISOES = ["Cadastro de equipamentos", "Análise pelas ordens (IW38)"]
 MAX_CANDIDATOS = 60  # itens da base de material listados por busca
 
 eu = auth.usuario_atual()
-edita = auth.pode_editar(eu)
+cadastra = bool(eu)            # qualquer usuário logado cadastra e edita equipamentos (e envia fotos)
+edita = auth.pode_editar(eu)   # remover equipamento: só editor/administrador
 ss = st.session_state
 
 base = bases.iw38()
@@ -61,6 +62,83 @@ def pecas_em_alerta(codigos) -> int:
     return sum(situacao_peca(c)[0] != "green" for c in codigos)
 
 
+def apos_gravar() -> None:
+    """Depois de gravar um cadastro ou foto: o vigia da barra lateral não deve tratar a
+    gravação como "arquivo novo" — o st.rerun dele roda antes desta página e apagaria o
+    que está preenchido na tela (formulário aberto, visão escolhida)."""
+    ss["_assinatura"] = bases.assinatura_geral()
+
+
+# ----------------------------------------------------------------------------
+# Componentes: miniatura da foto do material e ponto de adição de foto
+# ----------------------------------------------------------------------------
+def miniatura_de(codigo: str) -> str | None:
+    info = cad_mat.get(codigo) or {}
+    return bases.miniatura_material(info["foto"], info.get("foto_versao", "")) if info.get("foto") else None
+
+
+def ponto_de_foto(codigo: str, chave: str) -> None:
+    """Botão "Foto" do componente: envia ou troca a foto do material (arquivo ou câmera).
+
+    O conteúdo só roda com o popover aberto (on_change="rerun"), então dezenas de
+    componentes na tela não criam dezenas de campos de envio."""
+    # sem "limpar" caracteres: TAGs como "AB.1" e "AB_1" virariam a mesma chave (StreamlitDuplicateElementKey)
+    pre = f"eqp|{chave}|{codigo}"
+    tem = bool((cad_mat.get(codigo) or {}).get("foto"))
+    pop = st.popover("Foto", icon=":material/add_a_photo:", key=pre, on_change="rerun", width="stretch",
+                     help="Trocar a foto deste material" if tem else "Adicionar a foto deste material")
+    if not pop.open:
+        return
+    with pop:
+        info = cad_mat.get(codigo) or {}
+        atual = bases.foto_material(info)
+        st.markdown(f"**{md(codigo)}**  {md(rot_mat.get(codigo, ''))}")
+        if atual:
+            st.image(atual, width=240)
+        else:
+            st.caption(":material/hide_image: Este material ainda não tem foto.")
+        n = ss.get(f"{pre}_n", 0)
+        origem = st.segmented_control("Origem da foto", ["Arquivo", "Câmera"], default="Arquivo", required=True,
+                                      key=f"{pre}_origem")
+        if origem == "Câmera":
+            nova = st.camera_input("Tirar foto", key=f"{pre}_cam_{n}")
+        else:
+            nova = st.file_uploader("Enviar foto (JPG, PNG ou WEBP)", type=fotos.TIPOS, key=f"{pre}_up_{n}")
+        if st.button("Trocar foto" if atual else "Salvar foto", icon=":material/save:", type="primary",
+                     width="stretch", disabled=nova is None, key=f"{pre}_salvar"):
+            try:
+                bases.gravar_foto_material(codigo, nova.getvalue(), auth.nome_de(eu))
+            except fotos.FotoErro as e:
+                st.error(f"Não foi possível usar a foto: {e}.")
+            else:
+                ss[f"{pre}_n"] = n + 1
+                apos_gravar()
+                st.toast(f"Foto do material {codigo} salva.", icon=":material/check:")
+                st.rerun()
+
+
+def linha_componente(codigo: str, chave: str, desvincular_btn: bool = False) -> None:
+    """Uma linha da lista de componentes: miniatura, código/descrição/estoque e o botão Foto."""
+    cor, texto = situacao_peca(codigo)
+    larg = [0.6, 4.4, 1.1, 1.3] if desvincular_btn else [0.6, 5, 1.1]
+    col = st.columns(larg, vertical_alignment="center")
+    mini = miniatura_de(codigo)
+    if mini:
+        col[0].image(mini, width=48)
+    else:
+        col[0].markdown(":gray[:material/hide_image:]", help="Sem foto — use o botão Foto")
+    if codigo in rot_mat:
+        col[1].markdown(f":blue[`{codigo}`]  {md(rot_mat[codigo])}  :{cor}-badge[{texto}]")
+    else:
+        col[1].markdown(f":blue[`{codigo}`]  :red[:material/link_off: {texto}]")
+    if cadastra:
+        with col[2]:
+            ponto_de_foto(codigo, chave)
+    if desvincular_btn:
+        col[3].button("Desvincular", icon=":material/link_off:", key=f"eqf_rm_{codigo}", width="stretch",
+                      on_click=desvincular, args=(codigo,))
+
+
 # ----------------------------------------------------------------------------
 # Formulário: estado e ações
 # ----------------------------------------------------------------------------
@@ -75,7 +153,7 @@ def abrir_formulario(tag: str | None = None) -> None:
     ss["eqf_crit"] = (info.get("criticidade") if info.get("criticidade") in CRITICIDADES
                       else bases.ABC_PARA_CRITICIDADE.get(abc_sap.get(tag or "", ""), "Média"))
     ss["eqf_ov"] = info.get("observacoes", "")
-    ss["eqf_links"] = list(info.get("materiais", []))
+    ss["eqf_links"] = list(dict.fromkeys(info.get("materiais", [])))
     ss["eqf_busca"] = ""
     for k in [k for k in ss if str(k).startswith("eqf_l_")]:
         del ss[k]
@@ -102,13 +180,10 @@ def marcar(codigo: str) -> None:
         links.remove(codigo)
 
 
-def desvincular() -> None:
-    codigo = ss.get("eqf_chips")
-    if codigo:
-        if codigo in ss.get("eqf_links", []):
-            ss["eqf_links"].remove(codigo)
-        ss[f"eqf_l_{codigo}"] = False
-    ss["eqf_chips"] = None
+def desvincular(codigo: str) -> None:
+    if codigo in ss.get("eqf_links", []):
+        ss["eqf_links"].remove(codigo)
+    ss[f"eqf_l_{codigo}"] = False
 
 
 if "eq_sel" in ss:  # veio da página de Ordens: abre a análise com a ficha do equipamento
@@ -121,7 +196,7 @@ if "eq_sel" in ss:  # veio da página de Ordens: abre a análise com a ficha do 
 h1, h2 = st.columns([4, 1.4], vertical_alignment="center")
 with h1:
     ui.cabecalho("Gerenciamento de equipamentos", "Categoria, criticidade e componentes vinculados à base de material")
-if edita:
+if cadastra:
     h2.button("Novo equipamento", icon=":material/add:", type="primary", width="stretch", on_click=abrir_formulario)
 
 if ss.get("eq_visao") not in VISOES:
@@ -142,7 +217,7 @@ if visao == VISOES[0]:
         cards[-1].metric("Total", inteiro(len(cad)), border=True)
 
     # ---------------------------- formulário --------------------------------
-    if ss.get("eqf_aberto") and edita:
+    if ss.get("eqf_aberto") and cadastra:
         editando = ss.get("eqf_editando")
         with st.container(border=True):
             st.markdown(f"**:blue[{'EDITAR EQUIPAMENTO' if editando else 'NOVO EQUIPAMENTO'}]**")
@@ -180,9 +255,12 @@ if visao == VISOES[0]:
                         st.checkbox(f":blue[`{cod}`]  {md(desc)}", key=k, on_change=marcar, args=(cod,))
                 if total > MAX_CANDIDATOS:
                     b[1].caption(f"Mostrando {MAX_CANDIDATOS} de {inteiro(total)} materiais — refine a busca.")
-                if links:
-                    st.pills("Vinculados (clique para desvincular)", links, key="eqf_chips", on_change=desvincular,
-                             format_func=lambda c: f"{c} ✕")
+            if links:
+                st.markdown(f"<div class='cm-rotulo'>VINCULADOS ({len(links)}) · FOTO DE CADA MATERIAL</div>",
+                            unsafe_allow_html=True)
+                with st.container(border=True):
+                    for cod in list(links):
+                        linha_componente(cod, "form", desvincular_btn=True)
 
             a = st.columns([1.3, 1, 4])
             salvar = a[0].button("Salvar equipamento", icon=":material/check:", type="primary", width="stretch")
@@ -199,11 +277,10 @@ if visao == VISOES[0]:
                     if editando and editando != tag:  # TAG renomeada
                         itens[editando] = None
                     bases.gravar_cadastro_lote(bases.ARQ_CAD_EQUIP, itens, auth.nome_de(eu))
+                    apos_gravar()
                     fechar_formulario()
                     st.toast(f"Equipamento {tag} salvo.", icon=":material/check:")
                     st.rerun()
-    elif not edita:
-        st.caption(":material/lock: Seu perfil é de consulta — peça a um editor para cadastrar ou alterar equipamentos.")
 
     # ------------------------------ lista -----------------------------------
     if not cad and not ss.get("eqf_aberto"):
@@ -249,23 +326,21 @@ if visao == VISOES[0]:
                 st.markdown("<div class='cm-rotulo'>COMPONENTES VINCULADOS</div>", unsafe_allow_html=True)
                 if not comps:
                     st.caption("Nenhum componente vinculado.")
-                for c in comps:
-                    cor, texto = situacao_peca(c)
-                    if c in rot_mat:
-                        st.markdown(f":blue[`{c}`]  {md(rot_mat[c])}  :{cor}-badge[{texto}]")
-                    else:
-                        st.markdown(f":blue[`{c}`]  :red[:material/link_off: {texto}]")
+                for c in dict.fromkeys(comps):  # código repetido no cadastro repetiria a chave do widget
+                    linha_componente(c, f"lista|{tag}")
                 if v.get("atualizado_em"):
                     st.caption(f"Última edição: {v.get('atualizado_por') or 'sem nome'} em "
                                f"{v['atualizado_em'][:16].replace('T', ' ')} (UTC)")
-                if edita:
+                if cadastra:
                     e1, e2, _ = st.columns([1, 1, 4])
                     e1.button("Editar", icon=":material/edit:", key=f"eqc_ed_{tag}", width="stretch",
                               on_click=abrir_formulario, args=(tag,))
-                    with e2.popover("Remover", icon=":material/delete:", width="stretch"):
+                if edita:
+                    with e2.popover("Remover", icon=":material/delete:", width="stretch", key=f"eqc_rmp_{tag}"):
                         st.markdown(f"Remover **{md(tag)}** do cadastro? As ordens do SAP não são afetadas.")
                         if st.button("Remover", type="primary", key=f"eqc_rm_{tag}"):
                             bases.gravar_cadastro(bases.ARQ_CAD_EQUIP, tag, None, auth.nome_de(eu))
+                            apos_gravar()
                             if ss.get("eqf_editando") == tag:
                                 fechar_formulario()
                             st.rerun()
@@ -379,9 +454,10 @@ if ss.get("eq_ficha") not in nomes:
     ss.pop("eq_ficha", None)
 
 st.divider()
-extra = {} if "eq_ficha" in ss else {"index": None}
-sel = st.selectbox("Ficha do equipamento", opcoes, key="eq_ficha", placeholder="Selecione na tabela acima ou busque aqui…",
-                   format_func=lambda k: f"{k} · {nomes.get(k, '')}", **extra)
+# index fixo: se mudasse entre execuções o Streamlit recriaria o widget e perderia a escolha
+sel = st.selectbox("Ficha do equipamento", opcoes, key="eq_ficha", index=None,
+                   placeholder="Selecione na tabela acima ou busque aqui…",
+                   format_func=lambda k: f"{k} · {nomes.get(k, '')}")
 if not sel:
     st.stop()
 
@@ -451,15 +527,14 @@ with lado, st.container(border=True):
         st.markdown(f":blue-badge[{md(info.get('categoria', '—'))}]  :{COR_CRIT.get(crit, 'gray')}-badge[{md(crit or '—')}]")
         if info.get("observacoes"):
             st.markdown(f"> {md(info['observacoes'])}")
-        for c in info.get("materiais", []):
-            cor, texto = situacao_peca(c)
-            st.markdown(f":blue[`{c}`]  {md(rot_mat.get(c, ''))}  :{cor}-badge[{texto}]")
+        for c in dict.fromkeys(info.get("materiais", [])):
+            linha_componente(c, f"ficha|{sel}")
         if not info.get("materiais"):
             st.caption("Nenhum componente vinculado.")
     else:
         crit_sap = bases.ABC_PARA_CRITICIDADE.get(abc_sap.get(sel, ""), "")
         st.caption("Ainda não cadastrado no site."
                    + (f" Criticidade pelo código ABC do SAP: **{crit_sap}**." if crit_sap else ""))
-    if edita:
+    if cadastra:
         st.button("Editar cadastro" if info else "Cadastrar equipamento", icon=":material/edit:", width="stretch",
                   on_click=abrir_formulario, args=(sel,))

@@ -158,6 +158,8 @@ def _dados(chave: str, f: Filtros) -> ind.Dados:
         requisicoes=bases.requisicoes().df, cad_eq=bases.ler_cadastro(bases.ARQ_CAD_EQUIP),
         cad_mat=bases.ler_cadastro(bases.ARQ_CAD_MAT), capacidade=ind.capacidade_de(cad), conf=conf, equipe=eq,
         tipos=ind.tipos_de(cad, bases.tipos_de_ordem_padrao()), horas_semana=ind.horas_semana_de(cad),
+        # Gerenciador de AF: as áreas dele são outras, então nada de filtro de área/centro (só o período vale)
+        afs=bases.afs().df, acoes_af=bases.acoes_af().df,
         hoje=pd.Timestamp(date.today()))
 
 

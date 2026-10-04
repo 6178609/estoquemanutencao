@@ -217,3 +217,32 @@ def test_horas_de_ordens_fora_do_iw38():
     assert r["hh_emergencial"] is None and r["pct_emergencial"] is None
     ex = ind.hh_executadas(d)
     assert ex.loc[ex["Ordem"] == "999", "Classe"].iat[0] == ind.FORA_DO_IW38
+
+
+def test_indicadores_do_gerenciador_de_af():
+    from central import af
+    from tests.test_af import acoes_cru, afs_cru
+
+    afs = af.preparar_afs(afs_cru(), HOJE)
+    acoes = af.preparar_acoes(acoes_cru(), HOJE, afs)
+    ini, fim = date(2026, 6, 1), date(2026, 6, 30)
+    esperado = af.indicadores(afs, acoes, ini, fim, HOJE)
+    r = ind.calcular(_dados(afs=afs, acoes_af=acoes), ini, fim)
+    for k in ind.IDS_AF + ind.IDS_ACOES_AF:
+        assert r[k] == pytest.approx(esperado[k]), k
+        assert ind.POR_ID[k].grupo == ind.ANALISE_FALHA
+    assert r["taxa_quebra_a"] is not None and r["af_execucao"] is not None and r["acoes_execucao"] is not None
+    assert ind.ANALISE_FALHA in ind.GRUPOS
+    # série mensal também traz os de AF
+    serie = ind.mensal(_dados(afs=afs, acoes_af=acoes), ini, fim)
+    assert serie["af_execucao"].iat[0] == pytest.approx(esperado["af_execucao"])
+
+    # só a aba de AFs: as de ações ficam sem valor (e vice-versa)
+    so_afs = ind.calcular(_dados(afs=afs), ini, fim)
+    assert so_afs["af_execucao"] == pytest.approx(esperado["af_execucao"]) and so_afs["acoes_execucao"] is None
+    so_acoes = ind.calcular(_dados(acoes_af=acoes), ini, fim)
+    assert so_acoes["acoes_execucao"] == pytest.approx(esperado["acoes_execucao"]) and so_acoes["af_execucao"] is None
+
+    # sem o gerenciador, todos ficam sem valor
+    sem = ind.calcular(_dados(), ini, fim)
+    assert all(sem[k] is None for k in ind.IDS_AF + ind.IDS_ACOES_AF)

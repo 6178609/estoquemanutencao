@@ -2,7 +2,7 @@
 
 Tudo aqui é pandas puro (sem Streamlit), a partir das bases já preparadas:
 IW38 (ordens), IW38OP (operações/HH), IW28 (notas/quebras), IP19 (chamadas dos
-planos), MB52 (estoque) e requisições. Cada indicador tem fórmula descrita,
+planos), MB52 (estoque), requisições e o Gerenciador de AF (análises de falha e ações). Cada indicador tem fórmula descrita,
 sentido (maior ou menor é melhor), meta padrão (editável no site) e farol.
 
 Convenções:
@@ -22,15 +22,18 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from . import af
+
 PENDENTES = ("Aberta", "Liberada", "Encerrada sem confirmação")
 
-CONFIABILIDADE, PLANEJAMENTO, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS = (
-    "Confiabilidade", "Planejamento e controle", "Mão de obra", "Custos", "Suprimentos")
-GRUPOS = [CONFIABILIDADE, PLANEJAMENTO, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS]
+CONFIABILIDADE, PLANEJAMENTO, ANALISE_FALHA, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS = (
+    "Confiabilidade", "Planejamento e controle", "Análise de falhas (AF)", "Mão de obra", "Custos", "Suprimentos")
+GRUPOS = [CONFIABILIDADE, PLANEJAMENTO, ANALISE_FALHA, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS]
 
 P_PAINEL, P_CONF, P_ORDENS, P_PLANOS, P_NOTAS, P_HH, P_CUSTOS, P_ESTOQUE, P_REQ = (
     "paginas/painel.py", "paginas/confiabilidade.py", "paginas/ordens.py", "paginas/planos.py", "paginas/notas.py",
     "paginas/mao_de_obra.py", "paginas/custos.py", "paginas/estoque.py", "paginas/requisicoes.py")
+P_AF_PLANOS, P_AF_ACOES = "paginas/af_planos.py", "paginas/af_acoes.py"
 
 
 @dataclass(frozen=True)
@@ -79,6 +82,26 @@ KPIS: list[Kpi] = [
         "Média de dias desde a data-base de início das ordens em aberto (até hoje).", foto=True),
     Kpi("notas_7d", "Notas sem ordem > 7 dias", "%", -1, 10, PLANEJAMENTO, P_NOTAS,
         "Notas do período com mais de 7 dias que ainda não viraram ordem ÷ notas do período com mais de 7 dias."),
+    # Análise de falhas (Gerenciador de AF · definições da aba RESUMO CORPORATIVO; canceladas não contam)
+    Kpi("taxa_quebra_a", "Taxa de análise de quebra crítica (A)", "%", +1, 100, ANALISE_FALHA, P_AF_PLANOS,
+        "AFs de criticidade A com data da falha no período já analisadas ÷ AFs de criticidade A com data da falha "
+        "no período.", mensal=True),
+    Kpi("af_execucao", "Execução de AFs", "%", +1, 100, ANALISE_FALHA, P_AF_PLANOS,
+        "AFs com data limite no período (até hoje) analisadas ÷ AFs com data limite no período (até hoje).",
+        mensal=True),
+    Kpi("af_no_prazo", "AFs analisadas no prazo", "%", +1, 90, ANALISE_FALHA, P_AF_PLANOS,
+        "AFs com data limite no período (até hoje) analisadas até a data limite ÷ AFs com data limite no período "
+        "(até hoje).", mensal=True),
+    Kpi("af_atrasadas", "AFs atrasadas", "un", -1, 0, ANALISE_FALHA, P_AF_PLANOS,
+        "AFs ainda não analisadas com a data limite vencida (hoje).", foto=True),
+    Kpi("acoes_execucao", "Ações de AFs", "%", +1, 90, ANALISE_FALHA, P_AF_ACOES,
+        "Ações de AF com data limite no período (até hoje) realizadas ÷ ações com data limite no período (até hoje).",
+        mensal=True),
+    Kpi("acoes_no_prazo", "Ações no prazo", "%", +1, 90, ANALISE_FALHA, P_AF_ACOES,
+        "Ações de AF com data limite no período (até hoje) realizadas até a data limite ÷ ações com data limite no "
+        "período (até hoje).", mensal=True),
+    Kpi("acoes_atrasadas", "Ações atrasadas", "un", -1, 0, ANALISE_FALHA, P_AF_ACOES,
+        "Ações de AF não realizadas com a data limite vencida (hoje).", foto=True),
     # Mão de obra
     Kpi("hh", "HH apontadas", "h", +1, None, MAO_DE_OBRA, P_HH,
         "Horas reais apontadas na IW47 no período (data de lançamento; estornos descontados). "
@@ -127,6 +150,8 @@ class Dados:
     equipe: pd.DataFrame | None = None        # pessoas (Gestão de HH)
     tipos: dict = field(default_factory=dict)  # tipo de ordem → {"descricao", "classe"}
     horas_semana: float = 44.0                # jornada semanal de cada técnico
+    afs: pd.DataFrame | None = None           # Gerenciador de AF · análises (af.preparar_afs), sem filtro de área
+    acoes_af: pd.DataFrame | None = None      # Gerenciador de AF · ações (af.preparar_acoes)
     hoje: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now().normalize())
     _memo: dict = field(default_factory=dict, repr=False)
 
@@ -348,6 +373,9 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     else:
         r["notas_7d"] = None
 
+    # análise de falhas (o gerenciador tem áreas próprias: só o período vale)
+    r.update(indicadores_af(d, ini, fim))
+
     # mão de obra
     ex = d.memo("hh_exec", hh_executadas)
     ex = ex[_entre(ex["Fim real"], ini, fim)] if len(ex) else ex
@@ -386,6 +414,28 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     else:
         r["req_dias"] = None
     return r
+
+
+IDS_AF = ("taxa_quebra_a", "af_execucao", "af_no_prazo", "af_atrasadas")
+IDS_ACOES_AF = ("acoes_execucao", "acoes_no_prazo", "acoes_atrasadas")
+
+
+def indicadores_af(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
+    """Indicadores do Gerenciador de AF (af.indicadores); sem a aba correspondente, ficam sem valor."""
+    r: dict[str, float | None] = dict.fromkeys(IDS_AF + IDS_ACOES_AF)
+    if d.afs is None and d.acoes_af is None:
+        return r
+    afs = d.afs if d.afs is not None else pd.DataFrame(columns=_COLUNAS_AF_MIN)
+    acoes = d.acoes_af if d.acoes_af is not None else pd.DataFrame(columns=_COLUNAS_ACAO_MIN)
+    v = af.indicadores(afs, acoes, ini, fim, d.hoje)
+    for ids, presente in ((IDS_AF, d.afs is not None), (IDS_ACOES_AF, d.acoes_af is not None)):
+        if presente:
+            r.update({k: v.get(k) for k in ids})
+    return r
+
+
+_COLUNAS_AF_MIN = ["Situação", "Data da falha", "Data limite", "Criticidade", "Dias para análise"]
+_COLUNAS_ACAO_MIN = ["Situação", "Data de início", "Data limite", "Data realizada"]
 
 
 def pecas_criticas_em_falta(d: Dados) -> pd.DataFrame:
