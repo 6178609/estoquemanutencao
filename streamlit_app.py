@@ -1,6 +1,40 @@
+import importlib
+import sys
+from pathlib import Path
+
 import streamlit as st
 
-from central import auth, ui
+# Na nuvem, uma nova publicação troca os arquivos, mas o Streamlit só relê as páginas: os módulos de
+# central/ ficariam na versão antiga (AttributeError, cache com classes velhas). Quando algum deles
+# muda no disco, recarrega todos na ordem das dependências e limpa os caches.
+ORDEM_MODULOS = ["util", "config", "fontes", "fotos", "leitura", "af", "planos", "bases", "indicadores", "ui",
+                 "auth", "robo", "contexto"]
+
+
+@st.cache_resource
+def _estado_modulos() -> dict:
+    return {}
+
+
+def _recarregar_central_se_mudou() -> None:
+    pasta = Path(__file__).resolve().parent / "central"
+    assinatura = tuple(sorted((p.name, p.stat().st_mtime_ns, p.stat().st_size) for p in pasta.glob("*.py")))
+    estado = _estado_modulos()
+    if estado.get("assinatura") == assinatura:
+        return
+    # 1ª execução deste processo (ou do app atualizado): recarrega uma vez — barato e garante a versão do disco
+    for nome in ORDEM_MODULOS:
+        mod = sys.modules.get(f"central.{nome}")
+        if mod is not None:
+            importlib.reload(mod)
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    _estado_modulos()["assinatura"] = assinatura
+
+
+_recarregar_central_se_mudou()
+
+from central import auth, ui  # noqa: E402
 
 st.set_page_config(page_title="Central de Manutenção", page_icon=":material/build:", layout="wide",
                    initial_sidebar_state="auto")
