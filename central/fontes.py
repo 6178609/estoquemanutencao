@@ -107,12 +107,12 @@ class Pastas:
         return Path(id).read_bytes()
 
     def gravar(self, nome: str, conteudo: bytes) -> str:
-        self.pasta_app.mkdir(parents=True, exist_ok=True)
+        destino = self.pasta_app / nome  # nome pode ter subpasta (ex.: fotos_materiais/123.jpg)
+        destino.parent.mkdir(parents=True, exist_ok=True)
         # grava num temporário e renomeia: quem estiver lendo nunca vê arquivo pela metade
-        fd, tmp = tempfile.mkstemp(dir=self.pasta_app, prefix=".", suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(dir=destino.parent, prefix=".", suffix=".tmp")
         with os.fdopen(fd, "wb") as f:
             f.write(conteudo)
-        destino = self.pasta_app / nome
         os.replace(tmp, destino)
         return str(destino)
 
@@ -239,8 +239,8 @@ class SharePoint:
         url = f"{self._url_item(caminho)}/content"
         cab = {"Content-Type": "application/octet-stream"}
         r = self._pedir("PUT", url, headers=cab, data=conteudo, timeout=300)
-        if r.status_code == 404 and self.pasta_app:
-            self._criar_pastas(self.pasta_app)
+        if r.status_code == 404 and "/" in caminho:
+            self._criar_pastas(caminho.rsplit("/", 1)[0])
             r = self._pedir("PUT", url, headers=cab, data=conteudo, timeout=300)
         if r.status_code >= 400:
             raise FonteErro(f"Erro {r.status_code} ao gravar no SharePoint: {r.text[:300]}")
@@ -382,7 +382,8 @@ class GitHub:
     def gravar(self, nome: str, conteudo: bytes) -> str:
         caminho = self.id_de(nome)
         self.gravar_caminho(caminho, conteudo, f"Central de Manutenção: {nome}")
-        if not nome.lower().endswith(".json"):  # export enviado pela tela: precisa de data no manifesto
+        if not _ignorar(nome.rsplit("/", 1)[-1]) and not nome.lower().endswith(".json"):
+            # export enviado pela tela: precisa de data no manifesto (cadastros e fotos, não)
             agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
             self.registrar_no_manifesto({caminho: {"modificado": agora, "enviado_em": agora, "origem": "envio pelo site"}})
         return caminho

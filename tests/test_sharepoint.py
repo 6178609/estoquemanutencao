@@ -146,3 +146,14 @@ def test_profundidade_maxima(graph, monkeypatch):
     graph.poe("0.1 - Indicadores/n1/n2/fundo.xlsx", b"x")
     nomes = {a.arquivo for a in bases.fonte().listar()}
     assert nomes == {"raso.xlsx"}
+
+
+def test_foto_de_material_cria_a_subpasta_no_sharepoint(graph):
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (50, 40), "red").save(buf, "PNG")
+    bases.gravar_foto_material("100", buf.getvalue(), "ana")
+    pasta_app = "1.3 - Controle de Estoque/Central de Manutenção (app)"
+    assert f"{pasta_app}/fotos_materiais/100.jpg" in graph.arquivos
+    info = bases.ler_cadastro(bases.ARQ_CAD_MAT)["100"]
+    assert bases.foto_material(info)[:2] == b"\xff\xd8"  # JPEG

@@ -36,7 +36,7 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
   alguém cadastre outra no site. Se pegar a planilha errada, fixe o arquivo certo em
   **Configuração › Fontes de dados** (um arquivo fixado continua sendo relido quando é sobrescrito).
 - Base mais velha que 2 dias aparece em laranja, com aviso, em todas as telas.
-- Cadastros feitos no app (criticidade e peças de cada equipamento, estoque mínimo, usuários) ficam em
+- Cadastros feitos no app (equipamentos e seus componentes, estoque mínimo, fotos dos materiais, usuários) ficam em
   arquivos `.json` na subpasta **`Central de Manutenção (app)`**, dentro da pasta sincronizada — então
   são compartilhados com toda a equipe.
 
@@ -94,11 +94,15 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
   usa as ordens do IW38 que têm plano.
 - **Notas** — notas da IW28: quantas ainda não viraram ordem e há quanto tempo, paradas de máquina, notas por
   semana e os equipamentos que mais geram notas.
-- **Equipamentos** — lista montada automaticamente a partir do IW38 com custo, corretivas e pendências;
-  ficha com intervalo médio entre corretivas (aprox. MTBF), histórico anual e cadastro de criticidade,
-  categoria e peças de reposição (com situação do estoque de cada peça).
+- **Equipamentos** — **gerenciamento de equipamentos** no formato da tela antiga: botão **Novo equipamento** com
+  TAG, nome (sugerido pelo SAP quando a TAG é um equipamento do IW38/IH08), categoria, criticidade, visão geral e
+  **componentes vinculados da base de material** (busca e marcação dos materiais do MB52). A lista mostra cada
+  equipamento com categoria, criticidade, nº de componentes e alerta de peça sem estoque; abre para ver os
+  componentes com o saldo, editar ou remover. A visão **Análise pelas ordens (IW38)** mantém a lista automática com
+  custo, backlog, notas e a ficha com histórico e intervalo médio entre corretivas (aprox. MTBF).
 - **Estoque** — saldo do MB52 por material e por depósito, **estoque mínimo editável na própria tabela**,
-  alerta de peças de equipamentos críticos em falta.
+  alerta de peças de equipamentos críticos em falta e **foto de cada material** (envio de arquivo ou câmera do
+  celular; a foto aparece em miniatura na tabela e fica em `fotos_materiais/` na pasta do app).
 - **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.
 - **Fontes de dados** — de onde vem cada base, data do arquivo, troca/fixação de arquivo e envio manual.
 

@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from . import config, fontes, leitura
+from . import config, fontes, fotos, leitura
 from .leitura import EQUIP, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
 from .util import achar_coluna, chave, para_data, para_numero, sem_acento, texto
 
@@ -553,18 +553,68 @@ def gravar_cadastro(nome: str, chave_item: str, dados: dict | None, usuario: str
     gravar_cadastro_lote(nome, {chave_item: dados}, usuario)
 
 
-def gravar_cadastro_lote(nome: str, itens: dict[str, dict | None], usuario: str = "") -> None:
+_CAMPOS_DE_EDICAO = ("atualizado_em", "atualizado_por")
+
+
+def gravar_cadastro_lote(nome: str, itens: dict[str, dict | None], usuario: str = "", mesclar: bool = False) -> None:
     """Atualiza só os itens informados (relendo o arquivo na hora), para duas pessoas
-    editando itens diferentes não se sobrescreverem. Valor None remove o item."""
+    editando itens diferentes não se sobrescreverem. Valor None remove o item.
+
+    mesclar=True muda só os campos informados de cada item (campo None é apagado) e
+    remove o item que fica sem nenhum campo — ex.: o mínimo de um material não apaga a foto."""
     atual = _ler_json_agora(nome)
     agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for chave_item, dados in itens.items():
+        if dados is not None and mesclar:
+            dados = {k: v for k, v in {**(atual.get(chave_item) or {}), **dados}.items()
+                     if v is not None and k not in _CAMPOS_DE_EDICAO}
+            dados = dados or None
         if dados is None:
             atual.pop(chave_item, None)
         else:
             atual[chave_item] = {**dados, "atualizado_em": agora, "atualizado_por": usuario}
     fonte().gravar(nome, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
     recarregar()
+
+
+# ----------------------------------------------------------------------------
+# Fotos dos materiais (ver central/fotos.py)
+# ----------------------------------------------------------------------------
+@st.cache_data(show_spinner=False, max_entries=1024)
+def _foto(caminho: str, versao: str) -> bytes | None:
+    try:
+        return fonte().ler(fonte().id_de(caminho))
+    except Exception:  # noqa: BLE001 — foto apagada da pasta à mão
+        return None
+
+
+def foto_material(info: dict | None) -> bytes | None:
+    """Foto do material a partir do item do cadastro de materiais (None se não tem)."""
+    if not info or not info.get("foto"):
+        return None
+    return _foto(info["foto"], info.get("foto_versao", ""))
+
+
+@st.cache_data(show_spinner=False, max_entries=1024)
+def miniatura_material(caminho: str, versao: str) -> str | None:
+    conteudo = _foto(caminho, versao)
+    try:
+        return fotos.miniatura(conteudo) if conteudo else None
+    except fotos.FotoErro:
+        return None
+
+
+def gravar_foto_material(codigo: str, conteudo: bytes, usuario: str = "") -> None:
+    jpeg = fotos.preparar(conteudo)
+    caminho = fotos.caminho(codigo)
+    fonte().gravar(caminho, jpeg)
+    gravar_cadastro_lote(ARQ_CAD_MAT, {codigo: {"foto": caminho, "foto_versao": fotos.versao(jpeg)}}, usuario,
+                         mesclar=True)
+
+
+def remover_foto_material(codigo: str, usuario: str = "") -> None:
+    """Desvincula a foto (o arquivo fica na pasta; uma foto nova o substitui)."""
+    gravar_cadastro_lote(ARQ_CAD_MAT, {codigo: {"foto": None, "foto_versao": None}}, usuario, mesclar=True)
 
 
 def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
