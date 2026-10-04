@@ -1,0 +1,41 @@
+# Identidade visual: verde e grafite do logo SIM Manutenção Profissional,
+# com as cores do logo Alpargatas nos gráficos e na faixa do topo.
+# Há tema claro e escuro: cada pessoa escolhe no menu ⋮ → Settings.
+
+[theme]
+base = "light"
+primaryColor = "#0E9F46"
+backgroundColor = "#F4F6F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#2F3336"
+linkColor = "#0A6EBD"
+borderColor = "#DDE3E0"
+font = "sans serif"
+baseRadius = "medium"
+chartCategoricalColors = ["#0E9F46", "#F7931E", "#0A6EBD", "#E3262B", "#1FC8E8", "#9BC53D", "#FFC20E", "#4A4D50"]
+
+[theme.light]
+primaryColor = "#0E9F46"
+backgroundColor = "#F4F6F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#2F3336"
+borderColor = "#DDE3E0"
+
+[theme.dark]
+primaryColor = "#22C064"
+backgroundColor = "#1B1E20"
+secondaryBackgroundColor = "#26292C"
+textColor = "#E8ECEA"
+borderColor = "#3A3F42"
+
+[server]
+# Não tenta abrir navegador no servidor; a equipe acessa por http://<nome-do-pc>:8501
+headless = true
+maxUploadSize = 300
+
+[browser]
+gatherUsageStats = false
+
+[client]
+# Esconde o botão "Deploy" e o menu de desenvolvedor para quem usa o app.
+toolbarMode = "viewer"
