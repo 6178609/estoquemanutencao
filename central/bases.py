@@ -13,15 +13,16 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import PurePath
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 
+from . import af as af_mod
 from . import config, fontes, fotos, leitura
-from .leitura import CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
+from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
 from .util import achar_coluna, chave, para_data, para_numero, sem_acento, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
@@ -29,7 +30,8 @@ ARQ_CAD_MAT = "cadastro_materiais.json"
 ARQ_PREF = "preferencias.json"
 
 # Pista pelo nome do arquivo: arquivos com pista são verificados primeiro.
-_PISTAS = [(CONF, r"IW47|IW41|CONFIRMA|APONTAMENTO"), (EQUIPE, r"GESTAO.*HH|EQUIPE|EFETIVO"),
+_PISTAS = [(AF, r"GERENCIADOR DE AF|ANALISE.*FALHA|\bAF\b"), (CONF, r"IW47|IW41|CONFIRMA|APONTAMENTO"),
+           (EQUIPE, r"GESTAO.*HH|EQUIPE|EFETIVO"),
            (OPER, r"IW38OP|IW37|OPERAC"), (IP19, r"IP19|IP24|PLANOS?\b"), (IW38, r"IW38|IW39|ORDENS?"),
            (NOTAS, r"IW28|IW29|NOTAS?\b"), (EQUIP, r"IH08|IE05|EQUIPAMENT"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"),
            (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS|SOLICITA")]
@@ -624,6 +626,20 @@ def tipos_de_ordem_padrao() -> dict[str, str]:
 
 
 # ----------------------------------------------------------------------------
+# Gerenciador de AF — análises de falha e ações (ver central/af.py)
+# ----------------------------------------------------------------------------
+@st.cache_resource(show_spinner="Preparando análises de falha (Gerenciador de AF)…", max_entries=4)
+def _afs(origens: tuple, dia: str) -> pd.DataFrame:
+    return af_mod.preparar_afs(_cru(AF, origens), pd.Timestamp(dia))
+
+
+@st.cache_resource(show_spinner="Preparando ações das análises de falha…", max_entries=4)
+def _acoes_af(origens: tuple, origens_af: tuple, dia: str) -> pd.DataFrame:
+    afs_df = _afs(origens_af, dia) if origens_af else None
+    return af_mod.preparar_acoes(_cru(ACAO_AF, origens), pd.Timestamp(dia), afs_df)
+
+
+# ----------------------------------------------------------------------------
 # Cadastros feitos no próprio app (JSON na pasta do app, compartilhada)
 # ----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -732,7 +748,8 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
             + (f" (parece {leitura.NOMES_BASE[outro]})" if outro else " — confira as colunas do export"))
     ext = PurePath(nome_original).suffix.lower() or ".xlsx"
     prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES", IP19: "IP19", OPER: "IW38OP", NOTAS: "IW28",
-               EQUIP: "IH08", CONF: "IW47", EQUIPE: "GESTAO_HH"}[tipo]
+               EQUIP: "IH08", CONF: "IW47", EQUIPE: "GESTAO_HH", AF: "GERENCIADOR_AF",
+               ACAO_AF: "GERENCIADOR_AF_ACOES"}[tipo]
     nome = f"{prefixo}_{datetime.now():%Y-%m-%d_%H%M%S}{ext}"
     fonte().gravar(nome, conteudo)
     recarregar()
@@ -791,6 +808,16 @@ def mb52() -> Base:
 
 def requisicoes() -> Base:
     return _carregar(REQ, lambda us: Base(_req(us), None))
+
+
+def afs() -> Base:
+    """Análises de falha (a situação depende do dia: o cache vira à meia-noite)."""
+    return _carregar(AF, lambda us: Base(_afs(us, str(date.today())), None))
+
+
+def acoes_af() -> Base:
+    origens_af = tuple(inventario().usados.get(AF, []))
+    return _carregar(ACAO_AF, lambda us: Base(_acoes_af(us, origens_af, str(date.today())), None))
 
 
 def confirmacoes() -> Base:

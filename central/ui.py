@@ -184,7 +184,7 @@ def barra_lateral(usuario: dict | None = None) -> None:
                              chip_base(bases.operacoes(), "IW38OP"), chip_base(bases.notas(), "IW28"),
                              chip_base(bases.equipamentos(), "IH08"), chip_base(bases.mb52(), "MB52"),
                              chip_base(bases.requisicoes(), "Requisições"), chip_base(bases.confirmacoes(), "IW47"),
-                             chip_base(bases.equipe(), "Equipe")])
+                             chip_base(bases.equipe(), "Equipe"), chip_base(bases.afs(), "AF")])
             st.markdown(chips, unsafe_allow_html=True)
             st.caption(f":material/sync: Verificação automática a cada {cfg.intervalo_verificacao}s · "
                        f"última às {datetime.now(FUSO):%H:%M:%S}")
