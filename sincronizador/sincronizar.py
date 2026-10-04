@@ -1,7 +1,8 @@
 """Sincronizador do PC → site na nuvem.
 
 Roda no computador que tem as pastas do SharePoint sincronizadas pelo OneDrive.
-A cada 5 minutos procura, nas pastas configuradas (com subpastas), o export
+A cada 5 minutos procura, nas pastas configuradas (as duas do OneDrive, com
+subpastas, e a Downloads, sem subpastas), o export
 mais recente de cada base — IW38, MB52 e requisições, reconhecidos pelo
 conteúdo — e, quando algum mudou, envia uma cópia compacta (.parquet, só a
 tabela da base) para o repositório privado de dados no GitHub, de onde o site

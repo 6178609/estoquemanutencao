@@ -25,7 +25,7 @@ from urllib.parse import quote
 
 import requests
 
-from .config import Config
+from .config import Config, eh_downloads
 
 EXTENSOES_DADOS = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".htm", ".html", ".parquet", ".json")
 
@@ -79,9 +79,11 @@ class Pastas:
     def listar(self) -> list[Arquivo]:
         itens = []
         for original, raiz in self._raizes():
+            # Downloads: só a própria pasta (as subpastas costumam ser ZIPs extraídos e outras coisas)
+            limite = 1 if eh_downloads(raiz) else self.profundidade
             for dirpath, dirnames, filenames in os.walk(raiz):
                 nivel = len(Path(dirpath).relative_to(raiz).parts)
-                if nivel >= self.profundidade:
+                if nivel + 1 >= limite:
                     dirnames[:] = []
                 dirnames[:] = [d for d in dirnames if not d.startswith((".", "~"))]
                 for f in filenames:

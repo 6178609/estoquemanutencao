@@ -181,6 +181,8 @@ def sondar(nome: str, conteudo: bytes) -> list[tuple[str, str | None, int | None
     """Descobre quais bases existem no arquivo, sem ler tudo quando é Excel:
     devolve [(tipo, aba, linha do cabeçalho)]. Uma pasta de trabalho pode ter
     mais de uma base (ex.: uma aba IW38 e outra MB52)."""
+    if eh_recorte(nome):
+        return []
     achados = []
     if _eh_xlsx(conteudo) or _eh_xls(conteudo):
         try:
@@ -209,11 +211,24 @@ def sondar(nome: str, conteudo: bytes) -> list[tuple[str, str | None, int | None
     return [(tipo, None, None)] if tipo else []
 
 
+# Colunas que só existem nas planilhas baixadas do próprio site (botão "Baixar Excel").
+# Elas parecem um export do SAP, mas são recortes filtrados: nunca podem virar a base.
+_COLUNAS_DO_APP = r"^(NATUREZA|SITUACAO|DIAS EM ABERTO|DIAS AGUARDANDO|PECAS EM FALTA|USADO EM|COM PLANO|ATRASADA)$"
+
+
+def eh_recorte(nome: str) -> bool:
+    """Exports filtrados (deste site ou do site antigo: ordens_filtradas, IW38_filtrado.csv…)."""
+    return bool(re.search(r"filtrad", PurePath(nome).stem, re.I))
+
+
 def identificar(colunas) -> str | None:
     ks = {chave(c) for c in colunas}
 
     def tem(rx):
         return any(re.search(rx, k) for k in ks)
+
+    if tem(_COLUNAS_DO_APP):
+        return None
 
     if tem(r"^ORDEM$") and (tem(r"STATUS USUARIO") or tem(r"STATUS DO SISTEMA") or tem(r"TIPO DE ORDEM")):
         return IW38

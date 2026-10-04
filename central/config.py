@@ -20,6 +20,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 PASTAS_PADRAO = [
     "~/OneDrive - Alpargatas S.A/PCM F26 - Documentos/1.3 - Controle de Estoque",
     "~/OneDrive - Alpargatas S.A/PCM F26 - Documentos/0.1 - Indicadores",
+    # onde o navegador e o SAP costumam salvar os exports (só a pasta, sem subpastas)
+    "~/Downloads",
 ]
 NOME_PASTA_APP = "Central de Manutenção (app)"
 
@@ -42,6 +44,10 @@ def _valor(nome: str, padrao=None):
         return sec[nome]
     env = os.environ.get(f"CENTRAL_{nome.upper()}")
     return env if env not in (None, "") else padrao
+
+
+def eh_downloads(p: Path) -> bool:
+    return Path(p).name.lower() in ("downloads", "transferências", "transferencias")
 
 
 def _caminho(p) -> Path:
@@ -85,11 +91,12 @@ def carregar() -> Config:
         pastas = [p for p in map(_caminho, PASTAS_PADRAO) if p.exists()] or [RAIZ / "dados"]
 
     app = _valor("pasta_app", None)
+    compartilhadas = [p for p in pastas if not eh_downloads(p) and p != RAIZ / "dados"]
     if app:
         pasta_app = _caminho(app)
-    elif pastas[0] != RAIZ / "dados":
-        pasta_app = pastas[0] / NOME_PASTA_APP
-    else:
+    elif compartilhadas:
+        pasta_app = compartilhadas[0] / NOME_PASTA_APP
+    else:  # cadastros nunca vão para a Downloads, que não é compartilhada
         pasta_app = RAIZ / "dados"
 
     def sim(nome, padrao="sim"):

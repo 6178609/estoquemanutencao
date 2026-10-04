@@ -15,7 +15,8 @@ SAP (IW38 / MB52 / requisições)
 Pastas do SharePoint sincronizadas pelo OneDrive
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque
    ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\0.1 - Indicadores
-   │  o app varre as pastas (e subpastas) a cada 60 s
+   ~\Downloads  (só a própria pasta, sem subpastas)
+   │  o app varre as pastas a cada 60 s
    ▼
 Central de Manutenção  →  todas as telas abertas recarregam quando chega arquivo novo
 ```
@@ -23,6 +24,9 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 - O app **reconhece cada arquivo pelo conteúdo** (cabeçalhos), não pelo nome: pode ser `.xlsx`, `.xls`,
   `.csv`, `.txt` (lista do SAP com `|`), `.htm` ("salvar como HTML" do SAP GUI) ou `.parquet`. Também acha
   a base dentro de uma aba qualquer de uma pasta de trabalho, mesmo com o cabeçalho fora da linha 1.
+- A pasta **Downloads** também é olhada, porque é onde o navegador e o SAP costumam salvar. Planilhas
+  baixadas do próprio site (botão "Baixar Excel") e arquivos com "filtrado" no nome são ignorados, para um
+  recorte nunca substituir a base completa.
 - Para cada base usa **o arquivo mais recente**. Se pegar a planilha errada, fixe o arquivo certo em
   **Configuração › Fontes de dados** (um arquivo fixado continua sendo relido quando é sobrescrito).
 - Base mais velha que 2 dias aparece em laranja, com aviso, em todas as telas.

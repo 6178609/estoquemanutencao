@@ -206,3 +206,41 @@ def test_regras_de_senha_e_login():
     assert not auth.validar_senha("boa12345")
     assert auth.validar_login("Jeferson")  # maiúscula não
     assert not auth.validar_login("jeferson.silva")
+
+
+# ----------------------------------------------------------------------------
+# pasta Downloads
+# ----------------------------------------------------------------------------
+def test_planilhas_baixadas_do_site_nao_viram_base(tmp_path):
+    from central.leitura import eh_recorte
+
+    # "Baixar Excel" das telas Ordens e Requisições: colunas parecidas com as do SAP, mas são recortes
+    ordens_site = pd.DataFrame({"Ordem": ["1"], "Tipo": ["YM01"], "Status usuário": ["PLA"], "Situação": ["Aberta"],
+                                "Natureza": ["Corretiva / avulsa"]})
+    req_site = pd.DataFrame({"Requisição": ["R1"], "Status": ["Pendente"], "Dias aguardando": [3], "Total": [10.0]})
+    assert leitura.identificar(ordens_site.columns) is None
+    assert leitura.identificar(req_site.columns) is None
+    assert eh_recorte("IW38_filtrado.csv") and eh_recorte("ordens_filtradas.xlsx")
+    assert not eh_recorte("IW38BK.XLSX")
+    buf = io.BytesIO()
+    iw38_cru().to_excel(buf, index=False)
+    assert leitura.sondar("IW38_filtrado.xlsx", buf.getvalue()) == []
+    assert leitura.sondar("export.XLSX", buf.getvalue()) == [(IW38, "Sheet1", 0)]
+
+
+def test_downloads_sem_subpastas_e_sem_cadastros(tmp_path, monkeypatch):
+    from central import config
+
+    dl = tmp_path / "Downloads"
+    (dl / "zip extraido").mkdir(parents=True)
+    (dl / "IW38.xlsx").write_bytes(b"x")
+    (dl / "zip extraido" / "outra.xlsx").write_bytes(b"x")
+    nomes = [a.arquivo for a in Pastas([dl], tmp_path / "app").listar()]
+    assert nomes == ["IW38.xlsx"]
+
+    monkeypatch.setenv("CENTRAL_PASTAS", str(dl))
+    monkeypatch.delenv("CENTRAL_PASTA_APP", raising=False)
+    assert config.carregar().pasta_app == config.RAIZ / "dados"  # nada é gravado na Downloads
+    onedrive = tmp_path / "1.3 - Controle de Estoque"
+    monkeypatch.setenv("CENTRAL_PASTAS", f"{dl};{onedrive}")
+    assert config.carregar().pasta_app == onedrive / config.NOME_PASTA_APP

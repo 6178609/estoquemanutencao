@@ -58,8 +58,9 @@ O registro do que ele faz fica em `sincronizador\sincronizador.log`. O token fic
 `sincronizador\config.toml`.
 
 O que o sincronizador faz:
-- a cada 5 minutos procura nas duas pastas (e subpastas) o export **mais recente** de cada base, reconhecido
-  pelo conteúdo, inclusive dentro de uma aba de planilha de indicadores;
+- a cada 5 minutos procura nas duas pastas do OneDrive (com subpastas) e na **Downloads** (só a pasta) o
+  export **mais recente** de cada base, reconhecido pelo conteúdo, inclusive dentro de uma aba de planilha
+  de indicadores. Planilhas baixadas do próprio site são ignoradas;
 - quando algum mudou, envia **só a tabela daquela base**, compactada (`bases/IW38.parquet`, etc.). Se nada
   mudou, não envia nada;
 - uma vez por semana apaga as versões antigas no repositório, para ele não crescer sem parar.
