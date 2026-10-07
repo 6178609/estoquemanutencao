@@ -28,6 +28,24 @@ NOMES_MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julh
 _MINUSCULAS = {"da", "de", "do", "das", "dos", "e"}
 
 
+def com_datas_alteradas(ordens: pd.DataFrame | None, ajustes: dict[str, tuple[str, str]]) -> pd.DataFrame | None:
+    """Aplica às ordens do IW38 as datas gravadas pelo robô depois do último export (coluna Ajustada)."""
+    if ordens is None:
+        return None
+    o = ordens.copy()
+    o["Ajustada"] = o["Ordem"].isin(ajustes) if ajustes else False
+    if ajustes:
+        m = o["Ajustada"]
+        ini = pd.to_datetime(o.loc[m, "Ordem"].map(lambda x: ajustes[x][0]))
+        fim = pd.to_datetime(o.loc[m, "Ordem"].map(lambda x: ajustes[x][1]))
+        for c in ("Data", "Início"):
+            if c in o:
+                o.loc[m, c] = ini
+        if "Fim" in o:
+            o.loc[m, "Fim"] = fim
+    return o
+
+
 def nome_proprio(s: str) -> str:
     """JOSIVAN GILDO DA SILVA → Josivan Gildo da Silva."""
     partes = str(s or "").strip().split()
@@ -55,7 +73,7 @@ def agenda(ordens: pd.DataFrame | None, oper: pd.DataFrame | None = None, conf: 
     """Uma linha por ordem e turno, com o dia (data-base de início), título, quem, duração e situação."""
     hoje = (hoje or pd.Timestamp.now()).normalize()
     cols = ["Dia", "Ordem", "Título", "Texto", "Tipo", "Natureza", "Situação", "Situação da ordem", "Turno",
-            "Quem", "Duração (h)", "Centro de trabalho", "Localização", "Executantes"]
+            "Quem", "Duração (h)", "Centro de trabalho", "Localização", "Executantes", "Ajustada"]
     if ordens is None or not len(ordens):
         return pd.DataFrame(columns=cols)
     o = ordens.copy()
@@ -64,6 +82,7 @@ def agenda(ordens: pd.DataFrame | None, oper: pd.DataFrame | None = None, conf: 
         o[c] = o[c].astype(object).where(o[c].notna(), "").astype(str) if c in o else ""
     o["Dia"] = pd.to_datetime(o["Data"] if "Data" in o else o["Início"]).dt.normalize()
     o = o[o["Dia"].notna()]
+    o["Ajustada"] = o["Ajustada"].fillna(False).astype(bool) if "Ajustada" in o else False
     o["Título"] = o["Objeto técnico"].where(o["Objeto técnico"] != "", o["Local de instalação"])
     o["Título"] = o["Título"].where(o["Título"] != "", o["Texto"])
 
@@ -146,8 +165,6 @@ CSS = """
 .cmc-num{font-size:17px;font-weight:800;color:#1E2A36}
 .cmc-mes{font-size:10px;font-weight:700;color:#7A8796}
 .cmc-tot{font-size:10px;color:#7A8796;margin-bottom:4px}
-.cmc-maq{font-size:10px;font-weight:700;color:#8A4B00;background:#FFF1E0;border:1px solid #F5C58A;border-radius:6px;
-  padding:3px 6px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis}
 .cmc-turno{font-size:11px;font-weight:800;color:#1E2A36;margin:6px 0 4px}
 .cmc-sep{border-top:1px dashed #C9D2DD;margin:6px 0}
 .cmc-sem{font-size:11px;color:#8A97A6}
@@ -182,21 +199,20 @@ def _cartao(r) -> str:
     classes.append({CONCLUIDA: "concluida", ATRASADA: "atrasada", CANCELADA: "cancelada"}.get(r["Situação"], ""))
     dur = duracao(r["Duração (h)"])
     quem = " • ".join(x for x in [str(r["Quem"] or ""), dur] if x)
-    dica = (f"Ordem {r['Ordem']} · {r['Tipo']} · {r['Natureza']}\n{r['Texto']}\n{r['Título']}\n"
+    ajustada = bool(r.get("Ajustada", False))
+    dica = (("↻ Data alterada pelo robô do SAP (ainda não está no IW38 exportado)\n" if ajustada else "")
+            + f"Ordem {r['Ordem']} · {r['Tipo']} · {r['Natureza']}\n{r['Texto']}\n{r['Título']}\n"
             f"Situação: {r['Situação']} ({r['Situação da ordem']}) · {r['Centro de trabalho']} · {r['Localização']}\n{quem}")
     e = html.escape
     return (f'<div class="{" ".join(c for c in classes if c)}" title="{e(dica, quote=True)}">'
-            f'<div class="cmc-t">{_ICONE}{e(str(r["Título"]))}</div><div class="cmc-q">{e(quem)}</div></div>')
+            f'<div class="cmc-t">{_ICONE}{"↻ " if ajustada else ""}{e(str(r["Título"]))}</div>'
+            f'<div class="cmc-q">{e(quem)}</div></div>')
 
 
-def _dia(d: date, linhas: pd.DataFrame, hoje: date, fora: bool, max_cartoes: int, paradas: list[str] | None = None) -> str:
+def _dia(d: date, linhas: pd.DataFrame, hoje: date, fora: bool, max_cartoes: int) -> str:
     classes = ["cmc-dia"] + (["hoje"] if d == hoje else []) + (["fora"] if fora else [])
     partes = [f'<div class="{" ".join(classes)}"><div class="cmc-topo"><span class="cmc-num">{d.day}</span>'
               f'<span class="cmc-mes">{MESES[d.month - 1]}</span></div>']
-    if paradas:
-        txt = html.escape(", ".join(paradas))
-        partes.append(f'<div class="cmc-maq" title="Máquinas programadas para este dia: {txt}">'
-                      f'Máquinas: {txt}</div>')
     if not len(linhas):
         partes.append('<div class="cmc-sem">Sem programação</div></div>')
         return "".join(partes)
@@ -228,7 +244,7 @@ def _dia(d: date, linhas: pd.DataFrame, hoje: date, fora: bool, max_cartoes: int
 
 
 def html_calendario(ag: pd.DataFrame, ini: date, fim: date, hoje: date, mes_ref: int | None = None,
-                    max_cartoes: int = 12, paradas: dict[date, list[str]] | None = None) -> str:
+                    max_cartoes: int = 12) -> str:
     """Grade domingo→sábado de ini a fim (completa as semanas). mes_ref: dias de outro mês ficam esmaecidos."""
     ini_g = inicio_semana(ini)
     fim_g = inicio_semana(fim) + timedelta(days=6)
@@ -244,7 +260,7 @@ def html_calendario(ag: pd.DataFrame, ini: date, fim: date, hoje: date, mes_ref:
                 celulas.append(_dia(d, por_dia.get(d, vazio), hoje, True, max_cartoes))
         else:
             celulas.append(_dia(d, por_dia.get(d, vazio), hoje, mes_ref is not None and d.month != mes_ref,
-                                max_cartoes, (paradas or {}).get(d)))
+                                max_cartoes))
         d += timedelta(days=1)
     legenda = ('<div class="cmc-leg"><span style="--c:#E8F1FC;--b:#9DBFE6">Plano de manutenção</span>'
                '<span style="--c:#FFF4D6;--b:#F0C24B">Backlog</span>'

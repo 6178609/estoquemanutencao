@@ -1,26 +1,31 @@
-"""Mudança de datas no SAP a partir do calendário (por campo de ordenação = máquina).
+"""Programação do mês (previsão manual) e mudança de datas no SAP pela IW38.
 
 Pandas puro (testado em tests/test_mudanca_datas.py). Fluxo:
 
-1. Programação: em cada dia do calendário a pessoa escolhe os campos de ordenação (máquinas)
-   que param naquele dia — gravado no cadastro `programacao_maquinas.json` ({"AAAA-MM-DD": [campos]}).
-2. Proposta: as ordens pendentes (abertas/liberadas, não encerradas pela IW47) de cada máquina
-   vão para o dia escolhido; o fim-base anda junto, mantendo a duração da ordem.
-3. Lote: a pessoa confere/desmarca e inicia. O lote fica no cadastro `mudancas_datas.json` e o robô
-   do SAP (automacao/robo_sap.py --mudar-datas) altera ordem por ordem e devolve o resultado de cada uma
-   (com as datas antigas, para dar para desfazer).
+1. Programação do mês: calendário à parte do calendário principal (IW38), 100% manual. Em cada dia a
+   pessoa digita os campos de ordenação (máquinas); o site mostra o nome do ativo (IH08/IW38).
+   Fica no cadastro `programacao_maquinas.json` ({"AAAA-MM-DD": {"campos": [...]}}).
+2. Pedido ao robô: uma consulta na IW38 por dia — campos de ordenação pela seleção múltipla (seta à
+   direita) e o período das ordens que vão para aquele dia (do início do mês, ou desde sempre com as
+   atrasadas, até o dia; a última parada da máquina no mês leva também o resto do mês).
+3. O robô (automacao/robo_sap.py --mudar-datas) abre cada ordem da lista e põe início-base e fim-base
+   na data do calendário. O resultado de cada ordem (com as datas antigas) volta para o lote em
+   `mudancas_datas.json`, atualiza o calendário principal na hora e permite desfazer.
 """
 
 from __future__ import annotations
 
+import re
 import uuid
+from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 
 ARQ_PROGRAMACAO = "programacao_maquinas.json"
 ARQ_LOTES = "mudancas_datas.json"
-MAX_ORDENS_LOTE = 300           # trava contra uma mudança em massa por engano
+MAX_ORDENS_LOTE = 300           # trava contra uma mudança em massa por engano (o robô para aqui)
+DESDE_SEMPRE = date(2000, 1, 1)
 
 RASCUNHO, SOLICITADA, EM_EXECUCAO, CONCLUIDA, COM_ERROS, CANCELADA = (
     "rascunho", "solicitada", "em_execucao", "concluida", "com_erros", "cancelada")
@@ -28,14 +33,8 @@ ROTULO_STATUS = {SOLICITADA: "Aguardando o robô do SAP", EM_EXECUCAO: "Em execu
                  CONCLUIDA: "Concluída", COM_ERROS: "Concluída com erros", CANCELADA: "Cancelada",
                  RASCUNHO: "Rascunho"}
 ABERTOS = (SOLICITADA, EM_EXECUCAO)
-
-ESCOPO_ATE_DIA = "Atrasadas e até o dia escolhido"
-ESCOPO_PERIODO = "Só as do período do calendário"
-ESCOPO_TODAS = "Todas as pendentes da máquina"
-ESCOPOS = [ESCOPO_ATE_DIA, ESCOPO_PERIODO, ESCOPO_TODAS]
-
-COLS_PROPOSTA = ["Mudar", "Ordem", "Campo de ordenação", "Máquina", "Texto", "Tipo", "Natureza", "Situação",
-                 "Início atual", "Fim atual", "Novo início", "Novo fim"]
+MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro",
+         "Novembro", "Dezembro"]
 
 
 def _agora() -> str:
@@ -46,176 +45,21 @@ def _iso(d) -> str:
     return "" if d is None or pd.isna(d) else pd.Timestamp(d).date().isoformat()
 
 
-# ----------------------------------------------------------------------------
-# Máquinas (campos de ordenação)
-# ----------------------------------------------------------------------------
-def maquinas(ordens: pd.DataFrame | None, equip: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Campos de ordenação com nome (IH08 ou o objeto técnico mais comum) e nº de ordens pendentes."""
-    cols = ["Campo de ordenação", "Máquina", "Pendentes", "Rótulo"]
-    if ordens is None or not len(ordens) or "Campo de ordenação" not in ordens:
-        return pd.DataFrame(columns=cols)
-    o = ordens.assign(Campo=ordens["Campo de ordenação"].astype(object).fillna("").astype(str).str.strip())
-    o = o[o["Campo"] != ""]
-    pend = o["Situação"].isin(["Aberta", "Liberada"]) if "Situação" in o else pd.Series(False, index=o.index)
-    nome = {}
-    if equip is not None and len(equip) and "Equipamento" in equip and "Denominação" in equip:
-        nome = dict(zip(equip["Equipamento"].astype(str), equip["Denominação"].astype(str)))
-    objeto = (o.assign(Obj=o["Objeto técnico"].astype(object).fillna("").astype(str))
-              .groupby("Campo")["Obj"].agg(lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""))
-    t = pd.DataFrame({"Campo de ordenação": sorted(o["Campo"].unique())})
-    t["Máquina"] = t["Campo de ordenação"].map(lambda c: nome.get(c) or objeto.get(c, ""))
-    t["Pendentes"] = t["Campo de ordenação"].map(o[pend].groupby("Campo").size()).fillna(0).astype(int)
-    t["Rótulo"] = t["Campo de ordenação"] + t["Máquina"].map(lambda n: f" · {n[:40]}" if n else "")
-    return t.sort_values(["Pendentes", "Campo de ordenação"], ascending=[False, True]).reset_index(drop=True)[cols]
+def fim_do_mes(d: date) -> date:
+    return date(d.year, d.month, monthrange(d.year, d.month)[1])
 
 
 # ----------------------------------------------------------------------------
-# Proposta
+# Programação manual
 # ----------------------------------------------------------------------------
-def propor(ordens: pd.DataFrame, programacao: dict[str, list[str]], escopo: str = ESCOPO_ATE_DIA,
-           ini: date | None = None, fim: date | None = None, concluidas: set[str] | None = None,
-           nomes: dict[str, str] | None = None) -> tuple[pd.DataFrame, list[str]]:
-    """Ordens pendentes de cada máquina programada → novo início = dia escolhido (fim anda junto).
-
-    Devolve (proposta, avisos). `concluidas` = ordens já encerradas pela IW47 (o IW38 pode estar
-    desatualizado). Uma máquina em dois dias fica no primeiro (com aviso)."""
-    avisos: list[str] = []
-    concluidas = concluidas or set()
-    nomes = nomes or {}
-    dia_da_maquina: dict[str, date] = {}
-    for dia_txt in sorted(programacao):
-        dia = date.fromisoformat(dia_txt)
-        for campo in programacao[dia_txt] or []:
-            campo = str(campo).strip()
-            if not campo:
-                continue
-            if campo in dia_da_maquina and dia_da_maquina[campo] != dia:
-                avisos.append(f"{campo} está em {dia_da_maquina[campo]:%d/%m} e em {dia:%d/%m}: vale o primeiro dia.")
-                continue
-            dia_da_maquina[campo] = dia
-    if not dia_da_maquina or ordens is None or not len(ordens):
-        return pd.DataFrame(columns=COLS_PROPOSTA), avisos
-
-    o = ordens.copy()
-    o["Campo de ordenação"] = o["Campo de ordenação"].astype(object).fillna("").astype(str).str.strip()
-    o = o[o["Campo de ordenação"].isin(dia_da_maquina)]
-    o = o[o["Situação"].isin(["Aberta", "Liberada"]) & ~o["Ordem"].isin(concluidas)]
-    o["Dia escolhido"] = o["Campo de ordenação"].map(dia_da_maquina)
-    inicio = pd.to_datetime(o["Início"]).dt.normalize()
-    alvo = pd.to_datetime(o["Dia escolhido"])
-    if escopo == ESCOPO_ATE_DIA:
-        o = o[inicio.isna() | (inicio <= alvo)]
-    elif escopo == ESCOPO_PERIODO and ini and fim:
-        o = o[inicio.notna() & (inicio >= pd.Timestamp(ini)) & (inicio <= pd.Timestamp(fim))]
-    if not len(o):
-        return pd.DataFrame(columns=COLS_PROPOSTA), avisos
-
-    ini_atual = pd.to_datetime(o["Início"]).dt.normalize()
-    fim_atual = pd.to_datetime(o["Fim"]).dt.normalize() if "Fim" in o else pd.Series(pd.NaT, index=o.index)
-    duracao = (fim_atual - ini_atual).where(fim_atual.notna() & ini_atual.notna() & (fim_atual >= ini_atual),
-                                            pd.Timedelta(0))
-    novo_ini = pd.to_datetime(o["Dia escolhido"])
-    p = pd.DataFrame({
-        "Mudar": True, "Ordem": o["Ordem"].astype(str), "Campo de ordenação": o["Campo de ordenação"],
-        "Máquina": o["Campo de ordenação"].map(nomes).fillna(o.get("Objeto técnico", "")),
-        "Texto": o.get("Texto", ""), "Tipo": o.get("Tipo", ""), "Natureza": o.get("Natureza", ""),
-        "Situação": o["Situação"], "Início atual": ini_atual, "Fim atual": fim_atual,
-        "Novo início": novo_ini, "Novo fim": novo_ini + duracao,
-    })
-    p = p[p["Início atual"].isna() | (p["Início atual"] != p["Novo início"])]   # já está no dia: nada a fazer
-    for c in ["Texto", "Tipo", "Natureza", "Máquina"]:
-        p[c] = p[c].astype(object).where(p[c].notna(), "").astype(str)
-    return p.sort_values(["Novo início", "Campo de ordenação", "Ordem"]).reset_index(drop=True)[COLS_PROPOSTA], avisos
-
-
-# ----------------------------------------------------------------------------
-# Lotes
-# ----------------------------------------------------------------------------
-def novo_lote(proposta: pd.DataFrame, usuario: str, simular: bool = False, origem: str = "") -> tuple[str, dict]:
-    """Lote a partir das linhas marcadas em "Mudar" da proposta."""
-    marcadas = proposta[proposta["Mudar"].fillna(False).astype(bool)]
-    if not len(marcadas):
-        raise ValueError("Nenhuma ordem marcada para mudar.")
-    if len(marcadas) > MAX_ORDENS_LOTE:
-        raise ValueError(f"São {len(marcadas)} ordens; o limite por lote é {MAX_ORDENS_LOTE}. Divida a programação.")
-    itens = [{"ordem": str(r["Ordem"]), "campo": str(r["Campo de ordenação"]), "maquina": str(r.get("Máquina", "")),
-              "de_inicio": _iso(r["Início atual"]), "de_fim": _iso(r["Fim atual"]),
-              "para_inicio": _iso(r["Novo início"]), "para_fim": _iso(r["Novo fim"]) or _iso(r["Novo início"]),
-              "resultado": "", "mensagem": ""} for _, r in marcadas.iterrows()]
-    lote_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:4]
-    return lote_id, {"criado_em": _agora(), "criado_por": usuario, "status": SOLICITADA, "simular": bool(simular),
-                     "origem": origem, "itens": itens, "resumo": ""}
-
-
-def lote_desfazer(lote: dict, usuario: str) -> tuple[str, dict]:
-    """Lote que devolve as datas antigas das ordens alteradas com sucesso."""
-    itens = [it for it in lote.get("itens", []) if it.get("resultado") == "ok" and it.get("de_inicio")]
-    if not itens:
-        raise ValueError("Nada para desfazer neste lote (nenhuma ordem alterada com sucesso).")
-    p = pd.DataFrame({
-        "Mudar": True, "Ordem": [i["ordem"] for i in itens], "Campo de ordenação": [i["campo"] for i in itens],
-        "Máquina": [i.get("maquina", "") for i in itens],
-        "Início atual": pd.to_datetime([i["para_inicio"] for i in itens]),
-        "Fim atual": pd.to_datetime([i.get("para_fim") or i["para_inicio"] for i in itens]),
-        "Novo início": pd.to_datetime([i["de_inicio"] for i in itens]),
-        "Novo fim": pd.to_datetime([i.get("de_fim") or i["de_inicio"] for i in itens]),
-    })
-    return novo_lote(p, usuario, simular=False, origem="desfazer")
-
-
-def job(lote_id: str, lote: dict) -> dict:
-    """O que o robô recebe: só ordem e datas (nada de dados pessoais)."""
-    return {"lote": lote_id, "simular": bool(lote.get("simular")),
-            "itens": [{"ordem": i["ordem"], "inicio": i["para_inicio"], "fim": i["para_fim"]}
-                      for i in lote.get("itens", []) if not i.get("resultado")]}
-
-
-def aplicar_resultado(lote: dict, resultado: dict) -> dict:
-    """Junta o resultado do robô ({"lote", "itens": [{"ordem", "ok", "mensagem", "inicio_sap"...}], "erro"})."""
-    novo = {**lote, "itens": [dict(i) for i in lote.get("itens", [])]}
-    por_ordem = {str(r["ordem"]): r for r in resultado.get("itens", [])}
-    for it in novo["itens"]:
-        r = por_ordem.get(it["ordem"])
-        if r is None:
-            continue
-        it["resultado"] = "ok" if r.get("ok") else "erro"
-        it["mensagem"] = str(r.get("mensagem", ""))
-        if r.get("inicio_sap"):          # data que estava no SAP antes da mudança (mais confiável que o IW38)
-            it["de_inicio"] = r["inicio_sap"]
-        if r.get("fim_sap"):
-            it["de_fim"] = r["fim_sap"]
-    ok = sum(1 for i in novo["itens"] if i["resultado"] == "ok")
-    erro = sum(1 for i in novo["itens"] if i["resultado"] == "erro")
-    falta = sum(1 for i in novo["itens"] if not i["resultado"])
-    if resultado.get("erro") and not ok and not erro:
-        novo["status"] = COM_ERROS
-        novo["resumo"] = f"O robô não conseguiu começar: {resultado['erro']}"
-    else:
-        novo["status"] = CONCLUIDA if not erro and not falta and not resultado.get("erro") else COM_ERROS
-        acao = "simuladas" if lote.get("simular") else "alteradas"
-        novo["resumo"] = (f"{ok} ordem(ns) {acao}" + (f", {erro} com erro" if erro else "")
-                          + (f", {falta} não processada(s)" if falta else "")
-                          + (f" · {resultado['erro']}" if resultado.get("erro") else ""))
-    novo["executado_em"] = resultado.get("fim") or _agora()
-    return novo
-
-
-def tabela_lotes(lotes: dict) -> pd.DataFrame:
-    linhas = []
-    for lid, lote in lotes.items():
-        if not isinstance(lote, dict):
-            continue
-        itens = lote.get("itens", [])
-        linhas.append({"Lote": lid, "Criado em": pd.to_datetime(lote.get("criado_em"), utc=True, errors="coerce"),
-                       "Por": lote.get("criado_por", ""), "Situação": ROTULO_STATUS.get(lote.get("status"), lote.get("status")),
-                       "Simulação": bool(lote.get("simular")), "Origem": lote.get("origem") or "calendário",
-                       "Ordens": len(itens), "OK": sum(1 for i in itens if i.get("resultado") == "ok"),
-                       "Erros": sum(1 for i in itens if i.get("resultado") == "erro"), "Resumo": lote.get("resumo", "")})
-    t = pd.DataFrame(linhas, columns=["Lote", "Criado em", "Por", "Situação", "Simulação", "Origem", "Ordens", "OK",
-                                      "Erros", "Resumo"])
-    if len(t):
-        t["Criado em"] = t["Criado em"].dt.tz_convert("America/Sao_Paulo").dt.tz_localize(None)
-    return t.sort_values("Criado em", ascending=False).reset_index(drop=True)
+def separar_campos(texto: str) -> list[str]:
+    """ "41020389, 41019661;41020389" → ["41020389", "41019661"] (vírgula, ponto e vírgula, espaço ou linha)."""
+    vistos: list[str] = []
+    for c in re.split(r"[\s,;]+", str(texto or "").strip()):
+        c = c.strip().upper()
+        if c and c not in vistos:
+            vistos.append(c)
+    return vistos
 
 
 def programacao_valida(prog: dict) -> dict[str, list[str]]:
@@ -227,12 +71,199 @@ def programacao_valida(prog: dict) -> dict[str, list[str]]:
         except (TypeError, ValueError):
             continue
         campos = v.get("campos") if isinstance(v, dict) else v
-        campos = [str(c).strip() for c in (campos or []) if str(c).strip()]
+        campos = separar_campos(" ".join(str(c) for c in (campos or [])))
         if campos:
             saida[k] = campos
     return saida
 
 
-def dias(ini: date, fim: date, maximo: int = 14) -> list[date]:
-    n = min((fim - ini).days + 1, maximo)
-    return [ini + timedelta(days=i) for i in range(max(n, 0))]
+def nomes_de_ativos(ordens: pd.DataFrame | None = None, equip: pd.DataFrame | None = None) -> dict[str, str]:
+    """Código (campo de ordenação / equipamento) → nome do ativo: IH08 primeiro; senão o objeto técnico
+    mais comum das ordens do IW38 com aquele campo de ordenação ou equipamento."""
+    nomes: dict[str, str] = {}
+    if ordens is not None and len(ordens) and "Objeto técnico" in ordens:
+        obj = ordens["Objeto técnico"].astype(object).fillna("").astype(str)
+        for col in ("Equipamento", "Campo de ordenação"):      # o campo de ordenação vence o equipamento
+            if col not in ordens:
+                continue
+            chave = ordens[col].astype(object).fillna("").astype(str).str.strip().str.upper()
+            t = pd.DataFrame({"c": chave, "o": obj})
+            t = t[(t["c"] != "") & (t["o"] != "")]
+            nomes.update(t.groupby("c")["o"].agg(lambda s: s.mode().iat[0]).to_dict())
+    if equip is not None and len(equip) and {"Equipamento", "Denominação"} <= set(equip.columns):
+        e = equip[equip["Denominação"].astype(str).str.strip() != ""]
+        nomes.update(dict(zip(e["Equipamento"].astype(str).str.strip().str.upper(), e["Denominação"].astype(str))))
+    return nomes
+
+
+# ----------------------------------------------------------------------------
+# Pedido ao robô: uma consulta na IW38 por dia e janela de datas
+# ----------------------------------------------------------------------------
+def consultas(programacao: dict[str, list[str]], ini: date, fim: date, atrasadas: bool = False) -> list[dict]:
+    """Consultas da IW38 para os dias de [ini, fim]: {"dia", "campos", "de", "ate"}.
+
+    Para cada máquina, as paradas do mês dividem o mês: cada dia recebe as ordens com data desde o dia
+    seguinte à parada anterior (ou o início do mês; com `atrasadas`, desde sempre) até ele; a última
+    parada do mês leva também as ordens até o fim do mês."""
+    por_campo: dict[str, list[date]] = {}
+    for dia_txt, campos in programacao.items():
+        for c in campos:
+            por_campo.setdefault(c, []).append(date.fromisoformat(dia_txt))
+    grupos: dict[tuple[date, date, date], list[str]] = {}
+    for campo, dias_c in por_campo.items():
+        for mes in {(d.year, d.month) for d in dias_c}:
+            paradas = sorted(d for d in set(dias_c) if (d.year, d.month) == mes)
+            for i, d in enumerate(paradas):
+                if not ini <= d <= fim:
+                    continue
+                de = paradas[i - 1] + timedelta(days=1) if i else (DESDE_SEMPRE if atrasadas else d.replace(day=1))
+                ate = d if i < len(paradas) - 1 else fim_do_mes(d)
+                grupos.setdefault((d, de, ate), []).append(campo)
+    return [{"dia": d.isoformat(), "campos": sorted(c), "de": de.isoformat(), "ate": ate.isoformat()}
+            for (d, de, ate), c in sorted(grupos.items())]
+
+
+def estimativa(ordens: pd.DataFrame | None, cons: list[dict], concluidas: set[str] | None = None,
+               nomes: dict[str, str] | None = None) -> pd.DataFrame:
+    """Prévia pelo IW38 exportado: ordens abertas/liberadas que cada consulta deve trazer (o robô consulta
+    a IW38 na hora, então o resultado real pode ser outro)."""
+    cols = ["Dia", "Ordem", "Campo de ordenação", "Ativo", "Texto", "Tipo", "Situação", "Início atual", "Fim atual"]
+    if ordens is None or not len(ordens) or not cons or "Campo de ordenação" not in ordens:
+        return pd.DataFrame(columns=cols)
+    concluidas, nomes = concluidas or set(), nomes or {}
+    o = ordens.copy()
+    o["Campo de ordenação"] = o["Campo de ordenação"].astype(object).fillna("").astype(str).str.strip().str.upper()
+    o = o[o["Situação"].isin(["Aberta", "Liberada"]) & ~o["Ordem"].isin(concluidas)]
+    ini_o = pd.to_datetime(o["Início"]).dt.normalize()
+    partes = []
+    for c in cons:
+        m = o["Campo de ordenação"].isin(c["campos"]) & (ini_o >= pd.Timestamp(c["de"])) & (ini_o <= pd.Timestamp(c["ate"]))
+        sel = o[m]
+        if len(sel):
+            partes.append(pd.DataFrame({
+                "Dia": pd.Timestamp(c["dia"]), "Ordem": sel["Ordem"].astype(str), "Campo de ordenação": sel["Campo de ordenação"],
+                "Ativo": sel["Campo de ordenação"].map(nomes).fillna(""), "Texto": sel.get("Texto", ""),
+                "Tipo": sel.get("Tipo", ""), "Situação": sel["Situação"], "Início atual": ini_o[m],
+                "Fim atual": pd.to_datetime(sel["Fim"]).dt.normalize() if "Fim" in sel else pd.NaT}))
+    if not partes:
+        return pd.DataFrame(columns=cols)
+    t = pd.concat(partes, ignore_index=True)
+    for c in ["Texto", "Tipo", "Ativo"]:
+        t[c] = t[c].astype(object).where(t[c].notna(), "").astype(str)
+    return t.sort_values(["Dia", "Campo de ordenação", "Ordem"]).reset_index(drop=True)[cols]
+
+
+# ----------------------------------------------------------------------------
+# Lotes
+# ----------------------------------------------------------------------------
+def _novo_id() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:4]
+
+
+def novo_lote(cons: list[dict], usuario: str, simular: bool = False, atrasadas: bool = False) -> tuple[str, dict]:
+    """Lote da programação do mês: as consultas da IW38 (as ordens só se sabem quando o robô consultar)."""
+    if not cons:
+        raise ValueError("Nenhum dia com campo de ordenação no período escolhido.")
+    return _novo_id(), {"criado_em": _agora(), "criado_por": usuario, "status": SOLICITADA, "simular": bool(simular),
+                        "origem": "programação do mês", "atrasadas": bool(atrasadas), "consultas": cons,
+                        "itens": [], "resumo": ""}
+
+
+def lote_desfazer(lote: dict, usuario: str) -> tuple[str, dict]:
+    """Lote que devolve as datas antigas das ordens alteradas com sucesso (ordem a ordem, sem IW38)."""
+    itens = [it for it in lote.get("itens", []) if it.get("resultado") == "ok" and it.get("de_inicio")]
+    if not itens:
+        raise ValueError("Nada para desfazer neste lote (nenhuma ordem alterada com sucesso).")
+    novos = [{"ordem": i["ordem"], "campo": i.get("campo", ""), "dia": i.get("de_inicio", ""),
+              "de_inicio": i.get("para_inicio", ""), "de_fim": i.get("para_fim", ""),
+              "para_inicio": i["de_inicio"], "para_fim": i.get("de_fim") or i["de_inicio"],
+              "resultado": "", "mensagem": ""} for i in itens]
+    return _novo_id(), {"criado_em": _agora(), "criado_por": usuario, "status": SOLICITADA, "simular": False,
+                        "origem": "desfazer", "consultas": [], "itens": novos, "resumo": ""}
+
+
+def job(lote_id: str, lote: dict) -> dict:
+    """O que o robô recebe: consultas da IW38 e/ou ordens com as datas novas (nada de dados pessoais)."""
+    return {"lote": lote_id, "simular": bool(lote.get("simular")), "consultas": lote.get("consultas", []),
+            "itens": [{"ordem": i["ordem"], "inicio": i["para_inicio"], "fim": i["para_fim"]}
+                      for i in lote.get("itens", []) if not i.get("resultado")]}
+
+
+def aplicar_resultado(lote: dict, resultado: dict) -> dict:
+    """Junta o resultado do robô ({"itens": [{"ordem", "dia", "campo", "ok", "mensagem", "inicio_sap", "fim_sap"}],
+    "consultas": [{"dia", "encontradas", "erro"}], "erro"}). Ordens trazidas pela IW38 entram no lote aqui."""
+    novo = {**lote, "itens": [dict(i) for i in lote.get("itens", [])]}
+    por_ordem = {i["ordem"]: i for i in novo["itens"]}
+    for r in resultado.get("itens", []):
+        ordem = str(r["ordem"])
+        it = por_ordem.get(ordem)
+        if it is None:
+            dia = r.get("dia", "")
+            it = {"ordem": ordem, "campo": r.get("campo", ""), "dia": dia, "de_inicio": "", "de_fim": "",
+                  "para_inicio": dia, "para_fim": r.get("fim") or dia, "resultado": "", "mensagem": ""}
+            novo["itens"].append(it)
+            por_ordem[ordem] = it
+        it["resultado"] = "ok" if r.get("ok") else "erro"
+        it["mensagem"] = str(r.get("mensagem", ""))
+        if r.get("inicio_sap"):          # data que estava no SAP antes da mudança (mais confiável que o IW38)
+            it["de_inicio"] = r["inicio_sap"]
+        if r.get("fim_sap"):
+            it["de_fim"] = r["fim_sap"]
+    if resultado.get("consultas"):
+        novo["consultas_resultado"] = resultado["consultas"]
+    ok = sum(1 for i in novo["itens"] if i["resultado"] == "ok")
+    erro = sum(1 for i in novo["itens"] if i["resultado"] == "erro")
+    falta = sum(1 for i in novo["itens"] if not i["resultado"])
+    erros_consulta = [c for c in resultado.get("consultas", []) if c.get("erro")]
+    acao = "simuladas" if lote.get("simular") else "alteradas"
+    partes = [f"{ok} ordem(ns) {acao}"] + ([f"{erro} com erro"] if erro else []) + \
+        ([f"{falta} não processada(s)"] if falta else []) + \
+        ([f"{len(erros_consulta)} consulta(s) da IW38 com erro"] if erros_consulta else [])
+    if resultado.get("erro") and not ok and not erro:
+        novo["status"], novo["resumo"] = COM_ERROS, f"O robô não terminou: {resultado['erro']}"
+    else:
+        novo["status"] = COM_ERROS if (erro or falta or erros_consulta or resultado.get("erro")) else CONCLUIDA
+        novo["resumo"] = ", ".join(partes) + (f" · {resultado['erro']}" if resultado.get("erro") else "")
+    novo["executado_em"] = resultado.get("fim") or _agora()
+    return novo
+
+
+def datas_alteradas(lotes: dict, depois_de: datetime | None = None) -> dict[str, tuple[str, str]]:
+    """Ordem → (início, fim) gravados pelo robô depois do último export do IW38 (o calendário principal
+    usa estas datas até o próximo export trazer a mudança)."""
+    saida: dict[str, tuple[str, str]] = {}
+    executados = []
+    for lote in lotes.values():
+        if not isinstance(lote, dict) or lote.get("simular") or not lote.get("executado_em"):
+            continue
+        quando = pd.to_datetime(lote["executado_em"], utc=True, errors="coerce")
+        if pd.isna(quando) or (depois_de is not None and quando <= pd.Timestamp(depois_de).tz_convert("UTC")):
+            continue
+        executados.append((quando, lote))
+    for _, lote in sorted(executados, key=lambda x: x[0]):
+        for it in lote.get("itens", []):
+            if it.get("resultado") == "ok" and it.get("para_inicio"):
+                saida[it["ordem"]] = (it["para_inicio"], it.get("para_fim") or it["para_inicio"])
+    return saida
+
+
+def tabela_lotes(lotes: dict) -> pd.DataFrame:
+    linhas = []
+    for lid, lote in lotes.items():
+        if not isinstance(lote, dict):
+            continue
+        itens = lote.get("itens", [])
+        dias = sorted({c["dia"] for c in lote.get("consultas", [])})
+        linhas.append({"Lote": lid, "Criado em": pd.to_datetime(lote.get("criado_em"), utc=True, errors="coerce"),
+                       "Por": lote.get("criado_por", ""),
+                       "Situação": ROTULO_STATUS.get(lote.get("status"), lote.get("status")),
+                       "Simulação": bool(lote.get("simular")), "Origem": lote.get("origem") or "",
+                       "Dias": ", ".join(pd.Timestamp(d).strftime("%d/%m") for d in dias),
+                       "Ordens": len(itens), "OK": sum(1 for i in itens if i.get("resultado") == "ok"),
+                       "Erros": sum(1 for i in itens if i.get("resultado") == "erro"),
+                       "Resumo": lote.get("resumo", "")})
+    t = pd.DataFrame(linhas, columns=["Lote", "Criado em", "Por", "Situação", "Simulação", "Origem", "Dias", "Ordens",
+                                      "OK", "Erros", "Resumo"])
+    if len(t):
+        t["Criado em"] = t["Criado em"].dt.tz_convert("America/Sao_Paulo").dt.tz_localize(None)
+    return t.sort_values("Criado em", ascending=False).reset_index(drop=True)

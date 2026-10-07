@@ -20,6 +20,7 @@ import getpass
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -365,6 +366,10 @@ def mudar_data_ordem(sessao, ordem: str, inicio: str, fim: str, md: dict, simula
         c_ini = _campo_data(sessao, md, "campo_inicio", CAMPO_INICIO)
         c_fim = _campo_data(sessao, md, "campo_fim", CAMPO_FIM)
         res["inicio_sap"], res["fim_sap"] = _ler_data(c_ini.text, fmt), _ler_data(c_fim.text, fmt)
+        if (res["inicio_sap"], res["fim_sap"]) == (datetime.fromisoformat(inicio).date().isoformat(),
+                                                   datetime.fromisoformat(fim or inicio).date().isoformat()):
+            res.update(ok=True, mensagem="já estava nesta data")
+            return res
         if not getattr(c_ini, "Changeable", True):
             raise RoboErro("a data de início não pode ser alterada (ordem encerrada ou bloqueada por outro usuário?)")
         c_fim.text = novo_fim
@@ -407,6 +412,112 @@ def mudar_data_ordem(sessao, ordem: str, inicio: str, fim: str, md: dict, simula
     return res
 
 
+# IW38 (Modificar ordens PM: seleção): campo de ordenação pela seleção múltipla (seta à direita),
+# período das ordens e lista (ALV) com o nº das ordens.
+TABELA_MULTIPLA = "wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE"
+GRADE_IW38 = "wnd[0]/usr/cntlGRID1/shellcont/shell"
+
+
+def _sem_acento(t: str) -> str:
+    import unicodedata
+
+    return "".join(c for c in unicodedata.normalize("NFKD", str(t)) if not unicodedata.combining(c)).upper().strip()
+
+
+def _nome_selecao(sessao, rotulo: str) -> str:
+    """Nome técnico do campo da tela de seleção pelo texto ao lado (ex.: "Campo de ordenação" → EQFNR)."""
+    alvo = _sem_acento(rotulo)
+    usr = sessao.findById("wnd[0]/usr")
+    for i in range(int(usr.Children.Count)):
+        filho = usr.Children(i)
+        if _sem_acento(getattr(filho, "Text", "")) == alvo:
+            m = re.search(r"%_(\w+?)_%_APP_%-TEXT", str(filho.Id))
+            if m:
+                return m.group(1)
+    raise RoboErro(f"campo \"{rotulo}\" não encontrado na tela de seleção da IW38; informe o ID em [mudanca_datas]")
+
+
+def _celula_multipla(sessao, linha: int):
+    for tipo in ("ctxt", "txt"):
+        campo = _existe(sessao, f"{TABELA_MULTIPLA}/{tipo}RSCSEL_255-SLOW_I[1,{linha}]")
+        if campo is not None:
+            return campo
+    raise RoboErro("tabela da seleção múltipla não encontrada")
+
+
+def _selecao_multipla(sessao, botao: str, valores: list[str]) -> None:
+    """Seta à direita → apaga o que havia → digita um valor por linha → Copiar (F8)."""
+    sessao.findById(botao).press()
+    if _existe(sessao, "wnd[1]") is None:
+        raise RoboErro("a janela de seleção múltipla não abriu")
+    limpar = _existe(sessao, "wnd[1]/tbar[0]/btn[16]")       # Excluir todas as linhas
+    if limpar is not None:
+        limpar.press()
+    pos = 0
+    for i, valor in enumerate(valores):
+        tabela = sessao.findById(TABELA_MULTIPLA)
+        visiveis = int(getattr(tabela, "VisibleRowCount", 8) or 8)
+        if i - pos >= visiveis:
+            pos = i
+            tabela.verticalScrollbar.position = pos
+        _celula_multipla(sessao, i - pos).text = valor
+    sessao.findById("wnd[1]/tbar[0]/btn[8]").press()          # Copiar
+
+
+def _ordens_da_grade(sessao) -> list[tuple[str, str]]:
+    """(ordem, campo de ordenação) de cada linha da lista da IW38."""
+    grade = sessao.findById(GRADE_IW38)
+    n = int(grade.RowCount)
+    linhas = []
+    for i in range(n):
+        if i % 30 == 0:
+            try:
+                grade.firstVisibleRow = i                         # a grade carrega as linhas aos poucos
+            except Exception:  # noqa: BLE001
+                pass
+        ordem = str(grade.GetCellValue(i, "AUFNR")).strip().lstrip("0")
+        try:
+            campo = str(grade.GetCellValue(i, "EQFNR")).strip()
+        except Exception:  # noqa: BLE001 — coluna fora do layout
+            campo = ""
+        if ordem:
+            linhas.append((ordem, campo))
+    return linhas
+
+
+def buscar_ordens_iw38(sessao, campos: list[str], de: str, ate: str, md: dict) -> list[tuple[str, str]]:
+    """IW38 com os campos de ordenação (seleção múltipla) e o período; devolve [(ordem, campo)]."""
+    fmt = md.get("formato_data", "%d.%m.%Y")
+    sessao.findById("wnd[0]/tbar[0]/okcd").text = "/nIW38"
+    sessao.findById("wnd[0]").sendVKey(0)
+    for id_, valor in md.get("iw38_marcar", {}).items():          # status: em aberto, em processamento…
+        sessao.findById(id_).selected = bool(valor)
+    nome = md.get("iw38_campo_ordenacao") or _nome_selecao(sessao, "Campo de ordenação")
+    baixo = _existe(sessao, f"wnd[0]/usr/ctxt{nome}-LOW") or _existe(sessao, f"wnd[0]/usr/txt{nome}-LOW")
+    if baixo is not None:
+        baixo.text = ""
+    _selecao_multipla(sessao, md.get("iw38_botao_campo") or f"wnd[0]/usr/btn%_{nome}_%_APP_%-VALU_PUSH", campos)
+    for chave, valor in (("iw38_periodo_de", de), ("iw38_periodo_ate", ate)):
+        id_ = md.get(chave, "")
+        if id_:
+            sessao.findById(id_).text = datetime.fromisoformat(valor).strftime(fmt)
+    sessao.findById("wnd[0]").sendVKey(8)                         # Executar
+    _popups(sessao, [])
+    tipo, texto = _barra_de_status(sessao)
+    if tipo in ("E", "A"):
+        raise RoboErro(texto or "a IW38 recusou a seleção")
+    if _existe(sessao, GRADE_IW38) is not None:
+        return _ordens_da_grade(sessao)
+    # uma ordem só: a IW38 abre a ordem direto
+    try:
+        campo_ordem = sessao.findById("wnd[0]/usr").findByName("CAUFVD-AUFNR", "GuiCTextField")
+    except Exception:  # noqa: BLE001
+        campo_ordem = None
+    if campo_ordem is not None and str(campo_ordem.text).strip():
+        return [(str(campo_ordem.text).strip().lstrip("0"), campos[0] if len(campos) == 1 else "")]
+    return []                                                      # "nenhum objeto selecionado"
+
+
 def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar, simular: bool | None = None) -> dict:
     """Processa o pedido do site (JSON com lote, simular e itens [{ordem, inicio, fim}]) e grava o resultado
     ao lado (<pedido>_resultado.json), atualizado a cada ordem para o site mostrar o andamento."""
@@ -415,24 +526,53 @@ def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar,
     pedido = json.loads(Path(arq_job).read_text(encoding="utf-8"))
     simular = bool(pedido.get("simular")) if simular is None else simular
     arq_res = Path(arq_job).with_name(Path(arq_job).stem + "_resultado.json")
+    itens = list(pedido.get("itens", []))
+    consultas = pedido.get("consultas", [])
     res = {"lote": pedido.get("lote", ""), "inicio": _agora(), "fim": None, "em_andamento": True,
-           "simular": simular, "total": len(pedido.get("itens", [])), "itens": [], "erro": ""}
+           "simular": simular, "total": len(itens), "itens": [], "consultas": [], "erro": ""}
     _gravar_status(res, arq_res)
-    itens = pedido.get("itens", [])
     try:
         if len(itens) > MAX_ORDENS:
             raise RoboErro(f"{len(itens)} ordens no pedido; o limite é {MAX_ORDENS}")
         sessao = conectar_fn(cfg)
-        log.info("mudança de datas: lote %s, %d ordem(ns)%s", res["lote"], len(itens), " (simulação)" if simular else "")
-        for it in itens:
-            res["itens"].append(mudar_data_ordem(sessao, str(it["ordem"]), it["inicio"], it.get("fim") or it["inicio"],
-                                                 md, simular))
+        log.info("mudança de datas: lote %s, %d consulta(s) na IW38 e %d ordem(ns)%s", res["lote"], len(consultas),
+                 len(itens), " (simulação)" if simular else "")
+        feitas: set[str] = set()
+
+        def mudar(ordem: str, inicio: str, fim: str, extra: dict) -> None:
+            if len(res["itens"]) >= MAX_ORDENS:
+                raise RoboErro(f"limite de {MAX_ORDENS} ordens por lote atingido; rode de novo para as restantes")
+            r = mudar_data_ordem(sessao, ordem, inicio, fim, md, simular)
+            res["itens"].append({**r, **extra})
+            feitas.add(ordem)
             _gravar_status(res, arq_res)
+
+        for c in consultas:          # programação do mês: a IW38 traz as ordens das máquinas do dia
+            info = {"dia": c["dia"], "campos": c["campos"], "encontradas": 0, "erro": ""}
+            res["consultas"].append(info)
+            try:
+                achadas = buscar_ordens_iw38(sessao, c["campos"], c["de"], c["ate"], md)
+            except RoboErro as e:
+                info["erro"] = str(e)
+                log.error("IW38 %s %s: %s", c["dia"], c["campos"], e)
+                continue
+            except Exception as e:  # noqa: BLE001 — erro COM do SAP GUI
+                info["erro"] = f"erro no SAP GUI: {e}"
+                log.error("IW38 %s %s: %s", c["dia"], c["campos"], e)
+                continue
+            info["encontradas"] = len(achadas)
+            res["total"] += len(achadas)
+            log.info("IW38 %s: %d ordem(ns) para %s", c["dia"], len(achadas), ", ".join(c["campos"]))
+            for ordem, campo in achadas:
+                if ordem not in feitas:
+                    mudar(ordem, c["dia"], c["dia"], {"dia": c["dia"], "campo": campo})
+        for it in itens:             # ordem a ordem (ex.: desfazer um lote)
+            mudar(str(it["ordem"]), it["inicio"], it.get("fim") or it["inicio"], {"dia": it["inicio"]})
     except RoboErro as e:
         log.error("%s", e)
         res["erro"] = str(e)
     res["fim"], res["em_andamento"] = _agora(), False
-    res["ok"] = not res["erro"] and all(r["ok"] for r in res["itens"])
+    res["ok"] = not res["erro"] and all(r["ok"] for r in res["itens"]) and not any(c["erro"] for c in res["consultas"])
     _gravar_status(res, arq_res)
     return res
 

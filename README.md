@@ -127,7 +127,8 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 - **Calendário de ordens** — período "entre" (de/até, com atalhos de semana e mês) com as ordens do IW38 em cada dia da data-base de
   início, separadas por turno (turma de quem apontou na IW47), com equipamento, pessoas e duração planejada (IW38OP);
   filtros de localização (valores da coluna do IW38) e centro de trabalho; azul = plano de manutenção,
-  amarelo = backlog, borda verde/vermelha = concluída/atrasada.
+  amarelo = backlog, borda verde/vermelha = concluída/atrasada; ↻ = data alterada pelo robô (Programação do mês).
+- **Programação do mês** — previsão manual das paradas por campo de ordenação e mudança de datas no SAP (abaixo).
 - **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
 - **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e
   emergencial, HH por semana/centro/classe/atividade, semanas de backlog por centro, idade do backlog e carga das
@@ -213,24 +214,29 @@ o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior
   SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
   o ID.
 
-### Mudança de datas no SAP (Calendário de ordens)
+### Programação do mês e mudança de datas no SAP
 
-No fim da aba **Calendário de ordens**, cada dia do período tem um campo para escolher os **campos de ordenação**
-(máquinas) que vão parar naquele dia. Salvando a programação, as máquinas aparecem no próprio calendário e o site
-lista as ordens pendentes delas (abertas/liberadas, ainda não encerradas no IW38 nem na IW47) com o início-base
-atual e o novo — o fim-base anda junto, mantendo a duração. Dá para escolher quais ordens entram (atrasadas e até
-o dia, só as do período ou todas as pendentes) e desmarcar uma a uma.
+A aba **Programação do mês** (Planejamento) é um calendário à parte do Calendário de ordens (IW38), 100% manual,
+para a previsão do mês: em cada dia digite os **campos de ordenação** das máquinas que vão parar (separados por
+vírgula ou espaço) e tecle Enter — o nome do ativo aparece na hora (IH08; sem cadastro, o objeto técnico das
+ordens do IW38) e a programação fica salva para todos.
 
-- **Iniciar mudança de datas** (editor/administrador, com confirmação): cria um lote de até 300 ordens. O robô abre
-  cada ordem na tela de modificar ordem (IW32 — a mesma que a IW38 abre), troca início e fim-base, confere com Enter
-  (avisos são aceitos, erro para só aquela ordem), grava e reabre na IW33 para conferir a data gravada.
-- **Só simular:** o robô abre as ordens e confere se o SAP aceita as datas, sem gravar — use na primeira vez.
-- **Onde roda:** com o site no PC do SAP, o robô começa na hora. Com o site na nuvem, o pedido fica guardado e o
-  sincronizador desse PC (com o robô configurado) executa em até 1 minuto.
-- **Histórico:** cada lote mostra o resultado de cada ordem (data antiga, nova e mensagem do SAP), pode ser baixado e
-  **desfeito** (um novo lote que devolve as datas antigas). Pedido parado pode ser cancelado.
-- Os IDs dos campos ficam em `[mudanca_datas]` de `automacao/transacoes.toml`; os campos de data são achados pelo
-  nome técnico (`CAUFVD-GSTRP`/`CAUFVD-GLTRP`) quando o ID não está preenchido.
+- **Mudar as datas no SAP** (editor/administrador, com confirmação): para cada dia, o robô abre a **IW38**, usa a
+  **seta à direita** (seleção múltipla) do *Campo de ordenação* com os campos do dia, filtra o período das ordens
+  e executa. Em cada ordem da lista, **InícioBase e Fim-base recebem a data do dia**; o robô grava (tela de
+  modificar ordem, a mesma que a IW38 abre) e reabre na IW33 para conferir.
+- **Quais ordens:** as abertas/em processamento da máquina com data no mês até a parada; quando a máquina para mais
+  de uma vez no mês, cada parada leva as ordens desde a anterior e a última leva até o fim do mês. Opcional: trazer
+  também as atrasadas de meses anteriores. Antes de rodar, o site mostra a previsão pelo IW38 exportado.
+- **Só simular:** o robô faz a IW38 e abre as ordens sem gravar — use na primeira vez. Limite de 300 ordens por lote.
+- **Onde roda:** com o site no PC do SAP, o robô começa na hora; com o site na nuvem, o sincronizador desse PC
+  (com o robô configurado) executa em até 1 minuto.
+- **Calendário principal:** as datas gravadas pelo robô aparecem na hora no Calendário de ordens (marcadas com ↻)
+  até o próximo export do IW38 trazê-las.
+- **Histórico:** resultado de cada ordem (data antiga, nova e mensagem do SAP), download, **desfazer** e cancelar.
+- IDs em `[mudanca_datas]` de `automacao/transacoes.toml`: o *Campo de ordenação* é achado pelo texto da tela e os
+  campos de data pelo nome técnico (`CAUFVD-GSTRP`/`GLTRP`); se o seu SAP for diferente, grave no Script Recording
+  e cole os IDs.
 
 ## Configuração
 
