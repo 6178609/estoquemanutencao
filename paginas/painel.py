@@ -10,33 +10,52 @@ from central.leitura import IW38
 from central.util import brl, inteiro
 
 ui.cabecalho("Painel WCM · Manutenção Profissional",
-             "Indicadores do pilar com meta, farol e tendência — cada cartão leva à aba onde ele é detalhado")
+             "Visão gerencial do pilar e execução das atividades — cada cartão leva à aba onde ele é detalhado")
 
 base = bases.iw38()
 if not ui.aviso_base(base, IW38):
     st.stop()
 
-f = contexto.filtros_globais()
+f = contexto.filtros_globais(na_pagina=True)
 cad = contexto.metas()
 atual, anterior = contexto.resultados(f)
 serie = contexto.serie_mensal(f)
 a_ini, a_fim = ind.periodo_anterior(f.ini, f.fim)
-st.caption(f"Recorte: **{f.desc}** · variações contra {ui.descrever(a_ini, a_fim)} · passe o mouse no título de "
-           "cada indicador para ver a fórmula")
+ui.aplicar_css(contexto.CSS)
+ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PREDITIVA: ":material/sensors:",
+          ind.PLANEJAMENTO: ":material/event_available:", ind.ANALISE_FALHA: ":material/troubleshoot:",
+          ind.MAO_DE_OBRA: ":material/engineering:", ind.CUSTOS: ":material/payments:",
+          ind.SUPRIMENTOS: ":material/inventory_2:"}
+FILTRADO = bool(f.areas or f.centros or f.tipos)
+CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emergencial", "no_prazo", "idade_backlog",
+               "hh", "pct_hh_plano", "custo", "pct_custo_corr"]
 
-# ----------------------------------------------------------------------------
-# Índice WCM
-# ----------------------------------------------------------------------------
+# ============================================================================
+# 1. VISÃO GERAL GERENCIAL
+# ============================================================================
+st.markdown("### :material/dashboard: Visão geral")
+st.caption(f"Variações contra {ui.descrever(a_ini, a_fim)} (período anterior de mesma duração) · passe o mouse no "
+           "título de cada indicador para ver a fórmula")
 cores = {k.id: ind.farol(k, atual.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
 n = {c: sum(v == c for v in cores.values()) for c in (ind.VERDE, ind.AMARELO, ind.VERMELHO, ind.NEUTRO)}
 com_meta = n[ind.VERDE] + n[ind.AMARELO] + n[ind.VERMELHO]
 indice = (n[ind.VERDE] + 0.5 * n[ind.AMARELO]) / com_meta * 100 if com_meta else None
+cores_ant = {k.id: ind.farol(k, anterior.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
+n_ant = {c: sum(v == c for v in cores_ant.values()) for c in (ind.VERDE, ind.AMARELO, ind.VERMELHO)}
+com_meta_ant = sum(n_ant.values())
+indice_ant = (n_ant[ind.VERDE] + 0.5 * n_ant[ind.AMARELO]) / com_meta_ant * 100 if com_meta_ant else None
 cor_indice = ui.VERDE if (indice or 0) >= 80 else ("#F2B705" if (indice or 0) >= 60 else ui.VERMELHO)
-ui.aplicar_css(contexto.CSS)
-c = st.columns([1.4, 1, 1, 1, 1])
-with c[0], st.container(border=True):
+
+c = st.columns([1.5, 1, 1, 1, 1])
+with c[0], st.container(border=True, key="kpi-neutro-indice"):
+    var = ""
+    if indice is not None and indice_ant is not None:
+        dv = indice - indice_ant
+        classe = "cm-up" if dv > 0 else ("cm-down" if dv < 0 else "cm-eq")
+        var = f'<span class="{classe}">{"▲" if dv > 0 else ("▼" if dv < 0 else "=")} {abs(dv):.0f} p.p.</span> vs anterior'
     st.markdown(f'<div class="cm-kpi-t">Índice WCM do pilar</div><div class="cm-indice" style="color:{cor_indice}">'
-                f'{"—" if indice is None else f"{indice:.0f}%"}</div>', unsafe_allow_html=True,
+                f'{"—" if indice is None else f"{indice:.0f}%"}</div><div class="cm-kpi-m">{var}</div>',
+                unsafe_allow_html=True,
                 help="(indicadores na meta + metade dos em atenção) ÷ indicadores com meta. Metas em Configuração › "
                      "Metas e parâmetros. Os de análise de falhas (AF) valem sempre para a fábrica inteira.")
 for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Atenção"),
@@ -45,10 +64,66 @@ for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Aten�
         st.markdown(f'<div class="cm-kpi-t"><span class="cm-dot" style="background:{contexto.COR_FAROL[cor]}"></span>'
                     f'{nome}</div><div class="cm-kpi-v">{n[cor]}</div>', unsafe_allow_html=True)
 
-# resumo da preditiva (SEMEQ) sempre à vista na aba inicial
+# destaques: os indicadores que a gerência acompanha toda semana
+DESTAQUES = ["pct_plano", "no_prazo", "backlog_sem", "quebras", "mtbf", "mttr", "custo", "af_execucao"]
+contexto.grade([ind.POR_ID[k] for k in DESTAQUES], atual, anterior, cad, serie, colunas=4, prefixo="dest-")
+
+# saúde por grupo do pilar + pontos de atenção
+e, d = st.columns([3, 2])
+with e, st.container(border=True):
+    st.markdown("**Saúde por grupo do pilar** · indicadores na meta, em atenção e fora")
+    linhas = []
+    for g in ind.GRUPOS:
+        for k in [k for k in ind.KPIS if k.grupo == g]:
+            linhas.append({"Grupo": g, "Farol": contexto.NOME_FAROL[cores[k.id]], "Indicador": k.nome,
+                           "Valor": ind.formatar(k, atual.get(k.id))})
+    sg = pd.DataFrame(linhas)
+    ordem_farol = [contexto.NOME_FAROL[c_] for c_ in (ind.VERDE, ind.AMARELO, ind.VERMELHO, ind.NEUTRO)]
+    ui.mostrar(alt.Chart(sg).mark_bar(cornerRadius=2, height=16).encode(
+        y=alt.Y("Grupo:N", title=None, sort=ind.GRUPOS, axis=alt.Axis(labelLimit=200, labelOverlap=False)),
+        x=alt.X("count():Q", title=None, stack="zero", axis=alt.Axis(tickMinStep=1)),
+        color=alt.Color("Farol:N", scale=alt.Scale(domain=ordem_farol, range=[contexto.COR_FAROL[c_] for c_ in (
+            ind.VERDE, ind.AMARELO, ind.VERMELHO, ind.NEUTRO)]), legend=alt.Legend(orient="top", title=None, columns=4, labelFontSize=10,
+                                                     symbolSize=60, columnPadding=6, labelLimit=90)),
+        order=alt.Order("Farol:N", sort="ascending"),
+        tooltip=["Grupo:N", "Farol:N", "Indicador:N", "Valor:N"]).properties(height=230))
+with d, st.container(border=True):
+    st.markdown("**Pontos de atenção** · fora da meta, do pior para o melhor")
+    piores = sorted([k for k in ind.KPIS if cores[k.id] == ind.VERMELHO],
+                    key=lambda k: -abs((atual.get(k.id) or 0) - (ind.meta(k, cad) or 0)) / max(abs(ind.meta(k, cad) or 1), 1e-9))
+    piores += [k for k in ind.KPIS if cores[k.id] == ind.AMARELO]
+    if not piores:
+        st.success("Todos os indicadores com meta estão dentro dela no recorte.", icon=":material/verified:")
+    for k in piores[:7]:
+        alvo = ind.meta(k, cad)
+        simbolo = ":red[:material/error:]" if cores[k.id] == ind.VERMELHO else ":orange[:material/warning:]"
+        l1, l2 = st.columns([4, 1.3], vertical_alignment="center")
+        l1.markdown(f"{simbolo} **{k.nome}** {ind.formatar(k, atual.get(k.id))} · meta "
+                    f"{'≥' if k.sentido > 0 else '≤'} {ind.formatar(k, alvo)}")
+        l2.page_link(k.pagina, label="Ver", icon=":material/arrow_forward:")
+    if len(piores) > 7:
+        st.caption(f"+{len(piores) - 7} indicador(es) — veja em Mais detalhes › Pontos de atenção.")
+
+# tendência dos principais indicadores (12 meses)
+TENDENCIA = [("quebras", ui.LARANJA), ("mttr", ui.LARANJA), ("pct_plano", ui.AZUL), ("custo", ui.AZUL)]
+cols = st.columns(4)
+for col, (kid, cor) in zip(cols, TENDENCIA):
+    k = ind.POR_ID[kid]
+    with col, st.container(border=True):
+        tem = kid in serie and serie[kid].notna().sum()
+        ultimo = f" · último mês **{ind.formatar(k, serie[kid].dropna().iloc[-1])}**" if tem else ""
+        st.markdown(f"**{k.nome}** · 12 meses{ultimo}", help=k.formula)
+        if tem:
+            ui.mostrar(contexto.grafico_mensal(serie, k, ind.meta(k, cad), cor, barras=k.unidade in ("un", "R$"),
+                                               altura=150, compacto=True))
+        else:
+            st.caption("Sem dados no recorte.")
+
+# resumo da preditiva (SEMEQ)
 if atual.get("semeq_detectadas") is not None:
-    with st.container(border=True, key="kpi-neutro-semeq"):
+    with st.container(border=True, key="faixa-semeq"):
         p1, p2 = st.columns([5, 1.3], vertical_alignment="center")
+
         def _pct(v):
             return "—" if v is None else f"{v:.0f}%"
 
@@ -60,21 +135,25 @@ if atual.get("semeq_detectadas") is not None:
             f":red[**{inteiro(atual.get('semeq_atrasadas') or 0)} atrasadas hoje**] · {dias_txt} dias para tratar")
         p2.page_link("paginas/preditiva.py", label="Abrir preditiva", icon=":material/arrow_forward:")
 
-VISOES = ["Execução das atividades", "Indicadores", "Scorecard por área", "Scorecard por setor",
-          "Scorecard por centro de trabalho", "Evolução mensal", "Pontos de atenção"]
-visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_visao", label_visibility="collapsed") or VISOES[0]
-ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PREDITIVA: ":material/sensors:", ind.PLANEJAMENTO: ":material/event_available:",
-          ind.ANALISE_FALHA: ":material/troubleshoot:", ind.MAO_DE_OBRA: ":material/engineering:",
-          ind.CUSTOS: ":material/payments:", ind.SUPRIMENTOS: ":material/inventory_2:"}
-FILTRADO = bool(f.areas or f.centros or f.tipos)
-CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emergencial", "no_prazo", "idade_backlog",
-               "hh", "pct_hh_plano", "custo", "pct_custo_corr"]
+# ============================================================================
+# 2. EXECUÇÃO DAS ATIVIDADES
+# ============================================================================
+st.divider()
+st.markdown("### :material/task_alt: Execução das atividades · IW38/IW38OP × IW47")
+execucao_ui.mostrar(f)
+
+# ============================================================================
+# 3. MAIS DETALHES
+# ============================================================================
+st.divider()
+st.markdown("### :material/insights: Mais detalhes")
+VISOES = ["Todos os indicadores", "Scorecard por área", "Scorecard por setor", "Scorecard por centro de trabalho",
+          "Evolução mensal", "Pontos de atenção"]
+visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_detalhe",
+                             label_visibility="collapsed") or VISOES[0]
 
 # ----------------------------------------------------------------------------
-if visao == "Execução das atividades":
-    execucao_ui.mostrar(f)
-
-elif visao == "Indicadores":
+if visao == "Todos os indicadores":
     for grupo in ind.GRUPOS:
         ks = [k for k in ind.KPIS if k.grupo == grupo]
         st.markdown(f"#### {ICONES[grupo]} {grupo}")
