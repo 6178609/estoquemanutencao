@@ -2,7 +2,10 @@
 
 Pandas puro (testado em tests/test_execucao.py). Convenções:
 - Atividade = operação do IW38OP; a data programada é a "1ª data de início" (coluna Início).
-- Executada = operação confirmada (CONF/ENTE/ENCE no status do sistema); cancelada não conta.
+- Executada = operação confirmada (CONF/ENTE/ENCE no status do sistema); cancelada (ELIM/DLFL/MREL) não conta.
+  O status vale pelo IW38OP ou pela IW47 (que costuma ser exportada depois e já traz CONF ENTE), e a ordem
+  encerrada no IW38 encerra as suas operações.
+- Status com CONF = confirmada no SAP; "Encerrada sem confirmação" só quando não há CONF nem apontamento na IW47.
 - A operação se liga ao apontamento da IW47 por ordem + nº da operação (zeros à esquerda ignorados).
 - Taxa de execução = executadas ÷ programadas com data até hoje (as futuras ainda não venceram).
 """
@@ -13,8 +16,9 @@ import numpy as np
 import pandas as pd
 
 EXECUTADA, SEM_APONTAMENTO, ATRASADA, PROGRAMADA, CANCELADA = (
-    "Executada", "Executada sem apontamento", "Atrasada", "Programada", "Cancelada")
+    "Executada", "Encerrada sem confirmação", "Atrasada", "Programada", "Cancelada")
 SITUACOES = [EXECUTADA, SEM_APONTAMENTO, ATRASADA, PROGRAMADA, CANCELADA]
+CONCLUIDA_ST, CANCELADA_ST = {"CONF", "ENTE", "ENCE"}, {"ELIM", "DLFL", "MREL", "MEEL"}
 COR = {EXECUTADA: "#0E9F46", SEM_APONTAMENTO: "#9BC53D", ATRASADA: "#E3262B", PROGRAMADA: "#0A6EBD",
        CANCELADA: "#B0B6B3"}
 
@@ -57,15 +61,19 @@ def operacoes(oper: pd.DataFrame | None, ordens: pd.DataFrame | None, conf: pd.D
     ap = apontamentos(conf, equipe)
     if len(ap):
         g = ap.groupby(["Ordem", "Op"])
+        st47 = ap["Status sistema"] if "Status sistema" in ap else pd.Series("", index=ap.index)
         agg = pd.DataFrame({
             "HH real": g["Horas"].sum(),
             "Executado por": g["Pessoa"].agg(lambda s: ", ".join(dict.fromkeys(p for p in s if p))),
             "Executantes": g["Nº pessoal"].nunique(),
             "Último apontamento": g["Data"].max(),
+            "Status IW47": st47.fillna("").astype(str).groupby([ap["Ordem"], ap["Op"]]).agg(
+                lambda s: " ".join(dict.fromkeys(" ".join(s).split()))),
         }).reset_index()
         o = o.merge(agg, on=["Ordem", "Op"], how="left")
     else:
         o["HH real"], o["Executado por"], o["Executantes"], o["Último apontamento"] = np.nan, "", 0, pd.NaT
+        o["Status IW47"] = ""
     o["Executado por"] = o["Executado por"].fillna("")
     o["Executantes"] = o["Executantes"].fillna(0).astype(int)
     o["Com apontamento"] = o["Executado por"] != ""
@@ -78,8 +86,21 @@ def operacoes(oper: pd.DataFrame | None, ordens: pd.DataFrame | None, conf: pd.D
         o["Com plano"] = o["Com plano"].fillna(False).astype(bool)
     else:
         o["Com plano"] = False
+    # status do SAP: IW38OP + IW47 (mais recente) + ordem encerrada/cancelada no IW38
+    o["Status IW47"] = o["Status IW47"].fillna("")
+    st_op = o["Status sistema"] if "Status sistema" in o else pd.Series("", index=o.index)
+    o["Status SAP"] = (st_op.fillna("").astype(str) + " " + o["Status IW47"]).map(
+        lambda t: " ".join(dict.fromkeys(t.split())))
+    toks = o["Status SAP"].str.split().map(set)
+    sit_ordem = o["Situação da ordem"].astype(object) if "Situação da ordem" in o else pd.Series("", index=o.index)
+    o["Cancelada"] = (o["Cancelada"].fillna(False).astype(bool) | toks.map(lambda t: bool(t & CANCELADA_ST))
+                      | (sit_ordem == "Cancelada"))
+    o["Concluída"] = (o["Concluída"].fillna(False).astype(bool) | toks.map(lambda t: bool(t & CONCLUIDA_ST))
+                      | sit_ordem.isin(["Concluída", "Encerrada sem confirmação"]))
+    o["Confirmada"] = toks.map(lambda t: "CONF" in t) | (sit_ordem == "Concluída")
+    o["Fim real"] = o["Fim real"].where(o["Fim real"].notna() | ~o["Concluída"], o["Último apontamento"])
     o["Situação"] = np.select(
-        [o["Cancelada"], o["Concluída"] & o["Com apontamento"], o["Concluída"],
+        [o["Cancelada"], o["Concluída"] & (o["Confirmada"] | o["Com apontamento"]), o["Concluída"],
          o["Início"].notna() & (o["Início"] < hoje)],
         [CANCELADA, EXECUTADA, SEM_APONTAMENTO, ATRASADA], default=PROGRAMADA)
     atraso = (o["Fim real"] - o["Início"]).dt.days
@@ -119,7 +140,13 @@ def indicadores(ops: pd.DataFrame, ordens: pd.DataFrame | None, conf_ap: pd.Data
     if ordens is not None and len(ordens):
         o = ordens[(ordens["Situação"] != "Cancelada") & _entre(ordens["Data"], ini, fim) & (ordens["Data"] <= hoje)]
         r["ordens_devidas"] = float(len(o))
-        r["ordens_concluidas"] = float((o["Situação"] == "Concluída").sum())
+        concluida = o["Situação"] == "Concluída"
+        if conf_ap is not None and len(conf_ap) and "Status sistema" in conf_ap:
+            # a IW47 costuma ser mais recente que o IW38: CONF + ENTE nela também encerra a ordem
+            st = conf_ap["Status sistema"].fillna("").astype(str).groupby(conf_ap["Ordem"]).agg(
+                lambda s: set(" ".join(s).split()))
+            concluida |= o["Ordem"].map(st).map(lambda t: isinstance(t, set) and {"CONF", "ENTE"} <= t)
+        r["ordens_concluidas"] = float(concluida.sum())
         r["taxa_ordens"] = r["ordens_concluidas"] / len(o) * 100 if len(o) else None
     else:
         r["ordens_devidas"] = r["ordens_concluidas"] = 0.0

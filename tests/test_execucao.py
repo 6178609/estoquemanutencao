@@ -52,7 +52,8 @@ def test_quem_fez_cada_operacao():
     ops = ex.operacoes(_oper(), _ordens(), _conf(), EQUIPE, HOJE).set_index(["Ordem", "Operação"])
     assert ops.loc[("1", "0010"), "Executado por"] == "ANA, BRUNO" and ops.loc[("1", "0010"), "HH real"] == 2.5
     assert ops.loc[("1", "0010"), "Situação"] == ex.EXECUTADA and ops.loc[("1", "0010"), "Executantes"] == 2
-    assert ops.loc[("1", "0020"), "Situação"] == ex.SEM_APONTAMENTO      # confirmada sem apontamento na IW47
+    assert ops.loc[("1", "0020"), "Situação"] == ex.EXECUTADA            # ordem CONF + ENTE, sem linha na IW47
+    assert not ops.loc[("1", "0020"), "Com apontamento"]
     assert ops.loc[("2", "0010"), "Executado por"] == "ANA"
     assert ops.loc[("3", "0010"), "Situação"] == ex.ATRASADA
     assert ops.loc[("4", "0010"), "Situação"] == ex.CANCELADA
@@ -103,3 +104,32 @@ def test_rastreabilidade_so_na_janela_da_iw47():
     ops = ex.operacoes(oper, _ordens(), _conf(), EQUIPE, HOJE)
     r = ex.indicadores(ops, _ordens(), ex.apontamentos(_conf(), EQUIPE), date(2026, 5, 1), date(2026, 7, 31), HOJE)
     assert r["rastreadas"] == pytest.approx(100) and r["hh_executadas_plan"] == 6
+
+
+def test_status_da_iw47_e_conf_contam_como_executada():
+    """A IW47 exportada depois já traz CONF ENTE; CONF sem linha na IW47 é confirmada no SAP."""
+    oper = _oper()
+    oper["Status sistema"] = ["CONF ENTE", "CONF ENTE", "CONF ENTE", "LIB", "LIB", "ELIM ENTE"]
+    oper.loc[5, "Concluída"] = True
+    conf = _conf()
+    conf["Status sistema"] = "CONF LIB"
+    conf = pd.concat([conf, pd.DataFrame({"Nº pessoal": ["20"], "Nome": [""], "Ordem": ["3"], "Operação": ["0010"],
+                                          "Data": [T("2026-06-25")], "Horas": [2.0], "Centro de trabalho": ["MEC"],
+                                          "Status sistema": ["CONF ENTE"]})], ignore_index=True)
+    ops = ex.operacoes(oper, _ordens(), conf, EQUIPE, HOJE).set_index(["Ordem", "Operação"])
+    assert ops.loc[("1", "0020"), "Situação"] == ex.EXECUTADA            # CONF no IW38OP, sem linha na IW47
+    assert ops.loc[("3", "0010"), "Situação"] == ex.EXECUTADA            # LIB no IW38OP, CONF ENTE na IW47
+    assert ops.loc[("3", "0010"), "Fim real"] == T("2026-06-25")         # fim real = último apontamento
+    assert ops.loc[("5", "0010"), "Situação"] == ex.CANCELADA            # operação eliminada (ELIM)
+    r = ex.indicadores(ops.reset_index(), _ordens(), ex.apontamentos(conf, EQUIPE), date(2026, 6, 1),
+                       date(2026, 7, 31), HOJE)
+    assert r["taxa_ordens"] == pytest.approx(100)                         # ordem 3 encerrada pela IW47
+
+
+def test_encerrada_sem_confirmacao_pela_ordem():
+    oper = _oper()
+    oper.loc[3, "Concluída"] = False
+    ordens = _ordens()
+    ordens.loc[2, "Situação"] = "Encerrada sem confirmação"             # ordem 3: ENTE sem CONF
+    ops = ex.operacoes(oper, ordens, None, EQUIPE, HOJE).set_index(["Ordem", "Operação"])
+    assert ops.loc[("3", "0010"), "Situação"] == ex.SEM_APONTAMENTO == "Encerrada sem confirmação"
