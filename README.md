@@ -38,8 +38,11 @@ Lubrificação, GPM = Planejamento, AUT = Automação, TERC = Terceiros (regra e
 Há filtro de setor na barra lateral (vale para o site todo), na execução do Painel e no calendário, além do
 "Scorecard por setor".
 
-**Filtros globais** (barra lateral): período (de/até), área (localização), centro de trabalho e tipo de ordem — valem
-para todas as abas, e cada cartão do Painel leva à aba onde o indicador é detalhado.
+**Filtros globais**: período (de/até), área (localização), setor, centro de trabalho e tipo de ordem — valem para todas
+as abas (no Painel ficam no topo da página; nas outras abas, na barra lateral), e cada cartão do Painel leva à aba
+onde o indicador é detalhado. Os filtros são em cascata: cada opção mostra quantas ordens tem no recorte
+("GAL1 · 15.800"), só aparecem as opções que existem com os outros filtros (escolher o setor Montagem deixa só os
+centros de Montagem) e há um resumo do recorte com o número de ordens e o botão "Limpar filtros".
 
 > O IW38 exportado hoje não traz os tipos YM11/YM12 (corretivas). As horas da IW47 dessas ordens aparecem como
 > "Ordem fora do IW38" e ficam fora dos % de plano e de emergencial. Exportando o IW38 com todos os tipos, o site
@@ -121,9 +124,13 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 
 ## Telas
 
-- **Painel WCM** — índice WCM do pilar, cartões por grupo, scorecard por área e por centro de trabalho (com farol),
-  evolução mensal de cada indicador, pontos de atenção (fora da meta, bad actors, backlog mais antigo, peças críticas,
-  compras paradas) e scorecard para baixar em Excel.
+- **Painel WCM** (tela inicial), em três blocos: **Visão geral** — índice WCM do pilar com a variação contra o período
+  anterior, quantos indicadores estão na meta/atenção/fora, os 8 indicadores-chave (manutenção planejada, ordens no
+  prazo, backlog, quebras, MTBF, MTTR, custo, execução de AFs) com mini-tendência, saúde por grupo do pilar, pontos de
+  atenção (fora da meta, do pior para o melhor), tendência de 12 meses e o resumo da preditiva SEMEQ; **Execução das
+  atividades** (IW38/IW38OP × IW47, por setor e centro); **Mais detalhes** — todos os indicadores por grupo,
+  scorecard por área, por setor e por centro de trabalho (com farol), evolução mensal, pontos de atenção completos
+  (bad actors, backlog mais antigo, peças críticas, compras paradas) e scorecard para baixar em Excel.
 - **Quebras, MTBF e MTTR** — quebras e MTTR por mês, Pareto 80/20 (equipamento, local, centro, área, tipo de nota),
   confiabilidade por equipamento com link para a ficha, matriz criticidade × frequência, dia da semana e reincidências.
 - **Preditiva (SEMEQ)** — anomalias da preditiva (notas IW28 e ordens IW38 com `SEMEQ-<técnica>-<nº>-<achado>` no

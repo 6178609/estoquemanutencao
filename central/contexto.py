@@ -99,12 +99,34 @@ def centros_conhecidos() -> list[str]:
                    if b is not None for c in b["Centro de trabalho"].astype(object).dropna().unique() if str(c).strip()})
 
 
+def _contagens(o_per: pd.DataFrame | None, sel: dict, col: str, exceto: str) -> dict:
+    """Ordens do período por valor de `col`, aplicando os outros filtros (filtro em cascata)."""
+    if o_per is None or not len(o_per):
+        return {}
+    m = pd.Series(True, index=o_per.index)
+    for chave_f, coluna in (("f_areas", "Localização"), ("f_setores", "Setor"), ("f_centros", "Centro de trabalho"),
+                            ("f_tipos", "Tipo")):
+        if chave_f != exceto and sel.get(chave_f) and coluna in o_per:
+            m &= o_per[coluna].astype(str).isin(sel[chave_f])
+    return o_per.loc[m, col].astype(str).value_counts().to_dict() if col in o_per else {}
+
+
+def _opcoes(contagem: dict, selecionados: list, ordem: list | None = None) -> list:
+    """Só os valores com ordem no recorte (os já escolhidos ficam), do maior para o menor ou na ordem dada."""
+    vivos = [v for v, n in contagem.items() if v and n > 0]
+    if ordem is not None:
+        vivos = [v for v in ordem if v in vivos]
+    return vivos + [v for v in selecionados if v not in vivos]
+
+
 def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_data: list[str] | None = None,
-                    chave_base: str = "", ajuda_base: str = "") -> Filtros:
+                    chave_base: str = "", ajuda_base: str = "", na_pagina: bool = False) -> Filtros:
     """Filtros compartilhados por todas as abas.
 
     O período é do tipo "entre" (data inicial → data final) e fica à vista no topo da página, com
-    atalhos; área, centro de trabalho e tipo de ordem ficam na barra lateral. `periodo=False` é para
+    atalhos. Área, setor, centro de trabalho e tipo de ordem ficam na barra lateral (ou no topo da
+    página, com `na_pagina`) e são inteligentes: em cascata, cada opção mostra quantas ordens tem no
+    período com os outros filtros aplicados e as que não têm nenhuma somem. `periodo=False` é para
     abas com calendário próprio (Planos). `bases_data` acrescenta ao quadro a escolha da data de
     referência (lida depois em st.session_state[chave_base])."""
     ss = st.session_state
@@ -114,12 +136,8 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
     n = bases.notas().df
     if datas is None:
         datas = o["Data"] if o is not None else (n["Data"] if n is not None else None)
-    areas = sorted({a for df in (o, n) if df is not None for a in df["Localização"].unique() if a})
-    centros = sorted(c for c in o["Centro de trabalho"].unique() if c) if o is not None else []
-    todos_centros = centros_conhecidos()   # o setor escolhido vira a lista dos seus centros
-    setores_disp = [s for s in SETORES if any(setor_do_centro(c) == s for c in todos_centros)]
-    tps = sorted(t for t in o["Tipo"].unique() if t) if o is not None else []
     rot = tipos()
+    todos_centros = centros_conhecidos()   # o setor escolhido vira a lista dos seus centros
     if periodo:
         with st.container(border=True, key="periodo-global"):
             if bases_data:
@@ -133,32 +151,84 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
                     ss.pop(chave_base, None)
                 c2.segmented_control("Data de referência", bases_data, default=bases_data[0], key=chave_base,
                                      help=ajuda_base or None)
-            st.caption(f":material/date_range: **{ui.descrever(ini, fim)}** · o mesmo período vale para todas as abas "
-                       "(área, centro e tipo ficam na barra lateral)")
+            if not na_pagina:
+                st.caption(f":material/date_range: **{ui.descrever(ini, fim)}** · o mesmo período vale para todas as "
+                           "abas (área, setor, centro e tipo ficam na barra lateral)")
     else:
         v = ss.get("f_faixa", padrao)
         v = tuple(v) if isinstance(v, (list, tuple)) else (v, v)
         ini, fim = (v[0], v[-1]) if v else padrao
-    with st.sidebar:
-        st.divider()
-        st.markdown("**:material/filter_alt: Filtros globais** · valem para todas as abas")
-        sel_area = st.multiselect("Área", areas, key="f_areas", placeholder="Todas",
-                                  help="Localização das ordens e notas (GAL1, GAL2, UTIL…).")
-        sel_setor = st.multiselect(
-            "Setor", setores_disp, key="f_setores", placeholder="Todos",
+
+    # filtros em cascata, com a contagem de ordens do período em cada opção
+    o_per = None
+    if o is not None:
+        o_per = o[ui.entre(o["Data"], ini, fim)]
+        if "Setor" not in o_per:
+            o_per = o_per.assign(Setor=o_per["Centro de trabalho"].map(setor_do_centro))
+    sel = {k: [str(x) for x in (ss.get(k) or [])] for k in ("f_areas", "f_setores", "f_centros", "f_tipos")}
+    cont = {"f_areas": _contagens(o_per, sel, "Localização", "f_areas"),
+            "f_setores": _contagens(o_per, sel, "Setor", "f_setores"),
+            "f_centros": _contagens(o_per, sel, "Centro de trabalho", "f_centros"),
+            "f_tipos": _contagens(o_per, sel, "Tipo", "f_tipos")}
+    opc = {"f_areas": _opcoes(cont["f_areas"], sel["f_areas"]),
+           "f_setores": _opcoes(cont["f_setores"], sel["f_setores"], SETORES),
+           "f_centros": _opcoes(cont["f_centros"], sel["f_centros"]),
+           "f_tipos": _opcoes(cont["f_tipos"], sel["f_tipos"])}
+
+    def rotulo(chave_f):
+        def fmt(v):
+            q = cont[chave_f].get(v, 0)
+            nome = ind.rotulo_tipo(v, rot) if chave_f == "f_tipos" else v
+            return f"{nome} · {q:,}".replace(",", ".") if q else f"{nome} · 0"
+        return fmt
+
+    def widgets(alvo, colunas: bool):
+        cols = alvo.columns(4) if colunas else [alvo] * 4
+        a = cols[0].multiselect("Área", opc["f_areas"], key="f_areas", placeholder="Todas", format_func=rotulo("f_areas"),
+                                help="Localização das ordens e notas (GAL1, GAL2, UTIL…). O número é de ordens no "
+                                     "período com os outros filtros aplicados.")
+        s_ = cols[1].multiselect(
+            "Setor", opc["f_setores"], key="f_setores", placeholder="Todos", format_func=rotulo("f_setores"),
             help="Pelo código do centro de trabalho: …COMP = Componentes (e GPA), …MONT = Montagem, UTIL = Utilidades, "
                  "CORT = Corte, PRE = Predial, MATZ = Matrizaria, FERRAMEN = Ferramentaria, TERC = Terceiros…")
-        centros_opc = [c for c in centros if not sel_setor or setor_do_centro(c) in sel_setor]
-        if ss.get("f_centros"):  # centro de outro setor sai da seleção
-            ss["f_centros"] = [c for c in ss["f_centros"] if c in centros_opc]
-        sel_ctr = st.multiselect("Centro de trabalho", centros_opc, key="f_centros", placeholder="Todos")
-        sel_tipo = st.multiselect("Tipo de ordem", tps, key="f_tipos", placeholder="Todos",
-                                  format_func=lambda t: ind.rotulo_tipo(t, rot))
-        if any([(ini, fim) != padrao, sel_area, sel_setor, sel_ctr, sel_tipo]):
-            if st.button("Limpar filtros", icon=":material/filter_alt_off:", width="stretch"):
-                for k in ui.FILTROS_PERSISTENTES:
-                    ss.pop(k, None)
-                st.rerun()
+        c_ = cols[2].multiselect("Centro de trabalho", opc["f_centros"], key="f_centros", placeholder="Todos",
+                                 format_func=rotulo("f_centros"))
+        t_ = cols[3].multiselect("Tipo de ordem", opc["f_tipos"], key="f_tipos", placeholder="Todos",
+                                 format_func=rotulo("f_tipos"))
+        return a, s_, c_, t_
+
+    if na_pagina:
+        with st.container(border=True, key="filtros-pagina"):
+            sel_area, sel_setor, sel_ctr, sel_tipo = widgets(st, True)
+            ativos = [f"{nome}: {', '.join(v)}" for nome, v in (("Área", sel_area), ("Setor", sel_setor),
+                                                               ("Centro", sel_ctr), ("Tipo", sel_tipo)) if v]
+            r1, r2 = st.columns([5, 1], vertical_alignment="center")
+            n_rec = 0
+            if o_per is not None:
+                m = pd.Series(True, index=o_per.index)
+                for vals, col in ((sel_area, "Localização"), (sel_setor, "Setor"), (sel_ctr, "Centro de trabalho"),
+                                  (sel_tipo, "Tipo")):
+                    if vals:
+                        m &= o_per[col].astype(str).isin(vals)
+                n_rec = int(m.sum())
+            r1.caption(f":material/date_range: **{ui.descrever(ini, fim)}** · **{inteiro_br(n_rec)} ordens** no recorte"
+                       + (" · " + " · ".join(ativos) if ativos else " · fábrica inteira")
+                       + " · os filtros valem para todas as abas")
+            if any([(ini, fim) != padrao, sel_area, sel_setor, sel_ctr, sel_tipo]):
+                if r2.button("Limpar", icon=":material/filter_alt_off:", width="stretch", key="limpar_pagina"):
+                    for k in ui.FILTROS_PERSISTENTES:
+                        ss.pop(k, None)
+                    st.rerun()
+    else:
+        with st.sidebar:
+            st.divider()
+            st.markdown("**:material/filter_alt: Filtros globais** · valem para todas as abas")
+            sel_area, sel_setor, sel_ctr, sel_tipo = widgets(st, False)
+            if any([(ini, fim) != padrao, sel_area, sel_setor, sel_ctr, sel_tipo]):
+                if st.button("Limpar filtros", icon=":material/filter_alt_off:", width="stretch"):
+                    for k in ui.FILTROS_PERSISTENTES:
+                        ss.pop(k, None)
+                    st.rerun()
     if sel_ctr:
         efetivos = tuple(sel_ctr)
     elif sel_setor:
@@ -167,6 +237,10 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
         efetivos = ()
     return Filtros(ini, fim, tuple(sel_area), efetivos, tuple(sel_tipo), tuple(sel_setor),
                    centros_do_setor=bool(sel_setor and not sel_ctr))
+
+
+def inteiro_br(n) -> str:
+    return f"{int(n or 0):,}".replace(",", ".")
 
 
 def data_de_referencia(chave_base: str, bases_data: list[str]) -> str:
@@ -316,6 +390,7 @@ CSS = """
   [class*="st-key-kpi-amarelo"] { border-left: 5px solid #F2B705 !important; }
   [class*="st-key-kpi-vermelho"] { border-left: 5px solid %(vermelho)s !important; }
   [class*="st-key-kpi-neutro"] { border-left: 5px solid %(cinza)s !important; }
+  [class*="st-key-faixa-"] { border-left: 5px solid %(cinza)s !important; }
   [class*="st-key-kpi-"] [data-testid="stPageLink"] p { font-size: .76rem; }
   [class*="st-key-kpi-"]:has(.cm-kpi-m) { min-height: 128px; }
   [class*="st-key-kpi-"]:has([data-testid="stPageLink"]) { min-height: 176px; justify-content: space-between; }
@@ -399,19 +474,29 @@ def mes_pt(m) -> str:
 
 
 def grafico_mensal(serie: pd.DataFrame, kpi: ind.Kpi, alvo: float | None, cor: str = ui.AZUL,
-                   barras: bool = False, altura: int = 220) -> alt.Chart:
-    """Evolução mês a mês de um indicador, com a linha da meta."""
+                   barras: bool = False, altura: int = 220, compacto: bool = False) -> alt.Chart:
+    """Evolução mês a mês de um indicador, com a linha da meta.
+
+    compacto: para gráficos pequenos — rotula só o último mês e usa poucos valores no eixo, sem sobreposição."""
     s = serie[["Mês", kpi.id]].dropna().copy()
     s["Rótulo"] = s[kpi.id].map(lambda v: ind.formatar(kpi, v))
     s["Mês txt"] = s["Mês"].map(mes_pt)
-    base = alt.Chart(s).encode(x=alt.X("Mês txt:N", title=None, sort=list(s["Mês txt"]), axis=alt.Axis(labelAngle=0)),
-                               y=alt.Y(f"{kpi.id}:Q", title=None, scale=alt.Scale(zero=barras)),
+    eixo_y = alt.Axis(tickCount=3, labelFontSize=9, **({"format": "~s"} if kpi.unidade == "R$" else {})) \
+        if compacto else alt.Axis()
+    eixo_x = alt.Axis(labelAngle=0, labelOverlap="greedy", labelFontSize=9) if compacto else alt.Axis(labelAngle=0)
+    base = alt.Chart(s).encode(x=alt.X("Mês txt:N", title=None, sort=list(s["Mês txt"]), axis=eixo_x),
+                               y=alt.Y(f"{kpi.id}:Q", title=None, scale=alt.Scale(zero=barras), axis=eixo_y),
                                tooltip=[alt.Tooltip("Mês txt:N", title="Mês"), alt.Tooltip("Rótulo:N", title=kpi.nome)])
     if barras:
-        ch = base.mark_bar(color=cor, cornerRadiusEnd=3, size=18)
+        ch = base.mark_bar(color=cor, cornerRadiusEnd=3, size=10 if compacto else 18)
     else:
-        ch = base.mark_line(color=cor, strokeWidth=2.4, point=alt.OverlayMarkDef(size=50, filled=True, color=cor))
-    ch = ch + base.mark_text(dy=-10, fontSize=10, color=ui.GRAFITE).encode(text="Rótulo:N")
+        ch = base.mark_line(color=cor, strokeWidth=2.4,
+                            point=alt.OverlayMarkDef(size=28 if compacto else 50, filled=True, color=cor))
+    if not compacto:
+        ch = ch + base.mark_text(dy=-10, fontSize=10, color=ui.GRAFITE).encode(text="Rótulo:N")
+    elif not barras and len(s):  # só o último ponto, à esquerda dele
+        ch = ch + base.transform_filter(alt.datum["Mês txt"] == s["Mês txt"].iloc[-1]).mark_text(
+            dy=-10, align="right", fontSize=10, fontWeight="bold", color=ui.GRAFITE).encode(text="Rótulo:N")
     if alvo is not None:
         ch = ch + alt.Chart(pd.DataFrame({"m": [alvo], "t": [f"meta {ind.formatar(kpi, alvo)}"]})).mark_rule(
             color=ui.VERDE, strokeDash=[5, 4], strokeWidth=1.6).encode(y="m:Q", tooltip=alt.Tooltip("t:N", title="Meta"))
