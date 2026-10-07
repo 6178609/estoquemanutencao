@@ -12,7 +12,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from .util import achar_coluna, chave, para_data, texto
+from .util import achar_coluna, chave, fora_da_visao, para_data, texto
 
 # ----------------------------------------------------------------------------
 # Situação de cada chamada
@@ -82,11 +82,8 @@ def preparar_ip19(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.D
     for c in ["Data planejada", "Data chamada", "Data conclusão"]:
         df[c] = para_data(df[c])
     df = df[(df["Plano"] != "") & (df["Data planejada"].notna() | df["Data chamada"].notna())]
-    if excluir_piloto_matriz:  # mesma regra das ordens: Fábrica Piloto e Matrizaria ficam fora
-        fora = (df["Centro de trabalho"].str.upper().isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])
-                | df["Texto"].map(chave).str.contains(r"PILOT|MATRIZARIA")
-                | df["Local de instalação"].map(chave).str.contains(r"PILOT|MATRIZARIA"))
-        df = df[~fora]
+    if excluir_piloto_matriz:  # mesma regra das ordens (util.fora_da_visao), também pelo texto do plano
+        df = df[~(fora_da_visao(df, textos=("Texto",)) | df["Texto"].map(chave).str.contains("MATRIZARIA"))]
 
     fator = df["Unidade do trabalho"].str.upper().map({"MIN": 1 / 60, "H": 1, "HR": 1, "STD": 1}).fillna(1.0)
     df["Horas"] = from_num(df["Trabalho"]) * fator

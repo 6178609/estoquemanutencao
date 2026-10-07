@@ -165,3 +165,35 @@ def marcar_quebras(notas: pd.DataFrame, tipos_por_ordem: pd.Series | None = None
     y1 = tipo_nota.fillna("").astype(str).str.strip().str.upper() == TIPO_NOTA_QUEBRA
     n["Quebra"] = y1 & (ordem != "") & n["Tipo da ordem"].isin(["", TIPO_ORDEM_QUEBRA])
     return n
+
+
+# ----------------------------------------------------------------------------
+# Fora da visão do site: Fábrica Piloto, Desenho e OPER_MATRIZ (e a Matrizaria pelo local de instalação)
+# ----------------------------------------------------------------------------
+CENTROS_FORA = {"FABPILOT", "OPER_MTZ", "OPER_MATRIZ"}
+LOCALIZACOES_FORA = {"DESEN"}                       # Desenho / Tecnologia e Inovação
+RX_PILOTO = r"\bFAB(?:RICA)?\.?\s*PILOT"              # "FAB PILOT", "FÁBRICA PILOTO" (não pega "válvula piloto")
+
+
+def fora_da_visao(df: pd.DataFrame, textos: tuple[str, ...] = ()) -> pd.Series:
+    """Linhas que o site não mostra (config. excluir_piloto_matriz): centro FABPILOT/OPER_MTZ/OPER_MATRIZ,
+    localização DESEN, local de instalação da Fábrica Piloto ou da Matrizaria, ou objeto/denominação da
+    Fábrica Piloto. `textos` = colunas de texto livre onde "Fábrica Piloto" também conta (ex.: texto do plano)."""
+    fora = pd.Series(False, index=df.index)
+
+    def col(nome: str) -> pd.Series:
+        return df[nome].astype(object).fillna("").astype(str).map(chave)
+
+    def codigo(nome: str) -> pd.Series:   # códigos do SAP como vêm (o "_" de OPER_MTZ conta)
+        return df[nome].astype(object).fillna("").astype(str).str.strip().str.upper()
+
+    if "Centro de trabalho" in df:
+        fora |= codigo("Centro de trabalho").isin(CENTROS_FORA)
+    if "Localização" in df:
+        fora |= codigo("Localização").isin(LOCALIZACOES_FORA)
+    if "Local de instalação" in df:
+        fora |= col("Local de instalação").str.contains(r"PILOT|MATRIZARIA", regex=True)
+    for nome in ("Objeto técnico", "Denominação", *textos):
+        if nome in df:
+            fora |= col(nome).str.contains(RX_PILOTO, regex=True)
+    return fora
