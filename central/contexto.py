@@ -7,6 +7,7 @@ cartão de indicador leva à aba onde ele é detalhado.
 
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass
 from datetime import date
 
@@ -327,7 +328,7 @@ def cartao(kpi: ind.Kpi, valor, anterior, cad_metas: dict, serie: pd.DataFrame |
     cor = ind.farol(kpi, valor, alvo)
     with st.container(border=True, key=f"kpi-{cor}-{prefixo}{kpi.id}"):
         st.markdown(
-            f'<div class="cm-kpi-t" title="{kpi.formula}"><span class="cm-dot" style="background:{COR_FAROL[cor]}">'
+            f'<div class="cm-kpi-t" title="{html.escape(kpi.formula, quote=True)}"><span class="cm-dot" style="background:{COR_FAROL[cor]}">'
             f'</span>{kpi.nome}</div><div class="cm-kpi-v">{ind.formatar(kpi, valor)}</div>'
             f'<div class="cm-kpi-m">{_texto_meta(kpi, alvo)}{_texto_variacao(kpi, valor, anterior)}</div>',
             unsafe_allow_html=True, help=kpi.formula)

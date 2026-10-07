@@ -45,10 +45,25 @@ for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Aten�
         st.markdown(f'<div class="cm-kpi-t"><span class="cm-dot" style="background:{contexto.COR_FAROL[cor]}"></span>'
                     f'{nome}</div><div class="cm-kpi-v">{n[cor]}</div>', unsafe_allow_html=True)
 
+# resumo da preditiva (SEMEQ) sempre à vista na aba inicial
+if atual.get("semeq_detectadas") is not None:
+    with st.container(border=True, key="kpi-neutro-semeq"):
+        p1, p2 = st.columns([5, 1.3], vertical_alignment="center")
+        def _pct(v):
+            return "—" if v is None else f"{v:.0f}%"
+
+        dias_tratar = atual.get("semeq_dias")
+        dias_txt = "—" if dias_tratar is None else f"{dias_tratar:.1f}".replace(".", ",")
+        p1.markdown(
+            f":material/sensors: **Preditiva (SEMEQ)** · {inteiro(atual['semeq_detectadas'])} anomalias no período · "
+            f"**{_pct(atual.get('semeq_tratadas'))} tratadas** · {_pct(atual.get('semeq_com_ordem'))} com ordem · "
+            f":red[**{inteiro(atual.get('semeq_atrasadas') or 0)} atrasadas hoje**] · {dias_txt} dias para tratar")
+        p2.page_link("paginas/preditiva.py", label="Abrir preditiva", icon=":material/arrow_forward:")
+
 VISOES = ["Execução das atividades", "Indicadores", "Scorecard por área", "Scorecard por centro de trabalho", "Evolução mensal",
           "Pontos de atenção"]
 visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_visao", label_visibility="collapsed") or VISOES[0]
-ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PLANEJAMENTO: ":material/event_available:",
+ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PREDITIVA: ":material/sensors:", ind.PLANEJAMENTO: ":material/event_available:",
           ind.ANALISE_FALHA: ":material/troubleshoot:", ind.MAO_DE_OBRA: ":material/engineering:",
           ind.CUSTOS: ":material/payments:", ind.SUPRIMENTOS: ":material/inventory_2:"}
 FILTRADO = bool(f.areas or f.centros or f.tipos)
