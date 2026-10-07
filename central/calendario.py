@@ -19,6 +19,16 @@ import pandas as pd
 TURNOS = {"1ª": "1º turno", "2ª": "2º turno", "3ª": "3º turno", "G": "Horário geral"}
 SEM_EXECUTANTE = "Sem executante (IW47)"
 ORDEM_TURNOS = ["1º turno", "2º turno", "3º turno", "Horário geral", SEM_EXECUTANTE]
+LOCAIS_PRINCIPAIS = ["GAL1", "GAL2"]
+OUTROS = "Outros"
+
+
+def grupo_local(loc: pd.Series) -> pd.Series:
+    """GAL1, GAL2 ou Outros (UTIL, F26, SRI, GAL3…)."""
+    loc = loc.fillna("").astype(str).str.strip().str.upper()
+    return loc.where(loc.isin(LOCAIS_PRINCIPAIS), OUTROS)
+
+
 CONCLUIDA, ATRASADA, PROGRAMADA, CANCELADA = "Concluída", "Atrasada", "Programada", "Cancelada"
 SITUACOES = [PROGRAMADA, ATRASADA, CONCLUIDA, CANCELADA]
 DIAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
@@ -55,11 +65,12 @@ def agenda(ordens: pd.DataFrame | None, oper: pd.DataFrame | None = None, conf: 
     """Uma linha por ordem e turno, com o dia (data-base de início), título, quem, duração e situação."""
     hoje = (hoje or pd.Timestamp.now()).normalize()
     cols = ["Dia", "Ordem", "Título", "Texto", "Tipo", "Natureza", "Situação", "Situação da ordem", "Turno",
-            "Quem", "Duração (h)", "Centro de trabalho", "Executantes"]
+            "Quem", "Duração (h)", "Centro de trabalho", "Localização", "Executantes"]
     if ordens is None or not len(ordens):
         return pd.DataFrame(columns=cols)
     o = ordens.copy()
-    for c in ["Objeto técnico", "Local de instalação", "Texto", "Tipo", "Natureza", "Centro de trabalho", "Situação"]:
+    for c in ["Objeto técnico", "Local de instalação", "Texto", "Tipo", "Natureza", "Centro de trabalho", "Situação",
+              "Localização"]:
         o[c] = o[c].astype(object).where(o[c].notna(), "").astype(str) if c in o else ""
     o["Dia"] = pd.to_datetime(o["Data"] if "Data" in o else o["Início"]).dt.normalize()
     o = o[o["Dia"].notna()]
@@ -180,7 +191,7 @@ def _cartao(r) -> str:
     dur = duracao(r["Duração (h)"])
     quem = " • ".join(x for x in [str(r["Quem"] or ""), dur] if x)
     dica = (f"Ordem {r['Ordem']} · {r['Tipo']} · {r['Natureza']}\n{r['Texto']}\n{r['Título']}\n"
-            f"Situação: {r['Situação']} ({r['Situação da ordem']}) · {r['Centro de trabalho']}\n{quem}")
+            f"Situação: {r['Situação']} ({r['Situação da ordem']}) · {r['Centro de trabalho']} · {r['Localização']}\n{quem}")
     e = html.escape
     return (f'<div class="{" ".join(c for c in classes if c)}" title="{e(dica, quote=True)}">'
             f'<div class="cmc-t">{_ICONE}{e(str(r["Título"]))}</div><div class="cmc-q">{e(quem)}</div></div>')
