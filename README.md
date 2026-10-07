@@ -124,9 +124,10 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 - **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
 - **Ordens** — busca, filtros (situação, plano/backlog, classe WCM, status), fim real, lead time, prazo, HH apontadas,
   detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.
-- **Calendário de ordens** — semana (domingo a sábado) ou mês com as ordens do IW38 em cada dia da data-base de
+- **Calendário de ordens** — período "entre" (de/até, com atalhos de semana e mês) com as ordens do IW38 em cada dia da data-base de
   início, separadas por turno (turma de quem apontou na IW47), com equipamento, pessoas e duração planejada (IW38OP);
-  azul = plano de manutenção, amarelo = backlog, borda verde/vermelha = concluída/atrasada.
+  filtros de localização (valores da coluna do IW38) e centro de trabalho; azul = plano de manutenção,
+  amarelo = backlog, borda verde/vermelha = concluída/atrasada.
 - **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
 - **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e
   emergencial, HH por semana/centro/classe/atividade, semanas de backlog por centro, idade do backlog e carga das

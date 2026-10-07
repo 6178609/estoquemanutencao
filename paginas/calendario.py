@@ -30,42 +30,18 @@ ag = _agenda(contexto._chave(), tuple(fg.areas), tuple(fg.centros), tuple(fg.tip
 hoje = date.today()
 
 # ----------------------------------------------------------------------------
-# Navegação
+# Período (entre datas: data inicial → data final)
 # ----------------------------------------------------------------------------
-if "cal_ref" not in st.session_state:
-    st.session_state["cal_ref"] = hoje
+ATALHOS_CAL = ["Esta semana", "Próxima semana", "Semana passada", "Este mês", "Próximo mês", "Próximos 30 dias"]
+MAX_DIAS_GRADE = 63  # 9 semanas: acima disso o calendário fica ilegível (a lista mostra tudo)
 
-
-def _mover(sinal: int) -> None:
-    ref = st.session_state["cal_ref"]
-    if st.session_state.get("cal_modo") == "Mês":
-        m = ref.month - 1 + sinal
-        st.session_state["cal_ref"] = date(ref.year + m // 12, m % 12 + 1, 1)
-    else:
-        st.session_state["cal_ref"] = ref + timedelta(days=7 * sinal)
-
-
-def _hoje() -> None:
-    st.session_state["cal_ref"] = hoje
-
-
-with st.container(border=True):
-    n = st.columns([3, 1, 1, 1, 3], vertical_alignment="bottom")
-    modo = n[0].segmented_control("Visão", ["Semana", "Mês"], default="Semana", key="cal_modo")
-    n[1].button("◀", on_click=_mover, args=(-1,), width="stretch", help="Semana/mês anterior")
-    n[2].button("Hoje", on_click=_hoje, width="stretch")
-    n[3].button("▶", on_click=_mover, args=(1,), width="stretch", help="Próxima semana/mês")
-    n[4].date_input("Ir para", key="cal_ref", format="DD/MM/YYYY")
-    ref = st.session_state["cal_ref"]
-    if modo == "Mês":
-        ini = date(ref.year, ref.month, 1)
-        fim = (date(ref.year + ref.month // 12, ref.month % 12 + 1, 1) - timedelta(days=1))
-        titulo = f"{cal.NOMES_MESES[ini.month - 1]} de {ini.year}"
-    else:
-        ini = cal.inicio_semana(ref)
-        fim = ini + timedelta(days=6)
-        titulo = f"Semana de {ini:%d/%m} a {fim:%d/%m/%Y}"
-    st.markdown(f"#### :material/event_note: {titulo}")
+with st.container(border=True, key="periodo-cal"):
+    semana = cal.inicio_semana(hoje)
+    ini, fim = ui.filtro_datas("cal_faixa", "Período (de / até)", (semana, semana + timedelta(days=6)), ag["Dia"],
+                               atalhos=ATALHOS_CAL)
+    if fim < ini:
+        ini, fim = fim, ini
+    st.markdown(f"#### :material/event_note: {ui.descrever(ini, fim)} · {(fim - ini).days + 1} dia(s)")
 
 with ui.caixa_filtros():
     l1 = st.columns([3, 2, 2, 2])
@@ -74,9 +50,10 @@ with ui.caixa_filtros():
                                 key="cal_sit")
     sel_nat = l1[2].multiselect("Tipo de trabalho", bases.NATUREZAS, key="cal_nat", placeholder="Todos")
     sel_tur = l1[3].multiselect("Turno", cal.ORDEM_TURNOS, key="cal_tur", placeholder="Todos")
-    l2 = st.columns([2, 4])
-    sel_loc = l2[0].pills("Localização", cal.LOCAIS_PRINCIPAIS + [cal.OUTROS], selection_mode="multi", key="cal_loc",
-                          help="GAL1, GAL2 ou Outros (UTIL, F26, SRI, GAL3…). Nenhuma marcada = todas.")
+    l2 = st.columns([4, 2])
+    locais = [v for v in ag["Localização"].value_counts().index if v]
+    sel_loc = l2[0].pills("Localização", locais, selection_mode="multi", key="cal_loc",
+                          help="Coluna Localização do IW38. Nenhuma marcada = todas.")
     centros_cal = sorted(c for c in ag["Centro de trabalho"].unique() if c)
     sel_ct = l2[1].multiselect("Centro de trabalho", centros_cal, key="cal_ct", placeholder="Todos")
 
@@ -94,7 +71,7 @@ if sel_nat:
 if sel_tur:
     m &= vis["Turno"].isin(sel_tur)
 if sel_loc:
-    m &= cal.grupo_local(vis["Localização"]).isin(sel_loc)
+    m &= vis["Localização"].isin(sel_loc)
 if sel_ct:
     m &= vis["Centro de trabalho"].isin(sel_ct)
 vis = vis[m]
@@ -113,8 +90,11 @@ c[4].metric("Sem IW47", inteiro((ordens["Ordem"].isin(set(no_periodo.loc[
     no_periodo["Turno"] == cal.SEM_EXECUTANTE, "Ordem"]))).sum()), border=True,
             help="Ordens sem apontamento na IW47: aparecem com o centro de trabalho e as pessoas previstas.")
 
-st.html(cal.html_calendario(vis, ini, fim, hoje, mes_ref=ini.month if modo == "Mês" else None,
-                            max_cartoes=4 if modo == "Mês" else 12))
+fim_grade = min(fim, ini + timedelta(days=MAX_DIAS_GRADE - 1))
+if fim_grade < fim:
+    st.info(f"Período longo: o calendário mostra as 9 primeiras semanas (até {fim_grade:%d/%m/%Y}). "
+            "Os números acima e a lista abaixo valem para o período inteiro.", icon=":material/info:")
+st.html(cal.html_calendario(vis, ini, fim_grade, hoje, max_cartoes=12 if (fim_grade - ini).days < 14 else 4))
 st.caption("Passe o mouse num cartão para ver a ordem, o texto e a situação. O turno vem da turma (Gestão de HH) de "
            "quem apontou na IW47; ordens sem apontamento ficam em \"Sem executante\" com o centro de trabalho.")
 
