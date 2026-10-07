@@ -69,7 +69,7 @@ def mostrar(f: contexto.Filtros) -> None:
     c[2].metric("Atrasadas", inteiro(r["atrasadas"]), "vencidas e não confirmadas",
                 delta_color="off", border=True, delta_arrow="off")
     c[3].metric("Execução das ordens", _num(r["taxa_ordens"], 1, "%"), delta("taxa_ordens"), border=True,
-                help="Ordens do IW38 com data-base no período (até hoje) concluídas (CONF + ENTE) ÷ ordens devidas.")
+                help="Ordens do IW38 com data-base no período (até hoje) concluídas (CONF + ENTE no IW38 ou na IW47, a mais recente) ÷ ordens devidas.")
     c = st.columns(4)
     jan = r.get("janela_iw47")
     txt_jan = f" (executadas entre {jan[0]:%d/%m/%Y} e {jan[1]:%d/%m/%Y}, período coberto pela IW47)" if jan else ""
@@ -201,8 +201,8 @@ def mostrar(f: contexto.Filtros) -> None:
         m &= per["Executado por"].map(lambda s: any(p in s.split(", ") for p in sel_pes))
     vis = per[m]
     cols = [c for c in ["Início", "Ordem", "Operação", "Texto da operação", "Objeto técnico", "Equipamento",
-                        "Centro de trabalho", "Natureza", "Situação", "Executado por", "Horas", "HH real", "Fim real",
-                        "Dias após a programação"] if c in vis]
+                        "Centro de trabalho", "Natureza", "Situação", "Status SAP", "Executado por", "Horas", "HH real",
+                        "Fim real", "Dias após a programação"] if c in vis]
     st.caption(f"{inteiro(len(vis))} atividades · " + " · ".join(
         f"{inteiro((vis['Situação'] == s).sum())} {s.lower()}" for s in ex.SITUACOES if (vis["Situação"] == s).any()))
     st.dataframe(vis[cols].head(5000).style.map(
