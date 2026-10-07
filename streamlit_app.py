@@ -7,7 +7,7 @@ import streamlit as st
 # Na nuvem, uma nova publicação troca os arquivos, mas o Streamlit só relê as páginas: os módulos de
 # central/ ficariam na versão antiga (AttributeError, cache com classes velhas). Quando algum deles
 # muda no disco, recarrega todos na ordem das dependências e limpa os caches.
-ORDEM_MODULOS = ["util", "config", "fontes", "fotos", "leitura", "af", "execucao", "preditiva", "planos", "bases", "indicadores",
+ORDEM_MODULOS = ["util", "config", "fontes", "fotos", "leitura", "af", "execucao", "preditiva", "planos", "calendario", "bases", "indicadores",
                  "ui", "auth", "robo", "contexto", "execucao_ui"]
 
 
@@ -76,6 +76,7 @@ paginas = st.navigation(
         "Planejamento": [
             st.Page("paginas/ordens.py", title="Ordens", icon=":material/assignment:"),
             st.Page("paginas/planos.py", title="Planos", icon=":material/calendar_month:"),
+            st.Page("paginas/calendario.py", title="Calendário de ordens", icon=":material/event_note:"),
             st.Page("paginas/mao_de_obra.py", title="Mão de obra e backlog", icon=":material/engineering:"),
         ],
         "Custos e suprimentos": [

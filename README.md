@@ -65,7 +65,8 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 - Base mais velha que 2 dias aparece em laranja, com aviso, em todas as telas.
 - Cadastros feitos no app (equipamentos e seus componentes, estoque mínimo, fotos dos materiais, usuários) ficam em
   arquivos `.json` na subpasta **`Central de Manutenção (app)`**, dentro da pasta sincronizada — então
-  são compartilhados com toda a equipe.
+  são compartilhados com toda a equipe. Antes da primeira gravação do dia, cada cadastro ganha uma cópia em
+  `backup/<cadastro>-<data>.json`; se a leitura do cadastro falhar, nada é gravado (para nunca sobrescrever com vazio).
 
 ## Site online 24h (nuvem)
 
@@ -123,6 +124,9 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 - **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
 - **Ordens** — busca, filtros (situação, plano/backlog, classe WCM, status), fim real, lead time, prazo, HH apontadas,
   detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.
+- **Calendário de ordens** — semana (domingo a sábado) ou mês com as ordens do IW38 em cada dia da data-base de
+  início, separadas por turno (turma de quem apontou na IW47), com equipamento, pessoas e duração planejada (IW38OP);
+  azul = plano de manutenção, amarelo = backlog, borda verde/vermelha = concluída/atrasada.
 - **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
 - **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e
   emergencial, HH por semana/centro/classe/atividade, semanas de backlog por centro, idade do backlog e carga das
