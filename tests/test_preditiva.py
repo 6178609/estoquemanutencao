@@ -88,3 +88,20 @@ def test_sem_dados():
     assert len(vazio) == 0
     r = pr.indicadores(vazio, date(2026, 8, 1), date(2026, 9, 30))
     assert r["semeq_detectadas"] == 0 and r["semeq_tratadas"] is None
+
+
+def test_status_conf_ente_do_iw38op_e_da_iw47():
+    """IW38 desatualizado: a IW47/IW38OP já trazem CONF ENTE → tratada; só ENTE sem CONF nem IW47 → sem confirmação."""
+    ordens = _ordens()
+    ordens["Status sistema"] = ["CONF ENTE", "LIB", "ENTE", "CONF ENTE"]
+    ordens["Situação"] = ["Concluída", "Liberada", "Encerrada sem confirmação", "Concluída"]
+    conf = pd.DataFrame({"Ordem": ["200"], "Nº pessoal": ["10"], "Horas": [1.0], "Operação": ["0010"],
+                         "Data": [T("2026-09-10")], "Status sistema": ["CONF ENTE"]})
+    a = pr.anomalias(_notas(), ordens, _oper(), conf, EQUIPE, HOJE).set_index("Código")
+    assert a.loc["AOL-118", "Situação"] == pr.TRATADA                     # LIB no IW38, CONF ENTE na IW47
+    assert a.loc["AOL-118", "Fim real"] == T("2026-09-10")                # fim = último apontamento
+    assert a.loc["AVB-50", "Situação"] == pr.SEM_CONF                     # só ENTE, sem apontamento
+    oper = pd.DataFrame({"Ordem": ["300"], "Concluída": [True], "Fim real": [T("2026-09-05")],
+                         "Status sistema": ["CONF ENTE"]})
+    b = pr.anomalias(_notas(), ordens, oper, conf, EQUIPE, HOJE).set_index("Código")
+    assert b.loc["AVB-50", "Situação"] == pr.TRATADA                      # CONF ENTE na operação (IW38OP)
