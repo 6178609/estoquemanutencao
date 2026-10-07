@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, contexto, ui
+from central import bases, contexto, execucao_ui, ui
 from central import indicadores as ind
 from central.leitura import IW38
 from central.util import brl, inteiro
@@ -45,7 +45,7 @@ for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Aten�
         st.markdown(f'<div class="cm-kpi-t"><span class="cm-dot" style="background:{contexto.COR_FAROL[cor]}"></span>'
                     f'{nome}</div><div class="cm-kpi-v">{n[cor]}</div>', unsafe_allow_html=True)
 
-VISOES = ["Indicadores", "Scorecard por área", "Scorecard por centro de trabalho", "Evolução mensal",
+VISOES = ["Execução das atividades", "Indicadores", "Scorecard por área", "Scorecard por centro de trabalho", "Evolução mensal",
           "Pontos de atenção"]
 visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_visao", label_visibility="collapsed") or VISOES[0]
 ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PLANEJAMENTO: ":material/event_available:",
@@ -56,7 +56,10 @@ CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emer
                "hh", "pct_hh_plano", "custo", "pct_custo_corr"]
 
 # ----------------------------------------------------------------------------
-if visao == "Indicadores":
+if visao == "Execução das atividades":
+    execucao_ui.mostrar(f)
+
+elif visao == "Indicadores":
     for grupo in ind.GRUPOS:
         ks = [k for k in ind.KPIS if k.grupo == grupo]
         st.markdown(f"#### {ICONES[grupo]} {grupo}")
