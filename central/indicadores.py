@@ -22,18 +22,20 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from . import af
+from . import af, preditiva
 
 PENDENTES = ("Aberta", "Liberada", "Encerrada sem confirmação")
 
 CONFIABILIDADE, PLANEJAMENTO, ANALISE_FALHA, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS = (
     "Confiabilidade", "Planejamento e controle", "Análise de falhas (AF)", "Mão de obra", "Custos", "Suprimentos")
-GRUPOS = [CONFIABILIDADE, PLANEJAMENTO, ANALISE_FALHA, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS]
+PREDITIVA = "Preditiva (SEMEQ)"
+GRUPOS = [CONFIABILIDADE, PREDITIVA, PLANEJAMENTO, ANALISE_FALHA, MAO_DE_OBRA, CUSTOS, SUPRIMENTOS]
 
 P_PAINEL, P_CONF, P_ORDENS, P_PLANOS, P_NOTAS, P_HH, P_CUSTOS, P_ESTOQUE, P_REQ = (
     "paginas/painel.py", "paginas/confiabilidade.py", "paginas/ordens.py", "paginas/planos.py", "paginas/notas.py",
     "paginas/mao_de_obra.py", "paginas/custos.py", "paginas/estoque.py", "paginas/requisicoes.py")
 P_AF_PLANOS, P_AF_ACOES = "paginas/af_planos.py", "paginas/af_acoes.py"
+P_PREDITIVA = "paginas/preditiva.py"
 
 
 @dataclass(frozen=True)
@@ -102,6 +104,19 @@ KPIS: list[Kpi] = [
         "período (até hoje).", mensal=True),
     Kpi("acoes_atrasadas", "Ações atrasadas", "un", -1, 0, ANALISE_FALHA, P_AF_ACOES,
         "Ações de AF não realizadas com a data limite vencida (hoje).", foto=True),
+    # Preditiva (SEMEQ)
+    Kpi("semeq_detectadas", "Anomalias preditivas", "un", -1, None, PREDITIVA, P_PREDITIVA,
+        "Anomalias SEMEQ detectadas no período (notas IW28 e ordens IW38 com SEMEQ-<técnica>-<nº> no texto, "
+        "pela data de detecção).", mensal=True),
+    Kpi("semeq_com_ordem", "Anomalias com ordem", "%", +1, 100, PREDITIVA, P_PREDITIVA,
+        "Anomalias SEMEQ do período que já têm ordem de manutenção ÷ anomalias do período (canceladas fora).",
+        mensal=True),
+    Kpi("semeq_tratadas", "Anomalias tratadas", "%", +1, 90, PREDITIVA, P_PREDITIVA,
+        "Anomalias SEMEQ do período com a ordem concluída (CONF + ENTE) ÷ anomalias do período.", mensal=True),
+    Kpi("semeq_dias", "Dias para tratar", "dias", -1, 15, PREDITIVA, P_PREDITIVA,
+        "Média de dias da detecção até o fim real da ordem (IW38OP) nas anomalias tratadas do período.", mensal=True),
+    Kpi("semeq_atrasadas", "Anomalias atrasadas", "un", -1, 0, PREDITIVA, P_PREDITIVA,
+        "Anomalias SEMEQ com a ordem em aberto e a data-base do fim já vencida (hoje).", foto=True),
     # Mão de obra
     Kpi("hh", "HH apontadas", "h", +1, None, MAO_DE_OBRA, P_HH,
         "Horas reais apontadas na IW47 no período (data de lançamento; estornos descontados). "
@@ -375,6 +390,7 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
 
     # análise de falhas (o gerenciador tem áreas próprias: só o período vale)
     r.update(indicadores_af(d, ini, fim))
+    r.update(indicadores_semeq(d, ini, fim))
 
     # mão de obra
     ex = d.memo("hh_exec", hh_executadas)
@@ -414,6 +430,22 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     else:
         r["req_dias"] = None
     return r
+
+
+IDS_SEMEQ = ("semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dias", "semeq_atrasadas")
+
+
+def anomalias_semeq(d: Dados) -> pd.DataFrame:
+    return preditiva.anomalias(d.notas, d.ordens, d.oper, d.conf, d.equipe, d.hoje)
+
+
+def indicadores_semeq(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
+    """Indicadores da preditiva SEMEQ (sem nenhuma anomalia nas bases, ficam sem valor)."""
+    an = d.memo("semeq", anomalias_semeq)
+    if not len(an):
+        return dict.fromkeys(IDS_SEMEQ)
+    v = preditiva.indicadores(an, ini, fim)
+    return {k: v.get(k) for k in IDS_SEMEQ}
 
 
 IDS_AF = ("taxa_quebra_a", "af_execucao", "af_no_prazo", "af_atrasadas")

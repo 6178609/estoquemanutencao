@@ -17,6 +17,7 @@ em `central/indicadores.py` (pandas puro, com testes).
 | Grupo | Indicadores |
 |---|---|
 | Confiabilidade | Quebras (notas com parada), MTBF, MTTR, reincidência (≤ 30 dias), quebras em classe A |
+| Preditiva (SEMEQ) | Anomalias detectadas, % com ordem, % tratadas, dias para tratar, anomalias atrasadas (hoje) |
 | Planejamento e controle | Manutenção planejada (% com plano), corretiva emergencial, aderência ao plano (IP19), ordens concluídas no prazo, backlog em semanas, idade do backlog, notas sem ordem > 7 dias |
 | Análise de falhas (AF) | Taxa de análise de quebra crítica (A), execução de AFs, AFs analisadas no prazo, AFs atrasadas, ações de AFs (execução), ações no prazo, ações atrasadas — do Gerenciador de AF; só o período vale (as áreas do gerenciador são outras) |
 | Mão de obra | HH apontadas (IW47), utilização da equipe, % HH em plano, % HH em corretiva emergencial |
@@ -110,6 +111,10 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
   compras paradas) e scorecard para baixar em Excel.
 - **Quebras, MTBF e MTTR** — quebras e MTTR por mês, Pareto 80/20 (equipamento, local, centro, área, tipo de nota),
   confiabilidade por equipamento com link para a ficha, matriz criticidade × frequência, dia da semana e reincidências.
+- **Preditiva (SEMEQ)** — anomalias da preditiva (notas IW28 e ordens IW38 com `SEMEQ-<técnica>-<nº>-<achado>` no
+  texto): situação de cada uma (tratada, em tratativa, atrasada, sem ordem), fila das abertas, técnica (vibração,
+  óleo, termografia), Pareto dos achados, equipamentos reincidentes, quem tratou (IW47) e custo. O Painel mostra o
+  resumo logo no topo.
 - **Equipamentos** — gerenciamento no formato da tela antiga (TAG, nome, categoria, criticidade, visão geral e
   componentes vinculados da base de material) e análise pelas ordens, com ficha (quebras, MTBF, MTTR, HH, histórico).
 - **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
