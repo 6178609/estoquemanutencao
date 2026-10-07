@@ -23,7 +23,7 @@ contexto.grade([ind.POR_ID[k] for k in ["pct_plano", "pct_emergencial", "no_praz
 
 ESSENCIAIS = ["Ordem", "Tipo (nome)", "Classe", "Texto", "Equipamento", "Objeto técnico", "Situação", "Status usuário",
               "Natureza", "Plano", "Início", "Fim", "Fim real", "Prazo", "Lead time (dias)", "HH apontadas",
-              "Centro de trabalho", "Custo real"]
+              "Setor", "Centro de trabalho", "Custo real"]
 INTERNAS = {"_busca", "Equip. (chave)", "Data"}
 todas_colunas = [c for c in df.columns if c not in INTERNAS]
 

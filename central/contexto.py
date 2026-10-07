@@ -17,7 +17,7 @@ import pandas as pd
 import streamlit as st
 
 from . import bases, planos, ui
-from .util import MESES
+from .util import MESES, SETORES, setor_do_centro
 from . import indicadores as ind
 
 ARQ_METAS = "metas_wcm.json"
@@ -33,17 +33,21 @@ class Filtros:
     ini: date
     fim: date
     areas: tuple = ()
-    centros: tuple = ()
+    centros: tuple = ()           # com setor escolhido e nenhum centro, são todos os centros do setor
     tipos: tuple = ()
+    setores: tuple = ()
+    centros_do_setor: bool = False
 
     @property
     def chave(self) -> str:
-        return f"{self.ini}|{self.fim}|{','.join(self.areas)}|{','.join(self.centros)}|{','.join(self.tipos)}"
+        return (f"{self.ini}|{self.fim}|{','.join(self.areas)}|{','.join(self.centros)}|{','.join(self.tipos)}"
+                f"|{','.join(self.setores)}")
 
     @property
     def desc(self) -> str:
         partes = [ui.descrever(self.ini, self.fim)]
-        for rot, v in (("área", self.areas), ("centro", self.centros), ("tipo", self.tipos)):
+        centros = () if self.centros_do_setor else self.centros
+        for rot, v in (("área", self.areas), ("setor", self.setores), ("centro", centros), ("tipo", self.tipos)):
             if v:
                 partes.append(f"{rot}: {', '.join(v)}")
         return " · ".join(partes)
@@ -89,6 +93,12 @@ ATALHOS_PERIODO = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Próxi
                    "Últimos 12 meses", "Tudo"]
 
 
+def centros_conhecidos() -> list[str]:
+    """Todos os centros de trabalho das bases (IW38, IW38OP, IW47, IW28)."""
+    return sorted({str(c) for b in (bases.iw38().df, bases.operacoes().df, bases.confirmacoes().df, bases.notas().df)
+                   if b is not None for c in b["Centro de trabalho"].astype(object).dropna().unique() if str(c).strip()})
+
+
 def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_data: list[str] | None = None,
                     chave_base: str = "", ajuda_base: str = "") -> Filtros:
     """Filtros compartilhados por todas as abas.
@@ -106,6 +116,8 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
         datas = o["Data"] if o is not None else (n["Data"] if n is not None else None)
     areas = sorted({a for df in (o, n) if df is not None for a in df["Localização"].unique() if a})
     centros = sorted(c for c in o["Centro de trabalho"].unique() if c) if o is not None else []
+    todos_centros = centros_conhecidos()   # o setor escolhido vira a lista dos seus centros
+    setores_disp = [s for s in SETORES if any(setor_do_centro(c) == s for c in todos_centros)]
     tps = sorted(t for t in o["Tipo"].unique() if t) if o is not None else []
     rot = tipos()
     if periodo:
@@ -132,15 +144,29 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
         st.markdown("**:material/filter_alt: Filtros globais** · valem para todas as abas")
         sel_area = st.multiselect("Área", areas, key="f_areas", placeholder="Todas",
                                   help="Localização das ordens e notas (GAL1, GAL2, UTIL…).")
-        sel_ctr = st.multiselect("Centro de trabalho", centros, key="f_centros", placeholder="Todos")
+        sel_setor = st.multiselect(
+            "Setor", setores_disp, key="f_setores", placeholder="Todos",
+            help="Pelo código do centro de trabalho: …COMP = Componentes (e GPA), …MONT = Montagem, UTIL = Utilidades, "
+                 "CORT = Corte, PRE = Predial, MATZ = Matrizaria, FERRAMEN = Ferramentaria, TERC = Terceiros…")
+        centros_opc = [c for c in centros if not sel_setor or setor_do_centro(c) in sel_setor]
+        if ss.get("f_centros"):  # centro de outro setor sai da seleção
+            ss["f_centros"] = [c for c in ss["f_centros"] if c in centros_opc]
+        sel_ctr = st.multiselect("Centro de trabalho", centros_opc, key="f_centros", placeholder="Todos")
         sel_tipo = st.multiselect("Tipo de ordem", tps, key="f_tipos", placeholder="Todos",
                                   format_func=lambda t: ind.rotulo_tipo(t, rot))
-        if any([(ini, fim) != padrao, sel_area, sel_ctr, sel_tipo]):
+        if any([(ini, fim) != padrao, sel_area, sel_setor, sel_ctr, sel_tipo]):
             if st.button("Limpar filtros", icon=":material/filter_alt_off:", width="stretch"):
                 for k in ui.FILTROS_PERSISTENTES:
                     ss.pop(k, None)
                 st.rerun()
-    return Filtros(ini, fim, tuple(sel_area), tuple(sel_ctr), tuple(sel_tipo))
+    if sel_ctr:
+        efetivos = tuple(sel_ctr)
+    elif sel_setor:
+        efetivos = tuple(c for c in todos_centros if setor_do_centro(c) in sel_setor) or ("—",)
+    else:
+        efetivos = ()
+    return Filtros(ini, fim, tuple(sel_area), efetivos, tuple(sel_tipo), tuple(sel_setor),
+                   centros_do_setor=bool(sel_setor and not sel_ctr))
 
 
 def data_de_referencia(chave_base: str, bases_data: list[str]) -> str:
@@ -263,8 +289,13 @@ def por_dimensao(f: Filtros, campo: str, valores: list[str]) -> dict[str, dict]:
     """Indicadores do período para cada área / centro de trabalho (scorecard)."""
     out = {}
     for v in valores:
-        g = Filtros(f.ini, f.fim, (v,) if campo == "areas" else f.areas, (v,) if campo == "centros" else f.centros,
-                    f.tipos)
+        if campo == "setores":   # centros do setor (dentro do recorte de centros, se houver)
+            base_c = f.centros or centros_conhecidos()
+            centros = tuple(c for c in base_c if setor_do_centro(c) == v) or ("—",)
+            g = Filtros(f.ini, f.fim, f.areas, centros, f.tipos, (v,), centros_do_setor=True)
+        else:
+            g = Filtros(f.ini, f.fim, (v,) if campo == "areas" else f.areas, (v,) if campo == "centros" else f.centros,
+                        f.tipos)
         out[v] = _calc(_chave(), g, f.ini, f.fim)
     return out
 

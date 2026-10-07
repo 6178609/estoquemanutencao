@@ -12,7 +12,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from .util import achar_coluna, chave, fora_da_visao, para_data, texto
+from .util import achar_coluna, chave, fora_da_visao, para_data, setores, texto
 
 # ----------------------------------------------------------------------------
 # Situação de cada chamada
@@ -99,6 +99,7 @@ def preparar_ip19(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.D
             .agg({**primeiro, "Horas": "sum", "_n": "sum"})
             .reset_index()
             .rename(columns={"_n": "Operações"}))
+    df["Setor"] = setores(df["Centro de trabalho"])
     return df.drop(columns=["Trabalho", "Unidade do trabalho"])
 
 

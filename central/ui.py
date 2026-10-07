@@ -240,7 +240,7 @@ def logos() -> None:
 # ----------------------------------------------------------------------------
 # Filtros globais das ordens (valem para Painel, Ordens e Equipamentos)
 # ----------------------------------------------------------------------------
-FILTROS_PERSISTENTES = ("f_faixa", "f_areas", "f_centros", "f_tipos")
+FILTROS_PERSISTENTES = ("f_faixa", "f_areas", "f_setores", "f_centros", "f_tipos")
 
 
 def manter_filtros() -> None:

@@ -60,8 +60,8 @@ if atual.get("semeq_detectadas") is not None:
             f":red[**{inteiro(atual.get('semeq_atrasadas') or 0)} atrasadas hoje**] · {dias_txt} dias para tratar")
         p2.page_link("paginas/preditiva.py", label="Abrir preditiva", icon=":material/arrow_forward:")
 
-VISOES = ["Execução das atividades", "Indicadores", "Scorecard por área", "Scorecard por centro de trabalho", "Evolução mensal",
-          "Pontos de atenção"]
+VISOES = ["Execução das atividades", "Indicadores", "Scorecard por área", "Scorecard por setor",
+          "Scorecard por centro de trabalho", "Evolução mensal", "Pontos de atenção"]
 visao = st.segmented_control("Visão", VISOES, default=VISOES[0], key="p_visao", label_visibility="collapsed") or VISOES[0]
 ICONES = {ind.CONFIABILIDADE: ":material/health_and_safety:", ind.PREDITIVA: ":material/sensors:", ind.PLANEJAMENTO: ":material/event_available:",
           ind.ANALISE_FALHA: ":material/troubleshoot:", ind.MAO_DE_OBRA: ":material/engineering:",
@@ -83,23 +83,26 @@ elif visao == "Indicadores":
                        "as do SAP)" + (" — os filtros de área, centro e tipo não se aplicam aqui." if FILTRADO else "."))
         contexto.grade(ks, atual, anterior, cad, serie, colunas=4)
 
-elif visao in ("Scorecard por área", "Scorecard por centro de trabalho"):
-    por_area = visao == "Scorecard por área"
+elif visao in ("Scorecard por área", "Scorecard por setor", "Scorecard por centro de trabalho"):
+    dim = {"Scorecard por área": ("Localização", "areas", "Área", "áreas", 10),
+           "Scorecard por setor": ("Setor", "setores", "Setor", "setores", 14),
+           "Scorecard por centro de trabalho": ("Centro de trabalho", "centros", "Centro de trabalho",
+                                                "centros de trabalho", 14)}[visao]
+    campo, chave_dim, rotulo_dim, plural, n_topo = dim
     o = f.ordens(base.df)
     o = f.periodo(o)
-    campo = "Localização" if por_area else "Centro de trabalho"
-    topo = o[o[campo] != ""][campo].value_counts().head(10 if por_area else 14).index.tolist()
+    topo = o[o[campo] != ""][campo].value_counts().head(n_topo).index.tolist()
     if not topo:
         st.info("Sem ordens no recorte para montar o scorecard.")
         st.stop()
-    valores = contexto.por_dimensao(f, "areas" if por_area else "centros", topo)
+    valores = contexto.por_dimensao(f, chave_dim, topo)
     total = {"TOTAL DO RECORTE": atual}
     ks = [ind.POR_ID[k] for k in CHAVE_SCORE]
-    st.caption(f"{len(topo)} {'áreas' if por_area else 'centros de trabalho'} com mais ordens no período · verde = na meta, "
+    st.caption(f"{len(topo)} {plural} com mais ordens no período · verde = na meta, "
                "amarelo = até 10% da meta, vermelho = fora · indicadores de suprimentos e de análise de falhas não têm "
-               "área")
-    st.dataframe(contexto.scorecard({**valores, **total}, ks, cad, "Área" if por_area else "Centro de trabalho"),
-                 hide_index=True, width="stretch")
+               "área" + (" · setor pelo código do centro de trabalho (…COMP = Componentes, …MONT = Montagem…)"
+                         if chave_dim == "setores" else ""))
+    st.dataframe(contexto.scorecard({**valores, **total}, ks, cad, rotulo_dim), hide_index=True, width="stretch")
     # ranking visual
     k_sel = st.selectbox("Comparar pelo indicador", ks, index=4, format_func=lambda k: k.nome, key="p_rank")
     dfr = pd.DataFrame({"Nome": list(valores), "Valor": [v.get(k_sel.id) for v in valores.values()]}).dropna()
