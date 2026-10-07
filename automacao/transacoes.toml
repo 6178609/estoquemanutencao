@@ -49,16 +49,28 @@ formato = "html"
 hierarquica = "wnd[0]/usr/radPA_HIER"    # Representação hierárquica
 
 # ---------------------------------------------------------------------------
-# Mudança de datas pedida pelo Calendário de ordens do site (robo_sap.py --mudar-datas)
-# Cada ordem é aberta na tela de modificar ordem (IW32 — a mesma que a IW38 abre), o início-base e o
-# fim-base são trocados, o SAP confere (Enter) e a ordem é gravada. Depois o robô reabre na IW33
-# e confere a data gravada. Os campos de data são achados pelo nome técnico (CAUFVD-GSTRP/GLTRP);
-# se no seu SAP não forem achados, grave a IW32 no Script Recording e cole os IDs abaixo.
+# Mudança de datas pedida pela "Programação do mês" do site (robo_sap.py --mudar-datas)
+# Para cada dia programado: IW38 → seta à direita do "Campo de ordenação" (seleção múltipla) com os
+# campos do dia → período das ordens → Executar. Cada ordem da lista é aberta na tela de modificar ordem
+# (IW32, a mesma que a IW38 abre), início-base e fim-base recebem a data do calendário, o SAP confere
+# (Enter), a ordem é gravada e o robô reabre na IW33 para conferir.
+# Campos de data achados pelo nome técnico (CAUFVD-GSTRP/GLTRP) e o "Campo de ordenação" achado pelo
+# texto da tela; se no seu SAP não forem achados, grave no Script Recording e cole os IDs abaixo.
 # ---------------------------------------------------------------------------
 [mudanca_datas]
 transacao = "IW32"
 formato_data = "%d.%m.%Y"                          # como o SAP mostra as datas (DD.MM.AAAA)
 campo_ordem = "wnd[0]/usr/ctxtCAUFVD-AUFNR"
-campo_inicio = ""                                  # vazio = procurar CAUFVD-GSTRP na tela
-campo_fim = ""                                     # vazio = procurar CAUFVD-GLTRP na tela
+campo_inicio = ""                                  # vazio = procurar CAUFVD-GSTRP na tela da ordem
+campo_fim = ""                                     # vazio = procurar CAUFVD-GLTRP na tela da ordem
 conferir = true                                    # reabre na IW33 e confere a data gravada
+iw38_campo_ordenacao = ""                          # nome técnico (ex.: EQFNR); vazio = achar pelo texto
+iw38_botao_campo = ""                              # ID da seta à direita; vazio = btn%_<nome>_%_APP_%-VALU_PUSH
+iw38_periodo_de = "wnd[0]/usr/ctxtDATUV"           # "Período" da IW38 (de)
+iw38_periodo_ate = "wnd[0]/usr/ctxtDATUB"          # "Período" da IW38 (até)
+
+[mudanca_datas.iw38_marcar]                        # status das ordens na seleção da IW38
+"wnd[0]/usr/chkDY_OFN" = true                      # Em aberto
+"wnd[0]/usr/chkDY_IAR" = true                      # Em processamento
+"wnd[0]/usr/chkDY_MAB" = false                     # Concluídas
+"wnd[0]/usr/chkDY_HIS" = false                     # Histórico

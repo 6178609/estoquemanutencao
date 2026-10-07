@@ -77,6 +77,7 @@ paginas = st.navigation(
             st.Page("paginas/ordens.py", title="Ordens", icon=":material/assignment:"),
             st.Page("paginas/planos.py", title="Planos", icon=":material/calendar_month:"),
             st.Page("paginas/calendario.py", title="Calendário de ordens", icon=":material/event_note:"),
+            st.Page("paginas/programacao.py", title="Programação do mês", icon=":material/edit_calendar:"),
             st.Page("paginas/mao_de_obra.py", title="Mão de obra e backlog", icon=":material/engineering:"),
         ],
         "Custos e suprimentos": [
