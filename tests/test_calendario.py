@@ -66,3 +66,11 @@ def test_html_semana():
     assert 'cmc-dia hoje' in h and "1º turno" in h and "cmc-card backlog concluida" in h
     curto = cal.html_calendario(a, date(2026, 10, 4), date(2026, 10, 10), date(2026, 10, 7), max_cartoes=1)
     assert "<details><summary>+2 ordem(ns)</summary>" in curto            # dia 5: 3 cartões, 1 visível
+
+
+def test_grupo_de_localizacao():
+    s = pd.Series(["GAL1", "gal2 ", "UTIL", "", None, "GAL3"])
+    assert list(cal.grupo_local(s)) == ["GAL1", "GAL2", cal.OUTROS, cal.OUTROS, cal.OUTROS, cal.OUTROS]
+    o = _ordens().assign(Localização=["GAL1", "GAL2", "UTIL", "GAL1"])
+    a = cal.agenda(o, _oper(), _conf(), EQUIPE, HOJE)
+    assert set(a.loc[cal.grupo_local(a["Localização"]) == cal.OUTROS, "Ordem"]) == {"3"}

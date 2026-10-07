@@ -74,6 +74,11 @@ with ui.caixa_filtros():
                                 key="cal_sit")
     sel_nat = l1[2].multiselect("Tipo de trabalho", bases.NATUREZAS, key="cal_nat", placeholder="Todos")
     sel_tur = l1[3].multiselect("Turno", cal.ORDEM_TURNOS, key="cal_tur", placeholder="Todos")
+    l2 = st.columns([2, 4])
+    sel_loc = l2[0].pills("Localização", cal.LOCAIS_PRINCIPAIS + [cal.OUTROS], selection_mode="multi", key="cal_loc",
+                          help="GAL1, GAL2 ou Outros (UTIL, F26, SRI, GAL3…). Nenhuma marcada = todas.")
+    centros_cal = sorted(c for c in ag["Centro de trabalho"].unique() if c)
+    sel_ct = l2[1].multiselect("Centro de trabalho", centros_cal, key="cal_ct", placeholder="Todos")
 
 vis = ag[ui.entre(ag["Dia"], cal.inicio_semana(ini), cal.inicio_semana(fim) + timedelta(days=6))]
 m = pd.Series(True, index=vis.index)
@@ -88,6 +93,10 @@ if sel_nat:
     m &= vis["Natureza"].isin(sel_nat)
 if sel_tur:
     m &= vis["Turno"].isin(sel_tur)
+if sel_loc:
+    m &= cal.grupo_local(vis["Localização"]).isin(sel_loc)
+if sel_ct:
+    m &= vis["Centro de trabalho"].isin(sel_ct)
 vis = vis[m]
 no_periodo = vis[ui.entre(vis["Dia"], ini, fim)]
 ordens = no_periodo.drop_duplicates("Ordem")
@@ -115,7 +124,7 @@ st.caption("Passe o mouse num cartão para ver a ordem, o texto e a situação. 
 with st.expander(f"Lista das ordens do período ({inteiro(len(ordens))})", icon=":material/table:"):
     tab = no_periodo.assign(Duração=no_periodo["Duração (h)"].map(cal.duracao))
     cols = ["Dia", "Turno", "Ordem", "Título", "Texto", "Tipo", "Natureza", "Situação", "Situação da ordem", "Quem",
-            "Duração", "Centro de trabalho"]
+            "Duração", "Centro de trabalho", "Localização"]
     st.dataframe(tab[cols], hide_index=True, width="stretch", height=ui.altura_tabela(380),
                  column_config={"Dia": ui.col_data(), "Quem": st.column_config.TextColumn("Quem", width="large"),
                                 "Texto": st.column_config.TextColumn(width="medium")})
