@@ -52,6 +52,10 @@ class FonteErro(RuntimeError):
     pass
 
 
+class NaoEncontrado(FonteErro):
+    """O arquivo não existe (diferente de uma falha de leitura, que nunca deve virar "arquivo vazio")."""
+
+
 def _ignorar(nome: str) -> bool:
     return nome.startswith((".", "~$")) or not nome.lower().endswith(EXTENSOES_DADOS)
 
@@ -104,7 +108,10 @@ class Pastas:
         return itens
 
     def ler(self, id: str) -> bytes:
-        return Path(id).read_bytes()
+        try:
+            return Path(id).read_bytes()
+        except FileNotFoundError as e:
+            raise NaoEncontrado(str(e)) from e
 
     def gravar(self, nome: str, conteudo: bytes) -> str:
         destino = self.pasta_app / nome  # nome pode ter subpasta (ex.: fotos_materiais/123.jpg)
@@ -218,7 +225,12 @@ class SharePoint:
         return itens
 
     def ler(self, id: str) -> bytes:
-        return self._get(f"{self._url_item(id)}/content").content
+        r = self._pedir("GET", f"{self._url_item(id)}/content")
+        if r.status_code == 404:
+            raise NaoEncontrado(f"{id} não existe no SharePoint")
+        if r.status_code >= 400:
+            raise FonteErro(f"Erro {r.status_code} no SharePoint: {r.text[:300]}")
+        return r.content
 
     def id_de(self, nome: str) -> str:
         return f"{self.pasta_app}/{nome}" if self.pasta_app else nome
@@ -323,6 +335,8 @@ class GitHub:
     def ler(self, id: str) -> bytes:
         r = self._pedir("GET", self._url(id), params={"ref": self.ramo},
                         headers={"Accept": "application/vnd.github.raw"})
+        if r.status_code == 404:
+            raise NaoEncontrado(f"{id} não existe no repositório de dados")
         if r.status_code >= 400:
             raise FonteErro(f"Erro {r.status_code} ao ler {id} no GitHub: {r.text[:300]}")
         return r.content
@@ -361,8 +375,12 @@ class GitHub:
                               "tree": arvore, "parents": []})
         if r.status_code != 201:
             raise FonteErro(f"Erro {r.status_code} ao compactar o histórico: {r.text[:300]}")
+        novo = r.json()["sha"]
+        r = self._pedir("GET", f"/repos/{self.repo}/git/ref/heads/{quote(self.ramo)}")
+        if r.status_code != 200 or r.json()["object"]["sha"] != topo:
+            return False  # o app gravou algo enquanto isso: compactar agora apagaria essa gravação
         r = self._pedir("PATCH", f"/repos/{self.repo}/git/refs/heads/{quote(self.ramo)}",
-                        json={"sha": r.json()["sha"], "force": True})
+                        json={"sha": novo, "force": True})
         if r.status_code != 200:
             raise FonteErro(f"Erro {r.status_code} ao compactar o histórico: {r.text[:300]}")
         return True

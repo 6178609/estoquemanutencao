@@ -651,10 +651,41 @@ def _ler_json(id: str, assinatura: str) -> dict:
 
 
 def _ler_json_agora(nome: str) -> dict:
+    """Relê o cadastro agora. Só devolve {} quando o arquivo não existe: uma falha de leitura
+    (rede, GitHub/SharePoint fora do ar) levanta erro — tratá-la como "vazio" e gravar em cima
+    apagaria o cadastro inteiro (foi assim que a lista de usuários se perdeu)."""
     try:
-        return json.loads(fonte().ler(fonte().id_de(nome)).decode("utf-8"))
-    except Exception:  # noqa: BLE001 — arquivo ainda não existe
+        bruto = fonte().ler(fonte().id_de(nome))
+    except fontes.NaoEncontrado:
         return {}
+    except Exception as e:  # noqa: BLE001
+        raise fontes.FonteErro(f"Não foi possível ler {nome} agora ({e}). Nada foi gravado; "
+                               "tente de novo em instantes.") from e
+    try:
+        dados = json.loads(bruto.decode("utf-8"))
+    except ValueError as e:
+        raise fontes.FonteErro(f"{nome} está ilegível; nada foi gravado para não perder o conteúdo.") from e
+    if not isinstance(dados, dict):
+        raise fontes.FonteErro(f"{nome} está em formato inesperado; nada foi gravado.")
+    return dados
+
+
+@st.cache_resource
+def _backups_feitos() -> set:
+    return set()
+
+
+def _backup_diario(nome: str, conteudo: dict) -> None:
+    """Uma cópia por dia de cada cadastro (antes da primeira gravação do dia) em backup/."""
+    dia = date.today().isoformat()
+    if not conteudo or (nome, dia) in _backups_feitos():
+        return
+    try:
+        base = nome.rsplit(".", 1)[0].replace("/", "_")
+        fonte().gravar(f"backup/{base}-{dia}.json", json.dumps(conteudo, ensure_ascii=False, indent=1).encode("utf-8"))
+        _backups_feitos().add((nome, dia))
+    except Exception:  # noqa: BLE001 — a cópia de segurança nunca impede a gravação
+        pass
 
 
 def manifesto() -> dict:
@@ -682,7 +713,8 @@ def gravar_cadastro_lote(nome: str, itens: dict[str, dict | None], usuario: str 
 
     mesclar=True muda só os campos informados de cada item (campo None é apagado) e
     remove o item que fica sem nenhum campo — ex.: o mínimo de um material não apaga a foto."""
-    atual = _ler_json_agora(nome)
+    atual = _ler_json_agora(nome)  # levanta erro se não conseguiu ler: nunca grava em cima de um "vazio" falso
+    _backup_diario(nome, atual)
     agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for chave_item, dados in itens.items():
         if dados is not None and mesclar:

@@ -247,7 +247,10 @@ def pagina_login() -> None:
             manter = st.checkbox("Manter conectado neste aparelho", value=True)
             ok = st.form_submit_button("Entrar", type="primary", width="stretch", icon=":material/login:")
         if ok:
-            erro = entrar(login, senha, manter)
+            try:
+                erro = entrar(login, senha, manter)
+            except Exception as e:  # noqa: BLE001 — falha ao ler/gravar usuários: não entra e não grava nada
+                erro = f"Não foi possível acessar a lista de usuários agora. Tente de novo em instantes. ({e})"
             if erro:
                 st.error(erro)
             else:
