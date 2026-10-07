@@ -58,7 +58,8 @@ if len(abertas):
                     f"{inteiro((abertas['Situação'] == pr.SEM_ORDEM).sum())} sem ordem — as mais antigas primeiro")
         fila = abertas.sort_values("Dias em aberto", ascending=False)
         st.dataframe(fila[["Código", "Técnica", "Achado", "Objeto técnico", "Equipamento", "Situação", "Detecção",
-                           "Dias em aberto", "Nota", "Ordem", "Fim previsto", "Centro de trabalho"]].head(300)
+                           "Dias em aberto", "Nota", "Ordem", "Status SAP", "Fim previsto",
+                           "Centro de trabalho"]].head(300)
                      .style.map(lambda s: f"color: {pr.COR.get(s, '')}; font-weight: 700" if s in pr.COR else "",
                                 subset=["Situação"]),
                      hide_index=True, width="stretch", height=ui.altura_tabela(300),
@@ -129,7 +130,7 @@ if sel_tec:
 if sel_sit:
     mk &= tab["Situação"].isin(sel_sit)
 vis = tab[mk].reset_index(drop=True)
-COLS = ["Código", "Técnica", "Achado", "Situação", "Detecção", "Objeto técnico", "Equipamento", "Área",
+COLS = ["Código", "Técnica", "Achado", "Situação", "Status SAP", "Detecção", "Objeto técnico", "Equipamento", "Área",
         "Centro de trabalho", "Nota", "Ordem", "Tipo", "Fim previsto", "Fim real", "Dias para tratar",
         "Dias em aberto", "Tratado por", "HH apontadas", "Custo real"]
 st.caption(f"{inteiro(len(vis))} anomalia(s) · selecione uma linha para abrir a ficha do equipamento")

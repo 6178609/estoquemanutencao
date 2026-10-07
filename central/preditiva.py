@@ -13,6 +13,7 @@ import re
 import numpy as np
 import pandas as pd
 
+from . import execucao as ex
 from .util import sem_acento
 
 PALAVRA = "SEMEQ"
@@ -47,7 +48,10 @@ def eh_semeq(texto: pd.Series) -> pd.Series:
 def anomalias(notas: pd.DataFrame | None, ordens: pd.DataFrame | None, oper: pd.DataFrame | None = None,
               conf: pd.DataFrame | None = None, equipe: pd.DataFrame | None = None,
               hoje: pd.Timestamp | None = None) -> pd.DataFrame:
-    """Uma linha por anomalia SEMEQ, juntando a nota (detecção) e a ordem (tratativa)."""
+    """Uma linha por anomalia SEMEQ, juntando a nota (detecção) e a ordem (tratativa).
+
+    Tratada = ordem encerrada (ENTE) ou com todas as operações executadas, e confirmada (CONF) ou com
+    apontamento na IW47 — o status vale pelo IW38, IW38OP ou IW47 (a mais recente)."""
     hoje = (hoje or pd.Timestamp.now()).normalize()
     cols = ["Código", "Técnica", "Sigla", "Achado", "Equipamento", "Objeto técnico", "Detecção", "Nota", "Ordem",
             "Situação", "Dias para tratar", "Dias em aberto"]
@@ -121,23 +125,55 @@ def anomalias(notas: pd.DataFrame | None, ordens: pd.DataFrame | None, oper: pd.
     else:
         df["Fim real"] = pd.NaT
     df["Fim real"] = pd.to_datetime(df["Fim real"])
-    if conf is not None and len(conf):
+    ordens_semeq = set(df["Ordem"]) - {""}
+    c = conf[conf["Ordem"].isin(ordens_semeq)].copy() if conf is not None and len(conf) else None
+    if c is not None:
         nomes = dict(zip(equipe["Nº pessoal"], equipe["Nome"])) if equipe is not None and len(equipe) else {}
-        c = conf[conf["Ordem"].isin(set(df["Ordem"]) - {""})].copy()
         c["Pessoa"] = c["Nº pessoal"].map(nomes).fillna(c["Nº pessoal"])
         g = c.groupby("Ordem")
         df["HH apontadas"] = df["Ordem"].map(g["Horas"].sum())
         df["Tratado por"] = df["Ordem"].map(g["Pessoa"].agg(lambda s: ", ".join(dict.fromkeys(s)))).fillna("")
+        ultimo = df["Ordem"].map(g["Data"].max()) if "Data" in c else pd.Series(pd.NaT, index=df.index)
     else:
+        ultimo = pd.Series(pd.NaT, index=df.index)
         df["HH apontadas"] = np.nan
         df["Tratado por"] = ""
 
+    # status do SAP como na execução das atividades: IW38 + IW38OP + IW47 (a IW47 costuma ser a mais recente)
+    def _tokens(serie: pd.Series, chaves: pd.Series) -> pd.Series:
+        return serie.fillna("").astype(str).groupby(chaves).agg(lambda s: set(" ".join(s).split()))
+
+    toks = pd.Series([set() for _ in range(len(df))], index=df.index)
+    if ordens is not None and len(ordens) and "Status sistema" in ordens:
+        o = ordens[ordens["Ordem"].isin(ordens_semeq)]
+        st = _tokens(o["Status sistema"], o["Ordem"].astype(str))
+        toks = toks.combine(df["Ordem"].map(st), lambda a, b: a | (b if isinstance(b, set) else set()))
+    for base in (oper, c):
+        if base is not None and len(base) and "Status sistema" in base:
+            b_ = base[base["Ordem"].isin(ordens_semeq)]
+            st = _tokens(b_["Status sistema"], b_["Ordem"])
+            toks = toks.combine(df["Ordem"].map(st), lambda a, b: a | (b if isinstance(b, set) else set()))
+    # todas as operações da ordem executadas (CONF/ENTE no IW38OP ou na IW47)?
+    feitas = pd.Series(False, index=df.index)
+    if oper is not None and len(oper) and {"Operação", "Início", "Cancelada"} <= set(oper.columns):
+        op = oper[oper["Ordem"].isin(ordens_semeq)]
+        if len(op):
+            ops = ex.operacoes(op, None, c if c is not None and "Operação" in c else None, equipe, hoje)
+            vivas = ops[ops["Situação"] != ex.CANCELADA]
+            tudo = vivas.groupby("Ordem")["Concluída"].all()
+            feitas = df["Ordem"].map(tudo).fillna(False).astype(bool)
+
     sit = df["Situação da ordem"]
-    pendente = sit.isin(["Aberta", "Liberada", "Sem status"])
+    encerrada = sit.isin(["Concluída", "Encerrada sem confirmação"]) | toks.map(lambda t: bool(t & {"ENTE", "ENCE"}))
+    confirmada = (sit == "Concluída") | toks.map(lambda t: "CONF" in t) | (df["Tratado por"] != "")
+    cancelada = (sit == "Cancelada") | toks.map(lambda t: bool(t & {"DLFL", "MREL", "MEEL"}))
+    pendente = ~encerrada & ~cancelada
+    df["Status SAP"] = toks.map(lambda t: " ".join(sorted(t)))
     df["Situação"] = np.select(
-        [df["Ordem"] == "", sit == "Cancelada", sit == "Concluída", sit == "Encerrada sem confirmação",
+        [df["Ordem"] == "", cancelada, (encerrada | feitas) & confirmada, encerrada,
          pendente & df["Fim previsto"].notna() & (df["Fim previsto"] < hoje)],
         [SEM_ORDEM, CANCELADA, TRATADA, SEM_CONF, ATRASADA], default=TRATATIVA)
+    df["Fim real"] = df["Fim real"].fillna(pd.to_datetime(ultimo).where(df["Situação"] == TRATADA))
     fim = df["Fim real"].fillna(df["Fim previsto"].where(df["Situação"] == TRATADA))
     df["Dias para tratar"] = (fim - df["Detecção"]).dt.days.where(df["Situação"] == TRATADA)
     df["Dias para tratar"] = df["Dias para tratar"].where(df["Dias para tratar"] >= 0)
