@@ -15,7 +15,6 @@ ui.cabecalho("Ações de AF · plano de ação",
 base = bases.acoes_af()
 if not ui.aviso_base(base, ACAO_AF):
     st.stop()
-f = contexto.filtros_globais()
 cad = contexto.metas()
 hoje = pd.Timestamp.now().normalize()
 PAGINA_AF = "paginas/af_planos.py"
@@ -34,6 +33,13 @@ if afs is None:
                         "Dias para análise": pd.Series(dtype=float)})
     st.caption(":material/info: Análises de falha não encontradas: os dados da AF de origem (resumo, causa raiz, "
                "criticidade) e o indicador de ações por AF ficam limitados.")
+
+BASES_ACAO = ["Data limite", "Data de início", "Data realizada"]
+f = contexto.filtros_globais(
+    datas=pd.concat([acoes["Data limite"], acoes["Data de início"]]), bases_data=BASES_ACAO, chave_base="aa_base",
+    ajuda_base="Data usada para filtrar a tabela das ações. Os indicadores seguem a definição corporativa: execução e "
+               "prazo pela data limite; geradas pela data de início.")
+BASE_DATA = contexto.data_de_referencia("aa_base", BASES_ACAO)
 
 
 def _chave() -> str:
@@ -92,7 +98,7 @@ def _link_http(serie: pd.Series) -> pd.Series:
 vivas = acoes[acoes["Situação"] != af.AC_CANCELADA]
 abertas = vivas[vivas["Situação"].isin(af.AC_ABERTAS)]
 no_periodo = vivas[ui.entre(vivas["Data limite"], f.ini, f.fim)]
-st.caption(f"Recorte: **{ui.descrever(f.ini, f.fim)}** · execução e prazo pela **data limite**, geradas pela **data de "
+st.caption("Indicadores: execução e prazo pela **data limite**, geradas pela **data de "
            "início** · atrasadas, abertas e fila de prioridade são o retrato de hoje · canceladas não contam · os "
            "filtros de área/centro/tipo da barra lateral não se aplicam às AFs")
 
@@ -431,12 +437,13 @@ with ui.caixa_filtros("Filtros da tabela"):
     sel_area = l2[0].multiselect("Área", _opcoes("Área"), key="aa_area", placeholder="Todas")
     sel_tipo = l2[1].multiselect("Tipo da ação", [*af.TIPOS_ACAO, SEM_TIPO], key="aa_tipo", placeholder="Todos")
     sel_af = l2[2].selectbox("Só da AF", _opcoes("Nº AF"), index=None, key="aa_af", placeholder="Todas as AFs")
-    so_periodo = l2[3].toggle("Só data limite no período", value=True, key="aa_so_per",
-                              help="Desligue para ver as ações de qualquer data (inclusive sem data limite).")
+    so_periodo = l2[3].toggle("Só no período", value=True, key="aa_so_per",
+                              help="Ligado: só ações com a data de referência (escolhida no topo) no período. "
+                                   "Desligue para ver as ações de qualquer data.")
 
 m = pd.Series(True, index=acoes.index)
 if so_periodo and not sel_af:
-    m &= ui.entre(acoes["Data limite"], f.ini, f.fim)
+    m &= ui.entre(acoes[BASE_DATA], f.ini, f.fim)
 if busca.strip():
     hay = (acoes["ID"] + " " + acoes["Ação"] + " " + acoes["Equipamento"] + " " + acoes["Código SAP"] + " "
            + acoes["Responsável"] + " " + acoes["Supervisor"] + " " + acoes["Observações"]).map(
@@ -466,7 +473,7 @@ vis = acoes[m].sort_values(["Data limite", "Nº AF", "Nº ação"], ascending=[F
 tabela = vis[COLS].assign(Link=_link_http(vis["Link"]))
 st.caption(f"{inteiro(len(vis))} ações · {inteiro(vis['Nº AF'].nunique())} AFs · "
            f"{inteiro((vis['Situação'] == af.AC_ATRASADA).sum())} atrasadas"
-           + (" · data limite no período" if so_periodo and not sel_af else ""))
+           + (f" · {BASE_DATA.lower()} no período" if so_periodo and not sel_af else ""))
 ev_tab = st.dataframe(
     tabela.style.map(_cor_situacao, subset=["Situação"]) if len(tabela) <= 3000 else tabela, hide_index=True, width="stretch",
     height=ui.altura_tabela(420), on_select="rerun", selection_mode="single-row", key="aa_tab",

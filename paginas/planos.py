@@ -49,7 +49,7 @@ if ch.empty:
 # ----------------------------------------------------------------------------
 # Filtros (área não existe na IP19; centro e tipo vêm dos filtros globais)
 # ----------------------------------------------------------------------------
-fg = contexto.filtros_globais()
+fg = contexto.filtros_globais(periodo=False)  # o calendário tem período próprio (inclui semanas futuras)
 if fg.centros:
     ch = ch[ch["Centro de trabalho"].isin(fg.centros)]
 if fg.tipos and "Tipo de ordem" in ch:

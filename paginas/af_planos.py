@@ -30,16 +30,20 @@ if acoes is None:
                                     "Observações"]})
 notas = bases.notas().df
 
-f = contexto.filtros_globais()
+BASES_AF = ["Data da falha", "Data limite", "Data da análise"]
+f = contexto.filtros_globais(
+    datas=pd.concat([afs["Data da falha"], afs["Data limite"]]), bases_data=BASES_AF, chave_base="afp_base",
+    ajuda_base="Data usada para filtrar a tabela das AFs. Os indicadores seguem a definição corporativa: geradas e "
+               "taxa de quebra A pela data da falha; execução e prazo pela data limite.")
+BASE_DATA = contexto.data_de_referencia("afp_base", BASES_AF)
 cad = contexto.metas()
 iw38 = bases.iw38().df
 COM_FICHA = set(f.ordens(iw38)["Equip. (chave)"]) if iw38 is not None else set()
 COM_FICHA |= set(bases.ler_cadastro(bases.ARQ_CAD_EQUIP))
 COM_FICHA.discard("")
 hoje = pd.Timestamp.today().normalize()
-st.caption(f"Período: **{ui.descrever(f.ini, f.fim)}** (pela data da falha; execução e prazo pela data limite) · "
-           "os filtros de área, centro e tipo da barra lateral não se aplicam aqui: as áreas do gerenciador são "
-           "as de produção")
+st.caption("Indicadores: geradas pela data da falha; execução e prazo pela data limite · os filtros de área, centro "
+           "e tipo da barra lateral não se aplicam aqui: as áreas do gerenciador são as de produção")
 
 # ----------------------------------------------------------------------------
 # Rótulos e cores
@@ -523,7 +527,7 @@ with ui.caixa_filtros():
     sel_area = l1[2].multiselect("Área", sorted(a for a in afs["Área"].unique() if a), key="afp_area",
                                  placeholder="Todas")
     todas_datas = l1[3].toggle("Todas as datas", key="afp_todas",
-                               help="Desligado: só AFs com data da falha no período da barra lateral.")
+                               help="Desligado: só AFs com a data de referência (escolhida no topo) no período.")
     l2 = st.columns(3)
     sel_crit = l2[0].multiselect("Criticidade", sorted(c for c in afs["Criticidade"].unique() if c), key="afp_crit",
                                  placeholder="Todas")
@@ -533,7 +537,7 @@ with ui.caixa_filtros():
     sel_sup = l2[2].multiselect("Supervisor", sorted(s for s in afs["Supervisor"].unique() if s), key="afp_sup",
                                 placeholder="Todos")
 
-tab = afs if todas_datas else afs[ui.entre(afs["Data da falha"], f.ini, f.fim)]
+tab = afs if todas_datas else afs[ui.entre(afs[BASE_DATA], f.ini, f.fim)]
 mk = pd.Series(True, index=tab.index)
 if busca.strip():
     hay = (tab["Nº AF"] + " " + tab["OS corretiva"] + " " + tab["Resumo"] + " " + tab["Equipamento"] + " "
@@ -551,7 +555,7 @@ vis["_o"] = vis["Situação"].map(ORDEM_SITUACAO)
 vis = vis.sort_values(["_o", "Dias de atraso", "Data da falha"], ascending=[True, False, False]).drop(columns="_o")
 vis = vis.reset_index(drop=True)
 vis["Link"] = vis["Link"].where(vis["Link"].str.startswith("http"), None)  # texto solto não vira link quebrado
-assinatura = zlib.crc32(repr((busca, todas_datas, f.ini, f.fim, sel_sit, sel_area, sel_crit, sel_pilar,
+assinatura = zlib.crc32(repr((busca, todas_datas, f.ini, f.fim, BASE_DATA, sel_sit, sel_area, sel_crit, sel_pilar,
                               sel_sup)).encode())
 COLS = ["Nº AF", "Situação", "Criticidade", "Data da falha", "Data limite", "Data da análise", "Dias de atraso",
         "Dias para análise", "Área", "Equipamento", "Código SAP", "Resumo", "Causa raiz", "Pilar", "Especialidade",
