@@ -287,3 +287,16 @@ def test_lista_de_arquivos_sobrevive_a_recarga_do_codigo(tmp_path, monkeypatch):
     lista = bases._listar.__wrapped__("teste", 0)
     assert lista and all(type(a) is novo.Arquivo for a in lista)
     pickle.dumps(lista)
+
+
+def test_fora_da_visao_piloto_desenho_oper_matriz():
+    from central.util import fora_da_visao
+
+    df = pd.DataFrame({
+        "Centro de trabalho": ["OPER_MTZ", "FABPILOT", "COMPONEN", "ELMCPILT", "COMPONEN", "COMPONEN", "COMPONEN"],
+        "Localização": ["GAL1", "GAL1", "DESEN", "GAL1", "GAL1", "GAL1", "GAL1"],
+        "Local de instalação": ["", "", "", "INJECAO", "FABRICA PILOTO", "", ""],
+        "Objeto técnico": ["", "", "", "INJ 01", "", "BY 01 FAB PILOT - MOTOR", "VÁLVULA PILOTO 3/2"],
+    })
+    # OPER_MATRIZ, Fábrica Piloto (centro, local e objeto) e Desenho saem; ELMCPILT e válvula piloto ficam
+    assert list(fora_da_visao(df)) == [True, True, True, False, True, True, False]

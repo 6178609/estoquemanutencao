@@ -23,7 +23,7 @@ import streamlit as st
 from . import af as af_mod
 from . import config, fontes, fotos, leitura
 from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
-from .util import achar_coluna, chave, marcar_quebras, para_data, para_numero, sem_acento, texto
+from .util import achar_coluna, chave, fora_da_visao, marcar_quebras, para_data, para_numero, sem_acento, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
 ARQ_CAD_MAT = "cadastro_materiais.json"
@@ -241,14 +241,9 @@ def _situacao(sistema: str, usuario: str) -> str:
 
 
 def _piloto_ou_matriz(df: pd.DataFrame) -> pd.Series:
-    """Fábrica Piloto e Matrizaria ficam fora (regra herdada do site antigo): usa centro de
-    trabalho e local de instalação — nunca o texto livre, para não pegar "MESA DE FIX. MATRIZ"."""
-    ctr = df["Centro de trabalho"].str.upper()
-    inst = df["Local de instalação"].map(lambda s: chave(s))
-    obj = df["Objeto técnico"].map(lambda s: chave(s))
-    return (ctr.isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])
-            | inst.str.contains("PILOT") | inst.str.contains("MATRIZARIA")
-            | obj.str.contains("PILOT"))
+    """Fábrica Piloto, Desenho (localização DESEN) e OPER_MATRIZ ficam fora (ver util.fora_da_visao): usa centro
+    de trabalho, localização, local de instalação e objeto — nunca o texto livre ("MESA DE FIX. MATRIZ" fica)."""
+    return fora_da_visao(df)
 
 
 @st.cache_data(show_spinner=False, max_entries=12)
@@ -439,11 +434,13 @@ def _padronizar(cru: pd.DataFrame, mapa: dict, textos: list[str]) -> pd.DataFram
     return df
 
 
-def preparar_operacoes(cru: pd.DataFrame) -> pd.DataFrame:
+def preparar_operacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
     df = _padronizar(cru, _OPER_COLUNAS, ["Ordem", "Operação", "Tipo", "Centro de trabalho", "Equipamento",
                                            "Objeto técnico", "Local de instalação", "Texto da operação", "Unidade",
                                            "Status sistema"])
     df = df[df["Ordem"] != ""].copy()
+    if excluir_piloto_matriz:
+        df = df[~fora_da_visao(df)].copy()
     fator = df["Unidade"].str.upper().map(_HORAS_POR).fillna(1 / 60)
     df["Horas"] = (para_numero(df["Trabalho"]).fillna(0.0) * fator).round(2)
     df["Pessoas"] = para_numero(df["Pessoas"]).fillna(0).astype(int)
@@ -456,8 +453,8 @@ def preparar_operacoes(cru: pd.DataFrame) -> pd.DataFrame:
 
 
 @st.cache_resource(show_spinner="Preparando operações (IW38OP)…", max_entries=4)
-def _oper(origens: tuple) -> pd.DataFrame:
-    return preparar_operacoes(_cru(OPER, origens))
+def _oper(origens: tuple, excluir: bool) -> pd.DataFrame:
+    return preparar_operacoes(_cru(OPER, origens), excluir)
 
 
 # ----------------------------------------------------------------------------
@@ -482,9 +479,7 @@ def preparar_notas(cru: pd.DataFrame, hoje: pd.Timestamp | None = None, excluir_
                                             "Parada", "Criado por", "Código ABC", "Plano"])
     df = df[df["Nota"] != ""].copy()
     if excluir_piloto_matriz:
-        fora = (df["Centro de trabalho"].str.upper().isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])
-                | df["Local de instalação"].map(chave).str.contains("PILOT|MATRIZARIA"))
-        df = df[~fora]
+        df = df[~fora_da_visao(df)]
     for c in ["Início avaria", "Fim avaria", "Data da nota"]:
         df[c] = para_data(df[c])
     df["Com parada"] = df["Parada"].str.upper().isin(["X", "SIM", "S", "1"])
@@ -507,20 +502,22 @@ def _notas(origens: tuple) -> pd.DataFrame:
 ABC_PARA_CRITICIDADE = {"A": "Alta", "B": "Média", "C": "Baixa"}
 
 
-def preparar_equipamentos(cru: pd.DataFrame) -> pd.DataFrame:
+def preparar_equipamentos(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
     df = _padronizar(cru, {"Equipamento": [r"^EQUIPAMENTO$"], "Denominação": [r"DENOMINACAO"],
                            "Localização": [r"^LOCALIZACAO$"], "Código ABC": [r"CODIGO ABC", r"^ABC$"],
                            "Local de instalação": [r"LOCAL DE INSTALACAO", r"LOC INSTAL"]},
                      ["Equipamento", "Denominação", "Localização", "Código ABC", "Local de instalação"])
     df = df[df["Equipamento"] != ""].drop_duplicates("Equipamento").copy()
+    if excluir_piloto_matriz:
+        df = df[~fora_da_visao(df)].copy()
     df["Código ABC"] = df["Código ABC"].str.upper().str.strip()
     df["Desativado"] = df["Denominação"].map(chave).str.contains(r"DESATIV|INATIV|NAO ESTA NA FABRICA|SUCATA|BAIXAD")
     return df.reset_index(drop=True)
 
 
 @st.cache_resource(show_spinner="Preparando cadastro de equipamentos (IH08)…", max_entries=4)
-def _equip(origens: tuple) -> pd.DataFrame:
-    return preparar_equipamentos(_cru(EQUIP, origens))
+def _equip(origens: tuple, excluir: bool) -> pd.DataFrame:
+    return preparar_equipamentos(_cru(EQUIP, origens), excluir)
 
 
 # ----------------------------------------------------------------------------
@@ -544,7 +541,7 @@ def preparar_confirmacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True)
                                            "Equipamento", "Texto", "Causa do desvio"])
     df = df[(df["Ordem"] != "") & (df["Nº pessoal"] != "")].copy()
     if excluir_piloto_matriz:
-        df = df[~df["Centro de trabalho"].str.upper().isin(["FABPILOT", "OPER_MTZ", "OPER_MATRIZ"])]
+        df = df[~fora_da_visao(df)]
     fator = df["Unidade"].str.upper().map(_HORAS_POR).fillna(1 / 60)
     # estornos vêm com trabalho negativo e anulam o apontamento original: a soma fica certa
     df["Horas"] = (para_numero(df["Trabalho"]).fillna(0.0) * fator).round(3)
@@ -568,8 +565,10 @@ _EQUIPE_COLUNAS = {
 }
 
 
-def preparar_equipe(cru: pd.DataFrame) -> pd.DataFrame:
+def preparar_equipe(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
     df = _padronizar(cru, _EQUIPE_COLUNAS, list(_EQUIPE_COLUNAS))
+    if excluir_piloto_matriz:
+        df = df[~fora_da_visao(df)]
     df = df[df["Nº pessoal"].str.fullmatch(r"\d{3,}") & (df["Nome"] != "")]
     df = df[~df["Nome"].str.upper().str.startswith("#")]  # fórmulas quebradas (#REF!, #N/A)
     for c in ["Cargo", "Área", "Turma", "Supervisor"]:
@@ -590,8 +589,8 @@ def _especialidade(cargo: str) -> str:
 
 
 @st.cache_resource(show_spinner="Preparando equipe (Gestão de HH)…", max_entries=4)
-def _equipe(origens: tuple) -> pd.DataFrame:
-    return preparar_equipe(_cru(EQUIPE, origens))
+def _equipe(origens: tuple, excluir: bool) -> pd.DataFrame:
+    return preparar_equipe(_cru(EQUIPE, origens), excluir)
 
 
 @st.cache_data(show_spinner=False, max_entries=4)
@@ -863,7 +862,7 @@ def confirmacoes() -> Base:
 
 
 def equipe() -> Base:
-    return _carregar(EQUIPE, lambda us: Base(_equipe(us), None))
+    return _carregar(EQUIPE, lambda us: Base(_equipe(us, _excluir()), None))
 
 
 def ip19() -> Base:
@@ -871,7 +870,7 @@ def ip19() -> Base:
 
 
 def operacoes() -> Base:
-    return _carregar(OPER, lambda us: Base(_oper(us), None))
+    return _carregar(OPER, lambda us: Base(_oper(us, _excluir()), None))
 
 
 def tipos_por_ordem() -> pd.Series:
@@ -901,4 +900,4 @@ def notas() -> Base:
 
 
 def equipamentos() -> Base:
-    return _carregar(EQUIP, lambda us: Base(_equip(us), None))
+    return _carregar(EQUIP, lambda us: Base(_equip(us, _excluir()), None))

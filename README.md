@@ -27,6 +27,11 @@ em `central/indicadores.py` (pandas puro, com testes).
 **Quebra** = nota **Y1** da IW28 convertida em ordem **YM11**. O tipo da ordem vem do IW38/IW38OP/IW47; enquanto o
 IW38 exportado não trouxer a YM11, a nota Y1 com ordem conta como quebra (ordem de outro tipo não conta).
 
+**Fora do site:** Fábrica Piloto (centro FABPILOT, local de instalação ou objeto da Fábrica Piloto), Desenho
+(localização DESEN) e OPER_MATRIZ (centro OPER_MTZ) saem de todas as bases (ordens, operações, notas,
+apontamentos, planos, equipamentos e equipe). Regra em `central/util.py` (`fora_da_visao`); desliga com
+`excluir_piloto_matriz = "não"`.
+
 **Filtros globais** (barra lateral): período (de/até), área (localização), centro de trabalho e tipo de ordem — valem
 para todas as abas, e cada cartão do Painel leva à aba onde o indicador é detalhado.
 
