@@ -168,15 +168,17 @@ def marcar_quebras(notas: pd.DataFrame, tipos_por_ordem: pd.Series | None = None
 
 
 # ----------------------------------------------------------------------------
-# Fora da visão do site: Fábrica Piloto, Desenho e OPER_MATRIZ (e a Matrizaria pelo local de instalação)
+# Fora da visão do site: Fábrica Piloto, Desenho e os centros de trabalho abaixo (e a Matrizaria pelo local
+# de instalação)
 # ----------------------------------------------------------------------------
-CENTROS_FORA = {"FABPILOT", "OPER_MTZ", "OPER_MATRIZ"}
+CENTROS_FORA = {"FABPILOT", "SOFICOM", "ELMCPILT", "MTZ_PILT", "OPER_MTZ", "OPER_MATRIZ", "MATR", "OPER", "TPME",
+                "ELMC_MTZ"}
 LOCALIZACOES_FORA = {"DESEN"}                       # Desenho / Tecnologia e Inovação
 RX_PILOTO = r"\bFAB(?:RICA)?\.?\s*PILOT"              # "FAB PILOT", "FÁBRICA PILOTO" (não pega "válvula piloto")
 
 
 def fora_da_visao(df: pd.DataFrame, textos: tuple[str, ...] = ()) -> pd.Series:
-    """Linhas que o site não mostra (config. excluir_piloto_matriz): centro FABPILOT/OPER_MTZ/OPER_MATRIZ,
+    """Linhas que o site não mostra (config. excluir_piloto_matriz): centro de trabalho em CENTROS_FORA,
     localização DESEN, local de instalação da Fábrica Piloto ou da Matrizaria, ou objeto/denominação da
     Fábrica Piloto. `textos` = colunas de texto livre onde "Fábrica Piloto" também conta (ex.: texto do plano)."""
     fora = pd.Series(False, index=df.index)

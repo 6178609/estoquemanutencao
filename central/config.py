@@ -68,7 +68,7 @@ class Config:
     profundidade: int              # níveis de subpasta varridos
     intervalo_verificacao: int     # segundos entre verificações de arquivo novo
     dias_alerta: int               # base mais velha que isso aparece como desatualizada
-    excluir_piloto_matriz: bool    # tira Fábrica Piloto, Desenho (DESEN) e OPER_MATRIZ de todas as bases
+    excluir_piloto_matriz: bool    # tira Fábrica Piloto, Desenho (DESEN) e os centros de util.CENTROS_FORA
     exigir_login: bool             # tela de login e perfis de acesso
     sp_tenant_id: str
     sp_client_id: str

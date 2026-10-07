@@ -293,10 +293,13 @@ def test_fora_da_visao_piloto_desenho_oper_matriz():
     from central.util import fora_da_visao
 
     df = pd.DataFrame({
-        "Centro de trabalho": ["OPER_MTZ", "FABPILOT", "COMPONEN", "ELMCPILT", "COMPONEN", "COMPONEN", "COMPONEN"],
+        "Centro de trabalho": ["OPER_MTZ", "FABPILOT", "COMPONEN", "MEC_COMP", "COMPONEN", "COMPONEN", "COMPONEN"],
         "Localização": ["GAL1", "GAL1", "DESEN", "GAL1", "GAL1", "GAL1", "GAL1"],
         "Local de instalação": ["", "", "", "INJECAO", "FABRICA PILOTO", "", ""],
         "Objeto técnico": ["", "", "", "INJ 01", "", "BY 01 FAB PILOT - MOTOR", "VÁLVULA PILOTO 3/2"],
     })
-    # OPER_MATRIZ, Fábrica Piloto (centro, local e objeto) e Desenho saem; ELMCPILT e válvula piloto ficam
+    # OPER_MATRIZ, Fábrica Piloto (centro, local e objeto) e Desenho saem; válvula piloto fica
     assert list(fora_da_visao(df)) == [True, True, True, False, True, True, False]
+    centros = pd.DataFrame({"Centro de trabalho": ["SOFICOM", "ELMCPILT", "MTZ_PILT", "MATR", "OPER", "TPME", "ELMC_MTZ",
+                                                   " elmcpilt ", "SRV_MATZ", "MATRIZ", "OPERADOR"]})
+    assert list(fora_da_visao(centros)) == [True] * 8 + [False] * 3     # só os códigos da lista, exatos
