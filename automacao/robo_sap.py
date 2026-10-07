@@ -8,6 +8,7 @@ Windows (criptografados pelo Windows, nunca em arquivo do projeto).
 
 Uso:
     uv run python automacao/robo_sap.py                 # todas as transações
+    uv run python automacao/robo_sap.py --mudar-datas automacao/mudanca_datas_pedido.json   # pedido do calendário
     uv run python automacao/robo_sap.py -t MB52         # só a MB52
     uv run python automacao/robo_sap.py --configurar    # guarda usuário/senha/conexão
 """
@@ -289,6 +290,153 @@ def rodar(nomes: list[str] | None = None, cfg: dict | None = None, conectar_fn=c
     return status
 
 
+# ----------------------------------------------------------------------------
+# Mudança de datas das ordens (pedida pelo calendário do site)
+# ----------------------------------------------------------------------------
+# A IW38 lista as ordens; a alteração de cada uma é feita na tela de modificar ordem (IW32, a mesma que
+# a IW38 abre num duplo clique): início-base (CAUFVD-GSTRP) e fim-base (CAUFVD-GLTRP), depois Gravar.
+CAMPO_INICIO, CAMPO_FIM = "CAUFVD-GSTRP", "CAUFVD-GLTRP"
+MAX_ORDENS = 300
+
+
+def _campo_data(sessao, md: dict, chave: str, nome: str):
+    """Campo de data na tela da ordem: o ID configurado ou, sem ele, procurado pelo nome técnico."""
+    id_ = md.get(chave)
+    if id_:
+        campo = _existe(sessao, id_)
+        if campo is not None:
+            return campo
+    try:
+        campo = sessao.findById("wnd[0]/usr").findByName(nome, "GuiCTextField")
+    except Exception:  # noqa: BLE001
+        campo = None
+    if campo is None:
+        raise RoboErro(f"campo {nome} não encontrado na tela da ordem; grave a IW32 no Script Recording e "
+                       f"informe o ID em [mudanca_datas] {chave} (automacao/transacoes.toml)")
+    return campo
+
+
+def _ler_data(texto: str, fmt: str) -> str:
+    try:
+        return datetime.strptime(str(texto).strip(), fmt).date().isoformat()
+    except ValueError:
+        return ""
+
+
+def _popups(sessao, avisos: list[str], limite: int = 3) -> None:
+    """Fecha janelas de aviso (Enter = resposta padrão), anotando o texto de cada uma."""
+    for _ in range(limite):
+        jan = _existe(sessao, "wnd[1]")
+        if jan is None:
+            return
+        avisos.append(str(getattr(jan, "Text", "") or "janela do SAP"))
+        jan.sendVKey(0)
+
+
+def _confirmar_tela(sessao, avisos: list[str]) -> None:
+    """Enter na tela da ordem; aviso (W) é aceito, erro (E/A) para a ordem."""
+    for _ in range(3):
+        sessao.findById("wnd[0]").sendVKey(0)
+        _popups(sessao, avisos)
+        tipo, texto = _barra_de_status(sessao)
+        if tipo in ("E", "A"):
+            raise RoboErro(texto or "o SAP recusou as datas")
+        if tipo != "W":
+            return
+        avisos.append(texto)
+
+
+def mudar_data_ordem(sessao, ordem: str, inicio: str, fim: str, md: dict, simular: bool = False) -> dict:
+    """Muda o início/fim-base de uma ordem. Devolve {"ordem", "ok", "mensagem", "inicio_sap", "fim_sap"}."""
+    fmt = md.get("formato_data", "%d.%m.%Y")
+    res = {"ordem": ordem, "ok": False, "mensagem": "", "inicio_sap": "", "fim_sap": ""}
+    avisos: list[str] = []
+    novo_ini = datetime.fromisoformat(inicio).strftime(fmt)
+    novo_fim = datetime.fromisoformat(fim or inicio).strftime(fmt)
+    try:
+        sessao.findById("wnd[0]/tbar[0]/okcd").text = "/n" + md.get("transacao", "IW32")
+        sessao.findById("wnd[0]").sendVKey(0)
+        sessao.findById(md.get("campo_ordem", "wnd[0]/usr/ctxtCAUFVD-AUFNR")).text = ordem
+        sessao.findById("wnd[0]").sendVKey(0)
+        _popups(sessao, avisos)
+        tipo, texto = _barra_de_status(sessao)
+        if tipo in ("E", "A"):
+            raise RoboErro(texto or "ordem não abriu")
+        c_ini = _campo_data(sessao, md, "campo_inicio", CAMPO_INICIO)
+        c_fim = _campo_data(sessao, md, "campo_fim", CAMPO_FIM)
+        res["inicio_sap"], res["fim_sap"] = _ler_data(c_ini.text, fmt), _ler_data(c_fim.text, fmt)
+        if not getattr(c_ini, "Changeable", True):
+            raise RoboErro("a data de início não pode ser alterada (ordem encerrada ou bloqueada por outro usuário?)")
+        c_fim.text = novo_fim
+        c_ini.text = novo_ini
+        _confirmar_tela(sessao, avisos)
+        if simular:
+            res.update(ok=True, mensagem="simulação: o SAP aceitou as datas, nada foi gravado")
+            return res
+        sessao.findById("wnd[0]/tbar[0]/btn[11]").press()   # Gravar
+        _popups(sessao, avisos)
+        tipo, texto = _barra_de_status(sessao)
+        if tipo in ("E", "A"):
+            raise RoboErro(texto or "o SAP não gravou a ordem")
+        res["mensagem"] = texto or "ordem gravada"
+        if md.get("conferir", True):
+            sessao.findById("wnd[0]/tbar[0]/okcd").text = "/nIW33"
+            sessao.findById("wnd[0]").sendVKey(0)
+            sessao.findById(md.get("campo_ordem", "wnd[0]/usr/ctxtCAUFVD-AUFNR")).text = ordem
+            sessao.findById("wnd[0]").sendVKey(0)
+            _popups(sessao, avisos)
+            gravado = _ler_data(_campo_data(sessao, md, "campo_inicio", CAMPO_INICIO).text, fmt)
+            if gravado != datetime.fromisoformat(inicio).date().isoformat():
+                raise RoboErro(f"depois de gravar, o SAP mostra início {gravado or '?'} (a programação da ordem "
+                               "pode ter recalculado a data)")
+        res["ok"] = True
+    except RoboErro as e:
+        res["mensagem"] = str(e)
+    except Exception as e:  # noqa: BLE001 — erro COM do SAP GUI
+        res["mensagem"] = f"erro no SAP GUI: {e}"
+    finally:
+        if avisos:
+            res["mensagem"] = (res["mensagem"] + " · avisos: " + "; ".join(a for a in avisos if a)).strip(" ·")
+        try:  # sai sem gravar o que tiver ficado pela metade
+            sessao.findById("wnd[0]/tbar[0]/okcd").text = "/n"
+            sessao.findById("wnd[0]").sendVKey(0)
+            _popups(sessao, [])
+        except Exception:  # noqa: BLE001
+            pass
+    log.info("ordem %s: %s %s", ordem, "OK" if res["ok"] else "ERRO", res["mensagem"])
+    return res
+
+
+def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar, simular: bool | None = None) -> dict:
+    """Processa o pedido do site (JSON com lote, simular e itens [{ordem, inicio, fim}]) e grava o resultado
+    ao lado (<pedido>_resultado.json), atualizado a cada ordem para o site mostrar o andamento."""
+    cfg = cfg or carregar_config()
+    md = cfg.get("mudanca_datas", {})
+    pedido = json.loads(Path(arq_job).read_text(encoding="utf-8"))
+    simular = bool(pedido.get("simular")) if simular is None else simular
+    arq_res = Path(arq_job).with_name(Path(arq_job).stem + "_resultado.json")
+    res = {"lote": pedido.get("lote", ""), "inicio": _agora(), "fim": None, "em_andamento": True,
+           "simular": simular, "total": len(pedido.get("itens", [])), "itens": [], "erro": ""}
+    _gravar_status(res, arq_res)
+    itens = pedido.get("itens", [])
+    try:
+        if len(itens) > MAX_ORDENS:
+            raise RoboErro(f"{len(itens)} ordens no pedido; o limite é {MAX_ORDENS}")
+        sessao = conectar_fn(cfg)
+        log.info("mudança de datas: lote %s, %d ordem(ns)%s", res["lote"], len(itens), " (simulação)" if simular else "")
+        for it in itens:
+            res["itens"].append(mudar_data_ordem(sessao, str(it["ordem"]), it["inicio"], it.get("fim") or it["inicio"],
+                                                 md, simular))
+            _gravar_status(res, arq_res)
+    except RoboErro as e:
+        log.error("%s", e)
+        res["erro"] = str(e)
+    res["fim"], res["em_andamento"] = _agora(), False
+    res["ok"] = not res["erro"] and all(r["ok"] for r in res["itens"])
+    _gravar_status(res, arq_res)
+    return res
+
+
 _TRAVA = None
 
 
@@ -315,6 +463,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Exporta transações do SAP para a pasta do site.")
     ap.add_argument("-t", "--transacao", action="append", help="só esta transação (pode repetir)")
     ap.add_argument("--configurar", action="store_true", help="guardar usuário, senha e conexão deste PC")
+    ap.add_argument("--mudar-datas", metavar="PEDIDO.json", help="muda as datas das ordens do pedido do site")
+    ap.add_argument("--simular", action="store_true", help="com --mudar-datas: abre as ordens e não grava")
     args = ap.parse_args()
     if args.configurar:
         configurar()
@@ -322,6 +472,9 @@ def main() -> None:
     if not _trava_unica():
         log.info("o robô já está rodando; esta chamada foi ignorada")
         return
+    if args.mudar_datas:
+        res = rodar_mudancas(Path(args.mudar_datas), simular=True if args.simular else None)
+        sys.exit(0 if res["ok"] else 1)
     status = rodar(args.transacao)
     sys.exit(0 if status["ok"] else 1)
 

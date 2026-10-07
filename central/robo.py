@@ -60,3 +60,32 @@ def ultimas_linhas_do_log(n: int = 15) -> str:
         return "\n".join(ARQ_LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-n:])
     except OSError:
         return ""
+
+
+# ----------------------------------------------------------------------------
+# Mudança de datas (calendário → robô)
+# ----------------------------------------------------------------------------
+ARQ_PEDIDO = PASTA / "mudanca_datas_pedido.json"
+ARQ_RESULTADO = PASTA / "mudanca_datas_pedido_resultado.json"
+
+
+def iniciar_mudanca(pedido: dict) -> None:
+    """Grava o pedido (ordens e datas) e dispara o robô em segundo plano."""
+    ARQ_RESULTADO.unlink(missing_ok=True)
+    ARQ_PEDIDO.write_text(json.dumps(pedido, ensure_ascii=False, indent=1), encoding="utf-8")
+    iniciar_args(["--mudar-datas", str(ARQ_PEDIDO)])
+
+
+def iniciar_args(extra: list[str]) -> None:
+    flags = 0
+    if sys.platform == "win32":
+        flags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+    subprocess.Popen([sys.executable, str(SCRIPT), *extra], cwd=str(RAIZ), creationflags=flags,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def resultado_mudanca() -> dict:
+    try:
+        return json.loads(ARQ_RESULTADO.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}

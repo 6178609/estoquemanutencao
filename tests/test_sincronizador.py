@@ -180,3 +180,32 @@ def test_envio_pela_tela_entra_no_manifesto(ambiente, monkeypatch):
     finally:
         bases._fonte_cacheada.clear()
         bases.recarregar()
+
+
+def test_mudanca_de_datas_pedida_na_nuvem_roda_no_pc(ambiente, monkeypatch, tmp_path):
+    from central import mudanca_datas as md
+
+    gh_falso, cfg, _, _ = ambiente
+    gh = fontes.GitHub(sincronizar._Cfg(cfg["repo"], cfg["token"], "main"))
+    lote = {"status": md.SOLICITADA, "simular": False, "criado_por": "ANA",
+            "itens": [{"ordem": "100", "campo": "M1", "de_inicio": "2026-10-01", "de_fim": "2026-10-03",
+                       "para_inicio": "2026-10-07", "para_fim": "2026-10-09", "resultado": "", "mensagem": ""}]}
+    gh.gravar(md.ARQ_LOTES, json.dumps({"L1": lote, "L0": {**lote, "status": md.CONCLUIDA}}).encode())
+    # sem o robô configurado neste PC, nada acontece
+    monkeypatch.setattr(sincronizar, "ROBO_CONFIGURADO", tmp_path / "nao_existe.toml")
+    assert sincronizar.executar_mudancas(gh) == []
+    pedidos = []
+
+    def robo_falso(pedido):
+        pedidos.append(pedido)
+        salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
+        assert salvo["L1"]["status"] == md.EM_EXECUCAO          # o site vê que o robô pegou o pedido
+        return {"lote": "L1", "itens": [{"ordem": "100", "ok": True, "mensagem": "gravada", "inicio_sap": "2026-09-30"}]}
+
+    assert sincronizar.executar_mudancas(gh, rodar=robo_falso) == ["L1"]
+    assert pedidos == [{"lote": "L1", "simular": False, "itens": [{"ordem": "100", "inicio": "2026-10-07",
+                                                                     "fim": "2026-10-09"}]}]
+    salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
+    assert salvo["L1"]["status"] == md.CONCLUIDA and salvo["L1"]["itens"][0]["de_inicio"] == "2026-09-30"
+    assert salvo["L0"]["status"] == md.CONCLUIDA                # os outros lotes ficam como estavam
+    assert sincronizar.executar_mudancas(gh, rodar=robo_falso) == []   # nada pendente na rodada seguinte

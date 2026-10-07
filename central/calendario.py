@@ -146,6 +146,8 @@ CSS = """
 .cmc-num{font-size:17px;font-weight:800;color:#1E2A36}
 .cmc-mes{font-size:10px;font-weight:700;color:#7A8796}
 .cmc-tot{font-size:10px;color:#7A8796;margin-bottom:4px}
+.cmc-maq{font-size:10px;font-weight:700;color:#8A4B00;background:#FFF1E0;border:1px solid #F5C58A;border-radius:6px;
+  padding:3px 6px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis}
 .cmc-turno{font-size:11px;font-weight:800;color:#1E2A36;margin:6px 0 4px}
 .cmc-sep{border-top:1px dashed #C9D2DD;margin:6px 0}
 .cmc-sem{font-size:11px;color:#8A97A6}
@@ -187,10 +189,14 @@ def _cartao(r) -> str:
             f'<div class="cmc-t">{_ICONE}{e(str(r["Título"]))}</div><div class="cmc-q">{e(quem)}</div></div>')
 
 
-def _dia(d: date, linhas: pd.DataFrame, hoje: date, fora: bool, max_cartoes: int) -> str:
+def _dia(d: date, linhas: pd.DataFrame, hoje: date, fora: bool, max_cartoes: int, paradas: list[str] | None = None) -> str:
     classes = ["cmc-dia"] + (["hoje"] if d == hoje else []) + (["fora"] if fora else [])
     partes = [f'<div class="{" ".join(classes)}"><div class="cmc-topo"><span class="cmc-num">{d.day}</span>'
               f'<span class="cmc-mes">{MESES[d.month - 1]}</span></div>']
+    if paradas:
+        txt = html.escape(", ".join(paradas))
+        partes.append(f'<div class="cmc-maq" title="Máquinas programadas para este dia: {txt}">'
+                      f'Máquinas: {txt}</div>')
     if not len(linhas):
         partes.append('<div class="cmc-sem">Sem programação</div></div>')
         return "".join(partes)
@@ -222,7 +228,7 @@ def _dia(d: date, linhas: pd.DataFrame, hoje: date, fora: bool, max_cartoes: int
 
 
 def html_calendario(ag: pd.DataFrame, ini: date, fim: date, hoje: date, mes_ref: int | None = None,
-                    max_cartoes: int = 12) -> str:
+                    max_cartoes: int = 12, paradas: dict[date, list[str]] | None = None) -> str:
     """Grade domingo→sábado de ini a fim (completa as semanas). mes_ref: dias de outro mês ficam esmaecidos."""
     ini_g = inicio_semana(ini)
     fim_g = inicio_semana(fim) + timedelta(days=6)
@@ -238,7 +244,7 @@ def html_calendario(ag: pd.DataFrame, ini: date, fim: date, hoje: date, mes_ref:
                 celulas.append(_dia(d, por_dia.get(d, vazio), hoje, True, max_cartoes))
         else:
             celulas.append(_dia(d, por_dia.get(d, vazio), hoje, mes_ref is not None and d.month != mes_ref,
-                                max_cartoes))
+                                max_cartoes, (paradas or {}).get(d)))
         d += timedelta(days=1)
     legenda = ('<div class="cmc-leg"><span style="--c:#E8F1FC;--b:#9DBFE6">Plano de manutenção</span>'
                '<span style="--c:#FFF4D6;--b:#F0C24B">Backlog</span>'

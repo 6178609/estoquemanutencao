@@ -183,3 +183,4 @@ automacao/robo_status.json
 automacao/*.log
 automacao/.robo.trava
 automacao/*.tmp
+automacao/mudanca_datas_pedido*.json
