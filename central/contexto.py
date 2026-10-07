@@ -84,22 +84,51 @@ def tipos() -> dict[str, dict]:
     return ind.tipos_de(metas(), bases.tipos_de_ordem_padrao())
 
 
-def filtros_globais() -> Filtros:
-    """Filtros na barra lateral, compartilhados por todas as abas."""
+ATALHOS_PERIODO = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Próximos 30 dias", "Ano atual",
+                   "Últimos 12 meses", "Tudo"]
+
+
+def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_data: list[str] | None = None,
+                    chave_base: str = "", ajuda_base: str = "") -> Filtros:
+    """Filtros compartilhados por todas as abas.
+
+    O período é do tipo "entre" (data inicial → data final) e fica à vista no topo da página, com
+    atalhos; área, centro de trabalho e tipo de ordem ficam na barra lateral. `periodo=False` é para
+    abas com calendário próprio (Planos). `bases_data` acrescenta ao quadro a escolha da data de
+    referência (lida depois em st.session_state[chave_base])."""
     ss = st.session_state
     hoje = date.today()
     padrao = ((pd.Timestamp(hoje) - pd.DateOffset(months=12)).date(), hoje)
     o = bases.iw38().df
     n = bases.notas().df
-    datas = o["Data"] if o is not None else (n["Data"] if n is not None else None)
+    if datas is None:
+        datas = o["Data"] if o is not None else (n["Data"] if n is not None else None)
     areas = sorted({a for df in (o, n) if df is not None for a in df["Localização"].unique() if a})
     centros = sorted(c for c in o["Centro de trabalho"].unique() if c) if o is not None else []
     tps = sorted(t for t in o["Tipo"].unique() if t) if o is not None else []
     rot = tipos()
+    if periodo:
+        with st.container(border=True, key="periodo-global"):
+            if bases_data:
+                c1, c2 = st.columns([3, 2])
+            else:
+                c1, c2 = st.container(), None
+            with c1:
+                ini, fim = ui.filtro_datas("f_faixa", "Período (de / até)", padrao, datas, atalhos=ATALHOS_PERIODO)
+            if bases_data and c2 is not None:
+                if ss.get(chave_base) not in bases_data:
+                    ss.pop(chave_base, None)
+                c2.segmented_control("Data de referência", bases_data, default=bases_data[0], key=chave_base,
+                                     help=ajuda_base or None)
+            st.caption(f":material/date_range: **{ui.descrever(ini, fim)}** · o mesmo período vale para todas as abas "
+                       "(área, centro e tipo ficam na barra lateral)")
+    else:
+        v = ss.get("f_faixa", padrao)
+        v = tuple(v) if isinstance(v, (list, tuple)) else (v, v)
+        ini, fim = (v[0], v[-1]) if v else padrao
     with st.sidebar:
         st.divider()
         st.markdown("**:material/filter_alt: Filtros globais** · valem para todas as abas")
-        ini, fim = ui.filtro_datas("f_faixa", "Período (de / até)", padrao, datas)
         sel_area = st.multiselect("Área", areas, key="f_areas", placeholder="Todas",
                                   help="Localização das ordens e notas (GAL1, GAL2, UTIL…).")
         sel_ctr = st.multiselect("Centro de trabalho", centros, key="f_centros", placeholder="Todos")
@@ -111,6 +140,11 @@ def filtros_globais() -> Filtros:
                     ss.pop(k, None)
                 st.rerun()
     return Filtros(ini, fim, tuple(sel_area), tuple(sel_ctr), tuple(sel_tipo))
+
+
+def data_de_referencia(chave_base: str, bases_data: list[str]) -> str:
+    v = st.session_state.get(chave_base)
+    return v if v in bases_data else bases_data[0]
 
 
 # ----------------------------------------------------------------------------
