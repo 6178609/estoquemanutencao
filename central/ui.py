@@ -3,6 +3,8 @@ vigia de atualização e formatação de tabelas."""
 
 from __future__ import annotations
 
+import re
+
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -73,6 +75,16 @@ CSS = """
   }
 </style>
 """ % {"faixa": FAIXA, "verde": VERDE, "vermelho": VERMELHO}
+
+
+def aplicar_css(css: str) -> None:
+    """Injeta CSS pelo canal de estilos do Streamlit (st.html só com <style>): não passa pelo
+    interpretador de markdown, não ocupa espaço e nunca aparece como texto na tela — no celular,
+    com tradução automática ou em navegadores diferentes."""
+    corpo = re.sub(r"\s*\n\s*", " ", css.strip())          # uma linha só: nada vira bloco de código
+    if not corpo.lower().startswith("<style"):
+        corpo = f"<style>{corpo}</style>"
+    st.html(corpo)
 
 
 # ----------------------------------------------------------------------------

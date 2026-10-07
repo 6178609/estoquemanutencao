@@ -136,7 +136,7 @@ if usar_kpi:
         serie = _serie(_chave(), f.ini, f.fim)
     except Exception:  # noqa: BLE001 — sem série, os cartões só não mostram a mini tendência
         serie = None
-    st.markdown(contexto.CSS, unsafe_allow_html=True)
+    ui.aplicar_css(contexto.CSS)
 
 
 def _cartao_simples(nome: str, valor: str, legenda: str, ajuda: str, chave: str) -> None:

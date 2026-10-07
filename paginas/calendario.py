@@ -94,6 +94,7 @@ fim_grade = min(fim, ini + timedelta(days=MAX_DIAS_GRADE - 1))
 if fim_grade < fim:
     st.info(f"Período longo: o calendário mostra as 9 primeiras semanas (até {fim_grade:%d/%m/%Y}). "
             "Os números acima e a lista abaixo valem para o período inteiro.", icon=":material/info:")
+ui.aplicar_css(cal.CSS)
 st.html(cal.html_calendario(vis, ini, fim_grade, hoje, max_cartoes=12 if (fim_grade - ini).days < 14 else 4))
 st.caption("Passe o mouse num cartão para ver a ordem, o texto e a situação. O turno vem da turma (Gestão de HH) de "
            "quem apontou na IW47; ordens sem apontamento ficam em \"Sem executante\" com o centro de trabalho.")

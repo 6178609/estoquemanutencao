@@ -32,7 +32,7 @@ n = {c: sum(v == c for v in cores.values()) for c in (ind.VERDE, ind.AMARELO, in
 com_meta = n[ind.VERDE] + n[ind.AMARELO] + n[ind.VERMELHO]
 indice = (n[ind.VERDE] + 0.5 * n[ind.AMARELO]) / com_meta * 100 if com_meta else None
 cor_indice = ui.VERDE if (indice or 0) >= 80 else ("#F2B705" if (indice or 0) >= 60 else ui.VERMELHO)
-st.markdown(contexto.CSS, unsafe_allow_html=True)
+ui.aplicar_css(contexto.CSS)
 c = st.columns([1.4, 1, 1, 1, 1])
 with c[0], st.container(border=True):
     st.markdown(f'<div class="cm-kpi-t">Índice WCM do pilar</div><div class="cm-indice" style="color:{cor_indice}">'

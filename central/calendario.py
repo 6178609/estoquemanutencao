@@ -132,7 +132,7 @@ def agenda(ordens: pd.DataFrame | None, oper: pd.DataFrame | None = None, conf: 
 # ----------------------------------------------------------------------------
 # HTML do calendário
 # ----------------------------------------------------------------------------
-_CSS = """
+CSS = """
 <style>
 .cmc{font-family:inherit;background:#fff;border:1px solid #DDE3E0;border-radius:14px;padding:10px;color:#2F3336}
 .cmc-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
@@ -245,5 +245,5 @@ def html_calendario(ag: pd.DataFrame, ini: date, fim: date, hoje: date, mes_ref:
                '<span style="--c:#0E9F46;--b:#0E9F46">Concluída (borda)</span>'
                '<span style="--c:#E3262B;--b:#E3262B">Atrasada (borda)</span>'
                '<span style="--c:#0A6EBD;--b:#0A6EBD">Hoje</span></div>')
-    return (_CSS + f'<div class="cmc">{legenda}<div class="cmc-rol"><div class="cmc-grade">{"".join(celulas)}'
+    return (f'<div class="cmc">{legenda}<div class="cmc-rol"><div class="cmc-grade">{"".join(celulas)}'
             "</div></div></div>")
