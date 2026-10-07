@@ -159,7 +159,8 @@ def test_semanal_e_mensal():
 
 
 def test_quebras_a_da_iw28_como_referencia():
-    notas = pd.DataFrame({"Nota": ["1", "2", "3"], "Com parada": [True, True, False], "Código ABC": ["A", "B", "A"],
+    notas = pd.DataFrame({"Nota": ["1", "2", "3"], "Tipo de nota": ["Y1", "Y1", "Y2"], "Ordem": ["9", "8", "7"],
+                          "Código ABC": ["A", "B", "A"],
                           "Data": [pd.Timestamp("2026-06-02")] * 3, "Equip. (chave)": ["E1", "E2", "E3"]})
     a = af.preparar_afs(afs_cru(), HOJE)
     c = af.preparar_acoes(acoes_cru(), HOJE, a)

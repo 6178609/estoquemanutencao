@@ -23,7 +23,7 @@ import streamlit as st
 from . import af as af_mod
 from . import config, fontes, fotos, leitura
 from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
-from .util import achar_coluna, chave, para_data, para_numero, sem_acento, texto
+from .util import achar_coluna, chave, marcar_quebras, para_data, para_numero, sem_acento, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
 ARQ_CAD_MAT = "cadastro_materiais.json"
@@ -842,8 +842,30 @@ def operacoes() -> Base:
     return _carregar(OPER, lambda us: Base(_oper(us), None))
 
 
+def tipos_por_ordem() -> pd.Series:
+    """Ordem → tipo de ordem (YM11, YM13…) juntando IW38, IW38OP e IW47."""
+    partes = []
+    for b in (iw38(), operacoes(), confirmacoes()):
+        df = b.df
+        if df is not None and len(df) and "Tipo" in df:
+            t = pd.DataFrame({"Ordem": df["Ordem"].astype(str), "Tipo": df["Tipo"].astype(object).fillna("").astype(str)})
+            partes.append(t[t["Tipo"].str.strip() != ""])
+    if not partes:
+        return pd.Series(dtype=str)
+    t = pd.concat(partes, ignore_index=True).drop_duplicates("Ordem")
+    return t.set_index("Ordem")["Tipo"].str.strip().str.upper()
+
+
+@st.cache_resource(show_spinner="Marcando as quebras (Y1 → YM11)…", max_entries=4)
+def _notas_quebras(origens: tuple, chave_tipos: tuple) -> pd.DataFrame:
+    return marcar_quebras(_notas(origens), tipos_por_ordem())
+
+
 def notas() -> Base:
-    return _carregar(NOTAS, lambda us: Base(_notas(us), None))
+    """IW28 com a coluna Quebra (nota Y1 convertida em ordem YM11)."""
+    usados = inventario().usados
+    chave_tipos = tuple(tuple(usados.get(t, [])) for t in (IW38, OPER, CONF)) + (_excluir(),)
+    return _carregar(NOTAS, lambda us: Base(_notas_quebras(us, chave_tipos), None))
 
 
 def equipamentos() -> Base:

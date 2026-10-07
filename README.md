@@ -16,13 +16,16 @@ em `central/indicadores.py` (pandas puro, com testes).
 
 | Grupo | Indicadores |
 |---|---|
-| Confiabilidade | Quebras (notas com parada), MTBF, MTTR, reincidência (≤ 30 dias), quebras em classe A |
+| Confiabilidade | Quebras (nota Y1 convertida em ordem YM11 — regra da planta), MTBF, MTTR, reincidência (≤ 30 dias), quebras em classe A |
 | Preditiva (SEMEQ) | Anomalias detectadas, % com ordem, % tratadas, dias para tratar, anomalias atrasadas (hoje) |
 | Planejamento e controle | Manutenção planejada (% com plano), corretiva emergencial, aderência ao plano (IP19), ordens concluídas no prazo, backlog em semanas, idade do backlog, notas sem ordem > 7 dias |
 | Análise de falhas (AF) | Taxa de análise de quebra crítica (A), execução de AFs, AFs analisadas no prazo, AFs atrasadas, ações de AFs (execução), ações no prazo, ações atrasadas — do Gerenciador de AF; só o período vale (as áreas do gerenciador são outras) |
 | Mão de obra | HH apontadas (IW47), utilização da equipe, % HH em plano, % HH em corretiva emergencial |
 | Custos | Custo médio mensal (meta = orçamento), % custo do backlog, custo médio por ordem |
 | Suprimentos | Itens zerados, peças críticas em falta, dias aguardando aprovação |
+
+**Quebra** = nota **Y1** da IW28 convertida em ordem **YM11**. O tipo da ordem vem do IW38/IW38OP/IW47; enquanto o
+IW38 exportado não trouxer a YM11, a nota Y1 com ordem conta como quebra (ordem de outro tipo não conta).
 
 **Filtros globais** (barra lateral): período (de/até), área (localização), centro de trabalho e tipo de ordem — valem
 para todas as abas, e cada cartão do Painel leva à aba onde o indicador é detalhado.

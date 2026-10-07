@@ -37,7 +37,7 @@ with ui.caixa_filtros():
     abcs = [a for a in ["A", "B", "C"] if (df["Código ABC"] == a).any()]
     sel_abc = f[2].multiselect("Criticidade ABC", abcs, key="n_abc", placeholder="Todas")
     so_sem_ordem = f[3].toggle("Só sem ordem", key="n_sem", help="Notas que ainda não viraram ordem de manutenção")
-    so_parada = f[4].toggle("Só com parada", key="n_par", help="Notas marcadas com parada de equipamento (quebras)")
+    so_parada = f[4].toggle("Só quebras", key="n_par", help="Quebra = nota Y1 convertida em ordem YM11 (regra da planta)")
 
 m = pd.Series(True, index=df.index)
 m &= ui.entre(df["Data"], ini, fim)
@@ -51,7 +51,7 @@ if sel_tipo:
 if so_sem_ordem:
     m &= ~df["Com ordem"]
 if so_parada:
-    m &= df["Com parada"]
+    m &= df["Quebra"]
 if sel_abc:
     m &= df["Código ABC"].isin(sel_abc)
 f_ = df.loc[m].sort_values("Data", ascending=False)
@@ -65,8 +65,8 @@ c[0].metric("Notas", inteiro(len(f_)), ui.descrever(ini, fim), delta_color="off"
 c[1].metric("Sem ordem", inteiro(len(sem_ordem)), f"{pct(len(sem_ordem), len(f_))} das notas", delta_color="off",
             border=True, delta_arrow="off", help="Ainda não viraram ordem: é a fila de pedidos da fábrica.")
 c[2].metric("Sem ordem há mais de 7 dias", inteiro((sem_ordem["Dias"] > 7).sum()), border=True, delta_arrow="off")
-c[3].metric("Com parada de máquina", inteiro(f_["Com parada"].sum()), f"{pct(int(f_['Com parada'].sum()), len(f_))} das notas",
-            delta_color="off", border=True, delta_arrow="off")
+c[3].metric("Quebras", inteiro(f_["Quebra"].sum()), f"{pct(int(f_['Quebra'].sum()), len(f_))} das notas",
+            delta_color="off", border=True, delta_arrow="off", help="Notas Y1 convertidas em ordem YM11 (regra da planta).")
 c[4].metric("Em equipamento classe A", inteiro((f_["Código ABC"] == "A").sum()),
             f"{pct(int((f_['Código ABC'] == 'A').sum()), len(f_))} das notas", delta_color="off", border=True, delta_arrow="off")
 
@@ -91,7 +91,7 @@ if len(f_):
     with d, st.container(border=True):
         st.markdown("**Equipamentos com mais notas** — reincidência")
         top = (f_[f_["Equip. (chave)"] != ""].groupby("Equip. (chave)")
-               .agg(Nome=("Objeto técnico", "first"), Notas=("Nota", "size"), Paradas=("Com parada", "sum"))
+               .agg(Nome=("Objeto técnico", "first"), Notas=("Nota", "size"), Quebras=("Quebra", "sum"))
                .reset_index().nlargest(10, "Notas"))
         top["Equipamento"] = top.apply(lambda r: (r["Nome"] or r["Equip. (chave)"])[:40], axis=1)
         if len(top):
@@ -102,12 +102,13 @@ if len(f_):
 # ----------------------------------------------------------------------------
 # Tabela
 # ----------------------------------------------------------------------------
-COLS = ["Nota", "Data", "Tipo de nota", "Descrição", "Objeto técnico", "Equipamento", "Código ABC", "Com parada",
-        "Ordem", "Dias", "Centro de trabalho", "Local de instalação", "Notificador"]
+COLS = ["Nota", "Data", "Tipo de nota", "Descrição", "Objeto técnico", "Equipamento", "Código ABC", "Quebra",
+        "Com parada", "Ordem", "Tipo da ordem", "Dias", "Centro de trabalho", "Local de instalação", "Notificador"]
 st.caption(f"{inteiro(len(f_))} notas · mais recentes primeiro")
 st.dataframe(f_[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(460),
              column_config={"Data": ui.col_data(), "Descrição": st.column_config.TextColumn(width="large"),
                             "Com parada": st.column_config.CheckboxColumn("Parada"),
+                            "Quebra": st.column_config.CheckboxColumn("Quebra", help="Nota Y1 convertida em ordem YM11"),
                             "Dias": st.column_config.NumberColumn("Dias desde a nota", format="%d"),
                             "Código ABC": st.column_config.TextColumn("ABC", width="small")})
 ui.baixar(f_[COLS], "notas", "Baixar notas (Excel)")
