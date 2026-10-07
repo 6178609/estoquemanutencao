@@ -10,7 +10,7 @@ import streamlit as st
 
 from . import bases, contexto, ui
 from . import execucao as ex
-from .util import inteiro, sem_acento
+from .util import SETORES, inteiro, sem_acento, setor_do_centro
 
 
 def _num(v, casas=1, suf="") -> str:
@@ -44,12 +44,23 @@ def mostrar(f: contexto.Filtros) -> None:
     ordens = f.ordens(o) if o is not None else None
     hoje = pd.Timestamp(date.today())
 
-    # centro de trabalho da execução: vale para a taxa, os cartões, os gráficos, quem fez o quê e a lista
+    # setor e centro de trabalho da execução: valem para a taxa, os cartões, os gráficos, quem fez o quê e a lista
     centros_op = sorted(c for c in ops["Centro de trabalho"].dropna().unique() if c) if len(ops) else []
-    sel_ctr = st.multiselect(
-        "Centro de trabalho", centros_op, key="ex_ctr", placeholder="Todos os centros",
+    c_set, c_ctr = st.columns([2, 3])
+    sel_setor = c_set.multiselect(
+        "Setor", [s for s in SETORES if any(setor_do_centro(c) == s for c in centros_op)], key="ex_setor",
+        placeholder="Todos os setores",
+        help="Pelo código do centro de trabalho: …COMP = Componentes (e GPA), …MONT = Montagem, UTIL = Utilidades, "
+             "CORT = Corte, PRE = Predial, MATZ = Matrizaria…")
+    centros_opc = [c for c in centros_op if not sel_setor or setor_do_centro(c) in sel_setor]
+    if st.session_state.get("ex_ctr"):
+        st.session_state["ex_ctr"] = [c for c in st.session_state["ex_ctr"] if c in centros_opc]
+    sel_ctr = c_ctr.multiselect(
+        "Centro de trabalho", centros_opc, key="ex_ctr", placeholder="Todos os centros",
         help="Filtra toda a execução pelo centro de trabalho da operação (IW38OP) e do apontamento (IW47). "
-             "Soma-se ao filtro de centro da barra lateral (que vale para o site todo).")
+             "Soma-se aos filtros da barra lateral (que valem para o site todo).")
+    if sel_setor and not sel_ctr:
+        sel_ctr = centros_opc
     if sel_ctr:
         ops = ops[ops["Centro de trabalho"].isin(sel_ctr)]
         if len(ap):
@@ -127,8 +138,10 @@ def mostrar(f: contexto.Filtros) -> None:
     if len(vivas):
         e, d = st.columns(2)
         with e, st.container(border=True):
-            st.markdown("**Execução por centro de trabalho**")
-            g = vivas.groupby("Centro de trabalho")
+            agrupar = st.segmented_control("Execução por", ["Setor", "Centro de trabalho"], default="Setor",
+                                           key="ex_agrupar") or "Setor"
+            vivas = vivas.assign(Setor=vivas["Centro de trabalho"].map(setor_do_centro))
+            g = vivas.groupby(agrupar)
             t = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Concluída"].sum(),
                               "Atrasadas": g["Situação"].apply(lambda s: int((s == ex.ATRASADA).sum())),
                               "HH programadas": g["Horas"].sum()}).reset_index()
@@ -165,7 +178,7 @@ def mostrar(f: contexto.Filtros) -> None:
                 pes[["Pessoa", "Nº pessoal", "Cargo", "Área", "Turma", "Centro (mais apontado)", "HH apontadas",
                      "Ordens", "Operações", "Dias com apontamento", "% HH em plano", "Último apontamento"]],
                 hide_index=True, width="stretch", height=ui.altura_tabela(320), on_select="rerun",
-                selection_mode="single-row", key=f"ex_pes_{f.ini}_{f.fim}_{f.centros}_{sel_ctr}",
+                selection_mode="single-row", key=f"ex_pes_{f.ini}_{f.fim}_{f.centros}_{sel_ctr}_{sel_setor}",
                 column_config={"HH apontadas": st.column_config.ProgressColumn(
                                    "HH apontadas", format="%.1f h", min_value=0,
                                    max_value=float(pes["HH apontadas"].max() or 1)),
@@ -210,7 +223,7 @@ def mostrar(f: contexto.Filtros) -> None:
         m &= per["Executado por"].map(lambda s: any(p in s.split(", ") for p in sel_pes))
     vis = per[m]
     cols = [c for c in ["Início", "Ordem", "Operação", "Texto da operação", "Objeto técnico", "Equipamento",
-                        "Centro de trabalho", "Natureza", "Situação", "Status SAP", "Executado por", "Horas", "HH real",
+                        "Setor", "Centro de trabalho", "Natureza", "Situação", "Status SAP", "Executado por", "Horas", "HH real",
                         "Fim real", "Dias após a programação"] if c in vis]
     st.caption(f"{inteiro(len(vis))} atividades · " + " · ".join(
         f"{inteiro((vis['Situação'] == s).sum())} {s.lower()}" for s in ex.SITUACOES if (vis["Situação"] == s).any()))

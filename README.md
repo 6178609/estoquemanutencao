@@ -32,6 +32,12 @@ ELMC_MTZ, a Fábrica Piloto (local de instalação ou objeto) e o Desenho (local
 (ordens, operações, notas, apontamentos, planos, equipamentos e equipe). Regra em `central/util.py` (`fora_da_visao`); desliga com
 `excluir_piloto_matriz = "não"`.
 
+**Setor:** cada centro de trabalho pertence a um setor pelo próprio código — …COMP (e GPA) = Componentes, …MONT =
+Montagem, UTIL = Utilidades, CORT = Corte, PRE = Predial, MATZ = Matrizaria, FERRAMEN = Ferramentaria, LUBRIF =
+Lubrificação, GPM = Planejamento, AUT = Automação, TERC = Terceiros (regra em `central/util.py`, `setor_do_centro`).
+Há filtro de setor na barra lateral (vale para o site todo), na execução do Painel e no calendário, além do
+"Scorecard por setor".
+
 **Filtros globais** (barra lateral): período (de/até), área (localização), centro de trabalho e tipo de ordem — valem
 para todas as abas, e cada cartão do Painel leva à aba onde o indicador é detalhado.
 

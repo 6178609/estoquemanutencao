@@ -7,7 +7,7 @@ from central import bases, contexto, ui
 from central import calendario as cal
 from central import mudanca_datas as md
 from central.leitura import IW38
-from central.util import inteiro, sem_acento
+from central.util import SETORES, inteiro, sem_acento, setor_do_centro
 
 ui.cabecalho("Calendário de ordens · IW38",
              "As ordens alocadas em cada dia (data-base de início do IW38), por turno, com quem apontou (IW47) "
@@ -53,12 +53,18 @@ with ui.caixa_filtros():
                                 key="cal_sit")
     sel_nat = l1[2].multiselect("Tipo de trabalho", bases.NATUREZAS, key="cal_nat", placeholder="Todos")
     sel_tur = l1[3].multiselect("Turno", cal.ORDEM_TURNOS, key="cal_tur", placeholder="Todos")
-    l2 = st.columns([4, 2])
+    l2 = st.columns([3, 2, 2])
     locais = [v for v in ag["Localização"].value_counts().index if v]
     sel_loc = l2[0].pills("Localização", locais, selection_mode="multi", key="cal_loc",
                           help="Coluna Localização do IW38. Nenhuma marcada = todas.")
     centros_cal = sorted(c for c in ag["Centro de trabalho"].unique() if c)
-    sel_ct = l2[1].multiselect("Centro de trabalho", centros_cal, key="cal_ct", placeholder="Todos")
+    sel_set = l2[1].multiselect("Setor", [s for s in SETORES if any(setor_do_centro(c) == s for c in centros_cal)],
+                                key="cal_setor", placeholder="Todos",
+                                help="Pelo código do centro de trabalho: …COMP = Componentes, …MONT = Montagem…")
+    centros_cal = [c for c in centros_cal if not sel_set or setor_do_centro(c) in sel_set]
+    if st.session_state.get("cal_ct"):
+        st.session_state["cal_ct"] = [c for c in st.session_state["cal_ct"] if c in centros_cal]
+    sel_ct = l2[2].multiselect("Centro de trabalho", centros_cal, key="cal_ct", placeholder="Todos")
 
 vis = ag[ui.entre(ag["Dia"], cal.inicio_semana(ini), cal.inicio_semana(fim) + timedelta(days=6))]
 m = pd.Series(True, index=vis.index)
@@ -77,6 +83,8 @@ if sel_loc:
     m &= vis["Localização"].isin(sel_loc)
 if sel_ct:
     m &= vis["Centro de trabalho"].isin(sel_ct)
+elif sel_set:
+    m &= vis["Centro de trabalho"].isin(centros_cal)
 vis = vis[m]
 no_periodo = vis[ui.entre(vis["Dia"], ini, fim)]
 ordens = no_periodo.drop_duplicates("Ordem")
@@ -113,6 +121,8 @@ with st.expander(f"Lista das ordens do período ({inteiro(len(ordens))})", icon=
     tab = no_periodo.assign(Duração=no_periodo["Duração (h)"].map(cal.duracao))
     cols = ["Dia", "Turno", "Ordem", "Título", "Texto", "Tipo", "Natureza", "Situação", "Situação da ordem", "Quem",
             "Duração", "Centro de trabalho", "Localização"]
+    tab = tab.assign(Setor=tab["Centro de trabalho"].map(setor_do_centro))
+    cols.insert(cols.index("Centro de trabalho"), "Setor")
     st.dataframe(tab[cols], hide_index=True, width="stretch", height=ui.altura_tabela(380),
                  column_config={"Dia": ui.col_data(), "Quem": st.column_config.TextColumn("Quem", width="large"),
                                 "Texto": st.column_config.TextColumn(width="medium")})

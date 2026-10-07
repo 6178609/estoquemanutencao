@@ -199,3 +199,42 @@ def fora_da_visao(df: pd.DataFrame, textos: tuple[str, ...] = ()) -> pd.Series:
         if nome in df:
             fora |= col(nome).str.contains(RX_PILOTO, regex=True)
     return fora
+
+
+# ----------------------------------------------------------------------------
+# Setor de cada centro de trabalho (pelo código: ..._COMP → Componentes, ..._MONT → Montagem…)
+# ----------------------------------------------------------------------------
+_SETORES = [  # (padrão no código do centro, setor) — o primeiro que casar vale
+    (r"COMP|GPA|INJ", "Componentes"),        # COMPONEN, ELE_COMP, MEC_COMP, ELMCCOMP; GPA e injeção (Gestão de HH)
+    (r"MONT", "Montagem"),                    # MONTAGEM, ELE_MONT, MEC_MONT, ELMCMONT
+    (r"UTIL|REFRIG", "Utilidades"),           # UTILIDAD, ELE_UTIL, MEC_UTIL, REFRIG
+    (r"CORT", "Corte"),                       # CORTE, ELE_CORT, MEC_CORT
+    (r"(^|_)PRE", "Predial"),                 # SERV_PRE, ADM_PRED, ELE_PRE(D), PREDIAL
+    (r"MATZ|MATRIZ|MTZ", "Matrizaria"),       # SRV_MATZ, MATRIZ
+    (r"FERRAM", "Ferramentaria"),             # FERRAMEN
+    (r"LUBRIF", "Lubrificação"),              # LUBRIF
+    (r"^GPM$|PLANEJ", "Planejamento (GPM)"),  # GPM
+    (r"AUT", "Automação"),                    # TEC_AUT
+    (r"TERC", "Terceiros"),                   # TERC_INT, TERC_EXT
+    (r"SRI", "SRI"),                          # FAB_SRI
+    (r"SATELIT", "Satélite"),                 # SATELITE
+]
+OUTROS_SETOR = "Outros"
+SETORES = [s for _, s in _SETORES] + [OUTROS_SETOR]
+
+
+def setor_do_centro(codigo) -> str:
+    """Setor do centro de trabalho pelo código ("ELE_COMP" → Componentes, "ELE_MONT" → Montagem)."""
+    c = str(codigo or "").strip().upper()
+    if not c:
+        return ""
+    for rx, setor in _SETORES:
+        if re.search(rx, c):
+            return setor
+    return OUTROS_SETOR
+
+
+def setores(centros: pd.Series) -> pd.Series:
+    centros = centros.astype(object)      # o IW38 tem colunas categóricas
+    unicos = {c: setor_do_centro(c) for c in centros.dropna().unique()}
+    return centros.map(unicos).fillna("").astype(str)

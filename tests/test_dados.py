@@ -303,3 +303,17 @@ def test_fora_da_visao_piloto_desenho_oper_matriz():
     centros = pd.DataFrame({"Centro de trabalho": ["SOFICOM", "ELMCPILT", "MTZ_PILT", "MATR", "OPER", "TPME", "ELMC_MTZ",
                                                    " elmcpilt ", "SRV_MATZ", "MATRIZ", "OPERADOR"]})
     assert list(fora_da_visao(centros)) == [True] * 8 + [False] * 3     # só os códigos da lista, exatos
+
+
+def test_setor_pelo_codigo_do_centro():
+    from central.util import setor_do_centro, setores
+
+    esperado = {"COMPONEN": "Componentes", "ELE_COMP": "Componentes", "MEC_COMP": "Componentes",
+                "ELMCCOMP": "Componentes", "ELE_GPA": "Componentes", "MONTAGEM": "Montagem", "ELE_MONT": "Montagem",
+                "MEC_MONT": "Montagem", "ELMCMONT": "Montagem", "UTILIDAD": "Utilidades", "MEC_UTIL": "Utilidades",
+                "CORTE": "Corte", "ELE_CORT": "Corte", "SERV_PRE": "Predial", "ADM_PRED": "Predial",
+                "SRV_MATZ": "Matrizaria", "FERRAMEN": "Ferramentaria", "LUBRIF": "Lubrificação",
+                "GPM": "Planejamento (GPM)", "TEC_AUT": "Automação", "TERC_INT": "Terceiros", "LIDER": "Outros", "": ""}
+    assert {c: setor_do_centro(c) for c in esperado} == esperado
+    s = setores(pd.Series(["ele_comp", None, "MEC_MONT"], dtype="category"))
+    assert list(s) == ["Componentes", "", "Montagem"]

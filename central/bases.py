@@ -23,7 +23,7 @@ import streamlit as st
 from . import af as af_mod
 from . import config, fontes, fotos, leitura
 from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
-from .util import achar_coluna, chave, fora_da_visao, marcar_quebras, para_data, para_numero, sem_acento, texto
+from .util import achar_coluna, chave, fora_da_visao, marcar_quebras, para_data, para_numero, sem_acento, setores, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
 ARQ_CAD_MAT = "cadastro_materiais.json"
@@ -310,6 +310,7 @@ def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
     for c in ["Texto", "Equipamento", "Objeto técnico", "Local de instalação", "Plano", "Criado por", "Status usuário"]:
         busca = busca + " " + df[c]
     df["_busca"] = busca.map(lambda s: sem_acento(s).upper())
+    df["Setor"] = setores(df["Centro de trabalho"])
     return df, removidas
 
 
@@ -449,6 +450,7 @@ def preparar_operacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) ->
     toks = df["Status sistema"].str.split().map(set)
     df["Concluída"] = toks.map(lambda t: bool(t & {"CONF", "ENTE", "ENCE"}))
     df["Cancelada"] = toks.map(lambda t: bool(t & {"DLFL", "MREL", "MEEL"}))
+    df["Setor"] = setores(df["Centro de trabalho"])
     return df.drop(columns=["Trabalho"]).reset_index(drop=True)
 
 
@@ -488,6 +490,7 @@ def preparar_notas(cru: pd.DataFrame, hoje: pd.Timestamp | None = None, excluir_
     df["Data"] = df["Data da nota"].fillna(df["Início avaria"])
     df["Dias"] = (hoje - df["Data"]).dt.days
     df["Equip. (chave)"] = np.where(df["Equipamento"] != "", df["Equipamento"], df["Objeto técnico"])
+    df["Setor"] = setores(df["Centro de trabalho"])
     return df.drop(columns=["Parada", "Duração da parada"]).reset_index(drop=True)
 
 
@@ -547,6 +550,7 @@ def preparar_confirmacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True)
     df["Horas"] = (para_numero(df["Trabalho"]).fillna(0.0) * fator).round(3)
     df["Data"] = para_data(df["Data"])
     df["Atividade"] = df["Atividade"].where(df["Atividade"] != "", df["Atividade planejada"])
+    df["Setor"] = setores(df["Centro de trabalho"])
     return df.drop(columns=["Trabalho", "Atividade planejada"]).reset_index(drop=True)
 
 
@@ -574,6 +578,7 @@ def preparar_equipe(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) -> pd
     for c in ["Cargo", "Área", "Turma", "Supervisor"]:
         df[c] = df[c].where(~df[c].str.startswith("#"), "")
     df["Especialidade"] = df["Cargo"].map(_especialidade)
+    df["Setor"] = setores(df["Centro de trabalho"])
     return df.drop_duplicates("Nº pessoal", keep="last").reset_index(drop=True)
 
 
