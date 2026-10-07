@@ -19,16 +19,6 @@ import pandas as pd
 TURNOS = {"1ª": "1º turno", "2ª": "2º turno", "3ª": "3º turno", "G": "Horário geral"}
 SEM_EXECUTANTE = "Sem executante (IW47)"
 ORDEM_TURNOS = ["1º turno", "2º turno", "3º turno", "Horário geral", SEM_EXECUTANTE]
-LOCAIS_PRINCIPAIS = ["GAL1", "GAL2"]
-OUTROS = "Outros"
-
-
-def grupo_local(loc: pd.Series) -> pd.Series:
-    """GAL1, GAL2 ou Outros (UTIL, F26, SRI, GAL3…)."""
-    loc = loc.fillna("").astype(str).str.strip().str.upper()
-    return loc.where(loc.isin(LOCAIS_PRINCIPAIS), OUTROS)
-
-
 CONCLUIDA, ATRASADA, PROGRAMADA, CANCELADA = "Concluída", "Atrasada", "Programada", "Cancelada"
 SITUACOES = [PROGRAMADA, ATRASADA, CONCLUIDA, CANCELADA]
 DIAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]

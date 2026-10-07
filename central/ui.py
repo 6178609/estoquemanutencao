@@ -247,6 +247,15 @@ ATALHOS = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Ano atual", "�
 
 def _atalho(nome: str, minimo: date, maximo: date) -> tuple[date, date]:
     hoje = date.today()
+    domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)   # semanas de domingo a sábado
+    if nome in ("Esta semana", "Próxima semana", "Semana passada"):
+        d = domingo + timedelta(days={"Esta semana": 0, "Próxima semana": 7, "Semana passada": -7}[nome])
+        return d, d + timedelta(days=6)
+    if nome in ("Este mês", "Próximo mês"):
+        ini = hoje.replace(day=1)
+        if nome == "Próximo mês":
+            ini = (ini + timedelta(days=32)).replace(day=1)
+        return ini, (ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     if nome == "Mês atual":
         return hoje.replace(day=1), hoje
     if nome == "Últimos 30 dias":

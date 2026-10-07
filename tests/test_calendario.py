@@ -68,9 +68,8 @@ def test_html_semana():
     assert "<details><summary>+2 ordem(ns)</summary>" in curto            # dia 5: 3 cartões, 1 visível
 
 
-def test_grupo_de_localizacao():
-    s = pd.Series(["GAL1", "gal2 ", "UTIL", "", None, "GAL3"])
-    assert list(cal.grupo_local(s)) == ["GAL1", "GAL2", cal.OUTROS, cal.OUTROS, cal.OUTROS, cal.OUTROS]
-    o = _ordens().assign(Localização=["GAL1", "GAL2", "UTIL", "GAL1"])
+def test_localizacao_vem_do_iw38():
+    o = _ordens().assign(Localização=["GAL1", "GAL2", "UTIL", None])
     a = cal.agenda(o, _oper(), _conf(), EQUIPE, HOJE)
-    assert set(a.loc[cal.grupo_local(a["Localização"]) == cal.OUTROS, "Ordem"]) == {"3"}
+    assert a.drop_duplicates("Ordem").set_index("Ordem")["Localização"].to_dict() == {
+        "1": "GAL1", "2": "GAL2", "3": "UTIL", "4": ""}
