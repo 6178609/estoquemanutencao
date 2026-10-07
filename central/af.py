@@ -22,7 +22,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from .util import achar_coluna, chave, para_data, para_numero, texto
+from .util import achar_coluna, chave, marcar_quebras, para_data, para_numero, texto
 
 # ----------------------------------------------------------------------------
 # Situações
@@ -213,11 +213,12 @@ def _pct(a, b):
 
 
 def quebras_a_iw28(notas: pd.DataFrame | None) -> pd.DataFrame:
-    """Quebras de equipamento classe A registradas na IW28 (notas com parada) — só como referência:
+    """Quebras de equipamento classe A registradas na IW28 (nota Y1 → ordem YM11) — só como referência:
     nem toda parada vira AF (o gatilho depende da duração) e a nota quase nunca traz a ordem da AF."""
     if notas is None or not len(notas):
         return pd.DataFrame(columns=["Nota", "Data", "Equip. (chave)"])
-    return notas[notas["Com parada"] & (notas["Código ABC"] == "A") & notas["Data"].notna()]
+    notas = notas if "Quebra" in notas else marcar_quebras(notas)
+    return notas[notas["Quebra"] & (notas["Código ABC"] == "A") & notas["Data"].notna()]
 
 
 def indicadores(afs: pd.DataFrame, acoes: pd.DataFrame, ini, fim, hoje: pd.Timestamp | None = None,

@@ -143,3 +143,25 @@ def pct(parte, total, casas: int = 1) -> str:
 
 
 MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+TIPO_NOTA_QUEBRA, TIPO_ORDEM_QUEBRA = "Y1", "YM11"
+
+
+def marcar_quebras(notas: pd.DataFrame, tipos_por_ordem: pd.Series | None = None) -> pd.DataFrame:
+    """Quebra (regra da planta) = nota Y1 da IW28 convertida em ordem YM11.
+
+    O tipo da ordem vem das bases exportadas (IW38, IW38OP, IW47). Se a ordem da nota Y1 não está em
+    nenhuma delas (o IW38 exportado hoje não traz a YM11), ela conta como quebra; se está com outro
+    tipo, não conta."""
+    n = notas.copy()
+    ordem = n["Ordem"].fillna("").astype(str) if "Ordem" in n else pd.Series("", index=n.index)
+    if tipos_por_ordem is not None and len(tipos_por_ordem):
+        tipo = ordem.map(tipos_por_ordem)
+    else:
+        tipo = pd.Series("", index=n.index)
+    n["Tipo da ordem"] = tipo.fillna("").astype(str).str.strip().str.upper()
+    tipo_nota = n["Tipo de nota"] if "Tipo de nota" in n else pd.Series("", index=n.index)
+    y1 = tipo_nota.fillna("").astype(str).str.strip().str.upper() == TIPO_NOTA_QUEBRA
+    n["Quebra"] = y1 & (ordem != "") & n["Tipo da ordem"].isin(["", TIPO_ORDEM_QUEBRA])
+    return n

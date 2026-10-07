@@ -21,7 +21,7 @@ cad = contexto.metas()
 d = contexto.dados(f)
 atual, anterior = contexto.resultados(f)
 serie = contexto.serie_mensal(f)
-st.caption(f"Recorte: **{f.desc}** · quebra = nota da IW28 com parada de máquina")
+st.caption(f"Recorte: **{f.desc}** · quebra = nota Y1 da IW28 convertida em ordem YM11")
 
 ks = [k for k in ind.KPIS if k.grupo == ind.CONFIABILIDADE]
 contexto.grade(ks, atual, anterior, cad, serie, colunas=5, prefixo="c-", link=False)
@@ -29,7 +29,7 @@ contexto.grade(ks, atual, anterior, cad, serie, colunas=5, prefixo="c-", link=Fa
 q_all = ind.quebras(d)
 q = q_all[ui.entre(q_all["Data"], f.ini, f.fim)].copy() if len(q_all) else q_all
 if not len(q):
-    st.info("Nenhuma quebra (nota com parada) no recorte.")
+    st.info("Nenhuma quebra (nota Y1 convertida em ordem YM11) no recorte.")
     st.stop()
 dias = (pd.Timestamp(f.fim) - pd.Timestamp(f.ini)).days + 1
 

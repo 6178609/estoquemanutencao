@@ -40,7 +40,8 @@ def _notas():
         "Nota": ["n1", "n2", "n3", "n4"],
         "Data": [T("2026-06-01"), T("2026-06-20"), T("2026-06-15"), T("2026-06-02")],
         "Com parada": [True, True, True, False],
-        "Ordem": ["2", "", "", ""],
+        "Tipo de nota": ["Y1", "Y1", "Y1", "Y2"],           # quebra = nota Y1 convertida em ordem YM11
+        "Ordem": ["2", "7", "8", ""],
         "Horas parado": [0.0, 0.0, 1.5, 0.0],
         "Código ABC": ["A", "A", "B", ""],
         "Equip. (chave)": ["EQ1", "EQ1", "EQ2", "EQ3"],
@@ -246,3 +247,13 @@ def test_indicadores_do_gerenciador_de_af():
     # sem o gerenciador, todos ficam sem valor
     sem = ind.calcular(_dados(), ini, fim)
     assert all(sem[k] is None for k in ind.IDS_AF + ind.IDS_ACOES_AF)
+
+
+def test_quebra_e_nota_y1_convertida_em_ym11():
+    from central.util import marcar_quebras
+    notas = pd.DataFrame({"Nota": list("abcde"), "Tipo de nota": ["Y1", "Y1", "Y1", "Y2", "Y1"],
+                          "Ordem": ["10", "11", "", "12", "13"]})
+    tipos = pd.Series({"10": "YM11", "11": "YM13", "12": "YM11"})
+    q = marcar_quebras(notas, tipos).set_index("Nota")
+    assert q["Quebra"].to_dict() == {"a": True, "b": False, "c": False, "d": False, "e": True}  # e: tipo desconhecido
+    assert q.loc["a", "Tipo da ordem"] == "YM11" and q.loc["e", "Tipo da ordem"] == ""

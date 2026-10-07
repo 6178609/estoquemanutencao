@@ -508,7 +508,7 @@ with st.container(border=True):
             tq, tg = int(ref["Quebras A (IW28)"].sum()), int(ref["AFs A geradas"].sum())
             recorte = ui.descrever(r_ini.date(), r_fim.date())
             st.caption(f"De {recorte} (parte do período coberta pelo export da IW28): **{inteiro(tq)}** quebras "
-                       f"classe A na IW28 (notas com parada em equipamento A) e **{inteiro(tg)}** AFs A geradas"
+                       f"classe A na IW28 (notas Y1 → ordem YM11 em equipamento A) e **{inteiro(tg)}** AFs A geradas"
                        + (f" ({num(tg / tq * 100, 0)}% das quebras)." if tq else ".")
                        + " Referência apenas: nem toda parada vira AF (o gatilho depende da duração da parada) e a "
                          "nota quase nunca traz o número da AF, por isso as duas contagens não se cruzam uma a uma.")

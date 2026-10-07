@@ -6,7 +6,7 @@ planos), MB52 (estoque), requisições e o Gerenciador de AF (análises de falha
 sentido (maior ou menor é melhor), meta padrão (editável no site) e farol.
 
 Convenções:
-- Quebra = nota da IW28 marcada com parada de máquina.
+- Quebra = nota Y1 da IW28 convertida em ordem YM11 (regra da planta; util.marcar_quebras).
 - Horas de reparo de uma ordem = Σ (trabalho da operação ÷ nº de pessoas) no IW38OP;
   quando a nota traz a duração da parada, ela vale no lugar.
 - Data de conclusão de uma ordem = maior "data do fim real" das operações concluídas.
@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from . import af, preditiva
+from .util import marcar_quebras
 
 PENDENTES = ("Aberta", "Liberada", "Encerrada sem confirmação")
 
@@ -55,7 +56,7 @@ class Kpi:
 KPIS: list[Kpi] = [
     # Confiabilidade
     Kpi("quebras", "Quebras", "un", -1, None, CONFIABILIDADE, P_CONF,
-        "Notas da IW28 com parada de máquina no período.", mensal=True),
+        "Notas Y1 da IW28 convertidas em ordem YM11 no período (regra de quebra da planta).", mensal=True),
     Kpi("mtbf", "MTBF", "dias", +1, 60, CONFIABILIDADE, P_CONF,
         "Tempo médio entre falhas: dias do período × equipamentos que quebraram ÷ quebras."),
     Kpi("mttr", "MTTR", "h", -1, 4, CONFIABILIDADE, P_CONF,
@@ -212,10 +213,11 @@ def fim_real_por_ordem(oper: pd.DataFrame | None) -> pd.Series:
 
 
 def quebras(d: Dados) -> pd.DataFrame:
-    """Uma linha por quebra (nota com parada), com equipamento, classe A, horas de reparo e reincidência."""
+    """Uma linha por quebra (nota Y1 → ordem YM11), com equipamento, classe A, horas de reparo e reincidência."""
     if d.notas is None or not len(d.notas):
         return pd.DataFrame(columns=["Nota", "Data", "Equip. (chave)", "Classe A", "Horas de reparo", "Reincidente"])
-    q = d.notas[d.notas["Com parada"] & d.notas["Data"].notna()].copy()
+    notas = d.notas if "Quebra" in d.notas else marcar_quebras(d.notas)
+    q = notas[notas["Quebra"] & notas["Data"].notna()].copy()
     rep = horas_reparo_por_ordem(d.oper, d.conf)
     pela_ordem = q["Ordem"].map(rep).where(q["Ordem"] != "")
     q["Horas de reparo"] = q["Horas parado"].where(q["Horas parado"] > 0, pela_ordem)

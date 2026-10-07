@@ -390,11 +390,11 @@ else:
 tab["Criticidade"] = [(cad.get(k) or {}).get("criticidade") or bases.ABC_PARA_CRITICIDADE.get(a, "")
                       for k, a in zip(tab["Código"], tab["ABC"])]
 if notas is not None:
-    por_eq = notas.groupby("Equip. (chave)").agg(Notas=("Nota", "size"), Paradas=("Com parada", "sum"),
+    por_eq = notas.groupby("Equip. (chave)").agg(Notas=("Nota", "size"), Quebras=("Quebra", "sum"),
                                                   _sem=("Com ordem", lambda s: int((~s).sum())))
     tab["Notas"] = tab["Código"].map(por_eq["Notas"]).fillna(0).astype(int)
     tab["Notas sem ordem"] = tab["Código"].map(por_eq["_sem"]).fillna(0).astype(int)
-    tab["Paradas"] = tab["Código"].map(por_eq["Paradas"]).fillna(0).astype(int)
+    tab["Quebras"] = tab["Código"].map(por_eq["Quebras"]).fillna(0).astype(int)
 tab["Categoria"] = tab["Código"].map(lambda k: (cad.get(k) or {}).get("categoria", ""))
 tab["Peças"] = tab["Código"].map(lambda k: len((cad.get(k) or {}).get("materiais", [])))
 tab["Peças em falta"] = tab["Código"].map(lambda k: pecas_em_alerta((cad.get(k) or {}).get("materiais", [])))
@@ -429,7 +429,7 @@ if so_periodo:
 vis = tab.loc[m].sort_values(["Custo", "Ordens"], ascending=False).reset_index(drop=True)
 
 COLS = ["Código", "Nome", "Criticidade", "ABC", "Categoria", "Local", "Centro", "Ordens", "Backlog", "Custo", "Pendentes",
-        *(["Notas", "Notas sem ordem", "Paradas"] if notas is not None else []),
+        *(["Notas", "Notas sem ordem", "Quebras"] if notas is not None else []),
         "Última", "Peças", "Peças em falta"]
 ev = st.dataframe(vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(380), on_select="rerun",
                   selection_mode="single-row", key="eq_tabela",
@@ -484,7 +484,7 @@ conf_all = bases.confirmacoes().df
 hh_eq = (conf_all[conf_all["Ordem"].isin(set(hist["Ordem"]))]["Horas"].sum() if conf_all is not None else None)
 k = st.columns(5)
 k[0].metric("Quebras no período", inteiro(len(q_per)), f"{inteiro(len(q_eq))} em todas as datas", delta_color="off",
-            border=True, delta_arrow="off", help="Notas da IW28 com parada de máquina neste equipamento.")
+            border=True, delta_arrow="off", help="Notas Y1 da IW28 convertidas em ordem YM11 neste equipamento.")
 k[1].metric("MTBF no período", f"{dias_per / len(q_per):.0f} dias" if len(q_per) else "—", border=True, delta_arrow="off",
             help=ind.POR_ID["mtbf"].formula)
 rep = q_per["Horas de reparo"].dropna() if len(q_per) else pd.Series(dtype=float)
@@ -513,11 +513,12 @@ with g:
     if notas is not None:
         ne = notas[notas["Equip. (chave)"] == sel].sort_values("Data", ascending=False)
         st.markdown(f"**Notas do equipamento (IW28)** — {inteiro(len(ne))} notas, "
-                    f"{inteiro(ne['Com parada'].sum())} com parada, {inteiro((~ne['Com ordem']).sum())} sem ordem")
+                    f"{inteiro(ne['Quebra'].sum())} quebra(s) (Y1 → YM11), {inteiro((~ne['Com ordem']).sum())} sem ordem")
         if len(ne):
-            st.dataframe(ne[["Nota", "Data", "Tipo de nota", "Descrição", "Com parada", "Ordem", "Notificador"]].head(200),
+            st.dataframe(ne[["Nota", "Data", "Tipo de nota", "Descrição", "Quebra", "Com parada", "Ordem", "Tipo da ordem", "Notificador"]].head(200),
                          hide_index=True, width="stretch", height=ui.altura_tabela(220),
                          column_config={"Data": ui.col_data(), "Com parada": st.column_config.CheckboxColumn("Parada"),
+                                        "Quebra": st.column_config.CheckboxColumn("Quebra"),
                                         "Descrição": st.column_config.TextColumn(width="large")})
 
 with lado, st.container(border=True):
