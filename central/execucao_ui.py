@@ -43,6 +43,19 @@ def mostrar(f: contexto.Filtros) -> None:
     o = bases.iw38().df
     ordens = f.ordens(o) if o is not None else None
     hoje = pd.Timestamp(date.today())
+
+    # centro de trabalho da execução: vale para a taxa, os cartões, os gráficos, quem fez o quê e a lista
+    centros_op = sorted(c for c in ops["Centro de trabalho"].dropna().unique() if c) if len(ops) else []
+    sel_ctr = st.multiselect(
+        "Centro de trabalho", centros_op, key="ex_ctr", placeholder="Todos os centros",
+        help="Filtra toda a execução pelo centro de trabalho da operação (IW38OP) e do apontamento (IW47). "
+             "Soma-se ao filtro de centro da barra lateral (que vale para o site todo).")
+    if sel_ctr:
+        ops = ops[ops["Centro de trabalho"].isin(sel_ctr)]
+        if len(ap):
+            ap = ap[ap["Centro de trabalho"].isin(sel_ctr)]
+        if ordens is not None:  # ordens com operação nesses centros (ou do centro, pelo cabeçalho)
+            ordens = ordens[ordens["Ordem"].isin(set(ops["Ordem"])) | ordens["Centro de trabalho"].isin(sel_ctr)]
     r = ex.indicadores(ops, ordens, ap, f.ini, f.fim, hoje)
     a_ini, a_fim = (pd.Timestamp(f.ini) - (pd.Timestamp(f.fim) - pd.Timestamp(f.ini)) - pd.Timedelta(days=1)).date(), \
         (pd.Timestamp(f.ini) - pd.Timedelta(days=1)).date()
@@ -152,7 +165,7 @@ def mostrar(f: contexto.Filtros) -> None:
                 pes[["Pessoa", "Nº pessoal", "Cargo", "Área", "Turma", "Centro (mais apontado)", "HH apontadas",
                      "Ordens", "Operações", "Dias com apontamento", "% HH em plano", "Último apontamento"]],
                 hide_index=True, width="stretch", height=ui.altura_tabela(320), on_select="rerun",
-                selection_mode="single-row", key=f"ex_pes_{f.ini}_{f.fim}_{f.centros}",
+                selection_mode="single-row", key=f"ex_pes_{f.ini}_{f.fim}_{f.centros}_{sel_ctr}",
                 column_config={"HH apontadas": st.column_config.ProgressColumn(
                                    "HH apontadas", format="%.1f h", min_value=0,
                                    max_value=float(pes["HH apontadas"].max() or 1)),
@@ -180,13 +193,11 @@ def mostrar(f: contexto.Filtros) -> None:
     st.markdown("#### :material/checklist: Atividades do período")
     per = ops[ui.entre(ops["Início"], f.ini, f.fim)]
     with ui.caixa_filtros("Filtros das atividades"):
-        l1 = st.columns([3, 2, 2, 2])
+        l1 = st.columns([3, 2, 2])
         busca = l1[0].text_input("Buscar", key="ex_busca", placeholder="ordem, atividade, equipamento, pessoa…")
         sel_sit = l1[1].multiselect("Situação", ex.SITUACOES, key="ex_sit", placeholder="Todas")
-        sel_ctr = l1[2].multiselect("Centro de trabalho", sorted(c for c in per["Centro de trabalho"].unique() if c),
-                                    key="ex_ctr", placeholder="Todos")
         pessoas = sorted({n.strip() for s in per["Executado por"] for n in s.split(",") if n.strip()})
-        sel_pes = l1[3].multiselect("Executado por", pessoas, key="ex_pes", placeholder="Todos")
+        sel_pes = l1[2].multiselect("Executado por", pessoas, key="ex_pes", placeholder="Todos")
     m = pd.Series(True, index=per.index)
     if busca.strip():
         hay = (per["Ordem"] + " " + per["Texto da operação"] + " " + per["Equipamento"] + " " + per["Objeto técnico"]
@@ -195,8 +206,6 @@ def mostrar(f: contexto.Filtros) -> None:
             m &= hay.str.contains(termo, regex=False)
     if sel_sit:
         m &= per["Situação"].isin(sel_sit)
-    if sel_ctr:
-        m &= per["Centro de trabalho"].isin(sel_ctr)
     if sel_pes:
         m &= per["Executado por"].map(lambda s: any(p in s.split(", ") for p in sel_pes))
     vis = per[m]
