@@ -38,7 +38,7 @@ from central import auth, ui  # noqa: E402
 
 st.set_page_config(page_title="Central de Manutenção", page_icon=":material/build:", layout="wide",
                    initial_sidebar_state="auto")
-st.markdown(ui.CSS, unsafe_allow_html=True)
+ui.aplicar_css(ui.CSS)
 ui.logos()
 auth.aplicar_cookie_pendente()
 ui.manter_filtros()

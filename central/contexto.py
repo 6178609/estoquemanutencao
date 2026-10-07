@@ -352,7 +352,7 @@ def mini_tendencia(serie: pd.DataFrame, kpi: ind.Kpi, alvo: float | None) -> alt
 
 def grade(kpis: list[ind.Kpi], atual: dict, anterior: dict, cad_metas: dict, serie: pd.DataFrame | None = None,
           colunas: int = 4, prefixo: str = "", link: bool = True) -> list[str]:
-    st.markdown(CSS, unsafe_allow_html=True)
+    ui.aplicar_css(CSS)
     cores = []
     for i in range(0, len(kpis), colunas):
         cols = st.columns(colunas)
