@@ -29,6 +29,7 @@ import math
 import os
 import platform
 import re
+import subprocess
 import sys
 import time
 import tomllib
@@ -41,8 +42,9 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
 from central import leitura  # noqa: E402
+from central import mudanca_datas as md  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
-from central.fontes import GitHub, Pastas  # noqa: E402
+from central.fontes import GitHub, NaoEncontrado, Pastas  # noqa: E402
 from central.leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
@@ -198,9 +200,68 @@ def rodada(cfg: dict, gh=None, testar: bool = False) -> list[str]:
     if faltando:
         log.info("sem arquivo nas pastas para: %s", ", ".join(sorted(faltando)))
     if not testar:
+        try:
+            executar_mudancas(gh)
+        except Exception:  # noqa: BLE001 — tenta de novo na próxima rodada
+            log.exception("falha ao executar as mudanças de datas")
         _compactar_se_preciso(gh, est)
         _salvar_estado(est)
     return mandou
+
+
+# ----------------------------------------------------------------------------
+# Mudança de datas pedida pelo site na nuvem (Calendário de ordens → robô do SAP deste PC)
+# ----------------------------------------------------------------------------
+ROBO = RAIZ / "automacao" / "robo_sap.py"
+ROBO_CONFIGURADO = RAIZ / "automacao" / "robo_local.toml"
+PEDIDO = RAIZ / "automacao" / "mudanca_datas_pedido.json"
+RESULTADO = RAIZ / "automacao" / "mudanca_datas_pedido_resultado.json"
+
+
+def _ler_lotes(gh) -> dict:
+    try:
+        return json.loads(gh.ler(gh.id_de(md.ARQ_LOTES)).decode("utf-8"))
+    except NaoEncontrado:
+        return {}
+
+
+def _gravar_lote(gh, lote_id: str, lote: dict) -> None:
+    """Relê o arquivo na hora e troca só este lote (o site pode ter criado outros enquanto isso)."""
+    atual = _ler_lotes(gh)
+    atual[lote_id] = {**lote, "atualizado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                      "atualizado_por": f"robô ({platform.node()})"}
+    gh.gravar(md.ARQ_LOTES, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
+
+
+def executar_mudancas(gh, rodar=None) -> list[str]:
+    """Executa no SAP os lotes "solicitada" (um por vez, o mais antigo primeiro). Só no PC com o robô."""
+    if rodar is None:
+        if not ROBO_CONFIGURADO.exists():
+            return []
+
+        def rodar(pedido: dict) -> dict:
+            RESULTADO.unlink(missing_ok=True)
+            PEDIDO.write_text(json.dumps(pedido, ensure_ascii=False, indent=1), encoding="utf-8")
+            subprocess.run([sys.executable, str(ROBO), "--mudar-datas", str(PEDIDO)], cwd=str(RAIZ), timeout=3 * 3600,
+                           check=False)
+            return json.loads(RESULTADO.read_text(encoding="utf-8")) if RESULTADO.exists() else \
+                {"erro": "o robô terminou sem gravar o resultado (veja automacao/robo_sap.log)", "itens": []}
+    feitos = []
+    lotes = _ler_lotes(gh)
+    for lote_id in sorted(k for k, v in lotes.items() if isinstance(v, dict) and v.get("status") == md.SOLICITADA):
+        lote = {**lotes[lote_id], "status": md.EM_EXECUCAO,
+                "iniciado_em": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        _gravar_lote(gh, lote_id, lote)
+        log.info("mudança de datas: lote %s (%d ordens)", lote_id, len(lote.get("itens", [])))
+        try:
+            resultado = rodar(md.job(lote_id, lote))
+        except Exception as e:  # noqa: BLE001
+            resultado = {"erro": f"falha ao rodar o robô: {e}", "itens": []}
+        lote = md.aplicar_resultado(lote, resultado)
+        _gravar_lote(gh, lote_id, lote)
+        log.info("mudança de datas: lote %s → %s", lote_id, lote.get("resumo"))
+        feitos.append(lote_id)
+    return feitos
 
 
 DIAS_COMPACTAR = 7
@@ -258,12 +319,19 @@ def main() -> None:
         log.info("o sincronizador já está rodando neste PC; saindo")
         return
     intervalo = max(1, int(cfg.get("intervalo_min", 5))) * 60
+    gh = GitHub(_Cfg(cfg["repo"], cfg["token"], cfg.get("ramo", "main")))
     while True:
         try:
-            rodada(cfg)
+            rodada(cfg, gh)
         except Exception:  # noqa: BLE001 — sem internet, GitHub fora etc.: tenta na próxima
             log.exception("falha na rodada; nova tentativa em %d min", intervalo // 60)
-        time.sleep(intervalo)
+        # entre uma rodada e outra, confere a cada minuto se o site pediu mudança de datas
+        for _ in range(intervalo // 60):
+            time.sleep(60)
+            try:
+                executar_mudancas(gh)
+            except Exception:  # noqa: BLE001
+                log.exception("falha ao executar as mudanças de datas")
 
 
 if __name__ == "__main__":

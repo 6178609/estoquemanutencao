@@ -213,6 +213,25 @@ o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior
   SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
   o ID.
 
+### Mudança de datas no SAP (Calendário de ordens)
+
+No fim da aba **Calendário de ordens**, cada dia do período tem um campo para escolher os **campos de ordenação**
+(máquinas) que vão parar naquele dia. Salvando a programação, as máquinas aparecem no próprio calendário e o site
+lista as ordens pendentes delas (abertas/liberadas, ainda não encerradas no IW38 nem na IW47) com o início-base
+atual e o novo — o fim-base anda junto, mantendo a duração. Dá para escolher quais ordens entram (atrasadas e até
+o dia, só as do período ou todas as pendentes) e desmarcar uma a uma.
+
+- **Iniciar mudança de datas** (editor/administrador, com confirmação): cria um lote de até 300 ordens. O robô abre
+  cada ordem na tela de modificar ordem (IW32 — a mesma que a IW38 abre), troca início e fim-base, confere com Enter
+  (avisos são aceitos, erro para só aquela ordem), grava e reabre na IW33 para conferir a data gravada.
+- **Só simular:** o robô abre as ordens e confere se o SAP aceita as datas, sem gravar — use na primeira vez.
+- **Onde roda:** com o site no PC do SAP, o robô começa na hora. Com o site na nuvem, o pedido fica guardado e o
+  sincronizador desse PC (com o robô configurado) executa em até 1 minuto.
+- **Histórico:** cada lote mostra o resultado de cada ordem (data antiga, nova e mensagem do SAP), pode ser baixado e
+  **desfeito** (um novo lote que devolve as datas antigas). Pedido parado pode ser cancelado.
+- Os IDs dos campos ficam em `[mudanca_datas]` de `automacao/transacoes.toml`; os campos de data são achados pelo
+  nome técnico (`CAUFVD-GSTRP`/`CAUFVD-GLTRP`) quando o ID não está preenchido.
+
 ## Configuração
 
 Tudo tem padrão; só crie `.streamlit/secrets.toml` (modelo em `.streamlit/secrets.toml.exemplo`) se precisar
