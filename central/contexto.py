@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from . import bases, planos, ui
-from .util import MESES, SETORES, setor_do_centro
+from . import bases, planos, saude, ui
+from .util import hoje_local, MESES, setor_do_centro, SETORES
 from . import indicadores as ind
 
 ARQ_METAS = "metas_wcm.json"
@@ -130,7 +130,7 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
     abas com calendário próprio (Planos). `bases_data` acrescenta ao quadro a escolha da data de
     referência (lida depois em st.session_state[chave_base])."""
     ss = st.session_state
-    hoje = date.today()
+    hoje = hoje_local()
     padrao = ((pd.Timestamp(hoje) - pd.DateOffset(months=12)).date(), hoje)
     o = bases.iw38().df
     n = bases.notas().df
@@ -229,6 +229,12 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
                     for k in ui.FILTROS_PERSISTENTES:
                         ss.pop(k, None)
                     st.rerun()
+    # marcar todas as opções = não filtrar (senão bases que não têm aquela coluna perderiam linhas à toa)
+    def _tudo(sel, chave_f):
+        return [] if len(opc[chave_f]) > 1 and set(sel) >= set(opc[chave_f]) else sel
+
+    sel_area, sel_setor = _tudo(sel_area, "f_areas"), _tudo(sel_setor, "f_setores")
+    sel_ctr, sel_tipo = _tudo(sel_ctr, "f_centros"), _tudo(sel_tipo, "f_tipos")
     if sel_ctr:
         efetivos = tuple(sel_ctr)
     elif sel_setor:
@@ -260,30 +266,56 @@ def _chamadas(chave: str) -> pd.DataFrame | None:
 
 
 def chamadas_classificadas() -> pd.DataFrame | None:
-    return _chamadas(bases.assinatura_geral() + str(date.today()))
+    return _chamadas(bases.assinatura_dados() + str(hoje_local()))
 
 
-@st.cache_resource(show_spinner="Preparando os indicadores…", max_entries=8)
+def _area_do_equipamento() -> dict:
+    eq = bases.equipamentos().df
+    return dict(zip(eq["Equipamento"], eq["Localização"])) if eq is not None and "Localização" in eq else {}
+
+
+def filtrar_conf(conf: pd.DataFrame | None, f: Filtros, ordens_todas: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Apontamentos (IW47) no recorte com uma regra só: centro pelo centro do apontamento; área pela ordem
+    (IW38) ou, se a ordem não está no IW38 (ex.: corretivas YM11), pela localização do equipamento (IH08);
+    tipo pelo tipo da ordem no próprio apontamento (ou no IW38)."""
+    if conf is None or not (f.areas or f.centros or f.tipos):
+        return conf
+    c = conf
+    if f.centros:
+        c = c[c["Centro de trabalho"].isin(f.centros)]
+    ref = ordens_todas.drop_duplicates("Ordem").set_index("Ordem") if ordens_todas is not None else None
+    if f.areas:
+        area = c["Ordem"].map(ref["Localização"]) if ref is not None else pd.Series(pd.NA, index=c.index)
+        if "Equipamento" in c:
+            area = area.fillna(c["Equipamento"].map(_area_do_equipamento()))
+        c = c[area.isin(f.areas)]
+    if f.tipos:
+        tipo = c["Tipo"].where(c["Tipo"] != "") if "Tipo" in c else pd.Series(pd.NA, index=c.index)
+        if ref is not None:
+            tipo = tipo.fillna(c["Ordem"].map(ref["Tipo"]))
+        c = c[tipo.isin(f.tipos)]
+    return c
+
+
+@st.cache_resource(show_spinner="Preparando os indicadores…", max_entries=4)
 def _dados(chave: str, f: Filtros) -> ind.Dados:
     o = bases.iw38().df
     ordens = f.ordens(o)
     conj = set(ordens["Ordem"])
     op = bases.operacoes().df
     oper = op[op["Ordem"].isin(conj)] if op is not None else None
-    cf = bases.confirmacoes().df
-    conf = None
-    if cf is not None:
-        conf = cf
-        if f.areas or f.tipos:
-            conf = conf[conf["Ordem"].isin(conj)]
-        if f.centros:
-            conf = conf[conf["Centro de trabalho"].isin(f.centros)]
+    conf = filtrar_conf(bases.confirmacoes().df, f, o)
     ch = chamadas_classificadas()
     if ch is not None:
         if f.centros:
             ch = ch[ch["Centro de trabalho"].isin(f.centros)]
         if f.tipos and "Tipo de ordem" in ch:
             ch = ch[ch["Tipo de ordem"].isin(f.tipos) | (ch["Tipo de ordem"] == "")]
+        if f.areas:      # a IP19 não traz a área: vale a do equipamento do plano (IH08) ou da ordem
+            area = ch["Equipamento"].map(_area_do_equipamento())
+            if "Ordem" in ch and o is not None:
+                area = area.fillna(ch["Ordem"].map(o.drop_duplicates("Ordem").set_index("Ordem")["Localização"]))
+            ch = ch[area.isin(f.areas)]
     eq = bases.equipe().df
     if eq is not None and f.centros:
         eq = eq[eq["Centro de trabalho"].isin(f.centros)]
@@ -295,11 +327,12 @@ def _dados(chave: str, f: Filtros) -> ind.Dados:
         tipos=ind.tipos_de(cad, bases.tipos_de_ordem_padrao()), horas_semana=ind.horas_semana_de(cad),
         # Gerenciador de AF: as áreas dele são outras, então nada de filtro de área/centro (só o período vale)
         afs=bases.afs().df, acoes_af=bases.acoes_af().df,
-        hoje=pd.Timestamp(date.today()))
+        hoje=pd.Timestamp(hoje_local()), centros=tuple(f.centros), tipos_filtro=tuple(f.tipos),
+        filtro_area_tipo=bool(f.areas or f.tipos))
 
 
 def _chave() -> str:
-    return bases.assinatura_geral() + "|" + str(date.today())
+    return bases.assinatura_dados() + "|" + str(hoje_local())
 
 
 def dados(f: Filtros) -> ind.Dados:
@@ -336,6 +369,19 @@ def ordens_enriquecidas() -> pd.DataFrame | None:
     return _ordens_enriq(_chave())
 
 
+@st.cache_data(show_spinner="Calculando a saúde dos ativos…", max_entries=16)
+def _saude(chave: str, f: Filtros) -> pd.DataFrame:
+    d = _dados(chave, f)
+    return saude.calcular(d.ordens, d.hoje, quebras=d.memo("quebras", ind.quebras), afs=d.afs, chamadas=d.chamadas,
+                          anomalias=d.memo("semeq", ind.anomalias_semeq), equip=bases.equipamentos().df,
+                          cad_eq=d.cad_eq)
+
+
+def saude_ativos(f: Filtros) -> pd.DataFrame:
+    """Índice de saúde por equipamento no recorte de área/setor/centro/tipo (janela própria de 12 meses)."""
+    return _saude(_chave(), Filtros(date.min, date.min, f.areas, f.centros, f.tipos, f.setores, f.centros_do_setor))
+
+
 @st.cache_data(show_spinner=False, max_entries=128)
 def _calc(chave: str, f: Filtros, ini: date, fim: date) -> dict:
     return ind.calcular(_dados(chave, f), ini, fim)
@@ -347,9 +393,10 @@ def _mensal(chave: str, f: Filtros, ini: date, fim: date) -> pd.DataFrame:
 
 
 def resultados(f: Filtros) -> tuple[dict, dict]:
-    """(valores do período, valores do período anterior de mesma duração)."""
+    """(valores do período, valores do período anterior de mesma duração). No anterior, só os indicadores
+    cuja base cobre ao menos metade dele — senão a comparação enganaria (ex.: notas exportadas só deste ano)."""
     a, b = ind.periodo_anterior(f.ini, f.fim)
-    return _calc(_chave(), f, f.ini, f.fim), _calc(_chave(), f, a, b)
+    return _calc(_chave(), f, f.ini, f.fim), ind.comparavel(_calc(_chave(), f, a, b))
 
 
 def serie_mensal(f: Filtros, meses: int = 12) -> pd.DataFrame:
@@ -480,13 +527,15 @@ def grafico_mensal(serie: pd.DataFrame, kpi: ind.Kpi, alvo: float | None, cor: s
     compacto: para gráficos pequenos — rotula só o último mês e usa poucos valores no eixo, sem sobreposição."""
     s = serie[["Mês", kpi.id]].dropna().copy()
     s["Rótulo"] = s[kpi.id].map(lambda v: ind.formatar(kpi, v))
-    s["Mês txt"] = s["Mês"].map(mes_pt)
+    atual = pd.Timestamp(hoje_local()).to_period("M").start_time
+    s["Mês txt"] = s["Mês"].map(lambda m: mes_pt(m) + ("*" if m >= atual else ""))   # * = mês em andamento
     eixo_y = alt.Axis(tickCount=3, labelFontSize=9, **({"format": "~s"} if kpi.unidade == "R$" else {})) \
         if compacto else alt.Axis()
     eixo_x = alt.Axis(labelAngle=0, labelOverlap="greedy", labelFontSize=9) if compacto else alt.Axis(labelAngle=0)
     base = alt.Chart(s).encode(x=alt.X("Mês txt:N", title=None, sort=list(s["Mês txt"]), axis=eixo_x),
                                y=alt.Y(f"{kpi.id}:Q", title=None, scale=alt.Scale(zero=barras), axis=eixo_y),
-                               tooltip=[alt.Tooltip("Mês txt:N", title="Mês"), alt.Tooltip("Rótulo:N", title=kpi.nome)])
+                               tooltip=[alt.Tooltip("Mês txt:N", title="Mês (* em andamento)"),
+                                        alt.Tooltip("Rótulo:N", title=kpi.nome)])
     if barras:
         ch = base.mark_bar(color=cor, cornerRadiusEnd=3, size=10 if compacto else 18)
     else:

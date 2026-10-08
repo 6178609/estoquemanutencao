@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
 
 import altair as alt
 import pandas as pd
@@ -10,7 +9,7 @@ import streamlit as st
 
 from . import bases, contexto, ui
 from . import execucao as ex
-from .util import SETORES, inteiro, sem_acento, setor_do_centro
+from .util import hoje_local, inteiro, sem_acento, setor_do_centro, SETORES
 
 
 def _num(v, casas=1, suf="") -> str:
@@ -21,7 +20,7 @@ def _num(v, casas=1, suf="") -> str:
 
 @st.cache_resource(show_spinner="Cruzando operações (IW38OP) com os apontamentos (IW47)…", max_entries=6)
 def _ops(chave: str, areas: tuple, centros: tuple, tipos: tuple) -> tuple[pd.DataFrame, pd.DataFrame]:
-    f = contexto.Filtros(date.today(), date.today(), areas, centros, tipos)
+    f = contexto.Filtros(hoje_local(), hoje_local(), areas, centros, tipos)
     o = bases.iw38().df
     ordens = f.ordens(o) if o is not None else None
     op = bases.operacoes().df
@@ -29,10 +28,14 @@ def _ops(chave: str, areas: tuple, centros: tuple, tipos: tuple) -> tuple[pd.Dat
         op = op[op["Ordem"].isin(set(ordens["Ordem"]))]
     eq = bases.equipe().df
     conf = bases.confirmacoes().df
-    ap = ex.apontamentos(conf, eq)
-    if centros and len(ap):
-        ap = ap[ap["Centro de trabalho"].isin(centros)]
-    return ex.operacoes(op, ordens, conf, eq, pd.Timestamp(date.today())), ap
+    # quem fez o quê: a mesma regra de recorte dos indicadores (centro, área pela ordem/equipamento, tipo)
+    ap = ex.apontamentos(contexto.filtrar_conf(conf, f, o), eq)
+    return ex.operacoes(op, ordens, conf, eq, pd.Timestamp(hoje_local())), ap
+
+
+def operacoes_do_recorte(f: contexto.Filtros) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(operações com situação/quem fez, apontamentos) no recorte de área/centro/tipo — em cache."""
+    return _ops(contexto._chave(), f.areas, f.centros, f.tipos)
 
 
 def mostrar(f: contexto.Filtros) -> None:
@@ -42,7 +45,7 @@ def mostrar(f: contexto.Filtros) -> None:
     ops, ap = _ops(contexto._chave(), f.areas, f.centros, f.tipos)
     o = bases.iw38().df
     ordens = f.ordens(o) if o is not None else None
-    hoje = pd.Timestamp(date.today())
+    hoje = pd.Timestamp(hoje_local())
 
     # setor e centro de trabalho da execução: valem para a taxa, os cartões, os gráficos, quem fez o quê e a lista
     centros_op = sorted(c for c in ops["Centro de trabalho"].dropna().unique() if c) if len(ops) else []
@@ -89,7 +92,10 @@ def mostrar(f: contexto.Filtros) -> None:
                      "A variação compara com o período anterior de mesma duração.")
     c[1].metric("Executadas", inteiro(r["executadas"]),
                 f"de {inteiro(r['devidas'])} devidas · {inteiro(r['programadas'] - r['devidas'])} a vencer",
-                delta_color="off", border=True, delta_arrow="off")
+                delta_color="off", border=True, delta_arrow="off",
+                help="Executada = operação confirmada (CONF) ou com apontamento na IW47. "
+                     f"{inteiro(r.get('encerradas_sem_conf') or 0)} operação(ões) foram encerradas sem confirmação e "
+                     "não contam como executadas.")
     c[2].metric("Atrasadas", inteiro(r["atrasadas"]), "vencidas e não confirmadas",
                 delta_color="off", border=True, delta_arrow="off")
     c[3].metric("Execução das ordens", _num(r["taxa_ordens"], 1, "%"), delta("taxa_ordens"), border=True,
@@ -142,7 +148,7 @@ def mostrar(f: contexto.Filtros) -> None:
                                            key="ex_agrupar") or "Setor"
             vivas = vivas.assign(Setor=vivas["Centro de trabalho"].map(setor_do_centro))
             g = vivas.groupby(agrupar)
-            t = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Concluída"].sum(),
+            t = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Executada"].sum(),
                               "Atrasadas": g["Situação"].apply(lambda s: int((s == ex.ATRASADA).sum())),
                               "HH programadas": g["Horas"].sum()}).reset_index()
             t["Taxa"] = t["Executadas"] / t["Programadas"] * 100
@@ -156,7 +162,7 @@ def mostrar(f: contexto.Filtros) -> None:
             for col, rot in (("Natureza", "Tipo de trabalho"), ("Área", "Área")):
                 if col in vivas:
                     g = vivas.assign(**{col: vivas[col].fillna("—").replace("", "—")}).groupby(col)
-                    t = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Concluída"].sum()}).reset_index()
+                    t = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Executada"].sum()}).reset_index()
                     t["Taxa"] = t["Executadas"] / t["Programadas"] * 100
                     st.dataframe(t.rename(columns={col: rot}).sort_values("Programadas", ascending=False).head(8),
                                  hide_index=True, width="stretch",

@@ -6,7 +6,7 @@ import streamlit as st
 from central import af, bases, contexto, ui
 from central import indicadores as ind
 from central.leitura import ACAO_AF
-from central.util import inteiro, sem_acento
+from central.util import agora_local, inteiro, sem_acento
 
 ui.cabecalho("Ações de AF · plano de ação",
              "Gestão das ações das análises de falha: execução e prazo por data limite, fila de prioridade, "
@@ -16,7 +16,7 @@ base = bases.acoes_af()
 if not ui.aviso_base(base, ACAO_AF):
     st.stop()
 cad = contexto.metas()
-hoje = pd.Timestamp.now().normalize()
+hoje = agora_local().normalize()
 PAGINA_AF = "paginas/af_planos.py"
 SEM_NOME = "(sem nome)"
 SEM_TIPO = "Sem tipo marcado"
@@ -43,7 +43,7 @@ BASE_DATA = contexto.data_de_referencia("aa_base", BASES_ACAO)
 
 
 def _chave() -> str:
-    return bases.assinatura_geral() + "|" + str(hoje.date())
+    return bases.assinatura_dados() + "|" + str(hoje.date())
 
 
 @st.cache_data(show_spinner=False, max_entries=16)

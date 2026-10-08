@@ -5,9 +5,22 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date, datetime
+from datetime import time as dt_time
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
+
+FUSO_LOCAL = ZoneInfo("America/Sao_Paulo")
+
+
+def agora_local() -> pd.Timestamp:
+    """Agora no horário da fábrica, sem fuso (o servidor na nuvem roda em UTC e viraria o dia às 21h)."""
+    return pd.Timestamp(datetime.now(FUSO_LOCAL).replace(tzinfo=None))
+
+
+def hoje_local() -> date:
+    return datetime.now(FUSO_LOCAL).date()
 
 
 def sem_acento(texto) -> str:
@@ -72,6 +85,8 @@ def para_data(serie: pd.Series) -> pd.Series:
     def conv(v):
         if v is None or v == "" or (isinstance(v, float) and np.isnan(v)):
             return pd.NaT
+        if isinstance(v, dt_time):            # só hora (coluna "Hora início avaria"): não é data
+            return pd.NaT
         if isinstance(v, (datetime, date, pd.Timestamp)):
             return pd.Timestamp(v)
         if isinstance(v, (int, float, np.number)):
@@ -88,6 +103,8 @@ def para_data(serie: pd.Series) -> pd.Series:
                 return pd.Timestamp(int(a), int(mes), int(d))
             except ValueError:
                 return pd.NaT
+        if re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", s):   # "07:48:58" viraria a data de hoje
+            return pd.NaT
         return pd.to_datetime(s, errors="coerce")
 
     # Muitas datas se repetem: converte só os valores distintos.

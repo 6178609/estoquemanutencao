@@ -175,3 +175,25 @@ def test_concluida_so_com_conf_e_ente():
     assert sit == {"1": "Concluída", "2": bases.ENCERRADA_SEM_CONF, "3": bases.ENCERRADA_SEM_CONF,
                    "4": "Liberada", "5": "Aberta"}
     assert set(prep.loc[prep["Situação"].isin(bases.PENDENTES), "Ordem"]) == {"2", "3", "4", "5"}
+
+
+def test_mb52_em_arvore_classifica_linha_pela_posicao():
+    """Texto do material com números, palavra "total", saldo negativo e material sem texto (dados fictícios)."""
+    linhas = ["Material             Texto breve material",
+              "100001               LUMINARIA LED 2W",
+              "           UN                     23",
+              "100002               CONJUNTO VEDACAO  2690089  2660019",     # texto com números
+              "           UN                      3",
+              "100003               PROTETOR AURICULAR TOTAL",              # "total" no texto
+              "           UN                     10",
+              "100004               GRAXA",
+              "           KG                 12,500-",                       # saldo negativo
+              "100005",                                                     # material sem texto
+              "           UN                      2",
+              "0099378    PAR   A                3.442",                    # lote do material anterior
+              "* Total                                         9.999.999"]
+    html = "<html><body><table>" + "".join(f"<tr><td>{x.replace(' ', '&nbsp;')}</td></tr>" for x in linhas) + "</table>"
+    df = leitura.ler_arquivo("MB52.htm", html.encode("cp1252"))
+    est = df.set_index("Material")["Utilização livre"].to_dict()
+    assert est == {"100001": 23.0, "100002": 3.0, "100003": 10.0, "100004": -12.5, "100005": 3444.0}
+    assert df.set_index("Material").loc["100004", "UM"] == "KG"

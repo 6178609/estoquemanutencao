@@ -12,7 +12,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from .util import achar_coluna, chave, fora_da_visao, para_data, setores, texto
+from .util import achar_coluna, agora_local, chave, fora_da_visao, para_data, setores, texto
 
 # ----------------------------------------------------------------------------
 # Situação de cada chamada
@@ -128,7 +128,7 @@ def de_iw38(iw38: pd.DataFrame) -> pd.DataFrame:
 # ----------------------------------------------------------------------------
 def classificar(ch: pd.DataFrame, iw38: pd.DataFrame | None, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
     """Acrescenta Situação, Data (referência da semana), situação/custo da ordem no IW38."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     ch = ch.copy()
     if iw38 is not None and len(iw38) and "_do_iw38" not in ch and (ch["Ordem"] == "").all():
         ch = _ordem_por_plano_e_data(ch, iw38)

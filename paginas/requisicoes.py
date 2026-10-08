@@ -1,11 +1,11 @@
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
 
 from central import bases, ui
 from central.leitura import REQ
-from central.util import brl, inteiro, sem_acento
+from central.util import brl, hoje_local, inteiro, sem_acento
 
 ui.cabecalho("Requisições de compra", "O que está aguardando aprovação, com quem está parado e há quanto tempo")
 
@@ -22,7 +22,7 @@ with ui.caixa_filtros():
     aprov = f[2].multiselect("Aprovador atual", sorted(a for a in df["Aprovador"].unique() if a), key="r_apr", placeholder="Todos")
     solic = f[3].multiselect("Solicitado por", sorted(a for a in df["Solicitante"].unique() if a), key="r_sol", placeholder="Todos")
     datas = df["Enviado em"].dropna()
-    padrao = (datas.min().date(), datas.max().date()) if len(datas) else (date.today() - timedelta(days=365), date.today())
+    padrao = (datas.min().date(), datas.max().date()) if len(datas) else (hoje_local() - timedelta(days=365), hoje_local())
     g = st.columns([3, 6])
     with g[0]:
         ini, fim = ui.filtro_datas("r_faixa", "Enviado em (de / até)", padrao, df["Enviado em"])

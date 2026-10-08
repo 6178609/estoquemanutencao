@@ -7,13 +7,15 @@ Pandas puro (testado em tests/test_execucao.py). Convenções:
   encerrada no IW38 encerra as suas operações.
 - Status com CONF = confirmada no SAP; "Encerrada sem confirmação" só quando não há CONF nem apontamento na IW47.
 - A operação se liga ao apontamento da IW47 por ordem + nº da operação (zeros à esquerda ignorados).
-- Taxa de execução = executadas ÷ programadas com data até hoje (as futuras ainda não venceram).
+- Taxa de execução = executadas (confirmadas ou com apontamento) ÷ programadas com data até hoje (as futuras
+  ainda não venceram); as encerradas sem confirmação não contam como executadas.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from .util import agora_local
 
 EXECUTADA, SEM_APONTAMENTO, ATRASADA, PROGRAMADA, CANCELADA = (
     "Executada", "Encerrada sem confirmação", "Atrasada", "Programada", "Cancelada")
@@ -53,7 +55,7 @@ def apontamentos(conf: pd.DataFrame | None, equipe: pd.DataFrame | None = None) 
 def operacoes(oper: pd.DataFrame | None, ordens: pd.DataFrame | None, conf: pd.DataFrame | None,
               equipe: pd.DataFrame | None = None, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
     """Uma linha por operação, com a situação, as horas reais e quem apontou (ordenado por data programada)."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     if oper is None or not len(oper):
         return pd.DataFrame(columns=["Ordem", "Operação", "Início", "Situação", "HH real", "Executado por"])
     o = oper.copy()
@@ -103,6 +105,7 @@ def operacoes(oper: pd.DataFrame | None, ordens: pd.DataFrame | None, conf: pd.D
         [o["Cancelada"], o["Concluída"] & (o["Confirmada"] | o["Com apontamento"]), o["Concluída"],
          o["Início"].notna() & (o["Início"] < hoje)],
         [CANCELADA, EXECUTADA, SEM_APONTAMENTO, ATRASADA], default=PROGRAMADA)
+    o["Executada"] = o["Situação"] == EXECUTADA
     atraso = (o["Fim real"] - o["Início"]).dt.days
     o["Dias após a programação"] = atraso.where(o["Concluída"] & (atraso >= 0))
     return o.sort_values("Início").reset_index(drop=True)
@@ -111,12 +114,14 @@ def operacoes(oper: pd.DataFrame | None, ordens: pd.DataFrame | None, conf: pd.D
 def indicadores(ops: pd.DataFrame, ordens: pd.DataFrame | None, conf_ap: pd.DataFrame | None, ini, fim,
                 hoje: pd.Timestamp | None = None) -> dict[str, float | None]:
     """Execução no período [ini, fim] pela data programada (operações) e pela data-base (ordens)."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     r: dict[str, float | None] = {}
     vivas = ops[ops["Situação"] != CANCELADA] if len(ops) else ops
     per = vivas[_entre(vivas["Início"], ini, fim)] if len(vivas) else vivas
     devidas = per[per["Início"] <= hoje] if len(per) else per
-    feitas = devidas[devidas["Concluída"]] if len(devidas) else devidas
+    # executada = confirmada (CONF) ou com apontamento; encerrada sem confirmação conta à parte
+    feitas = devidas[devidas["Situação"] == EXECUTADA] if len(devidas) else devidas
+    r["encerradas_sem_conf"] = float((devidas["Situação"] == SEM_APONTAMENTO).sum()) if len(devidas) else 0.0
     r["programadas"] = float(len(per))
     r["devidas"] = float(len(devidas))
     r["executadas"] = float(len(feitas))
@@ -162,15 +167,15 @@ def indicadores(ops: pd.DataFrame, ordens: pd.DataFrame | None, conf_ap: pd.Data
 
 def semanal(ops: pd.DataFrame, ini, fim, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
     """Por semana (segunda a domingo) da data programada: programadas, executadas e taxa."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     vivas = ops[(ops["Situação"] != CANCELADA) & _entre(ops["Início"], ini, fim)] if len(ops) else ops
     if not len(vivas):
         return pd.DataFrame(columns=["Semana", "Programadas", "Executadas", "Taxa"])
     v = vivas.assign(Semana=vivas["Início"] - pd.to_timedelta(vivas["Início"].dt.dayofweek, unit="D"))
     g = v.groupby("Semana")
-    s = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Concluída"].sum()}).reset_index()
+    s = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Executada"].sum()}).reset_index()
     devidas = v[v["Início"] <= hoje].groupby("Semana")
-    taxa = (devidas["Concluída"].sum() / devidas.size() * 100).rename("Taxa")
+    taxa = (devidas["Executada"].sum() / devidas.size() * 100).rename("Taxa")
     return s.merge(taxa, left_on="Semana", right_index=True, how="left")
 
 

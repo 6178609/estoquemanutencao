@@ -6,7 +6,7 @@ import streamlit as st
 
 from central import bases, contexto, planos, ui
 from central.leitura import IP19
-from central.util import brl, inteiro, pct, sem_acento
+from central.util import agora_local, brl, inteiro, pct, sem_acento
 
 ui.cabecalho("Planos de manutenção · IP19",
              "Calendário semanal de cada plano entre as datas escolhidas, cruzado com as ordens do IW38 — atualiza sozinho")
@@ -26,7 +26,7 @@ def chamadas(_ip19: pd.DataFrame | None, _iw38: pd.DataFrame | None, chave_cache
     return planos.classificar(origem, _iw38)
 
 
-hoje = pd.Timestamp.now().normalize()
+hoje = agora_local().normalize()
 if base_ip19.df is not None:
     ui.aviso_base(base_ip19, IP19)
     fonte = f"IP19 de {ui.local(base_ip19.atualizado)}" + (" · cruzada com o IW38" if iw38 is not None else "")

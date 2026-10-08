@@ -15,6 +15,7 @@ import html
 from datetime import date, timedelta
 
 import pandas as pd
+from .util import agora_local
 
 TURNOS = {"1ª": "1º turno", "2ª": "2º turno", "3ª": "3º turno", "G": "Horário geral"}
 SEM_EXECUTANTE = "Sem executante (IW47)"
@@ -71,7 +72,7 @@ def inicio_semana(d: date) -> date:
 def agenda(ordens: pd.DataFrame | None, oper: pd.DataFrame | None = None, conf: pd.DataFrame | None = None,
            equipe: pd.DataFrame | None = None, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
     """Uma linha por ordem e turno, com o dia (data-base de início), título, quem, duração e situação."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     cols = ["Dia", "Ordem", "Título", "Texto", "Tipo", "Natureza", "Situação", "Situação da ordem", "Turno",
             "Quem", "Duração (h)", "Centro de trabalho", "Localização", "Executantes", "Ajustada"]
     if ordens is None or not len(ordens):

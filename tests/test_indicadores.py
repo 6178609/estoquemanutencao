@@ -64,6 +64,8 @@ def test_confiabilidade():
     assert r["mttr"] == pytest.approx((4 + 1.5) / 2)
     assert r["reincidencia"] == pytest.approx(100 / 3)       # n2: EQ1 quebrou 19 dias antes
     assert r["quebras_a"] == 2
+    mtbf_h = 20 * 24                                         # MTBF de 20 dias em horas
+    assert r["disponibilidade"] == pytest.approx(mtbf_h / (mtbf_h + 2.75) * 100)
 
 
 def test_planejamento_e_custos():
@@ -94,7 +96,7 @@ def test_mao_de_obra_e_backlog_em_semanas():
 
 def test_aderencia_ao_plano():
     ch = pd.DataFrame({"Data": [T("2026-06-01"), T("2026-06-08"), T("2026-06-15"), T("2026-07-06"), T("2026-06-22")],
-                       "Situação": ["Concluída", "Atrasada", "Concluída", "Programada", "Saltada"]})
+                       "Situação": ["Concluída", "Atrasada", "Concluída", "Programada", "Saltada/cancelada"]})
     r = ind.calcular(_dados(chamadas=ch), date(2026, 6, 1), date(2026, 7, 31))
     assert r["aderencia"] == pytest.approx(200 / 3)          # 2 de 3 vencidas (saltada e futura fora)
 
@@ -121,8 +123,33 @@ def test_pecas_criticas_e_requisicoes():
 def test_mensal_e_periodo_anterior():
     m = ind.mensal(_dados(), date(2026, 5, 1), date(2026, 6, 30))
     assert list(m["Mês"]) == [T("2026-05-01"), T("2026-06-01")]
-    assert m.loc[1, "quebras"] == 3 and m.loc[0, "quebras"] == 0
+    # maio: a IW28 carregada começa em junho → sem dado (não "0 quebras")
+    assert m.loc[1, "quebras"] == 3 and pd.isna(m.loc[0, "quebras"])
+    notas = pd.concat([_notas(), _notas().iloc[[3]].assign(Nota="n5", Data=T("2026-05-03"))], ignore_index=True)
+    m = ind.mensal(_dados(notas=notas), date(2026, 5, 1), date(2026, 6, 30))
+    assert m.loc[0, "quebras"] == 0                          # maio coberto e sem quebra = 0
     assert ind.periodo_anterior(date(2026, 6, 1), date(2026, 6, 30)) == (date(2026, 5, 2), date(2026, 5, 31))
+
+
+def test_periodo_no_futuro_e_cobertura_das_bases():
+    # "Ano atual" até 31/12 com hoje = 30/06: o que ainda não aconteceu não conta
+    ano = ind.calcular(_dados(), date(2026, 1, 1), date(2026, 12, 31))
+    ate_hoje = ind.calcular(_dados(), date(2026, 1, 1), date(2026, 6, 30))
+    assert ano["mtbf"] == ate_hoje["mtbf"] and ano["custo"] == ate_hoje["custo"]
+    futuro = ind.calcular(_dados(), date(2026, 8, 1), date(2026, 8, 31))
+    assert futuro["quebras"] is None and futuro["custo"] is None and futuro["pct_plano"] is None
+    # comparação só onde a base cobre ao menos metade do período anterior
+    ant = ind.calcular(_dados(), date(2025, 6, 1), date(2025, 6, 30))
+    assert ant["quebras"] is None and ant["_cob_notas"] == 0
+    c = ind.comparavel({"quebras": 2.0, "_cob_notas": 0.2, "custo": 5.0, "_cob_iw38": 0.9})
+    assert c["quebras"] is None and c["custo"] == 5.0
+
+
+def test_filtro_de_tipo_sem_ym11_nao_mostra_quebras():
+    r = ind.calcular(_dados(tipos_filtro=("YM15",)), date(2026, 6, 1), date(2026, 6, 30))
+    assert r["quebras"] is None and r["mtbf"] is None and r["notas_7d"] is None
+    r = ind.calcular(_dados(tipos_filtro=("YM11",)), date(2026, 6, 1), date(2026, 6, 30))
+    assert r["quebras"] == 3
 
 
 def test_farol_variacao_e_formato():

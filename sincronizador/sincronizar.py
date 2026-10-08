@@ -334,7 +334,7 @@ def recuperar_interrompidos(gh) -> list[str]:
 # ----------------------------------------------------------------------------
 INICIADO_EM = datetime.now(timezone.utc).isoformat(timespec="seconds")
 SINAL_MIN = 20
-_ULTIMO_SINAL = [0.0]
+_ULTIMO_SINAL: list = [None]   # None = ainda não mandou (relógio monotônico começa no boot)
 
 
 def _versao_robo() -> tuple[str, list[str]]:
@@ -349,7 +349,7 @@ def _versao_robo() -> tuple[str, list[str]]:
 def sinal_de_vida(gh, forcar: bool = False, cfg: dict | None = None) -> bool:
     """Grava em app/robo_pc.json que este PC está ligado, com a versão do código e se tem o robô do SAP
     (a cada SINAL_MIN minutos). O site usa isso para dizer se o pedido vai ser atendido."""
-    if not forcar and time.monotonic() - _ULTIMO_SINAL[0] < SINAL_MIN * 60:
+    if not forcar and _ULTIMO_SINAL[0] is not None and time.monotonic() - _ULTIMO_SINAL[0] < SINAL_MIN * 60:
         return False
     versao_robo, recursos = _versao_robo()
     try:

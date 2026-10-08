@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
@@ -7,7 +7,7 @@ from central import bases, contexto, ui
 from central import calendario as cal
 from central import mudanca_datas as md
 from central.leitura import IW38
-from central.util import SETORES, inteiro, sem_acento, setor_do_centro
+from central.util import hoje_local, inteiro, sem_acento, setor_do_centro, SETORES
 
 ui.cabecalho("Calendário de ordens · IW38",
              "As ordens alocadas em cada dia (data-base de início do IW38), por turno, com quem apontou (IW47) "
@@ -21,16 +21,16 @@ fg = contexto.filtros_globais(periodo=False)  # o calendário navega por semana/
 
 @st.cache_resource(show_spinner="Montando o calendário das ordens…", max_entries=6)
 def _agenda(chave: str, areas: tuple, centros: tuple, tipos: tuple, ajustes: tuple) -> pd.DataFrame:
-    f = contexto.Filtros(date.today(), date.today(), areas, centros, tipos)
+    f = contexto.Filtros(hoje_local(), hoje_local(), areas, centros, tipos)
     ordens = cal.com_datas_alteradas(f.ordens(bases.iw38().df), dict(ajustes))
     return cal.agenda(ordens, bases.operacoes().df, bases.confirmacoes().df, bases.equipe().df,
-                      pd.Timestamp(date.today()))
+                      pd.Timestamp(hoje_local()))
 
 
 # mudanças de data feitas pelo robô (Programação do mês) que o IW38 exportado ainda não traz
 ajustes = md.datas_alteradas(bases.ler_cadastro(md.ARQ_LOTES), bases.iw38().atualizado)
 ag = _agenda(contexto._chave(), tuple(fg.areas), tuple(fg.centros), tuple(fg.tipos), tuple(sorted(ajustes.items())))
-hoje = date.today()
+hoje = hoje_local()
 
 # ----------------------------------------------------------------------------
 # Período (entre datas: data inicial → data final)

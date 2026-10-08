@@ -1,11 +1,10 @@
-from datetime import date
 
 import pandas as pd
 import streamlit as st
 
 from central import auth, bases, contexto, ui
 from central import indicadores as ind
-from central.util import inteiro
+from central.util import hoje_local, inteiro
 
 ui.cabecalho("Metas e parâmetros WCM",
              "Metas de cada indicador, jornada da equipe, capacidade por centro de trabalho e classificação dos tipos de ordem")
@@ -71,7 +70,7 @@ elif aba == "Equipe e capacidade":
 
     st.markdown("**Capacidade semanal por centro de trabalho (HH/semana)**")
     st.caption("Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.")
-    d = contexto.dados(contexto.Filtros(date.today(), date.today()))  # sem filtros: a fábrica toda
+    d = contexto.dados(contexto.Filtros(hoje_local(), hoje_local()))  # sem filtros: a fábrica toda
     centros = set()
     for df_ in (d.conf, d.oper):
         if df_ is not None:

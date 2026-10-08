@@ -195,7 +195,7 @@ def test_sincronizador_teste_do_robo_andamento_e_interrompidos(monkeypatch):
         assert salvo[lid]["status"] == md.EM_EXECUCAO and "1 etapa" in salvo[lid]["progresso"]["texto"]
         return {"tipo": md.DIAGNOSTICO, "etapas": [{"etapa": "Conexão com o SAP", "ok": True, "detalhe": "ok"}]}
 
-    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [0.0])
+    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
     assert sincronizar.executar_mudancas(gh, rodar=robo_falso) == [lid]
     assert vistos == [{"lote": lid, "tipo": md.DIAGNOSTICO, "teste": {"campo": "M1"}}]
     salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])

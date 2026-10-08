@@ -123,43 +123,49 @@ def _tokens(linha: str) -> list[str]:
 
 
 def _num_br(t: str):
+    """Número no padrão do SAP (1.234,500); o sinal pode vir no fim (12,500- = −12,5)."""
+    t = t.strip()
+    negativo = t.endswith("-")
     try:
-        return float(t.strip().replace(".", "").replace(",", "."))
+        v = float(t.rstrip("-").replace(".", "").replace(",", "."))
     except ValueError:
         return None
+    return -v if negativo else v
 
 
 _QTD = re.compile(r"-?\d[\d.]*(,\d+)?-?")
 _UNIDADE = re.compile(r"[A-Za-zÀ-ÿ]{1,3}\d?")
+_TOTAL = re.compile(r"^\s*\*+\s*total", re.IGNORECASE)
 
 
 def _lista_agrupada_mb52(linhas: list[str]) -> pd.DataFrame:
     """Lista do MB52 salva como HTML pelo SAP GUI, em árvore:
 
-        48737      LAMPADA V MET OVOIDE LEIT E40 400W        ← material (código + texto)
-                   UN                                  6     ← saldo (UM + quantidade)
+        48737      LAMPADA V MET OVOIDE LEIT E40 400W        ← material (na coluna 0: código + texto)
+                   UN                                  6     ← saldo (recuado: UM + quantidade)
         84518      PROD QUIM PRT 601 07
                    KG                          2.475,000
-        0099378    PAR   A                         3.442     ← saldo de um lote/avaliação
+        0099378    PAR   A                         3.442     ← saldo de um lote (coluna 0: nº + UM + quantidade)
+        * Total                                              ← total geral (ignorado)
 
-    Uma linha de saldo tem uma quantidade; a de material, não (só código e texto).
-    Por isso um lote que começa com número não vira material novo. Os saldos de
-    cada material são somados."""
+    A linha é classificada pela posição, não pelo "jeito de número": o texto do material pode ter números
+    (CONJUNTO VEDACAO  2690089  2660019) e não pode virar saldo do material anterior. Os saldos de cada
+    material são somados."""
     grupos, atual = [], None
     for linha in linhas:
         toks = _tokens(linha)
-        if not toks or "total" in linha.lower():
+        if not toks or _TOTAL.match(linha):
             continue
-        qtds = [t for t in toks[1:] if _QTD.fullmatch(t)]
-        if re.match(r"^\d", toks[0]) and not qtds and len(toks) >= 2:
+        recuada = linha[:1].isspace()
+        # lote/avaliação na coluna 0: nº, UM e uma quantidade depois (o depósito pode vir no fim)
+        lote = (not recuada and len(toks) >= 3 and _UNIDADE.fullmatch(toks[1]) is not None
+                and any(_QTD.fullmatch(t) for t in toks[2:]))
+        if not recuada and re.match(r"^\d", toks[0]) and not lote:
             atual = {"Material": toks[0], "Texto breve material": " ".join(toks[1:]), "UM": "", "Utilização livre": 0.0}
             grupos.append(atual)
             continue
-        if atual is None:
-            continue
-        if not qtds and _QTD.fullmatch(toks[0]):
-            qtds = [toks[0]]
-        if not qtds:
+        qtds = [t for t in toks[1:] if _QTD.fullmatch(t)]
+        if atual is None or not qtds:
             continue
         q = _num_br(qtds[-1])
         if q is None:

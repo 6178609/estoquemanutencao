@@ -66,7 +66,7 @@ def apos_gravar() -> None:
     """Depois de gravar um cadastro ou foto: o vigia da barra lateral não deve tratar a
     gravação como "arquivo novo" — o st.rerun dele roda antes desta página e apagaria o
     que está preenchido na tela (formulário aberto, visão escolhida)."""
-    ss["_assinatura"] = bases.assinatura_geral()
+    ss["_assinatura"] = bases.assinatura_dados()
 
 
 # ----------------------------------------------------------------------------

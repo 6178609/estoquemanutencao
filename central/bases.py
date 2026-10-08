@@ -11,9 +11,10 @@ from __future__ import annotations
 import io
 import json
 import re
+import threading
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import PurePath
 
 import numpy as np
@@ -23,7 +24,7 @@ import streamlit as st
 from . import af as af_mod
 from . import config, fontes, fotos, leitura
 from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
-from .util import achar_coluna, chave, fora_da_visao, marcar_quebras, para_data, para_numero, sem_acento, setores, texto
+from .util import achar_coluna, agora_local, chave, fora_da_visao, hoje_local, marcar_quebras, para_data, para_numero, sem_acento, setores, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
 ARQ_CAD_MAT = "cadastro_materiais.json"
@@ -66,22 +67,42 @@ def arquivos() -> list[fontes.Arquivo]:
     return _listar(cfg.chave, int(time.time() // passo))
 
 
-@st.cache_data(show_spinner=False, max_entries=24)
+@st.cache_data(show_spinner=False, max_entries=8, ttl="30m")
 def _bytes(id: str, assinatura: str) -> bytes:
     return fonte().ler(id)
 
 
-@st.cache_data(show_spinner=False, max_entries=12)
+@st.cache_data(show_spinner=False, max_entries=6, ttl="2h")
 def _ler_cru(id: str, assinatura: str, planilha: str | None, linha: int | None) -> pd.DataFrame:
     return leitura.ler_arquivo(id, _bytes(id, assinatura), planilha, linha)
 
 
 @st.cache_data(show_spinner=False, max_entries=2048)
 def _sondar(id: str, assinatura: str) -> list[tuple[str, str | None, int | None]]:
+    """Bases dentro do arquivo. Falha de leitura (arquivo aberto no Excel, OneDrive sincronizando, rede)
+    levanta erro e não fica em cache: o arquivo é tentado de novo, em vez de sumir até mudar."""
     try:
         return leitura.sondar(id, fonte().ler(id))
-    except Exception:  # noqa: BLE001 — arquivo bloqueado/corrompido: só não entra
+    except leitura.LeituraErro:  # não é uma base que o app conhece
         return []
+
+
+_FALHAS_SONDA: dict[tuple[str, str], float] = {}   # (arquivo, versão) → hora da última falha de leitura
+
+
+def _sondar_seguro(arq: fontes.Arquivo) -> tuple[list, bool]:
+    """(bases achadas, leu?) — depois de uma falha, espera 1 min antes de tentar o mesmo arquivo de novo."""
+    chave_f = (arq.id, arq.assinatura)
+    falhou = _FALHAS_SONDA.get(chave_f)
+    if falhou and time.time() - falhou < 60:
+        return [], False
+    try:
+        achados = _sondar(arq.id, arq.assinatura)
+    except Exception:  # noqa: BLE001
+        _FALHAS_SONDA[chave_f] = time.time()
+        return [], False
+    _FALHAS_SONDA.pop(chave_f, None)
+    return achados, True
 
 
 @dataclass(frozen=True)
@@ -104,6 +125,7 @@ class Inventario:
     fixados: dict[str, str] = field(default_factory=dict)          # tipo -> id fixado pelo usuário
     verificados: int = 0
     erro: str = ""
+    incompleto: bool = False   # algum arquivo não pôde ser lido agora (não guardar este inventário)
 
 
 def _pista(arq: fontes.Arquivo) -> str | None:
@@ -121,8 +143,11 @@ def inventario() -> Inventario:
     except Exception:  # noqa: BLE001 — fonte fora do ar: _inventario mostra o erro
         return _inventario()
     if chave_memo not in _INV_MEMO:
+        inv = _inventario()
+        if inv.incompleto or inv.erro:   # falha passageira: tenta de novo na próxima vez
+            return inv
         _INV_MEMO.clear()
-        _INV_MEMO[chave_memo] = _inventario()
+        _INV_MEMO[chave_memo] = inv
     return _INV_MEMO[chave_memo]
 
 
@@ -151,7 +176,8 @@ def _inventario() -> Inventario:
         if (not pendentes and arq.id not in fixos and _pista(arq) is None
                 and (limite is None or arq.modificado < limite)):
             continue
-        achados = _sondar(arq.id, arq.assinatura)
+        achados, leu = _sondar_seguro(arq)
+        inv.incompleto |= not leu
         inv.verificados += 1
         for tipo, planilha, linha in achados:
             o = Origem(arq, tipo, planilha, linha)
@@ -181,8 +207,23 @@ def fixar_origem(tipo: str, arquivo_id: str | None, usuario: str = "") -> None:
 
 
 def assinatura_geral() -> str:
-    """Muda quando qualquer arquivo da fonte muda — o vigia usa isso para recarregar a tela."""
+    """Muda quando qualquer arquivo da fonte muda (chave do inventário)."""
     return ";".join(a.assinatura for a in arquivos())
+
+
+# cadastros que entram nos indicadores (os de controle — usuários, lotes do robô, sinal do PC, backups —
+# não recarregam a tela de ninguém nem invalidam os indicadores)
+CADASTROS_DOS_DADOS = ("metas_wcm.json", ARQ_CAD_EQUIP, ARQ_CAD_MAT, ARQ_PREF)
+
+
+def assinatura_dados() -> str:
+    """Muda quando uma base do SAP em uso ou um cadastro que entra nos indicadores muda — é o que o
+    vigia da barra lateral observa e a chave dos indicadores em cache."""
+    inv = inventario()
+    partes = [o.arquivo.assinatura for t in sorted(inv.usados) for o in inv.usados[t]]
+    ids = {fonte().id_de(n) for n in CADASTROS_DOS_DADOS}
+    partes += sorted(a.assinatura for a in arquivos() if a.id in ids)
+    return ";".join(partes)
 
 
 # ----------------------------------------------------------------------------
@@ -246,20 +287,21 @@ def _piloto_ou_matriz(df: pd.DataFrame) -> pd.Series:
     return fora_da_visao(df)
 
 
-@st.cache_data(show_spinner=False, max_entries=12)
 def _cru(tipo: str, origens: tuple) -> pd.DataFrame:
-    """Tabela crua da base (o export mais recente; ver leitura.MESCLAR)."""
+    """Tabela crua da base (o export mais recente; ver leitura.MESCLAR). Sem cache próprio: só é usada para
+    preparar a base (que fica em cache) — guardar a crua também dobraria a memória."""
     return leitura.mesclar(tipo, [_ler_cru(o.arquivo.id, o.arquivo.assinatura, o.planilha, o.linha) for o in origens])
 
 
-@st.cache_resource(show_spinner="Preparando ordens (IW38)…", max_entries=4)
-def _iw38(origens: tuple, excluir: bool) -> tuple[pd.DataFrame, int]:
-    return preparar_iw38(_cru(IW38, origens), excluir_piloto_matriz=excluir)
+@st.cache_resource(show_spinner="Preparando ordens (IW38)…", max_entries=2)
+def _iw38(origens: tuple, excluir: bool, dia: str) -> tuple[pd.DataFrame, int]:
+    """`dia` na chave: atrasada e dias em aberto dependem de hoje (o cache vira à meia-noite)."""
+    return preparar_iw38(_cru(IW38, origens), pd.Timestamp(dia), excluir_piloto_matriz=excluir)
 
 
 def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
                   excluir_piloto_matriz: bool = True) -> tuple[pd.DataFrame, int]:
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     df = pd.DataFrame(index=cru.index)
     usadas = set()
     for nome, padroes in _IW38_COLUNAS.items():
@@ -302,7 +344,9 @@ def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
     pendente = df["Situação"].isin(PENDENTES)
     prazo = df["Fim"].fillna(df["Início"])
     df["Atrasada"] = pendente & prazo.notna() & (prazo < hoje)
-    df["Dias em aberto"] = np.where(pendente, (hoje - df["Entrada"].fillna(df["Início"])).dt.days, np.nan)
+    # sem data de entrada no export, conta do início previsto (ordem programada para o futuro: 0, não negativo)
+    df["Dias em aberto"] = np.where(pendente, (hoje - df["Entrada"].fillna(df["Início"])).dt.days.clip(lower=0),
+                                    np.nan)
     dur = (df["Fim"] - df["Início"]).dt.days
     df["Duração (dias)"] = dur.where((dur >= 0) & (dur < 3650))
     df["Equip. (chave)"] = np.where(df["Equipamento"] != "", df["Equipamento"], df["Objeto técnico"])
@@ -317,7 +361,7 @@ def preparar_iw38(cru: pd.DataFrame, hoje: pd.Timestamp | None = None,
 # ----------------------------------------------------------------------------
 # MB52 — estoque
 # ----------------------------------------------------------------------------
-@st.cache_resource(show_spinner="Preparando estoque (MB52)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando estoque (MB52)…", max_entries=2)
 def _mb52(origens: tuple) -> tuple[pd.DataFrame, pd.DataFrame]:
     return preparar_mb52(_cru(MB52, origens))
 
@@ -372,13 +416,13 @@ _REQ_COLUNAS = {
 }
 
 
-@st.cache_resource(show_spinner="Preparando requisições…", max_entries=4)
-def _req(origens: tuple) -> pd.DataFrame:
-    return preparar_requisicoes(_cru(REQ, origens))
+@st.cache_resource(show_spinner="Preparando requisições…", max_entries=2)
+def _req(origens: tuple, dia: str) -> pd.DataFrame:
+    return preparar_requisicoes(_cru(REQ, origens), pd.Timestamp(dia))
 
 
 def preparar_requisicoes(cru: pd.DataFrame, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     df = pd.DataFrame(index=cru.index)
     usadas = set()
     for nome, padroes in _REQ_COLUNAS.items():
@@ -400,7 +444,7 @@ def preparar_requisicoes(cru: pd.DataFrame, hoje: pd.Timestamp | None = None) ->
 # ----------------------------------------------------------------------------
 # IP19 — programação dos planos de manutenção
 # ----------------------------------------------------------------------------
-@st.cache_resource(show_spinner="Preparando planos (IP19)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando planos (IP19)…", max_entries=2)
 def _ip19(origens: tuple, excluir: bool) -> pd.DataFrame:
     from .planos import preparar_ip19
 
@@ -454,7 +498,7 @@ def preparar_operacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True) ->
     return df.drop(columns=["Trabalho"]).reset_index(drop=True)
 
 
-@st.cache_resource(show_spinner="Preparando operações (IW38OP)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando operações (IW38OP)…", max_entries=2)
 def _oper(origens: tuple, excluir: bool) -> pd.DataFrame:
     return preparar_operacoes(_cru(OPER, origens), excluir)
 
@@ -468,14 +512,15 @@ _NOTAS_COLUNAS = {
     "Objeto técnico": [r"DENOMINACAO DO OBJETO", r"OBJETO TECNICO"], "Local de instalação": [r"DENOMINACAO DO LOC"],
     "Centro de trabalho": [r"CENTRO TRAB RESPONS", r"^CENTRO DE TRABALHO$"], "Localização": [r"^LOCALIZACAO$"],
     "Notificador": [r"NOTIFICADOR"], "Parada": [r"^PARADA$"], "Duração da parada": [r"DURACAO DA PARADA"],
-    "Início avaria": [r"INICIO AVARIA", r"INICIO DA AVARIA"], "Fim avaria": [r"^FIM DA AVARIA$", r"FIM AVARIA"],
+    "Início avaria": [r"^INICIO (DA )?AVARIA$", r"^(DATA )?INICIO (DA )?AVARIA"],
+    "Fim avaria": [r"^FIM (DA )?AVARIA$", r"^(DATA )?FIM (DA )?AVARIA"],
     "Data da nota": [r"DATA DA NOTA"], "Criado por": [r"CRIADO POR"], "Código ABC": [r"CODIGO ABC", r"^ABC$"],
     "Plano": [r"PLANO DE MANUTENCAO"],
 }
 
 
 def preparar_notas(cru: pd.DataFrame, hoje: pd.Timestamp | None = None, excluir_piloto_matriz: bool = True) -> pd.DataFrame:
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     df = _padronizar(cru, _NOTAS_COLUNAS, ["Nota", "Ordem", "Tipo de nota", "Descrição", "Equipamento", "Objeto técnico",
                                             "Local de instalação", "Centro de trabalho", "Localização", "Notificador",
                                             "Parada", "Criado por", "Código ABC", "Plano"])
@@ -494,9 +539,9 @@ def preparar_notas(cru: pd.DataFrame, hoje: pd.Timestamp | None = None, excluir_
     return df.drop(columns=["Parada", "Duração da parada"]).reset_index(drop=True)
 
 
-@st.cache_resource(show_spinner="Preparando notas (IW28)…", max_entries=4)
-def _notas(origens: tuple) -> pd.DataFrame:
-    return preparar_notas(_cru(NOTAS, origens), excluir_piloto_matriz=config.carregar().excluir_piloto_matriz)
+@st.cache_resource(show_spinner="Preparando notas (IW28)…", max_entries=2)
+def _notas(origens: tuple, excluir: bool, dia: str) -> pd.DataFrame:
+    return preparar_notas(_cru(NOTAS, origens), pd.Timestamp(dia), excluir_piloto_matriz=excluir)
 
 
 # ----------------------------------------------------------------------------
@@ -518,7 +563,7 @@ def preparar_equipamentos(cru: pd.DataFrame, excluir_piloto_matriz: bool = True)
     return df.reset_index(drop=True)
 
 
-@st.cache_resource(show_spinner="Preparando cadastro de equipamentos (IH08)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando cadastro de equipamentos (IH08)…", max_entries=2)
 def _equip(origens: tuple, excluir: bool) -> pd.DataFrame:
     return preparar_equipamentos(_cru(EQUIP, origens), excluir)
 
@@ -554,7 +599,7 @@ def preparar_confirmacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True)
     return df.drop(columns=["Trabalho", "Atividade planejada"]).reset_index(drop=True)
 
 
-@st.cache_resource(show_spinner="Preparando apontamentos de horas (IW47)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando apontamentos de horas (IW47)…", max_entries=2)
 def _conf(origens: tuple, excluir: bool) -> pd.DataFrame:
     return preparar_confirmacoes(_cru(CONF, origens), excluir)
 
@@ -593,7 +638,7 @@ def _especialidade(cargo: str) -> str:
     return "Outros"
 
 
-@st.cache_resource(show_spinner="Preparando equipe (Gestão de HH)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando equipe (Gestão de HH)…", max_entries=2)
 def _equipe(origens: tuple, excluir: bool) -> pd.DataFrame:
     return preparar_equipe(_cru(EQUIPE, origens), excluir)
 
@@ -632,12 +677,12 @@ def tipos_de_ordem_padrao() -> dict[str, str]:
 # ----------------------------------------------------------------------------
 # Gerenciador de AF — análises de falha e ações (ver central/af.py)
 # ----------------------------------------------------------------------------
-@st.cache_resource(show_spinner="Preparando análises de falha (Gerenciador de AF)…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando análises de falha (Gerenciador de AF)…", max_entries=2)
 def _afs(origens: tuple, dia: str) -> pd.DataFrame:
     return af_mod.preparar_afs(_cru(AF, origens), pd.Timestamp(dia))
 
 
-@st.cache_resource(show_spinner="Preparando ações das análises de falha…", max_entries=4)
+@st.cache_resource(show_spinner="Preparando ações das análises de falha…", max_entries=2)
 def _acoes_af(origens: tuple, origens_af: tuple, dia: str) -> pd.DataFrame:
     afs_df = _afs(origens_af, dia) if origens_af else None
     return af_mod.preparar_acoes(_cru(ACAO_AF, origens), pd.Timestamp(dia), afs_df)
@@ -646,12 +691,23 @@ def _acoes_af(origens: tuple, origens_af: tuple, dia: str) -> pd.DataFrame:
 # ----------------------------------------------------------------------------
 # Cadastros feitos no próprio app (JSON na pasta do app, compartilhada)
 # ----------------------------------------------------------------------------
-@st.cache_data(show_spinner=False, max_entries=8)
+@st.cache_data(show_spinner=False, max_entries=16)
 def _ler_json(id: str, assinatura: str) -> dict:
+    """Erro de leitura levanta (e não fica em cache): quem chama usa a última leitura boa."""
+    dados = json.loads(fonte().ler(id).decode("utf-8"))
+    return dados if isinstance(dados, dict) else {}
+
+
+_ULTIMO_BOM: dict[str, dict] = {}   # id do cadastro → última leitura boa (se a fonte falhar um instante)
+
+
+def _ler_json_seguro(id: str, assinatura: str) -> dict:
     try:
-        return json.loads(fonte().ler(id).decode("utf-8"))
-    except Exception:  # noqa: BLE001
-        return {}
+        dados = _ler_json(id, assinatura)
+    except Exception:  # noqa: BLE001 — rede/arquivo bloqueado: não some com o cadastro (nem desloga ninguém)
+        return _ULTIMO_BOM.get(id, {})
+    _ULTIMO_BOM[id] = dados
+    return dados
 
 
 def _ler_json_agora(nome: str) -> dict:
@@ -681,7 +737,7 @@ def _backups_feitos() -> set:
 
 def _backup_diario(nome: str, conteudo: dict) -> None:
     """Uma cópia por dia de cada cadastro (antes da primeira gravação do dia) em backup/."""
-    dia = date.today().isoformat()
+    dia = hoje_local().isoformat()
     if not conteudo or (nome, dia) in _backups_feitos():
         return
     try:
@@ -695,13 +751,13 @@ def _backup_diario(nome: str, conteudo: dict) -> None:
 def manifesto() -> dict:
     """Manifesto do repositório de dados (modo GitHub): de onde e quando veio cada base."""
     arq = next((a for a in arquivos() if a.id == fontes.MANIFESTO), None)
-    return _ler_json(arq.id, arq.assinatura) if arq else {}
+    return _ler_json_seguro(arq.id, arq.assinatura) if arq else {}
 
 
 def ler_cadastro(nome: str) -> dict:
     alvo = fonte().id_de(nome)
     arq = next((a for a in arquivos() if a.id == alvo), None)
-    return _ler_json(arq.id, arq.assinatura) if arq else {}
+    return _ler_json_seguro(arq.id, arq.assinatura) if arq else {}
 
 
 def gravar_cadastro(nome: str, chave_item: str, dados: dict | None, usuario: str = "") -> None:
@@ -711,32 +767,86 @@ def gravar_cadastro(nome: str, chave_item: str, dados: dict | None, usuario: str
 _CAMPOS_DE_EDICAO = ("atualizado_em", "atualizado_por")
 
 
+_TRAVAS: dict[str, threading.Lock] = {}
+
+
+def _trava(nome: str) -> threading.Lock:
+    return _TRAVAS.setdefault(nome, threading.Lock())
+
+
+def _decodificar_cadastro(nome: str, bruto: bytes | None) -> dict:
+    if bruto is None:
+        return {}
+    try:
+        dados = json.loads(bruto.decode("utf-8"))
+    except ValueError as e:
+        raise fontes.FonteErro(f"{nome} está ilegível; nada foi gravado para não perder o conteúdo.") from e
+    if not isinstance(dados, dict):
+        raise fontes.FonteErro(f"{nome} está em formato inesperado; nada foi gravado.")
+    return dados
+
+
+def _ler_versionado(nome: str) -> tuple[bytes | None, str | None]:
+    f = fonte()
+    if hasattr(f, "ler_versionado"):
+        return f.ler_versionado(nome)
+    try:                                   # fonte sem versão: lê e grava por cima (como antes)
+        return f.ler(f.id_de(nome)), None
+    except fontes.NaoEncontrado:
+        return None, None
+
+
+def _gravar_condicional(nome: str, conteudo: bytes, versao: str | None) -> bool:
+    f = fonte()
+    if hasattr(f, "gravar_condicional"):
+        return f.gravar_condicional(nome, conteudo, versao)
+    f.gravar(nome, conteudo)
+    return True
+
+
 def gravar_cadastro_lote(nome: str, itens: dict[str, dict | None], usuario: str = "", mesclar: bool = False) -> None:
     """Atualiza só os itens informados (relendo o arquivo na hora), para duas pessoas
     editando itens diferentes não se sobrescreverem. Valor None remove o item.
 
+    A gravação é condicional à versão lida (sha no GitHub, eTag no SharePoint, data no disco): se outra
+    pessoa (ou o robô) gravou no meio, relê e aplica de novo — nenhuma das duas alterações se perde.
+
     mesclar=True muda só os campos informados de cada item (campo None é apagado) e
     remove o item que fica sem nenhum campo — ex.: o mínimo de um material não apaga a foto."""
-    atual = _ler_json_agora(nome)  # levanta erro se não conseguiu ler: nunca grava em cima de um "vazio" falso
-    _backup_diario(nome, atual)
-    agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    for chave_item, dados in itens.items():
-        if dados is not None and mesclar:
-            dados = {k: v for k, v in {**(atual.get(chave_item) or {}), **dados}.items()
-                     if v is not None and k not in _CAMPOS_DE_EDICAO}
-            dados = dados or None
-        if dados is None:
-            atual.pop(chave_item, None)
+    with _trava(nome):
+        for tentativa in range(5):
+            try:
+                bruto, versao = _ler_versionado(nome)
+            except fontes.FonteErro as e:
+                raise fontes.FonteErro(f"Não foi possível ler {nome} agora ({e}). Nada foi gravado; "
+                                       "tente de novo em instantes.") from e
+            atual = _decodificar_cadastro(nome, bruto)   # erro de leitura nunca vira "vazio" gravado por cima
+            if tentativa == 0:
+                _backup_diario(nome, atual)
+            agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            for chave_item, dados in itens.items():
+                if dados is not None and mesclar:
+                    dados = {k: v for k, v in {**(atual.get(chave_item) or {}), **dados}.items()
+                             if v is not None and k not in _CAMPOS_DE_EDICAO}
+                    dados = dados or None
+                if dados is None:
+                    atual.pop(chave_item, None)
+                else:
+                    atual[chave_item] = {**dados, "atualizado_em": agora, "atualizado_por": usuario}
+            conteudo = json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8")
+            if _gravar_condicional(nome, conteudo, versao):
+                break
+            time.sleep(0.3 * (tentativa + 1))
         else:
-            atual[chave_item] = {**dados, "atualizado_em": agora, "atualizado_por": usuario}
-    fonte().gravar(nome, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
+            raise fontes.FonteErro(f"{nome} está sendo alterado por outra pessoa agora; nada foi gravado — "
+                                   "tente de novo em instantes.")
     recarregar()
 
 
 # ----------------------------------------------------------------------------
 # Fotos dos materiais (ver central/fotos.py)
 # ----------------------------------------------------------------------------
-@st.cache_data(show_spinner=False, max_entries=1024)
+@st.cache_data(show_spinner=False, max_entries=128)
 def _foto(caminho: str, versao: str) -> bytes | None:
     try:
         return fonte().ler(fonte().id_de(caminho))
@@ -836,7 +946,7 @@ def _excluir() -> bool:
 
 def iw38() -> Base:
     def fn(us):
-        df, removidas = _iw38(us, _excluir())
+        df, removidas = _iw38(us, _excluir(), str(hoje_local()))
         return Base(df, None, extra=removidas)
     return _carregar(IW38, fn)
 
@@ -849,17 +959,17 @@ def mb52() -> Base:
 
 
 def requisicoes() -> Base:
-    return _carregar(REQ, lambda us: Base(_req(us), None))
+    return _carregar(REQ, lambda us: Base(_req(us, str(hoje_local())), None))
 
 
 def afs() -> Base:
     """Análises de falha (a situação depende do dia: o cache vira à meia-noite)."""
-    return _carregar(AF, lambda us: Base(_afs(us, str(date.today())), None))
+    return _carregar(AF, lambda us: Base(_afs(us, str(hoje_local())), None))
 
 
 def acoes_af() -> Base:
     origens_af = tuple(inventario().usados.get(AF, []))
-    return _carregar(ACAO_AF, lambda us: Base(_acoes_af(us, origens_af, str(date.today())), None))
+    return _carregar(ACAO_AF, lambda us: Base(_acoes_af(us, origens_af, str(hoje_local())), None))
 
 
 def confirmacoes() -> Base:
@@ -892,16 +1002,16 @@ def tipos_por_ordem() -> pd.Series:
     return t.set_index("Ordem")["Tipo"].str.strip().str.upper()
 
 
-@st.cache_resource(show_spinner="Marcando as quebras (Y1 → YM11)…", max_entries=4)
-def _notas_quebras(origens: tuple, chave_tipos: tuple) -> pd.DataFrame:
-    return marcar_quebras(_notas(origens), tipos_por_ordem())
+@st.cache_resource(show_spinner="Marcando as quebras (Y1 → YM11)…", max_entries=2)
+def _notas_quebras(origens: tuple, chave_tipos: tuple, dia: str) -> pd.DataFrame:
+    return marcar_quebras(_notas(origens, _excluir(), dia), tipos_por_ordem())
 
 
 def notas() -> Base:
     """IW28 com a coluna Quebra (nota Y1 convertida em ordem YM11)."""
     usados = inventario().usados
     chave_tipos = tuple(tuple(usados.get(t, [])) for t in (IW38, OPER, CONF)) + (_excluir(),)
-    return _carregar(NOTAS, lambda us: Base(_notas_quebras(us, chave_tipos), None))
+    return _carregar(NOTAS, lambda us: Base(_notas_quebras(us, chave_tipos, str(hoje_local())), None))
 
 
 def equipamentos() -> Base:

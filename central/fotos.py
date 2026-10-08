@@ -29,21 +29,31 @@ def caminho(codigo: str) -> str:
     return f"{PASTA}/{re.sub(r'[^0-9A-Za-z_-]', '_', codigo.strip())}.jpg"
 
 
+Image.MAX_IMAGE_PIXELS = 60_000_000   # foto de celular de 48 MP passa; imagem gigante (bomba) não
+
+
 def preparar(conteudo: bytes, max_lado: int = MAX_LADO) -> bytes:
-    """Foto do celular/PC → JPEG leve, na orientação certa (EXIF) e sem metadados."""
+    """Foto do celular/PC → JPEG leve, na orientação certa (EXIF) e sem metadados.
+
+    Reduz antes de girar (o JPEG já é lido em tamanho menor): uma foto de 48 MP não ocupa centenas de MB
+    na memória do servidor."""
     try:
         img = Image.open(io.BytesIO(conteudo))
+        if img.format == "JPEG":
+            img.draft("RGB", (max_lado * 2, max_lado * 2))
+        img.thumbnail((max_lado, max_lado))
         img = ImageOps.exif_transpose(img)
+        if img.mode not in ("RGB", "L"):
+            fundo = Image.new("RGB", img.size, "white")
+            img = img.convert("RGBA")
+            fundo.paste(img, mask=img.getchannel("A"))
+            img = fundo
+        saida = io.BytesIO()
+        img.convert("RGB").save(saida, "JPEG", quality=85, optimize=True)
     except (UnidentifiedImageError, OSError) as e:
         raise FotoErro("o arquivo não é uma imagem válida (use JPG, PNG ou WEBP)") from e
-    if img.mode not in ("RGB", "L"):
-        fundo = Image.new("RGB", img.size, "white")
-        img = img.convert("RGBA")
-        fundo.paste(img, mask=img.getchannel("A"))
-        img = fundo
-    img.thumbnail((max_lado, max_lado))
-    saida = io.BytesIO()
-    img.convert("RGB").save(saida, "JPEG", quality=85, optimize=True)
+    except (Image.DecompressionBombError, ValueError, MemoryError) as e:
+        raise FotoErro("a imagem é grande demais — tire a foto com menos resolução") from e
     return saida.getvalue()
 
 

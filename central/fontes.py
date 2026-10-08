@@ -56,6 +56,10 @@ class NaoEncontrado(FonteErro):
     """O arquivo não existe (diferente de uma falha de leitura, que nunca deve virar "arquivo vazio")."""
 
 
+class Conflito(FonteErro):
+    """Outra pessoa gravou o mesmo arquivo entre a leitura e a gravação."""
+
+
 def _ignorar(nome: str) -> bool:
     return nome.startswith((".", "~$")) or not nome.lower().endswith(EXTENSOES_DADOS)
 
@@ -104,7 +108,9 @@ class Pastas:
                     except OSError:  # arquivo sumiu ou está bloqueado no meio da sincronização
                         continue
                     nome = str(Path(original.name) / p.relative_to(raiz))
-                    itens.append(Arquivo(str(p), nome, datetime.fromtimestamp(st.st_mtime, timezone.utc), st.st_size))
+                    # versão em nanossegundos: duas gravações no mesmo segundo (e mesmo tamanho) ainda mudam a chave
+                    itens.append(Arquivo(str(p), nome, datetime.fromtimestamp(st.st_mtime, timezone.utc), st.st_size,
+                                         str(st.st_mtime_ns)))
         return itens
 
     def ler(self, id: str) -> bytes:
@@ -124,7 +130,31 @@ class Pastas:
         return str(destino)
 
     def id_de(self, nome: str) -> str:
-        return str(self.pasta_app / nome)
+        # o mesmo caminho canônico da listagem (atalho, "..", maiúsculas no Windows)
+        return str((self.pasta_app / nome).resolve())
+
+    @staticmethod
+    def _versao_arquivo(p: Path) -> str | None:
+        try:
+            st = p.stat()
+        except FileNotFoundError:
+            return None
+        return f"{st.st_mtime_ns}|{st.st_size}"
+
+    def ler_versionado(self, nome: str) -> tuple[bytes | None, str | None]:
+        """(conteúdo, versão) do arquivo do app; (None, None) se não existe."""
+        p = self.pasta_app / nome
+        versao = self._versao_arquivo(p)
+        if versao is None:
+            return None, None
+        return p.read_bytes(), versao
+
+    def gravar_condicional(self, nome: str, conteudo: bytes, versao: str | None) -> bool:
+        """Grava só se o arquivo ainda está na versão lida (senão alguém gravou no meio: False)."""
+        if self._versao_arquivo(self.pasta_app / nome) != versao:
+            return False
+        self.gravar(nome, conteudo)
+        return True
 
 
 class SharePoint:
@@ -246,17 +276,41 @@ class SharePoint:
                 if r.status_code >= 400 and r.status_code != 409:
                     raise FonteErro(f"Erro {r.status_code} ao criar a pasta '{atual}' no SharePoint: {r.text[:300]}")
 
-    def gravar(self, nome: str, conteudo: bytes) -> str:
+    def gravar(self, nome: str, conteudo: bytes, se_versao: str | None = None) -> str:
         caminho = self.id_de(nome)
         url = f"{self._url_item(caminho)}/content"
         cab = {"Content-Type": "application/octet-stream"}
+        if se_versao:
+            cab["If-Match"] = se_versao
         r = self._pedir("PUT", url, headers=cab, data=conteudo, timeout=300)
         if r.status_code == 404 and "/" in caminho:
             self._criar_pastas(caminho.rsplit("/", 1)[0])
             r = self._pedir("PUT", url, headers=cab, data=conteudo, timeout=300)
+        if r.status_code == 412:
+            raise Conflito(f"{nome} foi alterado por outra pessoa no meio da gravação")
         if r.status_code >= 400:
             raise FonteErro(f"Erro {r.status_code} ao gravar no SharePoint: {r.text[:300]}")
         return caminho
+
+    def ler_versionado(self, nome: str) -> tuple[bytes | None, str | None]:
+        caminho = self.id_de(nome)
+        r = self._pedir("GET", f"{self._url_item(caminho)}?$select=eTag")
+        if r.status_code == 404:
+            return None, None
+        if r.status_code >= 400:
+            raise FonteErro(f"Erro {r.status_code} no SharePoint: {r.text[:300]}")
+        etag = (r.json() or {}).get("eTag")
+        try:
+            return self.ler(caminho), etag
+        except NaoEncontrado:
+            return None, None
+
+    def gravar_condicional(self, nome: str, conteudo: bytes, versao: str | None) -> bool:
+        try:
+            self.gravar(nome, conteudo, se_versao=versao)
+        except Conflito:
+            return False
+        return True
 
 
 MANIFESTO = "bases/manifesto.json"
@@ -344,20 +398,45 @@ class GitHub:
     def id_de(self, nome: str) -> str:
         return f"{self.pasta_app}/{nome}"
 
+    def _put(self, caminho: str, conteudo: bytes, mensagem: str, sha: str | None) -> requests.Response:
+        corpo = {"message": mensagem, "content": base64.b64encode(conteudo).decode(), "branch": self.ramo}
+        if sha:
+            corpo["sha"] = sha
+        return self._pedir("PUT", self._url(caminho), json=corpo, timeout=300)
+
     def gravar_caminho(self, caminho: str, conteudo: bytes, mensagem: str) -> None:
-        """Cria ou substitui um arquivo (com nova tentativa se outro gravou no meio)."""
+        """Cria ou substitui um arquivo inteiro (bases do sincronizador, fotos): a versão nova vale, qualquer
+        que seja a que está lá. Para cadastros, use gravar_condicional (não perde a gravação do outro)."""
         for _ in range(3):
             r = self._pedir("GET", self._url(caminho), params={"ref": self.ramo})
             sha = r.json().get("sha") if r.status_code == 200 else None
-            corpo = {"message": mensagem, "content": base64.b64encode(conteudo).decode(), "branch": self.ramo}
-            if sha:
-                corpo["sha"] = sha
-            r = self._pedir("PUT", self._url(caminho), json=corpo, timeout=300)
+            r = self._put(caminho, conteudo, mensagem, sha)
             if r.status_code in (200, 201):
                 return
             if r.status_code not in (409, 422):
                 break
         raise FonteErro(f"Erro {r.status_code} ao gravar {caminho} no GitHub: {r.text[:300]}")
+
+    def ler_versionado(self, nome: str) -> tuple[bytes | None, str | None]:
+        """(conteúdo, sha) do arquivo do app; (None, None) se não existe."""
+        caminho = self.id_de(nome)
+        r = self._pedir("GET", self._url(caminho), params={"ref": self.ramo})
+        if r.status_code == 404:
+            return None, None
+        if r.status_code >= 400:
+            raise FonteErro(f"Erro {r.status_code} ao ler {caminho} no GitHub: {r.text[:300]}")
+        j = r.json()
+        conteudo = base64.b64decode(j["content"]) if j.get("content") else self.ler(caminho)  # > 1 MB: sem content
+        return conteudo, j.get("sha")
+
+    def gravar_condicional(self, nome: str, conteudo: bytes, versao: str | None) -> bool:
+        """Grava com o sha lido: se outro gravou no meio, o GitHub recusa (409/422) e devolve False."""
+        r = self._put(self.id_de(nome), conteudo, f"Central de Manutenção: {nome}", versao)
+        if r.status_code in (200, 201):
+            return True
+        if r.status_code in (409, 422):
+            return False
+        raise FonteErro(f"Erro {r.status_code} ao gravar {nome} no GitHub: {r.text[:300]}")
 
     def compactar_historico(self) -> bool:
         """Troca o histórico do ramo por um único commit com o conteúdo atual.
@@ -386,15 +465,18 @@ class GitHub:
         return True
 
     def registrar_no_manifesto(self, entradas: dict[str, dict]) -> None:
-        for _ in range(3):
-            manifesto, _ = self._manifesto()
+        """Junta as entradas ao manifesto lido e grava com o sha dele: o envio do site e o do sincronizador ao
+        mesmo tempo não apagam a data um do outro (no conflito, relê e junta de novo)."""
+        for tentativa in range(5):
+            manifesto, sha = self._manifesto()
             manifesto.update(entradas)
-            try:
-                self.gravar_caminho(MANIFESTO, json.dumps(manifesto, ensure_ascii=False, indent=1).encode("utf-8"),
-                                    "Atualiza manifesto das bases")
+            r = self._put(MANIFESTO, json.dumps(manifesto, ensure_ascii=False, indent=1).encode("utf-8"),
+                          "Atualiza manifesto das bases", sha)
+            if r.status_code in (200, 201):
                 return
-            except FonteErro:
-                time.sleep(1)
+            if r.status_code not in (409, 422):
+                break
+            time.sleep(0.5 * (tentativa + 1))
         raise FonteErro("Não foi possível atualizar o manifesto no GitHub")
 
     def gravar(self, nome: str, conteudo: bytes) -> str:
