@@ -123,7 +123,7 @@ with d, st.container(border=True):
         l1, l2 = st.columns([4, 1.3], vertical_alignment="center")
         l1.markdown(f"{simbolo} **{k.nome}** {ind.formatar(k, atual.get(k.id))} · meta "
                     f"{'≥' if k.sentido > 0 else '≤'} {ind.formatar(k, alvo)}")
-        l2.page_link(k.pagina, label="Ver", icon=":material/arrow_forward:")
+        ui.link_pagina(k.pagina, label="Ver", icon=":material/arrow_forward:", onde=l2)
     if len(piores) > 7:
         st.caption(f"+{len(piores) - 7} indicador(es) — veja em Mais detalhes › Pontos de atenção.")
 
@@ -160,7 +160,7 @@ if atual.get("semeq_detectadas") is not None:
             f":material/sensors: **Preditiva (SEMEQ)** · {inteiro(atual['semeq_detectadas'])} anomalias no período · "
             f"**{_pct(atual.get('semeq_tratadas'))} tratadas** · {_pct(atual.get('semeq_com_ordem'))} com ordem · "
             f":red[**{inteiro(atual.get('semeq_atrasadas') or 0)} atrasadas hoje**] · {dias_txt} dias para tratar")
-        p2.page_link("paginas/preditiva.py", label="Abrir preditiva", icon=":material/arrow_forward:")
+        ui.link_pagina("paginas/preditiva.py", label="Abrir preditiva", icon=":material/arrow_forward:", onde=p2)
 
 # resumo da saúde dos ativos (índice 0–100 por equipamento)
 _saude = saude.resumo(contexto.saude_ativos(f))
@@ -172,7 +172,7 @@ if _saude["ativos"]:
             f":red[**{inteiro(_saude['criticos'])} em saúde crítica**] ({inteiro(_saude['criticos_alta'])} de "
             f"criticidade Alta) · :orange[{inteiro(_saude['atencao'])} em atenção] · saúde média "
             f"{_saude['media']:.0f}/100")
-        s2.page_link("paginas/saude.py", label="Fila de ataque", icon=":material/arrow_forward:")
+        ui.link_pagina("paginas/saude.py", label="Fila de ataque", icon=":material/arrow_forward:", onde=s2)
 
 # ============================================================================
 # 2. EXECUÇÃO DAS ATIVIDADES
@@ -268,7 +268,7 @@ else:  # Pontos de atenção
             simbolo = ":red[:material/error:]" if k in vermelhos else ":orange[:material/warning:]"
             cols[0].markdown(f"{simbolo} **{k.nome}**: {ind.formatar(k, atual.get(k.id))} "
                              f"(meta {'≥' if k.sentido > 0 else '≤'} {ind.formatar(k, alvo)}) — {k.formula}")
-            cols[1].page_link(k.pagina, label="Detalhar", icon=":material/arrow_forward:")
+            ui.link_pagina(k.pagina, label="Detalhar", icon=":material/arrow_forward:", onde=cols[1])
     e, dd = st.columns(2)
     with e, st.container(border=True):
         st.markdown("**Equipamentos com mais quebras no período** (bad actors)")
@@ -280,7 +280,7 @@ else:  # Pontos de atenção
                  .reset_index().nlargest(8, "Quebras"))
             st.dataframe(t, hide_index=True, width="stretch",
                          column_config={"Equip. (chave)": "Código"})
-            st.page_link("paginas/confiabilidade.py", label="Análise de confiabilidade", icon=":material/arrow_forward:")
+            ui.link_pagina("paginas/confiabilidade.py", label="Análise de confiabilidade", icon=":material/arrow_forward:")
         else:
             st.caption("Nenhuma quebra registrada no período.")
     with dd, st.container(border=True):
@@ -289,7 +289,7 @@ else:  # Pontos de atenção
         if len(bk):
             st.dataframe(bk[["Ordem", "Tipo", "Texto", "Centro de trabalho", "Idade (dias)", "Situação"]], hide_index=True,
                          width="stretch", column_config={"Texto": st.column_config.TextColumn(width="medium")})
-            st.page_link("paginas/ordens.py", label="Abrir ordens", icon=":material/arrow_forward:")
+            ui.link_pagina("paginas/ordens.py", label="Abrir ordens", icon=":material/arrow_forward:")
         else:
             st.caption("Sem ordens em aberto.")
     e, dd = st.columns(2)
@@ -300,7 +300,7 @@ else:  # Pontos de atenção
             st.dataframe(pc, hide_index=True, width="stretch")
         else:
             st.caption("Nenhuma peça de equipamento de criticidade Alta em falta (cadastre as peças em Equipamentos).")
-        st.page_link("paginas/estoque.py", label="Abrir estoque", icon=":material/arrow_forward:")
+        ui.link_pagina("paginas/estoque.py", label="Abrir estoque", icon=":material/arrow_forward:")
     with dd, st.container(border=True):
         st.markdown("**Compras aguardando aprovação**")
         r = d.requisicoes
@@ -312,7 +312,7 @@ else:  # Pontos de atenção
                          width="stretch", column_config={"Total": ui.col_moeda("Total (R$)")})
         else:
             st.caption("Nenhuma requisição pendente.")
-        st.page_link("paginas/requisicoes.py", label="Abrir requisições", icon=":material/arrow_forward:")
+        ui.link_pagina("paginas/requisicoes.py", label="Abrir requisições", icon=":material/arrow_forward:")
 
 # ----------------------------------------------------------------------------
 # Scorecard para baixar

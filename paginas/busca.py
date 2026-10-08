@@ -98,7 +98,7 @@ for aba, cat in zip(abas, com):
                             .replace(",", "."))
                 if st.button("Abrir no Estoque", icon=":material/inventory_2:", key=f"bg_mat_{linha['Material']}"):
                     ss["m_busca"] = linha["Material"]
-                    st.switch_page("paginas/estoque.py")
+                    ui.ir_para("paginas/estoque.py")
             elif cat == "Notas":
                 st.markdown(f"**Nota {linha['Nota']}** · {linha.get('Tipo de nota', '')} · {linha.get('Descrição', '')}")
                 st.caption(f"Ordem: {linha.get('Ordem') or 'sem ordem'} · equipamento {linha.get('Equip. (chave)', '')} "
@@ -108,10 +108,10 @@ for aba, cat in zip(abas, com):
             elif cat == "Planos":
                 if st.button("Abrir em Planos", icon=":material/calendar_month:", key=f"bg_plano_{sel[0]}"):
                     ss["p_busca"] = linha["Plano"]
-                    st.switch_page("paginas/planos.py")
+                    ui.ir_para("paginas/planos.py")
             elif cat == "Análises de falha":
                 st.markdown(f"**{linha['Nº AF']}** · {linha.get('Equipamento', '')} · {linha.get('Resumo', '')}")
                 st.caption(f"Situação: {linha.get('Situação', '')} · causa raiz: {linha.get('Causa raiz', '') or '—'}")
                 if st.button("Abrir em Planos de AF", icon=":material/troubleshoot:", key=f"bg_af_{sel[0]}"):
                     ss["afp_busca"] = linha["Nº AF"]
-                    st.switch_page("paginas/af_planos.py")
+                    ui.ir_para("paginas/af_planos.py")

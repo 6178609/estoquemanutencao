@@ -488,7 +488,7 @@ def cartao(kpi: ind.Kpi, valor, anterior, cad_metas: dict, serie: pd.DataFrame |
         if serie is not None and kpi.mensal and kpi.id in serie and serie[kpi.id].notna().sum() >= 2:
             st.markdown(mini_tendencia(serie, kpi, alvo), unsafe_allow_html=True)
         if link:
-            st.page_link(kpi.pagina, label="Detalhar", icon=":material/arrow_forward:")
+            ui.link_pagina(kpi.pagina, label="Detalhar", icon=":material/arrow_forward:")
     return cor
 
 
@@ -586,4 +586,4 @@ def link_ficha(equipamento: str, rotulo: str = "Abrir ficha do equipamento", cha
     """Botão que abre a ficha do equipamento na aba Equipamentos (análise)."""
     if equipamento and st.button(rotulo, icon=":material/precision_manufacturing:", key=chave):
         st.session_state["eq_sel"] = equipamento
-        st.switch_page("paginas/equipamentos.py")
+        ui.ir_para("paginas/equipamentos.py")

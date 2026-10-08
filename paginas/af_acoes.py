@@ -545,7 +545,7 @@ else:
             if a_sel["Causa raiz da AF"]:
                 st.markdown(f"- **Causa raiz:** {a_sel['Causa raiz da AF']}")
         try:
-            st.page_link(PAGINA_AF, label="Abrir em Planos de AF", icon=":material/arrow_forward:")
+            ui.link_pagina(PAGINA_AF, label="Abrir em Planos de AF", icon=":material/arrow_forward:")
         except Exception:  # noqa: BLE001 — a aba de planos ainda não está registrada na navegação
             pass
         if a_sel["Código SAP"]:
