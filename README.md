@@ -134,6 +134,11 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   cai na aba inicial da pessoa). Links e botões para abas bloqueadas somem.
 - Trocou a função de alguém com a tela aberta: a pessoa sai da aba na próxima verificação (até 1 min) e não consegue
   gravar nada nela no meio-tempo.
+- **Pedido de acesso**: na tela de entrada, a aba **Solicitar acesso** recebe nome, login, matrícula, setor,
+  função e a senha que a pessoa escolhe (guardada só como hash). Em **Usuários › Solicitações** o administrador
+  aprova (define função, perfil e **quais abas** a pessoa vê — o padrão da função ou uma lista escolhida) ou
+  recusa com motivo; a barra lateral avisa quando há pedidos. Limite de 30 pedidos pendentes e um por navegador
+  a cada 10 min. As abas escolhidas também podem ser alteradas depois em **Editar usuário**.
 - Conta criada antes das funções (sem função): o administrador continua vendo tudo; as demais veem só o Estoque até
   um administrador definir a função em **Usuários › Editar usuário** (a tela avisa quem está sem função e mostra a
   tabela "Quem vê cada aba"). As regras estão em `central/auth.py` e a lista de abas em `central/navegacao.py`.
