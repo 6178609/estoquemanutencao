@@ -188,6 +188,9 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   amarelo = backlog, borda verde/vermelha = concluída/atrasada; ↻ = data alterada pelo robô (Programação do mês).
 - **Programação do mês** — previsão manual das paradas por campo de ordenação e mudança de datas no SAP (abaixo).
 - **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
+- **Visões de HH** (indicadores de horas, Mão de obra e backlog, quem fez o quê): só as pessoas da planilha de
+  **Gestão de HH** — quem aponta na IW47 sem estar nela aparece em Qualidade dos dados; execução das atividades,
+  MTTR e preditiva continuam com todos os apontamentos.
 - **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e
   emergencial, HH por semana/centro/classe/atividade, semanas de backlog por centro, idade do backlog e carga das
   próximas 12 semanas.

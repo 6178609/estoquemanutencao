@@ -304,7 +304,8 @@ def _dados(chave: str, f: Filtros) -> ind.Dados:
     conj = set(ordens["Ordem"])
     op = bases.operacoes().df
     oper = op[op["Ordem"].isin(conj)] if op is not None else None
-    conf = filtrar_conf(bases.confirmacoes().df, f, o)
+    conf_todos = filtrar_conf(bases.confirmacoes().df, f, o)
+    conf = bases.so_da_equipe(conf_todos, bases.equipe().df)     # visões de HH: só quem está na Gestão de HH
     ch = chamadas_classificadas()
     if ch is not None:
         if f.centros:
@@ -323,7 +324,7 @@ def _dados(chave: str, f: Filtros) -> ind.Dados:
     return ind.Dados(
         ordens=ordens, notas=f.notas(bases.notas().df), oper=oper, chamadas=ch, estoque=bases.mb52().df,
         requisicoes=bases.requisicoes().df, cad_eq=bases.ler_cadastro(bases.ARQ_CAD_EQUIP),
-        cad_mat=bases.ler_cadastro(bases.ARQ_CAD_MAT), capacidade=ind.capacidade_de(cad), conf=conf, equipe=eq,
+        cad_mat=bases.ler_cadastro(bases.ARQ_CAD_MAT), capacidade=ind.capacidade_de(cad), conf=conf, conf_todos=conf_todos, equipe=eq,
         tipos=ind.tipos_de(cad, bases.tipos_de_ordem_padrao()), horas_semana=ind.horas_semana_de(cad),
         # Gerenciador de AF: as áreas dele são outras, então nada de filtro de área/centro (só o período vale)
         afs=bases.afs().df, acoes_af=bases.acoes_af().df,

@@ -35,6 +35,17 @@ if cob is not None and cob < 90:
                f"\"{ind.FORA_DO_IW38}\" e ficam fora dos % de plano e de emergencial. Exporte o IW38 com todos os "
                "tipos de ordem para completar a análise.", icon=":material/info:")
 
+# visões de HH: só as pessoas da planilha de Gestão de HH (o resto aparece na Qualidade dos dados)
+if d.conf_todos is not None and d.equipe is not None and len(d.conf_todos):
+    todos = d.conf_todos[ui.entre(d.conf_todos["Data"], f.ini, f.fim)]
+    fora = todos[~todos["Nº pessoal"].isin(set(bases.equipe().df["Nº pessoal"]))]
+    if len(fora):
+        st.caption(f":material/group_off: Só entram as pessoas da planilha de **Gestão de HH**: "
+                   f"{inteiro(fora['Horas'].sum())} h de {inteiro(fora['Nº pessoal'].nunique())} pessoa(s) fora dela "
+                   "ficaram de fora — a lista está em **Qualidade dos dados** (inclua a matrícula na planilha para contar).")
+elif d.equipe is None:
+    st.caption(":material/info: Sem a planilha de Gestão de HH, as horas de todos os apontamentos da IW47 entram.")
+
 ks = [ind.POR_ID[k] for k in ["hh", "utilizacao", "pct_hh_plano", "hh_emergencial", "backlog_sem", "idade_backlog"]]
 contexto.grade(ks, atual, anterior, cad, serie, colunas=3, prefixo="h-", link=False)
 

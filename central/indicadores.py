@@ -166,7 +166,8 @@ class Dados:
     cad_eq: dict = field(default_factory=dict)
     cad_mat: dict = field(default_factory=dict)
     capacidade: dict = field(default_factory=dict)  # centro de trabalho → HH/semana ("" = total)
-    conf: pd.DataFrame | None = None          # IW47 (apontamentos) das ordens/centros filtrados
+    conf: pd.DataFrame | None = None          # IW47 das ordens/centros filtrados, só pessoas da Gestão de HH
+    conf_todos: pd.DataFrame | None = None    # IW47 de todo mundo (execução, horas de reparo, qualidade)
     equipe: pd.DataFrame | None = None        # pessoas (Gestão de HH)
     tipos: dict = field(default_factory=dict)  # tipo de ordem → {"descricao", "classe"}
     horas_semana: float = 44.0                # jornada semanal de cada técnico
@@ -225,7 +226,8 @@ def quebras(d: Dados) -> pd.DataFrame:
         return pd.DataFrame(columns=["Nota", "Data", "Equip. (chave)", "Classe A", "Horas de reparo", "Reincidente"])
     notas = d.notas if "Quebra" in d.notas else marcar_quebras(d.notas)
     q = notas[notas["Quebra"] & notas["Data"].notna()].copy()
-    rep = horas_reparo_por_ordem(d.oper, d.conf)
+    # reparo de quebra conta o tempo de quem apontou, mesmo fora da Gestão de HH (terceiros, outras áreas)
+    rep = horas_reparo_por_ordem(d.oper, d.conf_todos if d.conf_todos is not None else d.conf)
     pela_ordem = q["Ordem"].map(rep).where(q["Ordem"] != "")
     q["Horas de reparo"] = q["Horas parado"].where(q["Horas parado"] > 0, pela_ordem)
     criticos = {k for k, v in d.cad_eq.items() if (v or {}).get("criticidade") == "Alta"}
@@ -503,7 +505,8 @@ IDS_SEMEQ = ("semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dia
 
 
 def anomalias_semeq(d: Dados) -> pd.DataFrame:
-    return preditiva.anomalias(d.notas, d.ordens, d.oper, d.conf, d.equipe, d.hoje)
+    return preditiva.anomalias(d.notas, d.ordens, d.oper,  # tratativa: quem apontou, mesmo fora da Gestão de HH
+                              d.conf_todos if d.conf_todos is not None else d.conf, d.equipe, d.hoje)
 
 
 def indicadores_semeq(d: Dados, ini: date, fim: date) -> dict[str, float | None]:

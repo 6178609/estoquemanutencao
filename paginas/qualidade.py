@@ -19,7 +19,7 @@ f = contexto.filtros_globais(periodo=False)
 @st.cache_data(show_spinner="Conferindo as bases…", max_entries=8)
 def _checagens(chave: str, f: contexto.Filtros) -> list[qualidade.Checagem]:
     d = contexto.dados(f)
-    return qualidade.verificar(d.hoje, ordens=d.ordens, oper=d.oper, notas=d.notas, conf=d.conf, equipe=d.equipe,
+    return qualidade.verificar(d.hoje, ordens=d.ordens, oper=d.oper, notas=d.notas, conf=d.conf_todos, equipe=d.equipe,
                                equip=bases.equipamentos().df, cad_eq=d.cad_eq, quebras=d.memo("quebras", ind.quebras),
                                fim_real=d.memo("fim_real", lambda x: ind.fim_real_por_ordem(x.oper)))
 

@@ -101,3 +101,14 @@ def test_tipos_de_ordem_da_aba_de_apoio(tmp_path, monkeypatch):
     finally:
         bases._fonte_cacheada.clear()
         bases.recarregar()
+
+
+def test_visao_de_hh_so_com_pessoas_da_gestao_de_hh():
+    from central import bases
+
+    conf = pd.DataFrame({"Nº pessoal": ["10", "20", "99"], "Horas": [2.0, 3.0, 5.0], "Ordem": ["1", "1", "2"]})
+    equipe = pd.DataFrame({"Nº pessoal": ["10", "20"], "Nome": ["ANA", "BRUNO"]})
+    so = bases.so_da_equipe(conf, equipe)
+    assert list(so["Nº pessoal"]) == ["10", "20"] and so["Horas"].sum() == 5.0      # o 99 (fora da planilha) sai
+    assert bases.so_da_equipe(conf, None) is conf                                    # sem a planilha: tudo entra
+    assert bases.so_da_equipe(None, equipe) is None
