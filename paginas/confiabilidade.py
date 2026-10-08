@@ -74,8 +74,8 @@ with st.container(border=True):
     x = alt.X("Rótulo:N", sort=ordem_x, title=None, axis=alt.Axis(labelAngle=-50, labelLimit=190, labelOverlap=False,
                                                                  labelFontSize=10))
     barras = alt.Chart(par).mark_bar(color=ui.LARANJA, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-        x=x, y=alt.Y("Quebras:Q", title="Quebras"), tooltip=["Rótulo:N", "Quebras:Q",
-                                                            alt.Tooltip("% acumulado:Q", format=".1f")])
+        x=x, y=alt.Y("Quebras:Q", title="Quebras", axis=alt.Axis(format="d", tickMinStep=1)),   # contagem: sem 0,5
+        tooltip=["Rótulo:N", "Quebras:Q", alt.Tooltip("% acumulado:Q", format=".1f")])
     linha = alt.Chart(par).mark_line(color=ui.GRAFITE, point=True).encode(
         x=x, y=alt.Y("% acumulado:Q", title="% acumulado", scale=alt.Scale(domain=[0, 100])))
     regra = alt.Chart(pd.DataFrame({"y": [80]})).mark_rule(color=ui.VERMELHO, strokeDash=[4, 4]).encode(y="y:Q")
@@ -128,7 +128,7 @@ ev = st.dataframe(vis[COLS], hide_index=True, width="stretch", height=ui.altura_
                   column_config={"MTBF (dias)": st.column_config.NumberColumn(format="%.0f"),
                                  "MTTR (h)": st.column_config.NumberColumn(format="%.1f"),
                                  "Horas de reparo": st.column_config.NumberColumn(format="%.1f"),
-                                 "Custo no período": ui.col_moeda(), "Última": ui.col_data("Última quebra"),
+                                 "Custo no período": ui.col_moeda("Custo no período (R$)"), "Última": ui.col_data("Última quebra"),
                                  "Quebras": st.column_config.ProgressColumn(
                                      "Quebras", format="%d", min_value=0, max_value=int(tab["Quebras"].max() or 1))})
 c1, c2 = st.columns([1, 3])
@@ -171,7 +171,7 @@ with dd, st.container(border=True):
     ds = q.assign(Dia=q["Data"].dt.dayofweek.map(dict(enumerate(dias_sem))))["Dia"].value_counts()
     ds = ds.reindex(dias_sem, fill_value=0).rename_axis("Dia").reset_index(name="Quebras")
     ui.mostrar(alt.Chart(ds).mark_bar(color=ui.LARANJA, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-        x=alt.X("Dia:N", sort=dias_sem, title=None, axis=alt.Axis(labelAngle=0)), y=alt.Y("Quebras:Q", title=None),
+        x=alt.X("Dia:N", sort=dias_sem, title=None, axis=alt.Axis(labelAngle=0)), y=alt.Y("Quebras:Q", title=None, axis=alt.Axis(format="d", tickMinStep=1)),
         tooltip=["Dia:N", "Quebras:Q"]).properties(height=200))
 
 with st.container(border=True):

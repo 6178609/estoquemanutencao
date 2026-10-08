@@ -88,7 +88,7 @@ c[4].metric("Atrasadas", inteiro(f["Atrasada"].sum()), border=True, delta_arrow=
 # ----------------------------------------------------------------------------
 cols = colunas or padrao
 config_cols = {
-    "Custo real": ui.col_moeda(), "Custo planejado": ui.col_moeda(),
+    "Custo real": ui.col_moeda("Custo real (R$)"), "Custo planejado": ui.col_moeda("Custo planejado (R$)"),
     "Início": ui.col_data(), "Fim": ui.col_data(), "Entrada": ui.col_data(), "Fim real": ui.col_data(),
     "Lead time (dias)": st.column_config.NumberColumn(format="%d"),
     "HH apontadas": st.column_config.NumberColumn(format="%.1f"), "Tipo (nome)": "Tipo",
@@ -150,7 +150,7 @@ if linhas:
             st.dataframe(ap[[c for c in ["Data", "Nº pessoal", "Nome", "Cargo (equipe)", "Operação", "Centro de trabalho",
                                          "Atividade", "Horas", "Status sistema"] if c in ap]], hide_index=True,
                          width="stretch", column_config={"Data": ui.col_data(),
-                                                         "Horas": st.column_config.NumberColumn(format="%.2f")})
+                                                         "Horas": ui.col_num()})
 
     if o["Equip. (chave)"]:
         hist = base.df[base.df["Equip. (chave)"] == o["Equip. (chave)"]].sort_values("Data", ascending=False)
@@ -158,7 +158,7 @@ if linhas:
                     f"({inteiro((~hist['Com plano']).sum())} de backlog)")
         st.dataframe(hist[["Ordem", "Data", "Tipo", "Natureza", "Texto", "Situação", "Custo real"]].head(200),
                      hide_index=True, width="stretch", height=ui.altura_tabela(260),
-                     column_config={"Data": ui.col_data(), "Custo real": ui.col_moeda(),
+                     column_config={"Data": ui.col_data(), "Custo real": ui.col_moeda("Custo real (R$)"),
                                     "Texto": st.column_config.TextColumn(width="large")})
         if st.button("Abrir ficha do equipamento", icon=":material/precision_manufacturing:"):
             st.session_state["eq_sel"] = o["Equip. (chave)"]

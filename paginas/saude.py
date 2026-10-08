@@ -108,7 +108,7 @@ ev = st.dataframe(
     vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(420), on_select="rerun",
     selection_mode="single-row", key="s_tab",
     column_config={"Saúde": st.column_config.ProgressColumn("Saúde", format="%d", min_value=0, max_value=100),
-                   "Risco": st.column_config.NumberColumn(format="%d"), "Custo 12 meses": ui.col_moeda(),
+                   "Risco": st.column_config.NumberColumn(format="%d"), "Custo 12 meses": ui.col_moeda("Custo 12 meses (R$)"),
                    "Última falha": ui.col_data(), "Equipamento": st.column_config.TextColumn(width="medium")})
 c1, c2 = st.columns([1, 3])
 with c1:

@@ -309,7 +309,7 @@ else:  # Pontos de atenção
             st.markdown(f"{inteiro(len(p))} requisições · {brl(p['Total'].sum())} · a mais antiga há "
                         f"{int(p['Dias aguardando'].max() or 0)} dias")
             st.dataframe(p[["Requisição", "Aprovador", "Total", "Dias aguardando"]].head(8), hide_index=True,
-                         width="stretch", column_config={"Total": ui.col_moeda()})
+                         width="stretch", column_config={"Total": ui.col_moeda("Total (R$)")})
         else:
             st.caption("Nenhuma requisição pendente.")
         st.page_link("paginas/requisicoes.py", label="Abrir requisições", icon=":material/arrow_forward:")

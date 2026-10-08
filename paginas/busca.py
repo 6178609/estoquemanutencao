@@ -40,7 +40,7 @@ for aba, cat in zip(abas, com):
     with aba:
         df = res[cat]
         cfg = {"Data": ui.col_data(), "Fim": ui.col_data("Prazo"), "Data da falha": ui.col_data(),
-               "Custo real": ui.col_moeda(), "Valor": ui.col_moeda(),
+               "Custo real": ui.col_moeda("Custo real (R$)"), "Valor": ui.col_moeda("Valor (R$)"),
                "Texto": st.column_config.TextColumn(width="large"),
                "Descrição": st.column_config.TextColumn(width="large"),
                "Resumo": st.column_config.TextColumn(width="large")}
@@ -72,7 +72,7 @@ for aba, cat in zip(abas, com):
                         st.dataframe(ops[["Operação", "Texto da operação", "Centro de trabalho", "Horas", "Pessoas",
                                           "Início", "Fim real", "Status sistema"]], hide_index=True, width="stretch",
                                      column_config={"Início": ui.col_data("Programada"), "Fim real": ui.col_data(),
-                                                    "Horas": st.column_config.NumberColumn("HH", format="%.2f")})
+                                                    "Horas": ui.col_num("HH")})
                 conf = bases.confirmacoes().df
                 if conf is not None:
                     ap = conf[conf["Ordem"] == info["Ordem"]]

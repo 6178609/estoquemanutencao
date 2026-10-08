@@ -25,6 +25,23 @@ AZUL, LARANJA, VERMELHO, CIANO, LIMA, AMARELO = "#0A6EBD", "#F7931E", "#E3262B",
 CINZA = "#8C9491"
 FAIXA = f"linear-gradient(90deg, {VERMELHO}, {LARANJA}, {AMARELO}, {CIANO}, {AZUL}, {LIMA}, {VERDE})"
 
+# Gráficos em português do Brasil: 1.234,5 · 1,8M · "Março" nos eixos de data (vale para todos os gráficos Altair)
+LOCALE_PTBR = {
+    "number": {"decimal": ",", "thousands": ".", "grouping": [3], "currency": ["R$ ", ""]},
+    "time": {"dateTime": "%A, %e de %B de %Y. %X", "date": "%d/%m/%Y", "time": "%H:%M:%S", "periods": ["AM", "PM"],
+             "days": ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+             "shortDays": ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+             "months": ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro",
+                        "Outubro", "Novembro", "Dezembro"],
+             "shortMonths": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]},
+}
+
+
+@alt.theme.register("central_ptbr", enable=True)
+def _tema_ptbr():
+    return alt.theme.ThemeConfig({"config": {"locale": LOCALE_PTBR}})
+
+
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 LOGO_SIM = ASSETS / "logo_sim.png"
 LOGO_ALPA = ASSETS / "logo_alpargatas.png"
@@ -351,7 +368,14 @@ def filtros_ordens(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, str]:
 # Tabelas e gráficos
 # ----------------------------------------------------------------------------
 def col_moeda(rotulo: str | None = None, **kw):
-    return st.column_config.NumberColumn(rotulo, format="R$ %.2f", **kw)
+    """Valor em R$ no formato do navegador (1.234,56 no Brasil), com 2 casas — ponha "(R$)" no rótulo."""
+    return st.column_config.NumberColumn(rotulo, format="localized", step=0.01, **kw)
+
+
+def col_num(rotulo: str | None = None, casas: int = 2, **kw):
+    """Número com `casas` decimais no formato do navegador (1.234,50 no Brasil). O modo "localized" corta as
+    casas além de `casas` em vez de arredondar: use só onde a diferença não importa (HH, quantidades)."""
+    return st.column_config.NumberColumn(rotulo, format="localized", step=10 ** -casas, **kw)
 
 
 def col_data(rotulo: str | None = None, **kw):
@@ -395,17 +419,19 @@ def baixar(df: pd.DataFrame, nome: str, rotulo: str = "Baixar Excel", chave: str
 
 def grafico_barras_h(dados: pd.DataFrame, cat: str, val: str, cor: str = AZUL, formato: str = ",.0f",
                      altura: int | None = None, titulo_val: str = "") -> alt.Chart:
-    """Barras horizontais com o valor escrito no padrão brasileiro (R$ 1.234,56 / 1.234)."""
-    from .util import brl, inteiro
+    """Barras horizontais com o valor escrito no padrão brasileiro: R$ 786,7 mil na barra (cabe no gráfico) e
+    R$ 786.672,90 na dica; contagens como 1.234."""
+    from .util import brl, brl_curto, inteiro
 
-    fmt = brl if ".2f" in formato else inteiro
-    dados = dados.assign(_rot=dados[val].map(fmt))
+    moeda = ".2f" in formato
+    dados = dados.assign(_rot=dados[val].map(brl_curto if moeda else inteiro),
+                         _dica=dados[val].map(brl if moeda else inteiro))
     altura = altura or max(120, 26 * len(dados))
     base = alt.Chart(dados).encode(
         y=alt.Y(f"{cat}:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180, labelOverlap=False)),
         x=alt.X(f"{val}:Q", title=titulo_val or None, axis=alt.Axis(format="~s", grid=False),
                 scale=alt.Scale(domainMax=float(dados[val].max() or 1) * 1.25)),
-        tooltip=[alt.Tooltip(f"{cat}:N"), alt.Tooltip("_rot:N", title=val)],
+        tooltip=[alt.Tooltip(f"{cat}:N"), alt.Tooltip("_dica:N", title=val)],
     )
     barras = base.mark_bar(color=cor, cornerRadiusEnd=3, height=16)
     rotulos = base.mark_text(align="left", dx=4, fontSize=11).encode(text="_rot:N")
