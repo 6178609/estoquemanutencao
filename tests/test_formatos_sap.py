@@ -69,7 +69,7 @@ def test_mb52_html_com_lotes():
               "           KG                 27,077",
               "4115570              SANDALIAS HAVAIANAS AM-TOP PRINT DVS",
               "0099378    PAR   A                3.442", "0099378    PAR   A                   50"]
-    html = "<html><body><table>" + "".join(f"<tr><td>{l.replace(' ', '&nbsp;')}</td></tr>" for l in linhas) + "</table>"
+    html = "<html><body><table>" + "".join(f"<tr><td>{ln.replace(' ', '&nbsp;')}</td></tr>" for ln in linhas) + "</table>"
     df = leitura.ler_arquivo("MB52.htm", html.encode("cp1252"))
     assert leitura.identificar(df.columns) == MB52
     resumo, _ = bases.preparar_mb52(df)

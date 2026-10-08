@@ -55,15 +55,15 @@ def _decodificar(conteudo: bytes) -> str:
 
 
 def _ler_texto(txt: str) -> pd.DataFrame:
-    linhas = [l for l in txt.splitlines() if l.strip()]
+    linhas = [ln for ln in txt.splitlines() if ln.strip()]
     if not linhas:
         raise LeituraErro("arquivo vazio")
     amostra = "\n".join(linhas[:50])
 
     # Lista do SAP "não convertida": | col | col | e linhas de ------
     if amostra.count("|") > len(linhas[:50]) * 2:
-        uteis = [l for l in linhas if "|" in l and not re.fullmatch(r"[\s|\-]+", l)]
-        tabela = [[c.strip() for c in l.strip().strip("|").split("|")] for l in uteis]
+        uteis = [ln for ln in linhas if "|" in ln and not re.fullmatch(r"[\s|\-]+", ln)]
+        tabela = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in uteis]
         return _tabela_com_cabecalho(tabela)
 
     sep = max([";", "\t", ","], key=amostra.count)
@@ -74,7 +74,7 @@ def _ler_texto(txt: str) -> pd.DataFrame:
 def _tabela_com_cabecalho(tabela: list[list[str]]) -> pd.DataFrame:
     """Primeira linha com 3+ células preenchidas vira cabeçalho; repetições do cabeçalho
     (o SAP repete a cada página) são descartadas."""
-    idx = next((i for i, l in enumerate(tabela) if sum(1 for c in l if c) >= 3), None)
+    idx = next((i for i, ln in enumerate(tabela) if sum(1 for c in ln if c) >= 3), None)
     if idx is None:
         raise LeituraErro("não encontrei uma linha de cabeçalho")
     cab = [c or f"col{i}" for i, c in enumerate(tabela[idx])]
@@ -87,11 +87,10 @@ def _tabela_com_cabecalho(tabela: list[list[str]]) -> pd.DataFrame:
         else:
             vistos[c] = 0
     linhas = []
-    for l in tabela[idx + 1:]:
-        if l[: len(cab)] == tabela[idx][: len(cab)] or not any(l):
+    for ln in tabela[idx + 1:]:
+        if ln[: len(cab)] == tabela[idx][: len(cab)] or not any(ln):
             continue
-        l = (l + [""] * len(cab))[: len(cab)]
-        linhas.append(l)
+        linhas.append((ln + [""] * len(cab))[: len(cab)])
     return pd.DataFrame(linhas, columns=cab)
 
 
@@ -110,7 +109,7 @@ def _ler_html(txt: str) -> pd.DataFrame:
         [re.sub(r"\s+", " ", (td.text_content() or "").replace("\xa0", " ")).strip() for td in tr.xpath("./th|./td")]
         for tr in principal.xpath(".//tr")
     ]
-    largura = max((len(l) for l in linhas), default=0)
+    largura = max((len(ln) for ln in linhas), default=0)
     if largura >= 3:
         return _tabela_com_cabecalho(linhas)
     # Lista agrupada (MB52 em árvore): cada linha é um texto de largura fixa.
@@ -189,6 +188,21 @@ def _eh_xls(conteudo: bytes) -> bool:
     return conteudo[:4] == b"\xd0\xcf\x11\xe0"
 
 
+def _ler_xlsx(conteudo: bytes, planilha: str | None, linha_cab: int | None) -> pd.DataFrame:
+    """calamine (Rust) lê o mesmo conteúdo que o openpyxl 3 a 6× mais rápido — o IW38OP de 84 mil linhas
+    cai de ~12 s para ~4 s na carga fria; sem ele instalado (ou se ele recusar o arquivo) vai o openpyxl."""
+    for motor in ("calamine", "openpyxl"):
+        try:
+            return pd.read_excel(io.BytesIO(conteudo), engine=motor, sheet_name=planilha or 0, header=linha_cab or 0,
+                                 dtype=object)
+        except ImportError:
+            continue
+        except Exception:  # noqa: BLE001
+            if motor == "openpyxl":
+                raise
+    raise LeituraErro("nenhum leitor de Excel disponível")
+
+
 def ler_arquivo(nome: str, conteudo: bytes, planilha: str | None = None, linha_cab: int | None = None) -> pd.DataFrame:
     """Lê o arquivo inteiro. Para Excel, `planilha` e `linha_cab` (0 = primeira linha)
     vêm de `sondar`; sem eles usa a primeira aba e a primeira linha."""
@@ -197,9 +211,11 @@ def ler_arquivo(nome: str, conteudo: bytes, planilha: str | None = None, linha_c
     try:
         if ext == ".parquet":
             df = pd.read_parquet(io.BytesIO(conteudo))
-        elif _eh_xlsx(conteudo) or _eh_xls(conteudo):
-            df = pd.read_excel(io.BytesIO(conteudo), engine="openpyxl" if _eh_xlsx(conteudo) else "xlrd",
-                               sheet_name=planilha or 0, header=linha_cab or 0, dtype=object)
+        elif _eh_xlsx(conteudo):
+            df = _ler_xlsx(conteudo, planilha, linha_cab)
+        elif _eh_xls(conteudo):
+            df = pd.read_excel(io.BytesIO(conteudo), engine="xlrd", sheet_name=planilha or 0, header=linha_cab or 0,
+                               dtype=object)
         elif b"<table" in conteudo[:200_000].lower() or inicio.startswith((b"<!doctype", b"<html")):
             df = _ler_html(_decodificar(conteudo))
         else:

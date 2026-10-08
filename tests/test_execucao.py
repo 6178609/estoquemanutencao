@@ -133,3 +133,18 @@ def test_encerrada_sem_confirmacao_pela_ordem():
     ordens.loc[2, "Situação"] = "Encerrada sem confirmação"             # ordem 3: ENTE sem CONF
     ops = ex.operacoes(oper, ordens, None, EQUIPE, HOJE).set_index(["Ordem", "Operação"])
     assert ops.loc[("3", "0010"), "Situação"] == ex.SEM_APONTAMENTO == "Encerrada sem confirmação"
+
+
+def test_iw47_conf_e_ente_em_linhas_diferentes_encerram_a_ordem():
+    ops = ex.operacoes(_oper(), _ordens(), _conf(), EQUIPE, HOJE)
+    ap = ex.apontamentos(_conf(), EQUIPE)
+    # ordem 3 (Liberada no IW38): CONF numa linha e ENTE noutra encerra; "PCNF ENTE" (parcial) não conta
+    extra = pd.DataFrame({"Nº pessoal": ["10", "10"], "Ordem": ["3", "3"], "Data": [T("2026-06-16")] * 2,
+                          "Horas": [0.0, 0.0], "Status sistema": ["CONF", "ENTE"]})
+    r = ex.indicadores(ops, _ordens(), pd.concat([ap.assign(**{"Status sistema": ""}), extra], ignore_index=True),
+                       date(2026, 6, 1), date(2026, 7, 31), HOJE)
+    assert r["ordens_concluidas"] == 3 and r["taxa_ordens"] == pytest.approx(100)
+    extra["Status sistema"] = ["PCNF ENTE", "CONFX"]
+    r = ex.indicadores(ops, _ordens(), pd.concat([ap.assign(**{"Status sistema": ""}), extra], ignore_index=True),
+                       date(2026, 6, 1), date(2026, 7, 31), HOJE)
+    assert r["ordens_concluidas"] == 2

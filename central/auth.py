@@ -52,6 +52,9 @@ def confere(u: dict, senha: str) -> bool:
     return hmac.compare_digest(_hash_senha(senha, u["sal"]), u["senha_hash"])
 
 
+_FALSO = {"sal": "00" * 16, "senha_hash": "00" * 32}
+
+
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -134,11 +137,20 @@ def _login_por_cookie() -> str | None:
     return None
 
 
+def _https() -> bool:
+    try:
+        return str(st.context.url or "").lower().startswith("https://")
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _definir_cookie(token: str | None) -> None:
+    # Secure no site publicado (https): o cookie nunca trafega sem criptografia; na rede local (http) não dá
+    seguro = "; Secure" if _https() else ""
     if token:
-        cookie = f"{COOKIE}={token}; max-age={DIAS_SESSAO * 86400}; path=/; SameSite=Lax"
+        cookie = f"{COOKIE}={token}; max-age={DIAS_SESSAO * 86400}; path=/; SameSite=Lax{seguro}"
     else:
-        cookie = f"{COOKIE}=; max-age=0; path=/; SameSite=Lax"
+        cookie = f"{COOKIE}=; max-age=0; path=/; SameSite=Lax{seguro}"
     st.html(f"<script>(function(){{var c={json.dumps(cookie)};"
             "try{window.parent.document.cookie=c}catch(e){}document.cookie=c;})()</script>",
             unsafe_allow_javascript=True)
@@ -153,6 +165,8 @@ def entrar(login: str, senha: str, manter: bool) -> str:
         return f"Muitas tentativas erradas. Tente de novo em {int((ate - time.time()) // 60) + 1} min."
     us = usuarios(fresco=True)
     u = us.get(login)
+    if not u:
+        confere(_FALSO, senha)   # mesmo tempo de resposta: não revela se o usuário existe
     if not u or not confere(u, senha):
         falhas += 1
         tent[login] = (0, time.time() + BLOQUEIO_S) if falhas >= MAX_FALHAS else (falhas, 0.0)
@@ -307,8 +321,15 @@ def _form_senha(u: dict, exigir_atual: bool) -> None:
         if erro:
             st.error(erro)
             return
-        salvar(u["login"], {**_sem_meta(dados), **gerar_hash(s1), "trocar_senha": False}, u["login"])
-        st.toast("Senha alterada.", icon=":material/check:")
+        # senha nova: os outros aparelhos conectados saem (fica só este, se ele estava com "manter conectado")
+        try:
+            atual_h = _hash_token(st.context.cookies.get(COOKIE) or "")
+        except Exception:  # noqa: BLE001
+            atual_h = ""
+        sessoes = [x for x in (dados or {}).get("sessoes", []) if atual_h and x.get("h") == atual_h]
+        salvar(u["login"], {**_sem_meta(dados), **gerar_hash(s1), "trocar_senha": False, "sessoes": sessoes},
+               u["login"])
+        st.toast("Senha alterada. Os outros aparelhos conectados foram desconectados.", icon=":material/check:")
         st.rerun()
 
 

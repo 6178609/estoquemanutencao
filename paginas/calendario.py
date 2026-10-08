@@ -7,7 +7,7 @@ from central import bases, contexto, ui
 from central import calendario as cal
 from central import mudanca_datas as md
 from central.leitura import IW38
-from central.util import hoje_local, inteiro, sem_acento, setor_do_centro, SETORES
+from central.util import hoje_local, inteiro, sem_acento, setor_do_centro, setores, SETORES
 
 ui.cabecalho("Calendário de ordens · IW38",
              "As ordens alocadas em cada dia (data-base de início do IW38), por turno, com quem apontou (IW47) "
@@ -121,7 +121,7 @@ with st.expander(f"Lista das ordens do período ({inteiro(len(ordens))})", icon=
     tab = no_periodo.assign(Duração=no_periodo["Duração (h)"].map(cal.duracao))
     cols = ["Dia", "Turno", "Ordem", "Título", "Texto", "Tipo", "Natureza", "Situação", "Situação da ordem", "Quem",
             "Duração", "Centro de trabalho", "Localização"]
-    tab = tab.assign(Setor=tab["Centro de trabalho"].map(setor_do_centro))
+    tab = tab.assign(Setor=setores(tab["Centro de trabalho"]))
     cols.insert(cols.index("Centro de trabalho"), "Setor")
     st.dataframe(tab[cols], hide_index=True, width="stretch", height=ui.altura_tabela(380),
                  column_config={"Dia": ui.col_data(), "Quem": st.column_config.TextColumn("Quem", width="large"),

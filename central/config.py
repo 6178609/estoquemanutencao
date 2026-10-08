@@ -7,6 +7,7 @@ ambiente CENTRAL_<NOME> → padrão abaixo. Veja .streamlit/secrets.toml.exemplo
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,12 +44,15 @@ def _secao() -> dict:
         return {}
 
 
-def _valor(nome: str, padrao=None):
-    sec = _secao()
+def _valor(nome: str, padrao=None, sec: dict | None = None):
+    sec = _secao() if sec is None else sec
     if nome in sec:
         return sec[nome]
     env = os.environ.get(f"CENTRAL_{nome.upper()}")
     return env if env not in (None, "") else padrao
+
+
+_valor_de = _valor
 
 
 def eh_downloads(p: Path) -> bool:
@@ -86,7 +90,29 @@ class Config:
                          *self.sp_pastas, self.sp_pasta_app, self.gh_repo, self.gh_branch])
 
 
+_MEMO: dict = {}
+_MEMO_S = 30   # pastas padrão que passam a existir (OneDrive sincronizou) entram em até 30 s
+
+
 def carregar() -> Config:
+    """A configuração é lida centenas de vezes por página: guarda por alguns segundos, por conteúdo dos
+    secrets e das variáveis de ambiente (mudou qualquer um, relê na hora)."""
+    sec = _secao()
+    chave = (repr(sorted(sec.items())),
+             tuple(sorted((k, v) for k, v in os.environ.items() if k.startswith("CENTRAL_")
+                          or k in ("HOME", "USERPROFILE"))))
+    memo = _MEMO.get("cfg")
+    if memo and memo[0] == chave and time.monotonic() - memo[1] < _MEMO_S:
+        return memo[2]
+    cfg = _carregar(sec)
+    _MEMO["cfg"] = (chave, time.monotonic(), cfg)
+    return cfg
+
+
+def _carregar(sec: dict) -> Config:
+    def _valor(nome: str, padrao=None):   # noqa: F811 — a mesma regra, com os secrets já lidos
+        return _valor_de(nome, padrao, sec)
+
     bruto = _valor("pastas", None)
     if isinstance(bruto, str):
         bruto = [p for p in bruto.split(";") if p.strip()]

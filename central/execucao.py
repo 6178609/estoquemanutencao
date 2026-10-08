@@ -148,9 +148,10 @@ def indicadores(ops: pd.DataFrame, ordens: pd.DataFrame | None, conf_ap: pd.Data
         concluida = o["Situação"] == "Concluída"
         if conf_ap is not None and len(conf_ap) and "Status sistema" in conf_ap:
             # a IW47 costuma ser mais recente que o IW38: CONF + ENTE nela também encerra a ordem
-            st = conf_ap["Status sistema"].fillna("").astype(str).groupby(conf_ap["Ordem"]).agg(
-                lambda s: set(" ".join(s).split()))
-            concluida |= o["Ordem"].map(st).map(lambda t: isinstance(t, set) and {"CONF", "ENTE"} <= t)
+            stt = conf_ap["Status sistema"].fillna("").astype(str)
+            tem = pd.DataFrame({"CONF": stt.str.contains(r"(?:^|\s)CONF(?:\s|$)"),
+                                "ENTE": stt.str.contains(r"(?:^|\s)ENTE(?:\s|$)")}).groupby(conf_ap["Ordem"]).any()
+            concluida |= o["Ordem"].isin(tem.index[tem["CONF"] & tem["ENTE"]])
         r["ordens_concluidas"] = float(concluida.sum())
         r["taxa_ordens"] = r["ordens_concluidas"] / len(o) * 100 if len(o) else None
     else:
