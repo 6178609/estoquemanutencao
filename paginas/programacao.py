@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
@@ -7,7 +7,7 @@ from central import auth, bases, contexto, robo, ui
 from central import calendario as cal
 from central import mudanca_datas as md
 from central.fontes import FonteErro
-from central.util import inteiro
+from central.util import hoje_local, inteiro
 
 ui.cabecalho("Programação do mês · previsão",
              "Calendário manual das paradas das máquinas (campo de ordenação), à parte do calendário da IW38. "
@@ -16,7 +16,7 @@ ui.cabecalho("Programação do mês · previsão",
 usuario = auth.usuario_atual()
 pode = auth.pode_editar(usuario)
 quem = auth.nome_de(usuario) or "site"
-hoje = date.today()
+hoje = hoje_local()
 ss = st.session_state
 
 

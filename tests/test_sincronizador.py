@@ -118,7 +118,7 @@ def test_pc_envia_e_site_le(ambiente, monkeypatch):
     mb = pd.DataFrame({"Material": [100200.0], "Texto breve material": ["ROLAMENTO"], "Utilização livre": [4.0]})
     mb.to_excel(estoque / "MB52.XLSX", index=False)
 
-    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [0.0])
+    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
     assert sorted(sincronizar.rodada(cfg)) == [IW38, MB52]
     assert set(gh.arquivos) == {"bases/IW38.parquet", "bases/MB52.parquet", "bases/manifesto.json", "app/robo_pc.json"}
     # sinal de vida para o site: versão do robô e recursos (o site avisa quando o PC está com código antigo)

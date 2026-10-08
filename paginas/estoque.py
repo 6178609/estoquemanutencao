@@ -19,7 +19,7 @@ def apos_gravar() -> None:
     """Depois de gravar mínimo ou foto: o vigia da barra lateral não deve tratar a gravação
     como "arquivo novo" — o st.rerun dele roda antes desta página e apagaria as escolhas
     da tela (visão de fotos, material escolhido)."""
-    ss["_assinatura"] = bases.assinatura_geral()
+    ss["_assinatura"] = bases.assinatura_dados()
 
 
 base = bases.mb52()

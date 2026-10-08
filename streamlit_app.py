@@ -7,7 +7,7 @@ import streamlit as st
 # Na nuvem, uma nova publicação troca os arquivos, mas o Streamlit só relê as páginas: os módulos de
 # central/ ficariam na versão antiga (AttributeError, cache com classes velhas). Quando algum deles
 # muda no disco, recarrega todos na ordem das dependências e limpa os caches.
-ORDEM_MODULOS = ["util", "config", "fontes", "fotos", "leitura", "af", "execucao", "preditiva", "planos", "calendario", "mudanca_datas", "bases", "indicadores",
+ORDEM_MODULOS = ["util", "config", "fontes", "fotos", "leitura", "af", "execucao", "preditiva", "planos", "calendario", "mudanca_datas", "saude", "semanal", "busca", "qualidade", "bases", "indicadores",
                  "ui", "auth", "robo", "contexto", "execucao_ui"]
 
 
@@ -62,9 +62,11 @@ paginas = st.navigation(
     {
         "Visão geral": [
             st.Page("paginas/painel.py", title="Painel WCM", icon=":material/dashboard:", default=True),
+            st.Page("paginas/busca.py", title="Buscar", icon=":material/search:"),
         ],
         "Confiabilidade": [
             st.Page("paginas/confiabilidade.py", title="Quebras, MTBF e MTTR", icon=":material/health_and_safety:"),
+            st.Page("paginas/saude.py", title="Saúde dos ativos", icon=":material/monitor_heart:"),
             st.Page("paginas/preditiva.py", title="Preditiva (SEMEQ)", icon=":material/sensors:"),
             st.Page("paginas/equipamentos.py", title="Equipamentos", icon=":material/precision_manufacturing:"),
             st.Page("paginas/notas.py", title="Notas", icon=":material/notification_important:"),
@@ -77,6 +79,7 @@ paginas = st.navigation(
             st.Page("paginas/ordens.py", title="Ordens", icon=":material/assignment:"),
             st.Page("paginas/planos.py", title="Planos", icon=":material/calendar_month:"),
             st.Page("paginas/calendario.py", title="Calendário de ordens", icon=":material/event_note:"),
+            st.Page("paginas/semanal.py", title="Programação semanal", icon=":material/view_week:"),
             st.Page("paginas/programacao.py", title="Programação do mês", icon=":material/edit_calendar:"),
             st.Page("paginas/mao_de_obra.py", title="Mão de obra e backlog", icon=":material/engineering:"),
         ],
@@ -87,6 +90,7 @@ paginas = st.navigation(
         ],
         "Configuração": [
             st.Page("paginas/metas.py", title="Metas e parâmetros", icon=":material/tune:"),
+            st.Page("paginas/qualidade.py", title="Qualidade dos dados", icon=":material/rule:"),
             st.Page("paginas/dados.py", title="Fontes de dados", icon=":material/folder_open:"),
             *conta,
         ],

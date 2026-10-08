@@ -16,7 +16,7 @@ em `central/indicadores.py` (pandas puro, com testes).
 
 | Grupo | Indicadores |
 |---|---|
-| Confiabilidade | Quebras (nota Y1 convertida em ordem YM11 — regra da planta), MTBF, MTTR, reincidência (≤ 30 dias), quebras em classe A |
+| Confiabilidade | Quebras (nota Y1 convertida em ordem YM11 — regra da planta), MTBF, MTTR, disponibilidade (MTBF ÷ (MTBF + MTTR)), reincidência (≤ 30 dias), quebras em classe A; com filtro de tipo sem YM11 os indicadores de quebra ficam sem valor |
 | Preditiva (SEMEQ) | Anomalias detectadas, % com ordem, % tratadas, dias para tratar, anomalias atrasadas (hoje) |
 | Planejamento e controle | Manutenção planejada (% com plano), corretiva emergencial, aderência ao plano (IP19), ordens concluídas no prazo, backlog em semanas, idade do backlog, notas sem ordem > 7 dias |
 | Análise de falhas (AF) | Taxa de análise de quebra crítica (A), execução de AFs, AFs analisadas no prazo, AFs atrasadas, ações de AFs (execução), ações no prazo, ações atrasadas — do Gerenciador de AF; só o período vale (as áreas do gerenciador são outras) |
@@ -37,6 +37,11 @@ Montagem, UTIL = Utilidades, CORT = Corte, PRE = Predial, MATZ = Matrizaria, FER
 Lubrificação, GPM = Planejamento, AUT = Automação, TERC = Terceiros (regra em `central/util.py`, `setor_do_centro`).
 Há filtro de setor na barra lateral (vale para o site todo), na execução do Painel e no calendário, além do
 "Scorecard por setor".
+
+**Regras de período:** o que ainda não aconteceu não conta (um período até 31/12 vale até hoje); mês ou período
+sem a base correspondente (ex.: antes do primeiro export) fica sem valor em vez de zero; a comparação com o período
+anterior só aparece onde a base cobre ao menos metade dele; o mês em andamento aparece com `*` nos gráficos.
+"Hoje" é sempre o horário de Brasília (o servidor na nuvem roda em UTC).
 
 **Filtros globais**: período (de/até), área (localização), setor, centro de trabalho e tipo de ordem — valem para todas
 as abas (no Painel ficam no topo da página; nas outras abas, na barra lateral), e cada cartão do Painel leva à aba
@@ -137,6 +142,14 @@ atualização automática: `atualizar_horas = 0` em `sincronizador/config.toml`.
   atividades** (IW38/IW38OP × IW47, por setor e centro); **Mais detalhes** — todos os indicadores por grupo,
   scorecard por área, por setor e por centro de trabalho (com farol), evolução mensal, pontos de atenção completos
   (bad actors, backlog mais antigo, peças críticas, compras paradas) e scorecard para baixar em Excel.
+- **Buscar** (também na barra lateral) — um número ou palavra procurado de uma vez em ordens (inclusive campo de
+  ordenação), notas, equipamentos, materiais, planos e análises de falha, sem filtro de período; número exato primeiro
+  e detalhe da ordem (operações e apontamentos) ao selecionar.
+- **Saúde dos ativos** — índice de 0 a 100 por equipamento (no estilo do IBM Maximo Health / SAP APM): quebras,
+  falhas registradas no Gerenciador de AF, demanda corretiva, backlog atrasado, preventivas atrasadas (IP19), anomalias
+  preditivas abertas e custo, cada um com peso (soma 100). Faixas Boa ≥ 80, Atenção 60–79, Crítica < 60; **risco** =
+  pontos perdidos × peso da criticidade (Alta 3, Média 2, Baixa 1). Matriz criticidade × saúde, o que mais derruba a
+  saúde, fila de ataque e o detalhe de cada equipamento. Janela própria: últimos 12 meses + pendências de hoje.
 - **Quebras, MTBF e MTTR** — quebras e MTTR por mês, Pareto 80/20 (equipamento, local, centro, área, tipo de nota),
   confiabilidade por equipamento com link para a ficha, matriz criticidade × frequência, dia da semana e reincidências.
 - **Preditiva (SEMEQ)** — anomalias da preditiva (notas IW28 e ordens IW38 com `SEMEQ-<técnica>-<nº>-<achado>` no
@@ -148,6 +161,11 @@ atualização automática: `atualizar_horas = 0` em `sincronizador/config.toml`.
 - **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
 - **Ordens** — busca, filtros (situação, plano/backlog, classe WCM, status), fim real, lead time, prazo, HH apontadas,
   detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.
+- **Programação semanal** — a semana escolhida (de quinta em diante já abre na próxima): carga (HH das operações
+  programadas) × capacidade por centro de trabalho (configurada; senão técnicos da Gestão de HH × jornada; senão a
+  média apontada), quadro por dia, % de ordens liberadas, lista para a reunião de programação (Excel), operações
+  atrasadas que cabem na folga (ordem liberada e equipamento de maior risco primeiro) e a **aderência à programação**
+  das semanas anteriores (concluído dentro da própria semana, em operações e em HH; meta SMRP ≥ 90%).
 - **Calendário de ordens** — período "entre" (de/até, com atalhos de semana e mês) com as ordens do IW38 em cada dia da data-base de
   início, separadas por turno (turma de quem apontou na IW47), com equipamento, pessoas e duração planejada (IW38OP);
   filtros de localização (valores da coluna do IW38) e centro de trabalho; azul = plano de manutenção,
@@ -164,6 +182,10 @@ atualização automática: `atualizar_horas = 0` em `sincronizador/config.toml`.
 - **Planos de AF** e **Ações de AF** — gestão das análises de falha e do plano de ação (veja abaixo).
 - **Metas e parâmetros** — meta de cada indicador, jornada semanal, capacidade por centro de trabalho e classe WCM de
   cada tipo de ordem (nomes padrão lidos da planilha de Gestão de HH).
+- **Qualidade dos dados** — checagens automáticas do que distorce os indicadores (notas Y1 sem ordem YM11, quebras
+  sem horas de reparo, notas sem ordem, backlog com mais de 180 dias, ordens sem equipamento, encerradas sem
+  confirmação, operações sem trabalho planejado, apontamentos de pessoas fora da Gestão de HH, equipamentos sem
+  criticidade…), com farol, índice de qualidade, como corrigir no SAP e a lista para baixar.
 - **Fontes de dados** — de onde vem cada base, data do arquivo, troca/fixação de arquivo e envio manual.
 
 Por padrão o período é "últimos 12 meses" (até hoje); ordens com data-base futura entram em "Tudo" ou num

@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from . import execucao as ex
-from .util import sem_acento
+from .util import agora_local, sem_acento
 
 PALAVRA = "SEMEQ"
 _RX = re.compile(r"SEMEQ\W*(?P<tec>[A-Z]{2,4})\W*(?P<num>\d+)\W*(?P<achado>.*)")
@@ -52,7 +52,7 @@ def anomalias(notas: pd.DataFrame | None, ordens: pd.DataFrame | None, oper: pd.
 
     Tratada = ordem encerrada (ENTE) ou com todas as operações executadas, e confirmada (CONF) ou com
     apontamento na IW47 — o status vale pelo IW38, IW38OP ou IW47 (a mais recente)."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     cols = ["Código", "Técnica", "Sigla", "Achado", "Equipamento", "Objeto técnico", "Detecção", "Nota", "Ordem",
             "Situação", "Dias para tratar", "Dias em aberto"]
     partes = []
@@ -111,7 +111,9 @@ def anomalias(notas: pd.DataFrame | None, ordens: pd.DataFrame | None, oper: pd.
         df[c] = df[c].astype(object).where(df[c].notna(), "").astype(str)  # o IW38 tem colunas categóricas
     for c in ["Data nota", "Data ordem", "Fim previsto"]:
         df[c] = pd.to_datetime(df[c]) if c in df else pd.NaT
-    df["Custo real"] = pd.to_numeric(df.get("Custo real", 0.0), errors="coerce").fillna(0.0)
+    # só notas SEMEQ (ex.: filtro de tipo sem ordens SEMEQ) = sem coluna de custo
+    df["Custo real"] = (pd.to_numeric(df["Custo real"], errors="coerce").fillna(0.0) if "Custo real" in df
+                        else 0.0)
     df["Ordem"] = df["Ordem"].where(df["Ordem"] != "", df["Ordem nota"])
     df["Detecção"] = df["Data nota"].fillna(df["Data ordem"])
     df["Técnica"] = df["Sigla"].map(TECNICAS).fillna(df["Sigla"])
@@ -127,7 +129,7 @@ def anomalias(notas: pd.DataFrame | None, ordens: pd.DataFrame | None, oper: pd.
     df["Fim real"] = pd.to_datetime(df["Fim real"])
     ordens_semeq = set(df["Ordem"]) - {""}
     c = conf[conf["Ordem"].isin(ordens_semeq)].copy() if conf is not None and len(conf) else None
-    if c is not None:
+    if c is not None and len(c):
         nomes = dict(zip(equipe["Nº pessoal"], equipe["Nome"])) if equipe is not None and len(equipe) else {}
         c["Pessoa"] = c["Nº pessoal"].map(nomes).fillna(c["Nº pessoal"])
         g = c.groupby("Ordem")

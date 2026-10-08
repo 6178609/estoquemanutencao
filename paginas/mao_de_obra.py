@@ -203,7 +203,7 @@ elif visao == "Distribuição das horas":
 # ============================================================================
 else:
     bk = ind.backlog(d)
-    cap, origem = ind.capacidade_semanal(d)
+    cap, origem = ind.capacidade_semanal(d, list(d.centros) or None)
     c = st.columns(4)
     c[0].metric("Ordens em aberto (até hoje)", inteiro(len(bk)), border=True, delta_arrow="off")
     c[1].metric("HH pendentes", f"{inteiro(bk['HH pendentes'].sum())} h" if bk["HH pendentes"].notna().any() else "—",

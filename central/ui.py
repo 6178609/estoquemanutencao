@@ -15,6 +15,7 @@ import streamlit as st
 
 from . import bases, config
 from .leitura import NOMES_BASE
+from .util import hoje_local
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 
@@ -179,11 +180,17 @@ def barra_lateral(usuario: dict | None = None) -> None:
             st.caption(f":material/person: **{usuario.get('nome') or usuario['login']}** · {perfil}")
         else:
             st.caption("Ordens IW38 · Estoque MB52 · Requisições · Equipamentos")
+        with st.form("busca_lateral", clear_on_submit=True, border=False):
+            q = st.text_input("Buscar no sistema", placeholder="ordem, equipamento, material, AF…",
+                              label_visibility="collapsed")
+            if st.form_submit_button("Buscar", icon=":material/search:", width="stretch") and q.strip():
+                st.session_state["busca_q"] = q.strip()
+                st.switch_page("paginas/busca.py")
 
         @st.fragment(run_every=cfg.intervalo_verificacao)
         def vigia():
             try:
-                ass = bases.assinatura_geral()
+                ass = bases.assinatura_dados()
             except Exception as e:  # noqa: BLE001
                 st.error(f"Fonte indisponível: {e}")
                 return
@@ -258,7 +265,7 @@ ATALHOS = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Ano atual", "�
 
 
 def _atalho(nome: str, minimo: date, maximo: date) -> tuple[date, date]:
-    hoje = date.today()
+    hoje = hoje_local()
     domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)   # semanas de domingo a sábado
     if nome in ("Esta semana", "Próxima semana", "Semana passada"):
         d = domingo + timedelta(days={"Esta semana": 0, "Próxima semana": 7, "Semana passada": -7}[nome])
@@ -295,7 +302,7 @@ def filtro_datas(chave: str, rotulo: str, padrao: tuple[date, date], dados: pd.S
     validas = dados.dropna() if dados is not None else pd.Series(dtype="datetime64[ns]")
     minimo = min(validas.min().date(), padrao[0]) if len(validas) else padrao[0]
     maximo = max(validas.max().date(), padrao[1]) if len(validas) else padrao[1]
-    minimo, maximo = min(minimo, date(2000, 1, 1)), max(maximo, date.today() + timedelta(days=730))
+    minimo, maximo = min(minimo, date(2000, 1, 1)), max(maximo, hoje_local() + timedelta(days=730))
     if chave not in ss:
         ss[chave] = padrao
     chave_atalho = f"{chave}__atalho"
@@ -351,21 +358,39 @@ def col_data(rotulo: str | None = None, **kw):
     return st.column_config.DateColumn(rotulo, format="DD/MM/YYYY", **kw)
 
 
-def baixar(df: pd.DataFrame, nome: str, rotulo: str = "Baixar Excel", chave: str | None = None) -> None:
-    """Botão para baixar a tabela filtrada em Excel (cai para CSV se o Excel falhar)."""
+MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_CONTROLE = r"[\x00-\x08\x0b\x0c\x0e-\x1f]"   # caracteres que o Excel (openpyxl) não aceita
+
+
+def para_excel(df: pd.DataFrame) -> pd.DataFrame:
+    """Cópia pronta para o Excel: categorias e datas com fuso viram valores simples, controle sai do texto."""
+    saida = df.copy()
+    for c in saida.columns:
+        col = saida[c]
+        if isinstance(col.dtype, pd.CategoricalDtype):
+            saida[c] = col.astype(str)
+        elif isinstance(col.dtype, pd.DatetimeTZDtype):
+            saida[c] = col.dt.tz_localize(None)
+        elif col.dtype == object or pd.api.types.is_string_dtype(col):
+            saida[c] = col.astype(object).where(col.isna(), col.astype(str).str.replace(_CONTROLE, "", regex=True))
+    return saida
+
+
+def excel_bytes(*abas: tuple[str, pd.DataFrame]) -> bytes:
     import io
 
     buf = io.BytesIO()
-    try:
-        saida = df.copy()
-        for c in saida.select_dtypes(include="category").columns:
-            saida[c] = saida[c].astype(str)
-        saida.to_excel(buf, index=False, engine="openpyxl")
-        st.download_button(rotulo, buf.getvalue(), f"{nome}.xlsx", icon=":material/download:", key=chave,
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    except Exception:  # noqa: BLE001
-        st.download_button(rotulo, df.to_csv(index=False, sep=";").encode("utf-8-sig"), f"{nome}.csv",
-                           icon=":material/download:", key=chave, mime="text/csv")
+    with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+        for nome, df in abas:
+            para_excel(df).to_excel(xw, sheet_name=nome[:31], index=False)
+    return buf.getvalue()
+
+
+def baixar(df: pd.DataFrame, nome: str, rotulo: str = "Baixar Excel", chave: str | None = None) -> None:
+    """Botão para baixar a tabela em Excel. O arquivo só é gerado no clique (não pesa em cada atualização
+    da página) e o clique não recarrega a tela."""
+    st.download_button(rotulo, lambda: excel_bytes(("Dados", df)), f"{nome}.xlsx", icon=":material/download:",
+                       key=chave, mime=MIME_XLSX, on_click="ignore")
 
 
 def grafico_barras_h(dados: pd.DataFrame, cat: str, val: str, cor: str = AZUL, formato: str = ",.0f",

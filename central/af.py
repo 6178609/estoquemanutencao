@@ -22,7 +22,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from .util import achar_coluna, chave, marcar_quebras, para_data, para_numero, texto
+from .util import achar_coluna, agora_local, chave, marcar_quebras, para_data, para_numero, texto
 
 # ----------------------------------------------------------------------------
 # Situações
@@ -112,7 +112,7 @@ def _marcado(serie: pd.Series) -> pd.Series:
 
 def preparar_afs(cru: pd.DataFrame, hoje: pd.Timestamp | None = None) -> pd.DataFrame:
     """Uma linha por análise de falha, com a situação calculada e os prazos."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     df = _padronizar(cru, _AF_COLUNAS, _TEXTOS_AF)
     df = df[df["Nº AF"] != ""].copy()
     for c in ["Data da falha", "Data limite", "Data da análise"]:
@@ -151,7 +151,7 @@ def situacao_af(df: pd.DataFrame, hoje: pd.Timestamp) -> pd.Series:
 
 def preparar_acoes(cru: pd.DataFrame, hoje: pd.Timestamp | None = None, afs: pd.DataFrame | None = None) -> pd.DataFrame:
     """Uma linha por ação, com a situação calculada; `afs` completa área, criticidade e causa da AF."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     df = _padronizar(cru, _ACAO_COLUNAS, _TEXTOS_ACAO, marcacoes=tuple(TIPOS_ACAO))
     df = df[(df["Nº AF"] != "") & (df["Ação"] != "")].copy()
     for c in TIPOS_ACAO:
@@ -233,7 +233,7 @@ def indicadores(afs: pd.DataFrame, acoes: pd.DataFrame, ini, fim, hoje: pd.Times
     - acoes_execucao ("Ações de AF's"): ações com data limite no período (até hoje) realizadas ÷
       ações com data limite no período; acoes_no_prazo: só as realizadas até a data limite.
     """
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     r: dict[str, float | None] = {}
     vivas = afs[afs["Situação"] != AF_CANCELADA]
     geradas = vivas[_entre(vivas["Data da falha"], ini, fim)]
@@ -275,7 +275,7 @@ def semanal(afs: pd.DataFrame, acoes: pd.DataFrame, ini, fim, hoje: pd.Timestamp
     """Acompanhamento semanal no formato do RESUMO CORPORATIVO: para cada semana (segunda a
     domingo) e indicador, Gerado × Executado × Percentual (taxa de quebra A pela data da falha;
     execução de AFs e ações pela data limite). `notas` não é usada (mantida por compatibilidade)."""
-    hoje = (hoje or pd.Timestamp.now()).normalize()
+    hoje = (hoje or agora_local()).normalize()
     ini = pd.Timestamp(ini) - pd.Timedelta(days=pd.Timestamp(ini).dayofweek)
     semanas = pd.date_range(ini, pd.Timestamp(fim), freq="7D")
     vivas = afs[afs["Situação"] != AF_CANCELADA]

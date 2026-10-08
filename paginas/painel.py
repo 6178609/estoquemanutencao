@@ -1,13 +1,12 @@
-import io
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, contexto, execucao_ui, ui
+from central import bases, contexto, execucao_ui, saude, ui
 from central import indicadores as ind
 from central.leitura import IW38
-from central.util import brl, inteiro
+from central.util import brl, hoje_local, inteiro
 
 ui.cabecalho("Painel WCM · Manutenção Profissional",
              "Visão gerencial do pilar e execução das atividades — cada cartão leva à aba onde ele é detalhado")
@@ -38,31 +37,55 @@ st.caption(f"Variações contra {ui.descrever(a_ini, a_fim)} (período anterior 
            "título de cada indicador para ver a fórmula")
 cores = {k.id: ind.farol(k, atual.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
 n = {c: sum(v == c for v in cores.values()) for c in (ind.VERDE, ind.AMARELO, ind.VERMELHO, ind.NEUTRO)}
-com_meta = n[ind.VERDE] + n[ind.AMARELO] + n[ind.VERMELHO]
-indice = (n[ind.VERDE] + 0.5 * n[ind.AMARELO]) / com_meta * 100 if com_meta else None
+sem_meta = sum(1 for k in ind.KPIS if cores[k.id] == ind.NEUTRO and ind.meta(k, cad) is None)
+sem_dado = n[ind.NEUTRO] - sem_meta
 cores_ant = {k.id: ind.farol(k, anterior.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
-n_ant = {c: sum(v == c for v in cores_ant.values()) for c in (ind.VERDE, ind.AMARELO, ind.VERMELHO)}
-com_meta_ant = sum(n_ant.values())
-indice_ant = (n_ant[ind.VERDE] + 0.5 * n_ant[ind.AMARELO]) / com_meta_ant * 100 if com_meta_ant else None
+
+
+def _indice(ids) -> float | None:
+    ids = list(ids)
+    return (sum(cores[i] == ind.VERDE for i in ids) + 0.5 * sum(cores[i] == ind.AMARELO for i in ids)) / len(ids) * 100 \
+        if ids else None
+
+
+avaliados = [i for i, c_ in cores.items() if c_ != ind.NEUTRO]
+indice = _indice(avaliados)
+# a variação compara só os indicadores avaliados nos dois períodos (senão compara cestas diferentes)
+comuns = [i for i in avaliados if cores_ant[i] != ind.NEUTRO]
+indice_ant = ((sum(cores_ant[i] == ind.VERDE for i in comuns) + 0.5 * sum(cores_ant[i] == ind.AMARELO for i in comuns))
+              / len(comuns) * 100) if comuns else None
+indice_comum = _indice(comuns)
 cor_indice = ui.VERDE if (indice or 0) >= 80 else ("#F2B705" if (indice or 0) >= 60 else ui.VERMELHO)
 
 c = st.columns([1.5, 1, 1, 1, 1])
 with c[0], st.container(border=True, key="kpi-neutro-indice"):
     var = ""
-    if indice is not None and indice_ant is not None:
-        dv = indice - indice_ant
+    if indice_comum is not None and indice_ant is not None:
+        dv = indice_comum - indice_ant
         classe = "cm-up" if dv > 0 else ("cm-down" if dv < 0 else "cm-eq")
         var = f'<span class="{classe}">{"▲" if dv > 0 else ("▼" if dv < 0 else "=")} {abs(dv):.0f} p.p.</span> vs anterior'
     st.markdown(f'<div class="cm-kpi-t">Índice WCM do pilar</div><div class="cm-indice" style="color:{cor_indice}">'
                 f'{"—" if indice is None else f"{indice:.0f}%"}</div><div class="cm-kpi-m">{var}</div>',
                 unsafe_allow_html=True,
-                help="(indicadores na meta + metade dos em atenção) ÷ indicadores com meta. Metas em Configuração › "
-                     "Metas e parâmetros. Os de análise de falhas (AF) valem sempre para a fábrica inteira.")
-for col, (cor, nome) in zip(c[1:], [(ind.VERDE, "Na meta"), (ind.AMARELO, "Atenção"),
-                                     (ind.VERMELHO, "Fora da meta"), (ind.NEUTRO, "Sem meta definida")]):
+                help="(indicadores na meta + metade dos em atenção) ÷ indicadores com meta e valor. A variação usa só "
+                     "os indicadores avaliados nos dois períodos. Metas em Configuração › Metas e parâmetros. Os de "
+                     f"análise de falhas (AF) valem sempre para a fábrica inteira. {len(comuns)} de {len(avaliados)} "
+                     "indicadores entram na comparação.")
+for col, (cor, nome, valor) in zip(c[1:], [(ind.VERDE, "Na meta", n[ind.VERDE]),
+                                           (ind.AMARELO, "Atenção", n[ind.AMARELO]),
+                                           (ind.VERMELHO, "Fora da meta", n[ind.VERMELHO]),
+                                           (ind.NEUTRO, "Sem meta · sem dado", f"{sem_meta} · {sem_dado}")]):
     with col, st.container(border=True, key=f"kpi-{cor}-resumo"):
         st.markdown(f'<div class="cm-kpi-t"><span class="cm-dot" style="background:{contexto.COR_FAROL[cor]}"></span>'
-                    f'{nome}</div><div class="cm-kpi-v">{n[cor]}</div>', unsafe_allow_html=True)
+                    f'{nome}</div><div class="cm-kpi-v">{valor}</div>', unsafe_allow_html=True)
+
+# o IW38 sem as corretivas deixa "manutenção planejada" otimista: avisa (as horas da IW47 mostram o tamanho)
+cob_hh = atual.get("cobertura_hh")
+if cob_hh is not None and cob_hh < 90:
+    st.warning(f"Só **{cob_hh:.0f}%** das horas apontadas (IW47) são de ordens que estão no IW38 carregado — as "
+               "corretivas (YM11/YM12) provavelmente não vieram no export. **Manutenção planejada** e **HH em "
+               "manutenção planejada** ficam otimistas; exporte o IW38 com todos os tipos de ordem.",
+               icon=":material/info:")
 
 # destaques: os indicadores que a gerência acompanha toda semana
 DESTAQUES = ["pct_plano", "no_prazo", "backlog_sem", "quebras", "mtbf", "mttr", "custo", "af_execucao"]
@@ -111,7 +134,11 @@ for col, (kid, cor) in zip(cols, TENDENCIA):
     k = ind.POR_ID[kid]
     with col, st.container(border=True):
         tem = kid in serie and serie[kid].notna().sum()
-        ultimo = f" · último mês **{ind.formatar(k, serie[kid].dropna().iloc[-1])}**" if tem else ""
+        # o mês corrente está pela metade: o destaque é o último mês completo
+        completos = serie[serie["Mês"] < pd.Timestamp(hoje_local()).to_period("M").start_time] if tem else serie
+        val = completos[["Mês", kid]].dropna() if tem else completos
+        ultimo = (f" · {contexto.mes_pt(val['Mês'].iloc[-1])} **{ind.formatar(k, val[kid].iloc[-1])}**"
+                  if tem and len(val) else "")
         st.markdown(f"**{k.nome}** · 12 meses{ultimo}", help=k.formula)
         if tem:
             ui.mostrar(contexto.grafico_mensal(serie, k, ind.meta(k, cad), cor, barras=k.unidade in ("un", "R$"),
@@ -134,6 +161,18 @@ if atual.get("semeq_detectadas") is not None:
             f"**{_pct(atual.get('semeq_tratadas'))} tratadas** · {_pct(atual.get('semeq_com_ordem'))} com ordem · "
             f":red[**{inteiro(atual.get('semeq_atrasadas') or 0)} atrasadas hoje**] · {dias_txt} dias para tratar")
         p2.page_link("paginas/preditiva.py", label="Abrir preditiva", icon=":material/arrow_forward:")
+
+# resumo da saúde dos ativos (índice 0–100 por equipamento)
+_saude = saude.resumo(contexto.saude_ativos(f))
+if _saude["ativos"]:
+    with st.container(border=True, key="faixa-saude"):
+        s1, s2 = st.columns([5, 1.3], vertical_alignment="center")
+        s1.markdown(
+            f":material/monitor_heart: **Saúde dos ativos** · {inteiro(_saude['ativos'])} equipamentos · "
+            f":red[**{inteiro(_saude['criticos'])} em saúde crítica**] ({inteiro(_saude['criticos_alta'])} de "
+            f"criticidade Alta) · :orange[{inteiro(_saude['atencao'])} em atenção] · saúde média "
+            f"{_saude['media']:.0f}/100")
+        s2.page_link("paginas/saude.py", label="Fila de ataque", icon=":material/arrow_forward:")
 
 # ============================================================================
 # 2. EXECUÇÃO DAS ATIVIDADES
@@ -287,12 +326,9 @@ for k in ind.KPIS:
                    "Farol": contexto.NOME_FAROL[cores[k.id]], "Período anterior": anterior.get(k.id),
                    "Variação": delta, "Melhorou": {True: "sim", False: "não"}.get(melhorou, ""), "Fórmula": k.formula})
 tabela = pd.DataFrame(linhas)
-buf = io.BytesIO()
-with pd.ExcelWriter(buf, engine="openpyxl") as xw:
-    pd.DataFrame({"Recorte": [f.desc], "Período anterior": [ui.descrever(a_ini, a_fim)],
-                  "Índice WCM": [None if indice is None else round(indice, 1)]}).to_excel(xw, sheet_name="Resumo", index=False)
-    tabela.to_excel(xw, sheet_name="Indicadores", index=False)
-    if len(serie):
-        serie.rename(columns={k.id: k.nome for k in ind.KPIS}).to_excel(xw, sheet_name="Mês a mês", index=False)
-st.download_button("Baixar scorecard WCM (Excel)", buf.getvalue(), "scorecard_wcm.xlsx", icon=":material/download:",
-                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+resumo_xl = pd.DataFrame({"Recorte": [f.desc], "Período anterior": [ui.descrever(a_ini, a_fim)],
+                          "Índice WCM": [None if indice is None else round(indice, 1)]})
+mensal_xl = serie.rename(columns={k.id: k.nome for k in ind.KPIS}) if len(serie) else pd.DataFrame()
+st.download_button("Baixar scorecard WCM (Excel)",
+                   lambda: ui.excel_bytes(("Resumo", resumo_xl), ("Indicadores", tabela), ("Mês a mês", mensal_xl)),
+                   "scorecard_wcm.xlsx", icon=":material/download:", mime=ui.MIME_XLSX, on_click="ignore")

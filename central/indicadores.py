@@ -16,14 +16,15 @@ Convenções:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import date
 
 import numpy as np
 import pandas as pd
 
-from . import af, preditiva
-from .util import marcar_quebras
+from . import af, planos, preditiva
+from .util import agora_local, marcar_quebras
 
 PENDENTES = ("Aberta", "Liberada", "Encerrada sem confirmação")
 
@@ -62,6 +63,9 @@ KPIS: list[Kpi] = [
     Kpi("mttr", "MTTR", "h", -1, 4, CONFIABILIDADE, P_CONF,
         "Tempo médio de reparo por quebra: duração da parada na nota; sem ela, horas reais da ordem da quebra "
         "na IW47 ÷ pessoas que apontaram; sem IW47, Σ(trabalho ÷ pessoas) das operações no IW38OP.", mensal=True),
+    Kpi("disponibilidade", "Disponibilidade", "%", +1, 98, CONFIABILIDADE, P_CONF,
+        "Disponibilidade inerente dos equipamentos que quebraram: MTBF ÷ (MTBF + MTTR), com o MTBF em horas "
+        "(dias × 24) e o MTTR das quebras do período."),
     Kpi("reincidencia", "Reincidência", "%", -1, 10, CONFIABILIDADE, P_CONF,
         "Quebras em equipamento que já tinha quebrado nos 30 dias anteriores ÷ quebras."),
     Kpi("quebras_a", "Quebras em classe A", "un", -1, None, CONFIABILIDADE, P_CONF,
@@ -168,7 +172,10 @@ class Dados:
     horas_semana: float = 44.0                # jornada semanal de cada técnico
     afs: pd.DataFrame | None = None           # Gerenciador de AF · análises (af.preparar_afs), sem filtro de área
     acoes_af: pd.DataFrame | None = None      # Gerenciador de AF · ações (af.preparar_acoes)
-    hoje: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now().normalize())
+    hoje: pd.Timestamp = field(default_factory=lambda: agora_local().normalize())
+    centros: tuple = ()                       # centros do filtro (capacidade configurada só deles)
+    tipos_filtro: tuple = ()                  # tipos de ordem do filtro (quebra = YM11)
+    filtro_area_tipo: bool = False            # com filtro de área/tipo a utilização da equipe não tem base
     _memo: dict = field(default_factory=dict, repr=False)
 
     def memo(self, nome: str, fn):
@@ -339,23 +346,65 @@ def _div(a, b, fator=1.0):
     return (a / b * fator) if b else None
 
 
+TIPO_QUEBRA = "YM11"
+# de qual base cada indicador depende (sem a base cobrindo o período, o valor fica vazio, não zero)
+FONTE = {**dict.fromkeys(["pct_plano", "pct_emergencial", "no_prazo", "custo", "pct_custo_corr", "custo_medio"],
+                         "iw38"),
+         **dict.fromkeys(["quebras", "mtbf", "mttr", "disponibilidade", "reincidencia", "quebras_a", "notas_7d",
+                          "semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dias"], "notas"),
+         **dict.fromkeys(["hh", "utilizacao", "pct_hh_plano", "hh_emergencial"], "hh")}
+
+
+def _janela(datas: pd.Series | None) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    """Período que uma base cobre: do 1º percentil das datas (ignora registros antigos soltos) ao último."""
+    if datas is None:
+        return None
+    s = pd.to_datetime(datas, errors="coerce").dropna()
+    return (s.quantile(0.01), s.max()) if len(s) else None
+
+
+def cobertura(d: Dados, ini, fim) -> dict[str, float]:
+    """Fração do período [ini, fim] coberta por cada base (iw38, notas, hh)."""
+    ini, fim = pd.Timestamp(ini), pd.Timestamp(fim)
+    dias = max((fim - ini).days + 1, 1)
+    jan = {"iw38": d.memo("jan_iw38", lambda x: _janela(_validas(x.ordens)["Data"])),
+           "notas": d.memo("jan_notas", lambda x: _janela(x.notas["Data"]) if x.notas is not None else None),
+           "hh": d.memo("jan_hh", lambda x: _janela(x.memo("hh_exec", hh_executadas)["Fim real"]))}
+    out = {}
+    for k, j in jan.items():
+        if j is None:
+            out[k] = 0.0
+            continue
+        a, b = max(ini, j[0].normalize()), min(fim, j[1].normalize())
+        out[k] = max(0.0, ((b - a).days + 1) / dias) if b >= a else 0.0
+    return out
+
+
 def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     """Valor de cada indicador no período [ini, fim] (os de "foto" valem para hoje)."""
     r: dict[str, float | None] = {}
     ordens = _validas(d.ordens)
-    per = ordens[_entre(ordens["Data"], ini, fim)]
-    dias = (pd.Timestamp(fim) - pd.Timestamp(ini)).days + 1
+    # o que ainda não aconteceu não conta: o período vale até hoje (ex.: "Ano atual" termina em 31/12)
+    fim_ef = min(pd.Timestamp(fim), d.hoje).date()
+    if fim_ef < pd.Timestamp(ini).date():
+        fim_ef = (pd.Timestamp(ini) - pd.Timedelta(days=1)).date()        # período todo no futuro: vazio
+    per = ordens[_entre(ordens["Data"], ini, fim_ef)]
+    dias = (pd.Timestamp(fim_ef) - pd.Timestamp(ini)).days + 1
 
-    # confiabilidade
+    # confiabilidade (quebra é ordem YM11: com filtro de tipo sem YM11 os indicadores de quebra não se aplicam)
     q_all = d.memo("quebras", quebras)
-    q = q_all[_entre(q_all["Data"], ini, fim)] if len(q_all) else q_all
-    tem_notas = d.notas is not None
+    q = q_all[_entre(q_all["Data"], ini, fim_ef)] if len(q_all) else q_all
+    tem_notas = d.notas is not None and (not d.tipos_filtro or TIPO_QUEBRA in d.tipos_filtro)
+    if not tem_notas:
+        q = q.iloc[0:0]
     r["quebras"] = float(len(q)) if tem_notas else None
     com_eq = q[q["Equip. (chave)"] != ""] if len(q) else q
     r["mtbf"] = _div(dias * com_eq["Equip. (chave)"].nunique(), len(com_eq)) if len(com_eq) else None
     rep = q["Horas de reparo"].dropna() if len(q) else pd.Series(dtype=float)
     rep = rep[rep > 0]
     r["mttr"] = float(rep.mean()) if len(rep) else None
+    r["disponibilidade"] = (r["mtbf"] * 24 / (r["mtbf"] * 24 + r["mttr"]) * 100
+                            if r["mtbf"] is not None and r["mttr"] is not None else None)
     r["reincidencia"] = _div(int(q["Reincidente"].sum()), len(q), 100) if len(q) else None
     r["quebras_a"] = float(q["Classe A"].sum()) if tem_notas else None
 
@@ -367,8 +416,8 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     else:
         r["pct_emergencial"] = None
     if d.chamadas is not None and len(d.chamadas):
-        ch = d.chamadas[_entre(d.chamadas["Data"], ini, fim)]
-        venc = ch[(ch["Data"] <= d.hoje) & (ch["Situação"] != "Saltada")]
+        ch = d.chamadas[_entre(d.chamadas["Data"], ini, fim_ef)]
+        venc = ch[(ch["Data"] <= d.hoje) & (ch["Situação"] != planos.SALTADA)]
         r["aderencia"] = _div(int((venc["Situação"] == "Concluída").sum()), len(venc), 100)
     else:
         r["aderencia"] = None
@@ -381,11 +430,11 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     else:
         r["no_prazo"] = None
     bk = d.memo("backlog", backlog)
-    cap, _ = d.memo("capacidade", capacidade_semanal)
+    cap, _ = d.memo("capacidade", lambda x: capacidade_semanal(x, list(x.centros) or None))
     r["backlog_sem"] = _div(float(bk["HH pendentes"].sum()), cap) if d.oper is not None and cap else None
     r["idade_backlog"] = float(bk["Idade (dias)"].mean()) if len(bk) else None
-    if tem_notas:
-        nt = d.notas[_entre(d.notas["Data"], ini, fim) & (d.notas["Dias"] > 7)]
+    if d.notas is not None and not d.tipos_filtro:      # nota sem ordem não tem tipo de ordem
+        nt = d.notas[_entre(d.notas["Data"], ini, fim_ef) & (d.notas["Dias"] > 7)]
         r["notas_7d"] = _div(int((~nt["Com ordem"]).sum()), len(nt), 100)
     else:
         r["notas_7d"] = None
@@ -396,7 +445,7 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
 
     # mão de obra
     ex = d.memo("hh_exec", hh_executadas)
-    ex = ex[_entre(ex["Fim real"], ini, fim)] if len(ex) else ex
+    ex = ex[_entre(ex["Fim real"], ini, fim_ef)] if len(ex) else ex
     tem_hh = d.conf is not None or d.oper is not None
     total_hh = float(ex["Horas"].sum()) if len(ex) else 0.0
     r["hh"] = total_hh if tem_hh else None
@@ -407,8 +456,8 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     r["hh_emergencial"] = (_div(float(conhecidas.loc[conhecidas["Classe"] == "Emergencial", "Horas"].sum()), hh_conh, 100)
                            if len(conhecidas) and d.tipos and d.memo("tem_emerg", tem_emergencial) else None)
     r["cobertura_hh"] = _div(hh_conh, total_hh, 100) if total_hh else None
-    disp = hh_disponiveis(d, ini, fim)
-    if disp and d.conf is not None and len(ex):
+    disp = hh_disponiveis(d, ini, fim_ef)
+    if disp and d.conf is not None and len(ex) and not d.filtro_area_tipo:
         dos_tecnicos = ex[ex["Nº pessoal"].isin(set(tecnicos(d)["Nº pessoal"]))]
         r["utilizacao"] = _div(float(dos_tecnicos["Horas"].sum()), disp, 100)
     else:
@@ -416,7 +465,7 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
 
     # custos
     custo = float(per["Custo real"].sum())
-    r["custo"] = custo / max(dias / 30.44, 1.0)
+    r["custo"] = custo / max(dias / 30.44, 1.0) if dias > 0 else None
     r["pct_custo_corr"] = _div(float(per.loc[~per["Com plano"], "Custo real"].sum()), custo, 100)
     r["custo_medio"] = _div(custo, int((per["Custo real"] != 0).sum()))
 
@@ -431,7 +480,23 @@ def calcular(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
         r["req_dias"] = float(p["Dias aguardando"].mean()) if len(p) else 0.0
     else:
         r["req_dias"] = None
+
+    # base que não cobre o período: valor vazio (não zero) — ex.: meses antes do 1º export
+    cob = cobertura(d, ini, fim_ef) if dias > 0 else dict.fromkeys(("iw38", "notas", "hh"), 0.0)
+    for k, fonte in FONTE.items():
+        if not cob.get(fonte):
+            r[k] = None
+    r.update({f"_cob_{k}": v for k, v in cob.items()})
     return r
+
+
+def comparavel(anterior: dict, minimo: float = 0.5) -> dict:
+    """Valores do período anterior só onde a base cobre ao menos metade dele (senão a variação engana)."""
+    out = dict(anterior)
+    for k, fonte in FONTE.items():
+        if (anterior.get(f"_cob_{fonte}") or 0) < minimo:
+            out[k] = None
+    return out
 
 
 IDS_SEMEQ = ("semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dias", "semeq_atrasadas")
@@ -443,10 +508,14 @@ def anomalias_semeq(d: Dados) -> pd.DataFrame:
 
 def indicadores_semeq(d: Dados, ini: date, fim: date) -> dict[str, float | None]:
     """Indicadores da preditiva SEMEQ (sem nenhuma anomalia nas bases, ficam sem valor)."""
-    an = d.memo("semeq", anomalias_semeq)
-    if not len(an):
+    try:
+        an = d.memo("semeq", anomalias_semeq)
+        if not len(an):
+            return dict.fromkeys(IDS_SEMEQ)
+        v = preditiva.indicadores(an, ini, fim)
+    except Exception:  # noqa: BLE001 — falha da preditiva deixa só os 5 indicadores dela sem valor
+        logging.getLogger(__name__).exception("indicadores da preditiva (SEMEQ)")
         return dict.fromkeys(IDS_SEMEQ)
-    v = preditiva.indicadores(an, ini, fim)
     return {k: v.get(k) for k in IDS_SEMEQ}
 
 
