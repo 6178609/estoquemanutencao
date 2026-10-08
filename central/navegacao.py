@@ -29,6 +29,7 @@ GRUPOS: dict[str, list[tuple[str, str, str]]] = {
         ("semanal", "Programação semanal", ":material/view_week:"),
         ("programacao", "Programação do mês", ":material/edit_calendar:"),
         ("mao_de_obra", "Mão de obra e backlog", ":material/engineering:"),
+        ("gestao_hh", "Gerenciador de HH", ":material/manage_accounts:"),
     ],
     "Custos e suprimentos": [
         ("custos", "Custos", ":material/payments:"),

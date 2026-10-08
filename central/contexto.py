@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from . import bases, planos, saude, ui
+from . import bases, hh, planos, saude, ui
 from .util import hoje_local, MESES, setor_do_centro, setores, SETORES
 from . import indicadores as ind
 
@@ -326,6 +326,7 @@ def _dados(chave: str, f: Filtros) -> ind.Dados:
         requisicoes=bases.requisicoes().df, cad_eq=bases.ler_cadastro(bases.ARQ_CAD_EQUIP),
         cad_mat=bases.ler_cadastro(bases.ARQ_CAD_MAT), capacidade=ind.capacidade_de(cad), conf=conf, conf_todos=conf_todos, equipe=eq,
         tipos=ind.tipos_de(cad, bases.tipos_de_ordem_padrao()), horas_semana=ind.horas_semana_de(cad),
+        disponibilidade=bases.ler_cadastro(hh.ARQ),
         # Gerenciador de AF: as áreas dele são outras, então nada de filtro de área/centro (só o período vale)
         afs=bases.afs().df, acoes_af=bases.acoes_af().df,
         hoje=pd.Timestamp(hoje_local()), centros=tuple(f.centros), tipos_filtro=tuple(f.tipos),

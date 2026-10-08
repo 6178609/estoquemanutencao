@@ -23,7 +23,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from . import af, planos, preditiva
+from . import af, hh, planos, preditiva
 from .util import agora_local, marcar_quebras
 
 PENDENTES = ("Aberta", "Liberada", "Encerrada sem confirmação")
@@ -171,6 +171,7 @@ class Dados:
     equipe: pd.DataFrame | None = None        # pessoas (Gestão de HH)
     tipos: dict = field(default_factory=dict)  # tipo de ordem → {"descricao", "classe"}
     horas_semana: float = 44.0                # jornada semanal de cada técnico
+    disponibilidade: dict = field(default_factory=dict)   # Gerenciador de HH (jornada, %, ausências por pessoa)
     afs: pd.DataFrame | None = None           # Gerenciador de AF · análises (af.preparar_afs), sem filtro de área
     acoes_af: pd.DataFrame | None = None      # Gerenciador de AF · ações (af.preparar_acoes)
     hoje: pd.Timestamp = field(default_factory=lambda: agora_local().normalize())
@@ -295,11 +296,18 @@ def hh_executadas(d: Dados) -> pd.DataFrame:
     return o[[c for c in cols if c in o] + [c for c in o.columns if c not in cols]]
 
 
+def pessoas_hh(d: Dados) -> pd.DataFrame:
+    """A equipe com a disponibilidade do Gerenciador de HH (jornada, %, se conta na capacidade)."""
+    return d.memo("pessoas_hh", lambda x: hh.pessoas(x.equipe, x.disponibilidade, x.horas_semana))
+
+
 def tecnicos(d: Dados) -> pd.DataFrame:
-    """Pessoas da equipe que executam manutenção (sem apoio/gestão e planejamento)."""
+    """Quem conta na capacidade: pela regra do cargo (sem apoio/gestão e planejamento) ou como o Gerenciador de
+    HH definir."""
     if d.equipe is None or not len(d.equipe):
         return pd.DataFrame(columns=["Nº pessoal"])
-    return d.equipe[~d.equipe["Especialidade"].isin(["Apoio / gestão", "Planejamento (GPM)"])]
+    p = pessoas_hh(d)
+    return d.equipe[d.equipe["Nº pessoal"].isin(set(p.loc[p["Conta na capacidade"], "Nº pessoal"]))]
 
 
 def janela_apontamentos(d: Dados, ini, fim) -> tuple[pd.Timestamp, pd.Timestamp] | None:
@@ -315,8 +323,8 @@ def hh_disponiveis(d: Dados, ini, fim) -> float | None:
     jan = janela_apontamentos(d, ini, fim)
     if not len(t) or jan is None:
         return None
-    dias = (jan[1] - jan[0]).days + 1
-    return len(t) * d.horas_semana * dias / 7
+    # jornada × dias ÷ 7 de cada técnico, menos as ausências, vezes o % disponível (Gerenciador de HH)
+    return hh.horas_disponiveis(pessoas_hh(d), d.disponibilidade, jan[0], jan[1])
 
 
 def capacidade_semanal(d: Dados, centros: list[str] | None = None) -> tuple[float | None, str]:

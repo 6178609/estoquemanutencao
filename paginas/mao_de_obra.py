@@ -2,7 +2,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, contexto, ui
+from central import bases, contexto, hh, ui
 from central import indicadores as ind
 from central.leitura import CONF
 from central.util import inteiro, pct, sem_acento
@@ -67,7 +67,7 @@ if visao == "Equipe e pessoas":
         c[1].metric("Técnicos de execução", inteiro(len(tec)), "sem apoio e planejamento", delta_color="off",
                     border=True, delta_arrow="off")
         disp = ind.hh_disponiveis(d, f.ini, f.fim)
-        c[2].metric("HH disponíveis no período", f"{inteiro(disp or 0)} h", f"{d.horas_semana:.0f} h/semana × técnico",
+        c[2].metric("HH disponíveis no período", f"{inteiro(disp or 0)} h", "jornada, % e ausências (Gerenciador de HH)",
                     delta_color="off", border=True, delta_arrow="off")
         apont = float(ex.loc[ex["Nº pessoal"].isin(set(tec["Nº pessoal"])), "Horas"].sum()) if len(ex) else 0.0
         c[3].metric("HH apontadas pelos técnicos", f"{inteiro(apont)} h", pct(apont, disp or 0), delta_color="off",
@@ -110,7 +110,14 @@ if visao == "Equipe e pessoas":
             pes[c_] = pes[c_].fillna("")
         pes["Nome"] = pes["Nome"].where(pes["Nome"] != "", "(sem cadastro na Gestão de HH)")
         pes["HH por dia"] = pes["HH apontadas"] / pes["Dias com apontamento"].clip(lower=1)
-        pes["Utilização"] = pes["HH apontadas"] / (d.horas_semana * semanas) * 100 if semanas else None
+        # disponível de cada um no período (Gerenciador de HH: jornada, % e ausências); sem cadastro, jornada padrão
+        if jan:
+            disp_p = hh.disponibilidade(ind.pessoas_hh(d), d.disponibilidade, jan[0], jan[1]) \
+                .set_index("Nº pessoal")["Horas disponíveis"]
+            base_p = pes["Nº pessoal"].map(disp_p).fillna(d.horas_semana * semanas)
+            pes["Utilização"] = pes["HH apontadas"] / base_p.where(base_p > 0) * 100
+        else:
+            pes["Utilização"] = None
         b1, b2, b3 = st.columns([3, 2, 2])
         busca = b1.text_input("Buscar pessoa", key="h_busca", placeholder="nome, matrícula, cargo, centro…")
         esp = sorted(v for v in pes["Especialidade"].unique() if v)
@@ -136,7 +143,8 @@ if visao == "Equipe e pessoas":
                          "HH por dia": st.column_config.NumberColumn(format="%.1f"),
                          "Utilização": st.column_config.ProgressColumn(
                              "Utilização", format="%.0f%%", min_value=0, max_value=100,
-                             help=f"HH apontadas ÷ ({d.horas_semana:.0f} h × {semanas:.1f} semanas do período)"),
+                             help="HH apontadas ÷ horas disponíveis da pessoa no período (Gerenciador de HH: "
+                                  "jornada × % disponível, menos férias e ausências)"),
                          "% em plano": st.column_config.NumberColumn(format="%.0f%%"),
                          "% emergencial": st.column_config.NumberColumn(format="%.0f%%"),
                          "% fora do IW38": st.column_config.NumberColumn(format="%.0f%%")})
@@ -169,7 +177,10 @@ elif visao == "Distribuição das horas":
             tooltip=[alt.Tooltip("Semana:T", format="%d/%m/%Y"), "Classe:N", alt.Tooltip("Horas:Q", format=",.0f")])
         ch = barras
         if len(tec):
-            ch = ch + alt.Chart(pd.DataFrame({"y": [len(tec) * d.horas_semana]})).mark_rule(
+            p_ = ind.pessoas_hh(d)
+            p_ = p_[p_["Conta na capacidade"]]
+            semana_cheia = float((p_["Jornada (h/sem)"] * p_["Disponível %"] / 100).sum())   # sem as ausências
+            ch = ch + alt.Chart(pd.DataFrame({"y": [semana_cheia]})).mark_rule(
                 color=ui.GRAFITE, strokeDash=[5, 4]).encode(y="y:Q")
         ui.mostrar(ch.properties(height=300))
         st.caption("Classe do tipo de ordem: configure em Metas e parâmetros (padrão: nomes da planilha de Gestão de HH, "

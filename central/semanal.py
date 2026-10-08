@@ -58,8 +58,10 @@ def programadas(ops: pd.DataFrame, seg) -> pd.DataFrame:
 
 def capacidade(centros: list[str], equipe: pd.DataFrame | None, horas_semana: float,
                configurada: dict[str, float] | None = None, executadas: pd.DataFrame | None = None,
-               hoje=None) -> pd.DataFrame:
-    """Capacidade semanal (HH) de cada centro e de onde ela veio."""
+               hoje=None, disponivel: dict[str, tuple[float, int]] | None = None) -> pd.DataFrame:
+    """Capacidade semanal (HH) de cada centro e de onde ela veio. `disponivel` = {centro: (horas, técnicos)} do
+    Gerenciador de HH para a semana (jornada, % disponível e ausências de cada um): vale no lugar de
+    técnicos × jornada."""
     hoje = pd.Timestamp(hoje or agora_local()).normalize()
     configurada = {k: float(v) for k, v in (configurada or {}).items() if k and v not in (None, "") and float(v) > 0}
     tec = equipe["Centro de trabalho"].value_counts() if equipe is not None and len(equipe) else pd.Series(dtype=int)
@@ -72,6 +74,10 @@ def capacidade(centros: list[str], equipe: pd.DataFrame | None, horas_semana: fl
     for c in centros:
         if c in configurada:
             linhas.append({"Centro de trabalho": c, "Capacidade": configurada[c], "Origem": "configurada"})
+        elif disponivel and disponivel.get(c, (0.0, 0))[1]:
+            horas, n = disponivel[c]
+            linhas.append({"Centro de trabalho": c, "Capacidade": float(horas),
+                           "Origem": f"{n} técnico(s) · Gerenciador de HH (jornada, % e ausências)"})
         elif int(tec.get(c, 0)):
             linhas.append({"Centro de trabalho": c, "Capacidade": float(tec[c]) * horas_semana,
                            "Origem": f"{int(tec[c])} técnico(s) × {horas_semana:.0f} h"})
