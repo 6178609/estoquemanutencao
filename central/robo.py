@@ -70,10 +70,11 @@ ARQ_RESULTADO = PASTA / "mudanca_datas_pedido_resultado.json"
 
 
 def iniciar_mudanca(pedido: dict) -> None:
-    """Grava o pedido (ordens e datas) e dispara o robô em segundo plano."""
+    """Grava o pedido (ordens e datas, ou o teste do robô) e dispara o robô em segundo plano."""
     ARQ_RESULTADO.unlink(missing_ok=True)
     ARQ_PEDIDO.write_text(json.dumps(pedido, ensure_ascii=False, indent=1), encoding="utf-8")
-    iniciar_args(["--mudar-datas", str(ARQ_PEDIDO)])
+    opcao = "--diagnosticar" if pedido.get("tipo") == "diagnostico" else "--mudar-datas"
+    iniciar_args([opcao, str(ARQ_PEDIDO)])
 
 
 def iniciar_args(extra: list[str]) -> None:

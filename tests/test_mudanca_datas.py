@@ -187,7 +187,8 @@ class SAPOrdens:
                 mapa[robo_sap.GRADE_IW38] = self.grade
         if self.popup:
             mapa |= {"wnd[1]": Janela(self, 1), "wnd[1]/tbar[0]/btn[16]": Botao(self.multi.clear),
-                     "wnd[1]/tbar[0]/btn[8]": Botao(self.copiar), robo_sap.TABELA_MULTIPLA: self.tabela}
+                     "wnd[1]/tbar[0]/btn[8]": Botao(self.copiar), robo_sap.TABELA_MULTIPLA: self.tabela,
+                     "wnd[1]/tbar[0]/btn[12]": Botao(self.cancelar)}
             mapa |= {f"{robo_sap.TABELA_MULTIPLA}/txtRSCSEL_255-SLOW_I[1,{r}]": Celula(self, r) for r in range(2)}
         if id_ not in mapa:
             raise RuntimeError(f"The control could not be found by id. ({id_})")
@@ -195,6 +196,9 @@ class SAPOrdens:
 
     def abrir_multipla(self):
         self.popup, self.multi = True, {0: "LIXO ANTIGO"}
+
+    def cancelar(self):
+        self.popup = False
 
     def copiar(self):
         self.campos_iw38 = [self.multi[k] for k in sorted(self.multi)]

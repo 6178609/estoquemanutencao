@@ -9,6 +9,8 @@ Windows (criptografados pelo Windows, nunca em arquivo do projeto).
 Uso:
     uv run python automacao/robo_sap.py                 # todas as transações
     uv run python automacao/robo_sap.py --mudar-datas automacao/mudanca_datas_pedido.json   # pedido do calendário
+    uv run python automacao/robo_sap.py --diagnosticar automacao/mudanca_datas_pedido.json  # "Testar o robô" do site
+    uv run python automacao/robo_sap.py --versao        # versão e recursos deste robô
     uv run python automacao/robo_sap.py -t MB52         # só a MB52
     uv run python automacao/robo_sap.py --configurar    # guarda usuário/senha/conexão
 """
@@ -20,12 +22,13 @@ import getpass
 import json
 import logging
 import os
+import platform
 import re
 import subprocess
 import sys
 import time
 import tomllib
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -37,6 +40,12 @@ SERVICO = "CentralManutencao-SAP"          # nome no Gerenciador de Credenciais 
 
 FORMATOS = {"nao_convertido": 0, "tabulado": 1, "rtf": 2, "html": 3}
 ID_FORMATO = "wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[{i},0]"
+
+# Versão do robô e o que ele sabe fazer: o sincronizador manda isso para o site (robo_pc.json), que avisa
+# quando o PC está com o código antigo.
+VERSAO = "2026.10.07"
+RECURSOS = ("mudar_datas_iw38", "sessao_propria", "diagnostico")
+ESPERA_TRAVA_MIN = 20     # mudança de datas/diagnóstico esperam o robô terminar outra execução (ex.: export)
 
 log = logging.getLogger("robo_sap")
 
@@ -57,6 +66,10 @@ def carregar_config(transacoes: Path = ARQ_TRANSACOES, local: Path = ARQ_LOCAL) 
         cfg.setdefault("sap", {}).update(loc.get("sap", {}))
         if loc.get("pasta_destino"):
             cfg["pasta_destino"] = loc["pasta_destino"]
+        # IDs da mudança de datas ajustados para o SAP deste PC (o transacoes.toml é trocado na atualização)
+        md = cfg.setdefault("mudanca_datas", {})
+        for k, v in loc.get("mudanca_datas", {}).items():
+            md[k] = {**md[k], **v} if isinstance(v, dict) and isinstance(md.get(k), dict) else v
     pasta = os.path.expandvars(os.path.expanduser(str(cfg.get("pasta_destino", "~/Downloads/SITE")).replace("\\", "/")))
     cfg["pasta_destino"] = str(Path(pasta))
     return cfg
@@ -179,6 +192,56 @@ def conectar(cfg: dict, credenciais=None, obter_gui=None):
     return sessao
 
 
+_SESSOES_NOVAS: set[str] = set()
+
+
+def _sessao_propria(base):
+    """Abre uma janela (sessão) nova do SAP só para o robô, para não mexer na tela em que a pessoa está
+    trabalhando (o /n do robô perderia o que estivesse sem gravar). Sem como abrir, usa a sessão dada."""
+    try:
+        con = base.Parent
+        sessoes = [con.Children(i) for i in range(int(con.Children.Count))]
+        antes = {str(x.Id) for x in sessoes}
+        if len(antes) >= 6:
+            raise RoboErro("já há 6 janelas do SAP abertas (o limite do SAP); feche uma para o robô abrir a dele")
+        livre = next((x for x in sessoes if not x.Busy), base)
+        livre.CreateSession()
+    except RoboErro:
+        raise
+    except Exception as e:  # noqa: BLE001
+        log.warning("não deu para abrir uma janela nova do SAP (%s); usando a janela atual", e)
+        return base
+    for _ in range(60):
+        time.sleep(0.5)
+        try:
+            for i in range(int(con.Children.Count)):
+                nova = con.Children(i)
+                if str(nova.Id) not in antes and not nova.Busy:
+                    _SESSOES_NOVAS.add(str(nova.Id))
+                    log.info("janela própria do robô aberta no SAP")
+                    return nova
+        except Exception:  # noqa: BLE001 — a sessão ainda está sendo criada
+            continue
+    raise RoboErro("a janela nova do SAP não abriu a tempo")
+
+
+def conectar_robo(cfg: dict):
+    """Conecta e abre a janela própria do robô (mudança de datas e diagnóstico)."""
+    return _sessao_propria(conectar(cfg))
+
+
+def _encerrar(sessao) -> None:
+    """Fecha a janela que o robô abriu (as da pessoa ficam como estavam)."""
+    if sessao is None or str(getattr(sessao, "Id", "")) not in _SESSOES_NOVAS:
+        return
+    try:
+        sessao.findById("wnd[0]/tbar[0]/okcd").text = "/i"    # encerra esta sessão
+        sessao.findById("wnd[0]").sendVKey(0)
+    except Exception:  # noqa: BLE001
+        pass
+    _SESSOES_NOVAS.discard(str(getattr(sessao, "Id", "")))
+
+
 # ----------------------------------------------------------------------------
 # Transação
 # ----------------------------------------------------------------------------
@@ -285,6 +348,9 @@ def rodar(nomes: list[str] | None = None, cfg: dict | None = None, conectar_fn=c
     except RoboErro as e:
         log.error("%s", e)
         status["erro"] = str(e)
+    except Exception as e:  # noqa: BLE001 — nunca deixar o status "em andamento"
+        log.exception("falha inesperada no robô")
+        status["erro"] = _erro_inesperado(e)
     status["ok"] = not status["erro"] and all(v["ok"] for v in status["transacoes"].values())
     status["fim"], status["em_andamento"] = _agora(), False
     _gravar_status(status, arq_status)
@@ -518,22 +584,36 @@ def buscar_ordens_iw38(sessao, campos: list[str], de: str, ate: str, md: dict) -
     return []                                                      # "nenhum objeto selecionado"
 
 
-def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar, simular: bool | None = None) -> dict:
+def _arq_resultado(arq_job: Path) -> Path:
+    return Path(arq_job).with_name(Path(arq_job).stem + "_resultado.json")
+
+
+def _erro_inesperado(e: Exception) -> str:
+    return f"falha inesperada do robô ({type(e).__name__}: {e}); veja automacao/robo_sap.log"
+
+
+def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=None, simular: bool | None = None) -> dict:
     """Processa o pedido do site (JSON com lote, simular e itens [{ordem, inicio, fim}]) e grava o resultado
-    ao lado (<pedido>_resultado.json), atualizado a cada ordem para o site mostrar o andamento."""
-    cfg = cfg or carregar_config()
-    md = cfg.get("mudanca_datas", {})
-    pedido = json.loads(Path(arq_job).read_text(encoding="utf-8"))
-    simular = bool(pedido.get("simular")) if simular is None else simular
-    arq_res = Path(arq_job).with_name(Path(arq_job).stem + "_resultado.json")
-    itens = list(pedido.get("itens", []))
-    consultas = pedido.get("consultas", [])
-    res = {"lote": pedido.get("lote", ""), "inicio": _agora(), "fim": None, "em_andamento": True,
-           "simular": simular, "total": len(itens), "itens": [], "consultas": [], "erro": ""}
-    _gravar_status(res, arq_res)
+    ao lado (<pedido>_resultado.json), atualizado a cada ordem para o site mostrar o andamento.
+
+    Qualquer falha (inclusive erro inesperado do Python ou do SAP GUI) termina com o resultado gravado e o
+    motivo em "erro" — o pedido nunca fica parado em "em execução"."""
+    conectar_fn = conectar_fn or conectar_robo
+    arq_res = _arq_resultado(arq_job)
+    res = {"lote": "", "inicio": _agora(), "fim": None, "em_andamento": True, "simular": bool(simular),
+           "total": 0, "itens": [], "consultas": [], "erro": "", "versao": VERSAO}
+    sessao = None
     try:
+        pedido = json.loads(Path(arq_job).read_text(encoding="utf-8"))
+        simular = bool(pedido.get("simular")) if simular is None else simular
+        itens = list(pedido.get("itens", []))
+        consultas = pedido.get("consultas", [])
+        res.update(lote=pedido.get("lote", ""), simular=simular, total=len(itens))
+        _gravar_status(res, arq_res)
         if len(itens) > MAX_ORDENS:
             raise RoboErro(f"{len(itens)} ordens no pedido; o limite é {MAX_ORDENS}")
+        cfg = cfg or carregar_config()
+        md = cfg.get("mudanca_datas", {})
         sessao = conectar_fn(cfg)
         log.info("mudança de datas: lote %s, %d consulta(s) na IW38 e %d ordem(ns)%s", res["lote"], len(consultas),
                  len(itens), " (simulação)" if simular else "")
@@ -558,8 +638,10 @@ def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar,
                 continue
             except Exception as e:  # noqa: BLE001 — erro COM do SAP GUI
                 info["erro"] = f"erro no SAP GUI: {e}"
-                log.error("IW38 %s %s: %s", c["dia"], c["campos"], e)
+                log.exception("IW38 %s %s", c["dia"], c["campos"])
                 continue
+            finally:
+                _gravar_status(res, arq_res)
             info["encontradas"] = len(achadas)
             res["total"] += len(achadas)
             log.info("IW38 %s: %d ordem(ns) para %s", c["dia"], len(achadas), ", ".join(c["campos"]))
@@ -571,8 +653,199 @@ def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar,
     except RoboErro as e:
         log.error("%s", e)
         res["erro"] = str(e)
+    except Exception as e:  # noqa: BLE001 — nunca terminar sem resultado
+        log.exception("falha inesperada na mudança de datas")
+        res["erro"] = _erro_inesperado(e)
+    finally:
+        _encerrar(sessao)
     res["fim"], res["em_andamento"] = _agora(), False
     res["ok"] = not res["erro"] and all(r["ok"] for r in res["itens"]) and not any(c["erro"] for c in res["consultas"])
+    _gravar_status(res, arq_res)
+    return res
+
+
+# ----------------------------------------------------------------------------
+# Diagnóstico ("Testar o robô" no site): confere passo a passo, sem alterar nada no SAP
+# ----------------------------------------------------------------------------
+TIPOS_COM_FILHOS = ("GuiUserArea", "GuiSimpleContainer", "GuiScrollContainer", "GuiTabStrip", "GuiTab",
+                    "GuiCustomControl", "GuiContainerShell")
+
+
+def _mapa_da_tela(sessao, limite: int = 200) -> list[dict]:
+    """Campos da tela atual (ID, tipo e texto), para conferir os IDs do transacoes.toml sem gravar script."""
+    saida: list[dict] = []
+
+    def visitar(no, nivel: int) -> None:
+        try:
+            filhos = no.Children
+            n = int(filhos.Count)
+        except Exception:  # noqa: BLE001
+            return
+        for i in range(n):
+            if len(saida) >= limite:
+                return
+            f = filhos(i)
+            tipo = str(getattr(f, "Type", "") or "")
+            id_ = str(getattr(f, "Id", "") or "")
+            id_ = id_[id_.find("wnd["):] if "wnd[" in id_ else id_
+            texto = "" if tipo == "GuiPasswordField" else str(getattr(f, "Text", "") or "")[:80]
+            saida.append({"id": id_, "tipo": tipo, "texto": texto})
+            if nivel < 3 and tipo in TIPOS_COM_FILHOS:
+                visitar(f, nivel + 1)
+
+    visitar(sessao.findById("wnd[0]/usr"), 0)
+    return saida
+
+
+def _ir_para(sessao, transacao: str) -> None:
+    sessao.findById("wnd[0]/tbar[0]/okcd").text = "/n" + transacao
+    sessao.findById("wnd[0]").sendVKey(0)
+    _popups(sessao, [])
+    tipo, texto = _barra_de_status(sessao)
+    if tipo in ("E", "A"):
+        raise RoboErro(texto or f"a transação {transacao} não abriu")
+
+
+def diagnosticar(arq_job: Path, cfg: dict | None = None, conectar_fn=None) -> dict:
+    """Testa cada passo da mudança de datas e grava o checklist em <pedido>_resultado.json.
+
+    O pedido pode trazer "teste": {"campo", "de", "ate"} para uma busca de verdade na IW38 e/ou {"ordem"}
+    para ler as datas de uma ordem na IW33 — tudo só leitura."""
+    conectar_fn = conectar_fn or conectar_robo
+    arq_res = _arq_resultado(arq_job)
+    res = {"tipo": "diagnostico", "lote": "", "inicio": _agora(), "fim": None, "em_andamento": True, "versao": VERSAO,
+           "recursos": list(RECURSOS), "pc": platform.node(), "etapas": [], "campos_tela": [],
+           "ordens_encontradas": [], "itens": [], "consultas": [], "erro": ""}
+    estado: dict = {"cfg": cfg}
+
+    def etapa(nome: str, fn) -> bool:
+        try:
+            detalhe, ok = fn() or "ok", True
+        except RoboErro as e:
+            detalhe, ok = str(e), False
+        except Exception as e:  # noqa: BLE001 — erro COM do SAP GUI etc.
+            log.exception("diagnóstico: %s", nome)
+            detalhe, ok = f"{type(e).__name__}: {e}", False
+        res["etapas"].append({"etapa": nome, "ok": ok, "detalhe": str(detalhe)[:600]})
+        log.info("diagnóstico: %s → %s %s", nome, "OK" if ok else "FALHOU", detalhe)
+        _gravar_status(res, arq_res)
+        return ok
+
+    try:
+        pedido = json.loads(Path(arq_job).read_text(encoding="utf-8"))
+        res["lote"] = pedido.get("lote", "")
+        teste = pedido.get("teste") or {}
+        _gravar_status(res, arq_res)
+
+        def configuracao():
+            estado["cfg"] = estado["cfg"] or carregar_config()
+            estado["md"] = estado["cfg"].get("mudanca_datas")
+            if not estado["md"]:
+                raise RoboErro("o automacao/transacoes.toml deste PC não tem [mudanca_datas] — código antigo; "
+                               "rode o atualizar.bat")
+            return (f"robô versão {VERSAO} · robo_local.toml "
+                    + ("ok" if ARQ_LOCAL.exists() else "NÃO encontrado (rode automacao\\configurar_robo.bat)"))
+
+        def conexao():
+            s = estado["sessao"] = conectar_fn(estado["cfg"])
+            info = getattr(s, "Info", None)
+            propria = str(getattr(s, "Id", "")) in _SESSOES_NOVAS
+            sistema = f"sistema {getattr(info, 'SystemName', '?')} · mandante {getattr(info, 'Client', '?')} · " \
+                if info is not None else ""
+            return sistema + ("janela própria do robô" if propria else "usando a janela já aberta do SAP")
+
+        def abrir_iw38():
+            _ir_para(estado["sessao"], "IW38")
+            return str(getattr(estado["sessao"].findById("wnd[0]"), "Text", "") or "IW38 aberta")
+
+        def mapa():
+            res["campos_tela"] = _mapa_da_tela(estado["sessao"])
+            return f"{len(res['campos_tela'])} elementos na tela de seleção (lista completa no site)"
+
+        def campo_ordenacao():
+            md, s = estado["md"], estado["sessao"]
+            nome = md.get("iw38_campo_ordenacao") or _nome_selecao(s, "Campo de ordenação")
+            botao = md.get("iw38_botao_campo") or f"wnd[0]/usr/btn%_{nome}_%_APP_%-VALU_PUSH"
+            if _existe(s, botao) is None:
+                raise RoboErro(f"seta à direita do Campo de ordenação não encontrada ({botao}); informe o ID em "
+                               "[mudanca_datas] iw38_botao_campo")
+            estado["botao"] = botao
+            return f"campo {nome} · seta {botao}"
+
+        def caixas():
+            faltam = [i for i in estado["md"].get("iw38_marcar", {}) if _existe(estado["sessao"], i) is None]
+            if faltam:
+                raise RoboErro("caixas de status não encontradas: " + ", ".join(faltam))
+            return f"{len(estado['md'].get('iw38_marcar', {}))} caixa(s) de status encontradas"
+
+        def periodo():
+            ids = [estado["md"].get(k, "") for k in ("iw38_periodo_de", "iw38_periodo_ate")]
+            faltam = [i for i in ids if i and _existe(estado["sessao"], i) is None]
+            if faltam:
+                raise RoboErro("campos do período não encontrados: " + ", ".join(faltam))
+            return "período de/até: " + " · ".join(i for i in ids if i) if any(ids) else "sem período configurado"
+
+        def multipla():
+            s = estado["sessao"]
+            s.findById(estado["botao"]).press()
+            try:
+                if _existe(s, "wnd[1]") is None:
+                    raise RoboErro("a janela de seleção múltipla não abriu")
+                _celula_multipla(s, 0)
+                return "janela de seleção múltipla abre e a tabela de valores foi encontrada"
+            finally:
+                cancelar = _existe(s, "wnd[1]/tbar[0]/btn[12]")
+                if cancelar is not None:
+                    cancelar.press()
+                elif _existe(s, "wnd[1]") is not None:
+                    s.findById("wnd[1]").sendVKey(12)
+
+        def busca_real():
+            de = teste.get("de") or date.today().replace(day=1).isoformat()
+            ate = teste.get("ate") or date.today().isoformat()
+            achadas = buscar_ordens_iw38(estado["sessao"], [teste["campo"]], de, ate, estado["md"])
+            res["ordens_encontradas"] = [o for o, _ in achadas][:100]
+            return (f"{len(achadas)} ordem(ns) para {teste['campo']} com data de {de} a {ate}"
+                    + (": " + ", ".join(res["ordens_encontradas"][:15]) if achadas else ""))
+
+        def ordem_iw33():
+            s, md = estado["sessao"], estado["md"]
+            _ir_para(s, "IW33")
+            s.findById(md.get("campo_ordem", "wnd[0]/usr/ctxtCAUFVD-AUFNR")).text = str(teste["ordem"])
+            s.findById("wnd[0]").sendVKey(0)
+            _popups(s, [])
+            tipo, texto = _barra_de_status(s)
+            if tipo in ("E", "A"):
+                raise RoboErro(texto or "a ordem não abriu")
+            ini = _campo_data(s, md, "campo_inicio", CAMPO_INICIO).text
+            fim = _campo_data(s, md, "campo_fim", CAMPO_FIM).text
+            return f"ordem {teste['ordem']}: InícioBase {ini} · Fim-base {fim} (campos {CAMPO_INICIO}/{CAMPO_FIM} ok)"
+
+        if etapa("Configuração do robô neste PC", configuracao) and etapa("Conexão com o SAP", conexao) \
+                and etapa("Abrir a IW38", abrir_iw38):
+            etapa("Mapa da tela de seleção da IW38", mapa)
+            if etapa("Campo de ordenação e seta à direita", campo_ordenacao):
+                etapa("Seleção múltipla (seta à direita)", multipla)
+            etapa("Status das ordens (caixas da IW38)", caixas)
+            etapa("Período (de/até) da IW38", periodo)
+            if teste.get("campo"):
+                etapa("Busca de verdade na IW38 (só leitura)", busca_real)
+            if teste.get("ordem"):
+                etapa("Datas da ordem na IW33 (só leitura)", ordem_iw33)
+    except Exception as e:  # noqa: BLE001 — nunca terminar sem resultado
+        log.exception("falha inesperada no diagnóstico")
+        res["erro"] = _erro_inesperado(e)
+    finally:
+        s = estado.get("sessao")
+        if s is not None:
+            try:
+                s.findById("wnd[0]/tbar[0]/okcd").text = "/n"
+                s.findById("wnd[0]").sendVKey(0)
+            except Exception:  # noqa: BLE001
+                pass
+        _encerrar(s)
+    res["fim"], res["em_andamento"] = _agora(), False
+    res["ok"] = not res["erro"] and bool(res["etapas"]) and all(e["ok"] for e in res["etapas"])
     _gravar_status(res, arq_res)
     return res
 
@@ -580,21 +853,44 @@ def rodar_mudancas(arq_job: Path, cfg: dict | None = None, conectar_fn=conectar,
 _TRAVA = None
 
 
-def _trava_unica() -> bool:
+def _trava_unica(espera_min: float = 0, ao_esperar=None) -> bool:
+    """Uma execução do robô por vez. Com espera, tenta de novo a cada 5 s até o limite."""
     global _TRAVA
     _TRAVA = open(AQUI / ".robo.trava", "a+")
+    limite = time.monotonic() + espera_min * 60
+    avisou = False
+    while True:
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(_TRAVA.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(_TRAVA, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except OSError:
+            if time.monotonic() >= limite:
+                return False
+            if not avisou and ao_esperar:
+                ao_esperar()
+                avisou = True
+            time.sleep(5)
+
+
+def _resultado_sem_trava(arq_job: Path, tipo: str, final: bool) -> None:
+    """Resultado para o site enquanto (ou porque) outra execução do robô ocupa o SAP."""
     try:
-        if os.name == "nt":
-            import msvcrt
-
-            msvcrt.locking(_TRAVA.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-
-            fcntl.flock(_TRAVA, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return True
-    except OSError:
-        return False
+        lote = json.loads(Path(arq_job).read_text(encoding="utf-8")).get("lote", "")
+    except (OSError, ValueError):
+        lote = ""
+    msg = "o robô está terminando outra execução (ex.: export do SAP)"
+    _gravar_status({"tipo": tipo, "lote": lote, "inicio": _agora(), "fim": _agora() if final else None,
+                    "em_andamento": not final, "ok": False, "itens": [], "consultas": [], "total": 0,
+                    "aguardando": "" if final else msg + "; aguardando…",
+                    "erro": f"{msg} há mais de {ESPERA_TRAVA_MIN} min; tente de novo" if final else ""},
+                   _arq_resultado(arq_job))
 
 
 def main() -> None:
@@ -605,16 +901,30 @@ def main() -> None:
     ap.add_argument("--configurar", action="store_true", help="guardar usuário, senha e conexão deste PC")
     ap.add_argument("--mudar-datas", metavar="PEDIDO.json", help="muda as datas das ordens do pedido do site")
     ap.add_argument("--simular", action="store_true", help="com --mudar-datas: abre as ordens e não grava")
+    ap.add_argument("--diagnosticar", metavar="PEDIDO.json", help="testa cada passo da mudança de datas (só leitura)")
+    ap.add_argument("--versao", action="store_true", help="mostra a versão e os recursos deste robô")
     args = ap.parse_args()
+    if args.versao:
+        print(json.dumps({"versao": VERSAO, "recursos": list(RECURSOS)}))
+        return
     if args.configurar:
         configurar()
         return
+    pedido = args.mudar_datas or args.diagnosticar
+    if pedido:   # pedido do site: espera o robô terminar outra execução em vez de ignorar
+        tipo = "diagnostico" if args.diagnosticar else "mudanca"
+        if not _trava_unica(ESPERA_TRAVA_MIN, lambda: _resultado_sem_trava(Path(pedido), tipo, final=False)):
+            log.error("o robô ficou ocupado por mais de %d min; pedido %s não executado", ESPERA_TRAVA_MIN, pedido)
+            _resultado_sem_trava(Path(pedido), tipo, final=True)
+            sys.exit(1)
+        if args.diagnosticar:
+            res = diagnosticar(Path(pedido))
+        else:
+            res = rodar_mudancas(Path(pedido), simular=True if args.simular else None)
+        sys.exit(0 if res["ok"] else 1)
     if not _trava_unica():
         log.info("o robô já está rodando; esta chamada foi ignorada")
         return
-    if args.mudar_datas:
-        res = rodar_mudancas(Path(args.mudar_datas), simular=True if args.simular else None)
-        sys.exit(0 if res["ok"] else 1)
     status = rodar(args.transacao)
     sys.exit(0 if status["ok"] else 1)
 

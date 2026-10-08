@@ -109,6 +109,12 @@ Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md)
 > O app roda no computador que tem as pastas sincronizadas. Para ficar sempre no ar, deixe-o num PC/servidor
 > ligado (ou coloque o `iniciar.bat` na inicialização do Windows: `Win+R` → `shell:startup`).
 
+**Atualizar o PC:** o sincronizador busca o código novo no GitHub a cada 6 h, copia por cima da pasta (só o que
+mudou; as configurações do PC — token, usuário do SAP — ficam) e se reinicia. Para atualizar na hora, dê duplo
+clique em **`atualizar.bat`**. Instalação antiga, sem o `atualizar.bat`: baixe o ZIP de novo, copie por cima da
+pasta do sistema (substituir) e reinicie o computador — daí em diante ele se atualiza sozinho. Para desligar a
+atualização automática: `atualizar_horas = 0` em `sincronizador/config.toml`.
+
 ## Login e perfis
 
 | Perfil | Pode |
@@ -248,13 +254,25 @@ ordens do IW38) e a programação fica salva para todos.
   também as atrasadas de meses anteriores. Antes de rodar, o site mostra a previsão pelo IW38 exportado.
 - **Só simular:** o robô faz a IW38 e abre as ordens sem gravar — use na primeira vez. Limite de 300 ordens por lote.
 - **Onde roda:** com o site no PC do SAP, o robô começa na hora; com o site na nuvem, o sincronizador desse PC
-  (com o robô configurado) executa em até 1 minuto.
+  (com o robô configurado) executa em até 1 minuto e manda o andamento ("12 de 40 ordens") para o site.
+- **Janela própria:** o robô abre uma janela (sessão) nova do SAP só para ele e a fecha no fim — a tela em que a
+  pessoa está trabalhando não é tocada. Se outra execução do robô (ex.: export das 06:30) estiver rodando, o pedido
+  espera até 20 min em vez de ser ignorado. Qualquer falha termina com o motivo no histórico (o lote nunca fica
+  parado em "em execução"); lote que ficou pela metade porque o PC desligou volta como "interrompido".
+- **Situação do robô:** o sincronizador avisa o site a cada 20 min que o PC está ligado, com a versão do código e se
+  o robô está configurado (`app/robo_pc.json` no repositório de dados). A aba mostra "pronto", "sem sinal",
+  "código antigo" ou "robô não configurado", com o passo a passo para resolver.
+- **Testar o robô:** confere no SAP, sem gravar nada, cada passo — conexão, IW38, *Campo de ordenação* e seta à
+  direita, janela de seleção múltipla, caixas de status, período — e, opcionalmente, faz uma busca de verdade na
+  IW38 com um campo de ordenação e lê as datas de uma ordem na IW33. O resultado mostra o passo que falhou e a lista
+  dos campos da tela de seleção (para ajustar os IDs sem gravar script).
 - **Calendário principal:** as datas gravadas pelo robô aparecem na hora no Calendário de ordens (marcadas com ↻)
   até o próximo export do IW38 trazê-las.
 - **Histórico:** resultado de cada ordem (data antiga, nova e mensagem do SAP), download, **desfazer** e cancelar.
 - IDs em `[mudanca_datas]` de `automacao/transacoes.toml`: o *Campo de ordenação* é achado pelo texto da tela e os
-  campos de data pelo nome técnico (`CAUFVD-GSTRP`/`GLTRP`); se o seu SAP for diferente, grave no Script Recording
-  e cole os IDs.
+  campos de data pelo nome técnico (`CAUFVD-GSTRP`/`GLTRP`); se o seu SAP for diferente (o **Testar o robô** mostra
+  os IDs da tela), cole os IDs numa seção `[mudanca_datas]` do `automacao/robo_local.toml` deste PC — o
+  `transacoes.toml` é trocado nas atualizações (a versão anterior fica em `transacoes.toml.anterior`).
 
 ## Configuração
 

@@ -24,6 +24,10 @@ import pandas as pd
 
 ARQ_PROGRAMACAO = "programacao_maquinas.json"
 ARQ_LOTES = "mudancas_datas.json"
+ARQ_ROBO_PC = "robo_pc.json"    # sinal de vida do sincronizador de cada PC (versão, robô configurado…)
+DIAGNOSTICO = "diagnostico"     # tipo do lote "Testar o robô"
+RECURSOS_NECESSARIOS = ("mudar_datas_iw38", "diagnostico")
+SINAL_MAX_MIN = 45              # sem sinal há mais que isso = PC desligado ou sincronizador parado
 MAX_ORDENS_LOTE = 300           # trava contra uma mudança em massa por engano (o robô para aqui)
 DESDE_SEMPRE = date(2000, 1, 1)
 
@@ -182,17 +186,65 @@ def lote_desfazer(lote: dict, usuario: str) -> tuple[str, dict]:
                         "origem": "desfazer", "consultas": [], "itens": novos, "resumo": ""}
 
 
+def novo_diagnostico(usuario: str, campo: str = "", ordem: str = "", de: date | None = None,
+                     ate: date | None = None) -> tuple[str, dict]:
+    """Lote "Testar o robô": o robô confere cada passo (SAP, IW38, seta à direita, caixas, período) sem alterar
+    nada; com campo de ordenação faz uma busca de verdade na IW38 e com ordem lê as datas dela na IW33."""
+    teste = {k: v for k, v in {"campo": separar_campos(campo)[0] if separar_campos(campo) else "",
+                               "ordem": re.sub(r"\D", "", str(ordem or "")),
+                               "de": de.isoformat() if de else "", "ate": ate.isoformat() if ate else ""}.items() if v}
+    return _novo_id(), {"criado_em": _agora(), "criado_por": usuario, "status": SOLICITADA, "simular": True,
+                        "tipo": DIAGNOSTICO, "origem": "teste do robô", "teste": teste, "consultas": [],
+                        "itens": [], "resumo": ""}
+
+
 def job(lote_id: str, lote: dict) -> dict:
     """O que o robô recebe: consultas da IW38 e/ou ordens com as datas novas (nada de dados pessoais)."""
+    if lote.get("tipo") == DIAGNOSTICO:
+        return {"lote": lote_id, "tipo": DIAGNOSTICO, "teste": lote.get("teste", {})}
     return {"lote": lote_id, "simular": bool(lote.get("simular")), "consultas": lote.get("consultas", []),
             "itens": [{"ordem": i["ordem"], "inicio": i["para_inicio"], "fim": i["para_fim"]}
                       for i in lote.get("itens", []) if not i.get("resultado")]}
 
 
+def progresso(parcial: dict) -> dict:
+    """Andamento do robô para o site (o sincronizador grava no lote enquanto o robô roda)."""
+    if parcial.get("tipo") == DIAGNOSTICO:
+        return {"texto": f"testando: {len(parcial.get('etapas', []))} etapa(s) feitas", "feitas": 0, "total": 0}
+    feitas, total = len(parcial.get("itens", [])), int(parcial.get("total") or 0)
+    if parcial.get("aguardando"):
+        texto = parcial["aguardando"]
+    else:
+        texto = f"{feitas} de {total} ordem(ns) · {len(parcial.get('consultas', []))} consulta(s) na IW38"
+    return {"texto": texto, "feitas": feitas, "total": total, "em": _agora()}
+
+
+def aplicar_diagnostico(lote: dict, resultado: dict) -> dict:
+    etapas = list(resultado.get("etapas", []))
+    novo = {**lote, "etapas": etapas, "campos_tela": list(resultado.get("campos_tela", []))[:200],
+            "ordens_encontradas": list(resultado.get("ordens_encontradas", []))[:100],
+            "versao_robo": resultado.get("versao", ""), "executado_em": resultado.get("fim") or _agora()}
+    novo.pop("progresso", None)
+    falhas = [e for e in etapas if not e.get("ok")]
+    if resultado.get("erro") and not etapas:
+        novo["status"], novo["resumo"] = COM_ERROS, f"O robô não terminou: {resultado['erro']}"
+    elif falhas or resultado.get("erro"):
+        primeira = falhas[0] if falhas else {"etapa": "robô", "detalhe": resultado.get("erro", "")}
+        novo["status"] = COM_ERROS
+        novo["resumo"] = (f"Teste do robô: {len(etapas) - len(falhas)} de {len(etapas)} etapa(s) ok · falhou "
+                          f"\"{primeira['etapa']}\": {str(primeira['detalhe'])[:200]}")
+    else:
+        novo["status"], novo["resumo"] = CONCLUIDA, f"Teste do robô: tudo certo ({len(etapas)} etapas)"
+    return novo
+
+
 def aplicar_resultado(lote: dict, resultado: dict) -> dict:
     """Junta o resultado do robô ({"itens": [{"ordem", "dia", "campo", "ok", "mensagem", "inicio_sap", "fim_sap"}],
     "consultas": [{"dia", "encontradas", "erro"}], "erro"}). Ordens trazidas pela IW38 entram no lote aqui."""
+    if lote.get("tipo") == DIAGNOSTICO:
+        return aplicar_diagnostico(lote, resultado)
     novo = {**lote, "itens": [dict(i) for i in lote.get("itens", [])]}
+    novo.pop("progresso", None)
     por_ordem = {i["ordem"]: i for i in novo["itens"]}
     for r in resultado.get("itens", []):
         ordem = str(r["ordem"])
@@ -257,7 +309,8 @@ def tabela_lotes(lotes: dict) -> pd.DataFrame:
         linhas.append({"Lote": lid, "Criado em": pd.to_datetime(lote.get("criado_em"), utc=True, errors="coerce"),
                        "Por": lote.get("criado_por", ""),
                        "Situação": ROTULO_STATUS.get(lote.get("status"), lote.get("status")),
-                       "Simulação": bool(lote.get("simular")), "Origem": lote.get("origem") or "",
+                       "Simulação": bool(lote.get("simular")) and lote.get("tipo") != DIAGNOSTICO,
+                       "Origem": lote.get("origem") or "",
                        "Dias": ", ".join(pd.Timestamp(d).strftime("%d/%m") for d in dias),
                        "Ordens": len(itens), "OK": sum(1 for i in itens if i.get("resultado") == "ok"),
                        "Erros": sum(1 for i in itens if i.get("resultado") == "erro"),
@@ -267,3 +320,62 @@ def tabela_lotes(lotes: dict) -> pd.DataFrame:
     if len(t):
         t["Criado em"] = t["Criado em"].dt.tz_convert("America/Sao_Paulo").dt.tz_localize(None)
     return t.sort_values("Criado em", ascending=False).reset_index(drop=True)
+
+
+# ----------------------------------------------------------------------------
+# Situação do robô (sinal de vida que o sincronizador de cada PC grava em robo_pc.json)
+# ----------------------------------------------------------------------------
+def situacao_robo(sinais: dict, agora: datetime | None = None) -> list[dict]:
+    """Um item por PC, do mais recente para o mais antigo: {"pc", "estado", "texto", "visto_min", ...}.
+
+    estado: "ok" (pronto), "desatualizado", "nao_configurado" (sincronizador sem o robô do SAP) ou "offline"."""
+    agora = agora or datetime.now(timezone.utc)
+    saida = []
+    for pc, s in (sinais or {}).items():
+        if not isinstance(s, dict):
+            continue
+        try:
+            visto = datetime.fromisoformat(s.get("visto_em", ""))
+            minutos = max(0, int((agora - visto).total_seconds() // 60))
+        except (TypeError, ValueError):
+            minutos = 10 ** 6
+        faltam = [r for r in RECURSOS_NECESSARIOS if r not in (s.get("recursos") or [])]
+        versao = s.get("versao_codigo") or "?"
+        if minutos > SINAL_MAX_MIN:
+            estado = "offline"
+            texto = f"sem sinal há {tempo(minutos)} (PC desligado, Windows sem ninguém logado ou sincronizador parado)"
+        elif faltam:
+            estado, texto = "desatualizado", "código antigo neste PC — rode o atualizar.bat (pasta do sistema)"
+        elif not s.get("robo_configurado"):
+            estado = "nao_configurado"
+            texto = "sincronizador ligado, mas o robô do SAP não está configurado (rode automacao\\configurar_robo.bat)"
+        else:
+            estado, texto = "ok", f"pronto · visto há {tempo(minutos)}"
+        saida.append({"pc": pc, "estado": estado, "texto": texto, "visto_min": minutos, "versao": versao,
+                      "versao_robo": s.get("versao_robo", "?"), "atualizacao_auto": bool(s.get("atualizacao_auto")),
+                      "ocupado": s.get("ocupado", "")})
+    return sorted(saida, key=lambda x: x["visto_min"])
+
+
+def tempo(minutos: int) -> str:
+    if minutos < 1:
+        return "menos de 1 min"
+    if minutos < 120:
+        return f"{minutos} min"
+    if minutos < 48 * 60:
+        return f"{minutos // 60} h"
+    return f"{minutos // 1440} dia(s)" if minutos < 10 ** 6 else "muito tempo"
+
+
+def parado_ha(lote: dict, agora: datetime | None = None) -> int | None:
+    """Minutos desde a última notícia de um lote aberto (criado, pego pelo robô ou andamento)."""
+    agora = agora or datetime.now(timezone.utc)
+    marcas = [lote.get("atualizado_em"), lote.get("iniciado_em"), lote.get("criado_em"),
+              (lote.get("progresso") or {}).get("em")]
+    datas = []
+    for m in marcas:
+        try:
+            datas.append(datetime.fromisoformat(m))
+        except (TypeError, ValueError):
+            continue
+    return int((agora - max(datas)).total_seconds() // 60) if datas else None
