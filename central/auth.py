@@ -37,6 +37,9 @@ import streamlit as st
 from . import bases, config, ui
 
 ARQ_USUARIOS = "usuarios.json"
+ARQ_SOLICITACOES = "solicitacoes_acesso.json"   # pedidos de cadastro feitos na tela de login
+MAX_PENDENTES = 30                               # proteção contra abuso do formulário público
+INTERVALO_SOLICITACAO_S = 600                    # um pedido a cada 10 min por navegador
 PERFIS = {"admin": "Administrador", "editor": "Editor", "leitor": "Leitor"}
 FUNCOES = {"lider": "Líder de manutenção", "analista": "Analista", "manutentor": "Manutentor"}
 FUNCOES_ACESSO_TOTAL = {"lider", "analista"}
@@ -181,6 +184,13 @@ def entrar(login: str, senha: str, manter: bool) -> str:
     u = us.get(login)
     if not u:
         confere(_FALSO, senha)   # mesmo tempo de resposta: não revela se o usuário existe
+    if not u:
+        try:
+            ped = solicitacoes(fresco=True).get(login) or {}
+        except Exception:  # noqa: BLE001
+            ped = {}
+        if ped.get("status") == "pendente" and confere(ped, senha):
+            return "Seu pedido de acesso ainda está aguardando aprovação de um administrador."
     if not u or not confere(u, senha):
         falhas += 1
         tent[login] = (0, time.time() + BLOQUEIO_S) if falhas >= MAX_FALHAS else (falhas, 0.0)
@@ -229,6 +239,82 @@ def sair() -> None:
     st.session_state["_cookie_novo"] = None  # apaga o cookie na próxima execução
 
 
+# ----------------------------------------------------------------------------
+# Solicitação de cadastro (tela de login) e aprovação (Usuários)
+# ----------------------------------------------------------------------------
+def solicitacoes(fresco: bool = False) -> dict:
+    dados = bases._ler_json_agora(ARQ_SOLICITACOES) if fresco else bases.ler_cadastro(ARQ_SOLICITACOES)
+    return {k: v for k, v in dados.items() if isinstance(v, dict)}
+
+
+def pendentes(fresco: bool = False) -> dict:
+    return {k: v for k, v in solicitacoes(fresco).items() if v.get("status") == "pendente"}
+
+
+def solicitar(nome: str, login: str, senha: str, senha2: str, matricula: str = "", setor: str = "",
+              funcao: str | None = None, motivo: str = "") -> str:
+    """Grava o pedido de cadastro (a senha escolhida só como hash). Devolve a mensagem de erro, ou ""."""
+    login = login.strip().lower()
+    nome = " ".join(nome.split())[:80]
+    erro = ("Informe seu nome." if len(nome) < 3 else "") or validar_login(login) or validar_senha(senha) \
+        or ("As senhas não conferem." if senha != senha2 else "")
+    if erro:
+        return erro
+    ultimo = st.session_state.get("_solicitou_em", 0.0)
+    if time.time() - ultimo < INTERVALO_SOLICITACAO_S:
+        return "Você acabou de enviar um pedido. Aguarde a aprovação (ou tente de novo em alguns minutos)."
+    if login in usuarios(fresco=True):
+        return "Esse usuário já existe. Escolha outro login (ou peça a senha a um administrador)."
+    pend = pendentes(fresco=True)
+    if login in pend:
+        return "Já existe um pedido para esse login aguardando aprovação."
+    if len(pend) >= MAX_PENDENTES:
+        return "Há muitos pedidos aguardando aprovação. Fale direto com o PCM."
+    bases.gravar_cadastro_lote(ARQ_SOLICITACOES, {login: {
+        "nome": nome, "matricula": matricula.strip()[:20], "setor": setor.strip()[:60],
+        "funcao": funcao if funcao in FUNCOES else "", "motivo": motivo.strip()[:300], "status": "pendente",
+        "criado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"), **gerar_hash(senha)}},
+        "pedido de acesso")
+    st.session_state["_solicitou_em"] = time.time()
+    return ""
+
+
+def aprovar(login: str, funcao: str, perfil: str, abas: list[str] | None, por: str) -> str:
+    """Cria o usuário com a senha que a pessoa escolheu e marca o pedido como aprovado."""
+    ped = pendentes(fresco=True).get(login)
+    if not ped:
+        return "Esse pedido não está mais pendente (outro administrador já decidiu?)."
+    if login in usuarios(fresco=True):
+        return "Já existe um usuário com esse login."
+    if funcao not in FUNCOES or perfil not in PERFIS:
+        return "Escolha a função e o perfil."
+    dados = {"nome": ped.get("nome", login), "perfil": perfil, "funcao": funcao, "ativo": True, "trocar_senha": False,
+             "sal": ped["sal"], "senha_hash": ped["senha_hash"]}
+    if ped.get("matricula"):
+        dados["matricula"] = ped["matricula"]
+    if abas is not None:
+        dados["abas"] = sorted({id_pagina(a) for a in abas})
+    salvar(login, dados, por)
+    _decidir(login, ped, "aprovada", por)
+    return ""
+
+
+def recusar(login: str, motivo: str, por: str) -> str:
+    ped = pendentes(fresco=True).get(login)
+    if not ped:
+        return "Esse pedido não está mais pendente."
+    _decidir(login, ped, "recusada", por, motivo.strip()[:300])
+    return ""
+
+
+def _decidir(login: str, ped: dict, status: str, por: str, motivo: str = "") -> None:
+    # a senha do pedido não fica guardada depois da decisão
+    fica = {k: v for k, v in ped.items() if k not in ("sal", "senha_hash", "atualizado_em", "atualizado_por")}
+    bases.gravar_cadastro_lote(ARQ_SOLICITACOES, {login: {
+        **fica, "status": status, "decidido_por": por, "motivo_recusa": motivo,
+        "decidido_em": datetime.now(timezone.utc).isoformat(timespec="seconds")}}, por)
+
+
 def pode_editar(u: dict | None) -> bool:
     return bool(u) and u.get("perfil") in ("admin", "editor")
 
@@ -241,10 +327,26 @@ def id_pagina(pagina: str) -> str:
     return pagina.replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".py")
 
 
+def abas_personalizadas(u: dict | None) -> set[str] | None:
+    """Abas escolhidas na aprovação ou na edição do usuário (None = segue a regra da função)."""
+    abas = (u or {}).get("abas")
+    return {id_pagina(a) for a in abas} if isinstance(abas, list) else None
+
+
+def todas_as_abas() -> list[str]:
+    from . import navegacao
+
+    return [pid for _, pid, _ in navegacao.abas()]
+
+
 def acesso_total(u: dict | None) -> bool:
-    """Vê todas as abas: Líder de manutenção e Analista; conta sem função, só se for administrador."""
+    """Vê todas as abas: Líder de manutenção e Analista (ou quem recebeu todas na lista personalizada); conta sem
+    função e sem lista, só se for administrador."""
     if not u:
         return False
+    pers = abas_personalizadas(u)
+    if pers is not None:
+        return set(todas_as_abas()) <= pers | PAGINAS_LIVRES
     funcao = u.get("funcao")
     if funcao in FUNCOES:
         return funcao in FUNCOES_ACESSO_TOTAL
@@ -254,7 +356,22 @@ def acesso_total(u: dict | None) -> bool:
 def pode_ver(u: dict | None, pagina: str) -> bool:
     """A aba (id ou caminho em paginas/) aparece para esta pessoa? A navegação só registra as permitidas —
     o servidor nem executa as outras, mesmo com o endereço digitado."""
-    return bool(u) and (id_pagina(pagina) in PAGINAS_LIVRES or acesso_total(u))
+    if not u:
+        return False
+    pid = id_pagina(pagina)
+    if pid in PAGINAS_LIVRES:
+        return True
+    pers = abas_personalizadas(u)
+    return pid in pers if pers is not None else acesso_total(u)
+
+
+def descrever_acesso(u: dict | None) -> str:
+    pers = abas_personalizadas(u)
+    if acesso_total(u):
+        return "todas"
+    if pers is not None:
+        return f"{len((pers | PAGINAS_LIVRES) & set(todas_as_abas()))} aba(s) escolhidas"
+    return "só Estoque"
 
 
 def pode_abrir(pagina: str) -> bool:
@@ -326,21 +443,60 @@ def pagina_login() -> None:
         if vazio:
             _primeiro_admin()
             return
-        with st.form("login", border=True):
-            login = st.text_input("Usuário", autocomplete="username")
-            senha = st.text_input("Senha", type="password", autocomplete="current-password")
-            manter = st.checkbox("Manter conectado neste aparelho", value=True)
-            ok = st.form_submit_button("Entrar", type="primary", width="stretch", icon=":material/login:")
-        if ok:
-            try:
-                erro = entrar(login, senha, manter)
-            except Exception as e:  # noqa: BLE001 — falha ao ler/gravar usuários: não entra e não grava nada
-                erro = f"Não foi possível acessar a lista de usuários agora. Tente de novo em instantes. ({e})"
-            if erro:
-                st.error(erro)
-            else:
-                st.rerun()
-        st.caption("Esqueceu a senha? Peça para um administrador redefinir em **Usuários**.")
+        aba_entrar, aba_pedir = st.tabs([":material/login: Entrar", ":material/person_add: Solicitar acesso"])
+        with aba_entrar:
+            with st.form("login", border=True):
+                login = st.text_input("Usuário", autocomplete="username")
+                senha = st.text_input("Senha", type="password", autocomplete="current-password")
+                manter = st.checkbox("Manter conectado neste aparelho", value=True)
+                ok = st.form_submit_button("Entrar", type="primary", width="stretch", icon=":material/login:")
+            if ok:
+                try:
+                    erro = entrar(login, senha, manter)
+                except Exception as e:  # noqa: BLE001 — falha ao ler/gravar usuários: não entra e não grava nada
+                    erro = f"Não foi possível acessar a lista de usuários agora. Tente de novo em instantes. ({e})"
+                if erro:
+                    st.error(erro)
+                else:
+                    st.rerun()
+            st.caption("Esqueceu a senha? Peça para um administrador redefinir em **Usuários**.")
+        with aba_pedir:
+            _form_solicitacao()
+
+
+def _form_solicitacao() -> None:
+    if st.session_state.get("_pedido_ok"):
+        st.success(f"Pedido enviado para **{st.session_state['_pedido_ok']}**. Um administrador vai aprovar e "
+                   "definir o que você pode ver; depois é só entrar com o login e a senha que você escolheu.",
+                   icon=":material/schedule_send:")
+        return
+    st.caption("Preencha seus dados e escolha login e senha. O acesso só vale depois da aprovação de um "
+               "administrador do PCM.")
+    with st.form("solicitar_acesso", border=True):
+        nome = st.text_input("Nome completo", max_chars=80)
+        c = st.columns(2)
+        login = c[0].text_input("Login desejado", placeholder="nome.sobrenome", max_chars=40)
+        matricula = c[1].text_input("Matrícula (opcional)", max_chars=20)
+        c = st.columns(2)
+        setor = c[0].text_input("Setor / área", max_chars=60, placeholder="ex.: Manutenção Montagem")
+        funcao = c[1].selectbox("Sua função", list(FUNCOES), index=None, format_func=FUNCOES.get,
+                                placeholder="Escolha")
+        motivo = st.text_area("Para que você precisa do acesso? (opcional)", max_chars=300, height=80)
+        c = st.columns(2)
+        s1 = c[0].text_input("Senha", type="password", help="Mínimo de 8 caracteres, com letras e números.",
+                             autocomplete="new-password")
+        s2 = c[1].text_input("Repita a senha", type="password", autocomplete="new-password")
+        ok = st.form_submit_button("Enviar pedido", type="primary", width="stretch", icon=":material/send:")
+    if ok:
+        try:
+            erro = solicitar(nome, login, s1, s2, matricula, setor, funcao, motivo)
+        except Exception as e:  # noqa: BLE001
+            erro = f"Não foi possível enviar agora. Tente de novo em instantes. ({e})"
+        if erro:
+            st.error(erro)
+        else:
+            st.session_state["_pedido_ok"] = login.strip().lower()
+            st.rerun()
 
 
 def _primeiro_admin() -> None:
@@ -416,8 +572,15 @@ def pagina_minha_conta() -> None:
     c[2].markdown(f"**Função**  \n{nome_funcao(u)}")
     c[3].markdown(f"**Perfil**  \n{PERFIS.get(u.get('perfil'), u.get('perfil'))}")
     if not acesso_total(u):
-        st.info("Sua função dá acesso só à aba **Estoque**. Para ver as outras abas, peça a um administrador.",
-                icon=":material/lock:")
+        pers = abas_personalizadas(u)
+        if pers is not None:
+            rot = _rotulos_abas()
+            vistas = ["Estoque", *(rot[p] for p in rot if p in pers)]
+            st.info("Você vê as abas: " + " · ".join(f"**{v}**" for v in vistas) + ". Para mudar, peça a um "
+                    "administrador.", icon=":material/lock:")
+        else:
+            st.info("Sua função dá acesso só à aba **Estoque**. Para ver as outras abas, peça a um administrador.",
+                    icon=":material/lock:")
     st.subheader("Trocar senha")
     _form_senha(u, exigir_atual=True)
     st.subheader("Aparelhos conectados")
@@ -444,11 +607,12 @@ def pagina_usuarios() -> None:
     us = usuarios(fresco=True)
 
     linhas = [{"Usuário": k, "Nome": v.get("nome", ""), "Função": FUNCOES.get(v.get("funcao"), "⚠ a definir"),
-               "Perfil": PERFIS.get(v.get("perfil"), v.get("perfil")), "Abas": "todas" if acesso_total(v) else "só Estoque",
+               "Perfil": PERFIS.get(v.get("perfil"), v.get("perfil")), "Abas": descrever_acesso(v),
                "Ativo": v.get("ativo", True), "Último acesso": (v.get("ultimo_acesso") or "")[:16].replace("T", " "),
                "Troca de senha pendente": v.get("trocar_senha", False)} for k, v in sorted(us.items())]
     st.dataframe(pd.DataFrame(linhas), hide_index=True, width="stretch")
-    st.caption("**Função** define as abas: Líder de manutenção e Analista veem todas; Manutentor vê só o Estoque. "
+    st.caption("**Função** define as abas: Líder de manutenção e Analista veem todas; Manutentor vê só o Estoque "
+               "(ou as abas escolhidas para a pessoa, na aprovação ou em Editar usuário). "
                "**Perfil** define o que pode alterar: Administrador faz tudo, inclusive esta tela · Editor edita "
                "cadastros e fontes de dados · Leitor só consulta.")
     sem_funcao = [k for k, v in sorted(us.items()) if v.get("funcao") not in FUNCOES and v.get("ativo", True)]
@@ -457,7 +621,12 @@ def pagina_usuarios() -> None:
                    "quem não é administrador vê só o Estoque. Defina a função em **Editar usuário**.",
                    icon=":material/person_alert:")
 
-    novo, editar = st.tabs([":material/person_add: Novo usuário", ":material/manage_accounts: Editar usuário"])
+    pend = pendentes(fresco=True)
+    rot_ped = f":material/how_to_reg: Solicitações ({len(pend)})" if pend else ":material/how_to_reg: Solicitações"
+    pedidos, novo, editar = st.tabs([rot_ped, ":material/person_add: Novo usuário",
+                                     ":material/manage_accounts: Editar usuário"])
+    with pedidos:
+        _aprovacoes(eu, pend)
     with novo:
         # sem clear_on_submit: com um erro (ex.: faltou a função) o que já foi digitado fica; limpa só ao criar
         with st.form("novo_usuario"):
@@ -504,6 +673,7 @@ def pagina_usuarios() -> None:
             ativo = c[3].toggle("Ativo", d.get("ativo", True), disabled=unico_admin or alvo == eu["login"])
             nova = st.text_input("Redefinir senha (opcional)", type="password",
                                  help="Preencha só se a pessoa esqueceu a senha. Ela terá de trocar no próximo acesso.")
+            modo, abas_sel = _campo_abas(f"ed_{alvo}", d)
             ok = st.form_submit_button("Salvar alterações", type="primary", icon=":material/save:")
         if unico_admin:
             st.caption("Este é o único administrador ativo: perfil e status não podem ser alterados.")
@@ -511,13 +681,18 @@ def pagina_usuarios() -> None:
             # conta antiga sem função pode ser desativada ou ter a senha redefinida sem escolher a função agora
             erro = (validar_senha(nova) if nova else "") \
                 or ("Escolha a função." if funcao not in FUNCOES and d.get("funcao") in FUNCOES else "")
-            depois = {**d, "funcao": funcao} if funcao in FUNCOES else d
+            depois = {**d, "funcao": funcao} if funcao in FUNCOES else dict(d)
+            depois.pop("abas", None)
+            if modo == ESCOLHER:
+                depois["abas"] = abas_sel
             if not erro and alvo == eu["login"] and acesso_total(d) and not acesso_total(depois):
                 erro = "Você não pode tirar de si mesmo o acesso às abas (peça a outro administrador)."
             if erro:
                 st.error(erro)
             else:
-                dados = {**_sem_meta(d), "nome": nome.strip() or d.get("nome", ""),
+                dados = {**{k: v for k, v in _sem_meta(d).items() if k != "abas"},
+                         **({"abas": abas_sel} if modo == ESCOLHER else {}),
+                         "nome": nome.strip() or d.get("nome", ""),
                          **({"funcao": funcao} if funcao in FUNCOES else {}),
                          "perfil": d.get("perfil") if unico_admin else perfil,
                          "ativo": True if (unico_admin or alvo == eu["login"]) else ativo}
@@ -545,3 +720,88 @@ def pagina_usuarios() -> None:
                                for grupo, pid, titulo in navegacao.abas()])
         st.dataframe(matriz, hide_index=True, width="stretch", height=35 * (len(matriz) + 1) + 3)
         st.caption("Minha conta e Sair aparecem para todos; Usuários, só para administradores.")
+
+
+
+PADRAO_FUNCAO, ESCOLHER = "Padrão da função", "Escolher as abas"
+
+
+def _rotulos_abas() -> dict[str, str]:
+    from . import navegacao
+
+    return {pid: f"{grupo} › {titulo}" for grupo, pid, titulo in navegacao.abas() if pid not in PAGINAS_LIVRES}
+
+
+def _campo_abas(chave: str, u: dict | None, funcao: str | None = None) -> tuple[str, list[str]]:
+    """O que a pessoa vai ver: o padrão da função ou uma lista de abas escolhida (dentro de um st.form)."""
+    rot = _rotulos_abas()
+    pers = abas_personalizadas(u)
+    modo = st.radio("O que a pessoa vai ver", [PADRAO_FUNCAO, ESCOLHER], horizontal=True, key=f"{chave}_modo",
+                    index=1 if pers is not None else 0,
+                    help="Padrão da função: Líder de manutenção e Analista veem todas as abas; Manutentor, só o "
+                         "Estoque. Escolher: só as abas marcadas abaixo (o Estoque é sempre liberado).")
+    base = pers if pers is not None else {pid for pid in rot if pode_ver({"funcao": funcao or (u or {}).get("funcao")},
+                                                                          pid)}
+    sel = st.multiselect("Abas liberadas (vale quando a opção é \"Escolher as abas\")", list(rot),
+                         default=[pid for pid in rot if pid in base], format_func=rot.get, key=f"{chave}_abas",
+                         placeholder="Nenhuma além do Estoque")
+    return modo, sorted(sel)
+
+
+def _aprovacoes(eu: dict, pend: dict) -> None:
+    import pandas as pd
+
+    if not pend:
+        st.info("Nenhum pedido de acesso aguardando aprovação. Quem abre o site sem login pode pedir em "
+                "**Solicitar acesso**, na tela de entrada.", icon=":material/inbox:")
+    else:
+        tab = pd.DataFrame([{"Login": k, "Nome": v.get("nome", ""), "Matrícula": v.get("matricula", ""),
+                             "Setor": v.get("setor", ""), "Função informada": FUNCOES.get(v.get("funcao"), "—"),
+                             "Motivo": v.get("motivo", ""), "Pedido em": (v.get("criado_em") or "")[:16].replace("T", " ")}
+                            for k, v in sorted(pend.items(), key=lambda kv: kv[1].get("criado_em", ""))])
+        st.dataframe(tab, hide_index=True, width="stretch",
+                     column_config={"Motivo": st.column_config.TextColumn(width="large")})
+        alvo = st.selectbox("Pedido", list(tab["Login"]), key="ped_alvo",
+                            format_func=lambda k: f"{k} · {pend[k].get('nome', '')}")
+        ped = pend[alvo]
+        with st.form(f"aprovar_{alvo}", border=True):
+            st.markdown(f"**{ped.get('nome', alvo)}** · login `{alvo}`"
+                        + (f" · matrícula {ped['matricula']}" if ped.get("matricula") else "")
+                        + (f" · {ped['setor']}" if ped.get("setor") else ""))
+            c = st.columns(2)
+            funcao = c[0].selectbox("Função", list(FUNCOES), format_func=FUNCOES.get,
+                                    index=list(FUNCOES).index(ped["funcao"]) if ped.get("funcao") in FUNCOES else None,
+                                    placeholder="Escolha a função")
+            perfil = c[1].selectbox("Perfil", list(PERFIS), index=2, format_func=PERFIS.get,
+                                    help="Administrador: tudo · Editor: altera cadastros · Leitor: só consulta")
+            modo, abas_sel = _campo_abas(f"ap_{alvo}", None, ped.get("funcao"))
+            motivo = st.text_input("Motivo (só se for recusar)", max_chars=300)
+            b = st.columns(2)
+            aprovar_ok = b[0].form_submit_button("Aprovar e criar o usuário", type="primary",
+                                                  icon=":material/check_circle:", width="stretch")
+            recusar_ok = b[1].form_submit_button("Recusar", icon=":material/block:", width="stretch")
+        if aprovar_ok:
+            erro = aprovar(alvo, funcao, perfil, abas_sel if modo == ESCOLHER else None, eu["login"])
+            if erro:
+                st.error(erro)
+            else:
+                st.toast(f"Acesso de {alvo} aprovado. A pessoa já pode entrar com a senha que escolheu.",
+                         icon=":material/check:")
+                st.session_state.pop("ped_alvo", None)
+                st.rerun()
+        if recusar_ok:
+            erro = recusar(alvo, motivo, eu["login"])
+            if erro:
+                st.error(erro)
+            else:
+                st.toast(f"Pedido de {alvo} recusado.", icon=":material/block:")
+                st.session_state.pop("ped_alvo", None)
+                st.rerun()
+    decididos = {k: v for k, v in solicitacoes().items() if v.get("status") in ("aprovada", "recusada")}
+    if decididos:
+        with st.expander(f"Pedidos já decididos ({len(decididos)})", icon=":material/history:"):
+            st.dataframe(pd.DataFrame([{"Login": k, "Nome": v.get("nome", ""), "Decisão": v.get("status", ""),
+                                        "Por": v.get("decidido_por", ""), "Motivo": v.get("motivo_recusa", ""),
+                                        "Em": (v.get("decidido_em") or "")[:16].replace("T", " ")}
+                                       for k, v in sorted(decididos.items(), key=lambda kv: kv[1].get("decidido_em", ""),
+                                                          reverse=True)]), hide_index=True, width="stretch")

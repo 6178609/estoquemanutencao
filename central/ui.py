@@ -215,6 +215,14 @@ def barra_lateral(usuario: dict | None = None) -> None:
         if usuario and usuario.get("login"):
             st.caption(f":material/person: **{usuario.get('nome') or usuario['login']}** · {auth.nome_funcao(usuario)}"
                        f" · {auth.PERFIS.get(usuario.get('perfil'), '')}")
+            if usuario.get("perfil") == "admin" and auth.login_exigido():
+                try:
+                    n_ped = len(auth.pendentes())
+                except Exception:  # noqa: BLE001
+                    n_ped = 0
+                if n_ped:
+                    st.warning(f"**{n_ped} pedido(s) de acesso** aguardando aprovação em Configuração › Usuários.",
+                               icon=":material/how_to_reg:")
         else:
             st.caption("Ordens IW38 · Estoque MB52 · Requisições · Equipamentos")
         if auth.pode_ver(usuario, "busca"):
