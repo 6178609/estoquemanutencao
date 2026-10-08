@@ -127,16 +127,108 @@ st.caption("Para cada dia: o robô abre a **IW38**, usa a **seta à direita** do
            "parada leva as ordens até ela (a última leva até o fim do mês).")
 
 
+def _sinais() -> dict:
+    try:
+        return bases.ler_cadastro(md.ARQ_ROBO_PC)
+    except FonteErro:
+        return {}
+
+
+COMO_ATIVAR = """**Para o robô atender os pedidos do site** (no PC que tem o SAP, uma vez só):
+
+1. Na pasta do sistema (a mesma do `iniciar.bat`), dê duplo clique em **`atualizar.bat`**: ele baixa a versão nova e
+   reinicia o sincronizador. Se o arquivo não existir (instalação antiga), baixe o
+   [ZIP novo](https://github.com/6178609/estoquemanutencao/archive/refs/heads/main.zip), extraia e **copie por cima**
+   da pasta do sistema (substituir os arquivos; as configurações deste PC ficam) e **reinicie o computador**.
+2. Se ainda não fez: `automacao\\configurar_robo.bat` (guarda o usuário do SAP no Windows) e
+   `sincronizador\\configurar.bat`.
+3. Volte aqui e clique em **Testar o robô**: ele confere cada passo no SAP sem alterar nada.
+
+Depois disso o sincronizador se atualiza sozinho (a cada 6 h) e avisa o site que está ligado."""
+
+
+def _painel_robo() -> None:
+    """Se o robô vai atender: PC ligado, código atual e robô configurado (sinal do sincronizador)."""
+    if robo.disponivel():
+        st.success("Robô do SAP **neste PC**: o pedido é executado na hora.", icon=":material/smart_toy:")
+        return
+    sit = md.situacao_robo(_sinais())
+    pronto = [x for x in sit if x["estado"] == "ok"]
+    if pronto:
+        p = pronto[0]
+        st.success(f"Robô do SAP **pronto** no PC **{p['pc']}** · visto há {md.tempo(p['visto_min'])} · código "
+                   f"{p['versao']} · pega cada pedido em até 1 minuto.", icon=":material/smart_toy:")
+        return
+    if not sit:
+        st.error("**Nenhum PC com o robô do SAP deu sinal ao site.** O PC do SAP está com o código antigo (instalado "
+                 "pelo Download ZIP antes destas melhorias) ou o sincronizador está desligado — por isso os pedidos "
+                 "ficam em \"Aguardando o robô do SAP\".", icon=":material/report:")
+    for x in sit[:3]:
+        (st.warning if x["estado"] == "nao_configurado" else st.error)(
+            f"PC **{x['pc']}**: {x['texto']}", icon=":material/smart_toy:")
+    with st.expander("Como colocar o robô para funcionar", icon=":material/build:", expanded=not sit):
+        st.markdown(COMO_ATIVAR)
+
+
+def _etapas(lote: dict) -> None:
+    """Checklist do teste do robô."""
+    etapas = lote.get("etapas") or []
+    if etapas:
+        st.dataframe(pd.DataFrame([{"": "✅" if e.get("ok") else "❌", "Etapa": e.get("etapa", ""),
+                                    "Detalhe": e.get("detalhe", "")} for e in etapas]),
+                     hide_index=True, width="stretch",
+                     column_config={"": st.column_config.TextColumn(width=40),
+                                    "Detalhe": st.column_config.TextColumn(width="large")})
+    if lote.get("ordens_encontradas"):
+        st.caption(f"Ordens que a IW38 trouxe no teste: {', '.join(lote['ordens_encontradas'][:60])}")
+    if lote.get("campos_tela"):
+        with st.expander(f"Campos da tela de seleção da IW38 ({len(lote['campos_tela'])})", icon=":material/list:"):
+            st.caption("Para conferir os IDs usados pelo robô em automacao/transacoes.toml.")
+            st.dataframe(pd.DataFrame(lote["campos_tela"]).rename(columns={"id": "ID", "tipo": "Tipo",
+                                                                           "texto": "Texto"}),
+                         hide_index=True, width="stretch", height=ui.altura_tabela(300))
+
+
+def _testar_robo() -> None:
+    with st.popover("Testar o robô", icon=":material/troubleshoot:", disabled=not pode or bool(abertos),
+                    help="Só administrador ou editor." if not pode else
+                    "Já há um pedido em andamento." if abertos else
+                    "O robô confere cada passo no SAP (IW38, seta à direita, período, tela da ordem) sem alterar nada."):
+        st.markdown("O robô abre o SAP numa **janela própria**, entra na IW38 e confere cada passo, **sem gravar "
+                    "nada**. Opcional: um campo de ordenação para uma busca de verdade e uma ordem para ler as "
+                    "datas na IW33.")
+        campo = st.text_input("Campo de ordenação para testar (opcional)", key="pm_t_campo",
+                              placeholder="ex.: 41020389")
+        ordem = st.text_input("Ordem para ler as datas (opcional)", key="pm_t_ordem", placeholder="ex.: 4001234567")
+        if st.button("Iniciar teste", type="primary", icon=":material/play_arrow:", key="pm_t_ir"):
+            try:
+                lote_id, lote = md.novo_diagnostico(quem, campo, ordem, mes, fim_mes)
+                if robo.disponivel():
+                    lote["status"] = md.EM_EXECUCAO
+                bases.gravar_cadastro_lote(md.ARQ_LOTES, {lote_id: lote}, quem)
+                if robo.disponivel():
+                    robo.iniciar_mudanca(md.job(lote_id, lote))
+                st.toast("Teste enviado ao robô do SAP.", icon=":material/smart_toy:")
+                st.rerun()
+            except (ValueError, FonteErro) as e:
+                st.error(str(e))
+
+
 @st.fragment(run_every="5s" if robo.disponivel() else "20s")
 def _andamento():
     """Andamento do lote aberto; quando o robô termina, recarrega a página com o resultado."""
     if robo.disponivel():
         r = robo.resultado_mudanca()
         if r.get("em_andamento"):
-            feitas = len(r.get("itens", []))
-            st.progress(min(feitas / max(r.get("total") or 1, 1), 1.0),
-                        text=f"Robô do SAP alterando as ordens… {feitas} de {r.get('total', '?')} "
-                             f"(consultas na IW38: {len(r.get('consultas', []))})")
+            if r.get("aguardando"):
+                st.info(r["aguardando"], icon=":material/hourglass_top:")
+            elif r.get("tipo") == md.DIAGNOSTICO:
+                st.info(f"Testando o robô… {len(r.get('etapas', []))} etapa(s) feitas", icon=":material/troubleshoot:")
+            else:
+                feitas = len(r.get("itens", []))
+                st.progress(min(feitas / max(r.get("total") or 1, 1), 1.0),
+                            text=f"Robô do SAP alterando as ordens… {feitas} de {r.get('total', '?')} "
+                                 f"(consultas na IW38: {len(r.get('consultas', []))})")
             return
         if r.get("lote") in abertos:
             st.rerun()
@@ -147,11 +239,40 @@ def _andamento():
     if any((atuais.get(k) or {}).get("status") != v.get("status") for k, v in abertos.items()):
         bases.recarregar()
         st.rerun()
+    pronto = robo.disponivel() or any(x["estado"] == "ok" for x in md.situacao_robo(_sinais()))
     for lid, lote_ab in abertos.items():
-        st.info(f"Lote {lid}: **{md.ROTULO_STATUS.get(lote_ab['status'])}**"
-                + ("" if robo.disponivel() else " · o robô do PC com o SAP (sincronizador) pega o pedido em até 1 "
-                   "minuto"), icon=":material/smart_toy:")
+        lote_ab = {**lote_ab, **(atuais.get(lid) or {})}
+        prog = lote_ab.get("progresso") or {}
+        parado = md.parado_ha(lote_ab)
+        oque = "Teste do robô" if lote_ab.get("tipo") == md.DIAGNOSTICO else f"Lote {lid}"
+        texto = f"{oque}: **{md.ROTULO_STATUS.get(lote_ab['status'])}**" + (f" · {prog['texto']}" if prog else "")
+        if lote_ab["status"] == md.SOLICITADA and not pronto and (parado or 0) >= 2:
+            st.error(f"{texto} · há {parado} min e **nenhum robô do SAP pegou o pedido** (veja a situação do robô "
+                     "acima). Cancele no histórico se não for mais preciso.", icon=":material/smart_toy:")
+        elif lote_ab["status"] == md.EM_EXECUCAO and (parado or 0) >= 40:
+            st.warning(f"{texto} · sem notícias do robô há {parado} min: ele pode ter parado. Confira o SAP no PC do "
+                       "robô; se for o caso, cancele no histórico e rode de novo.", icon=":material/smart_toy:")
+        else:
+            st.info(texto + ("" if robo.disponivel() or lote_ab["status"] != md.SOLICITADA else
+                             " · o robô do PC com o SAP (sincronizador) pega o pedido em até 1 minuto"),
+                    icon=":material/smart_toy:")
 
+
+_painel_robo()
+c_t1, c_t2 = st.columns([1, 3], vertical_alignment="center")
+with c_t1:
+    _testar_robo()
+ultimo_teste = max(((k, v) for k, v in lotes.items() if v.get("tipo") == md.DIAGNOSTICO and v.get("status")
+                    in (md.CONCLUIDA, md.COM_ERROS)), key=lambda kv: kv[1].get("criado_em", ""), default=None)
+if ultimo_teste:
+    lid_t, lote_t = ultimo_teste
+    quando = pd.to_datetime(lote_t.get("executado_em") or lote_t.get("criado_em"), utc=True, errors="coerce")
+    quando_txt = "" if pd.isna(quando) else quando.tz_convert("America/Sao_Paulo").strftime("%d/%m %H:%M")
+    ok_t = lote_t.get("status") == md.CONCLUIDA
+    c_t2.markdown(f"{':green[:material/check_circle:]' if ok_t else ':red[:material/error:]'} Último teste "
+                  f"({quando_txt}): {lote_t.get('resumo', '')}")
+    with st.expander("Resultado do último teste do robô", icon=":material/fact_check:", expanded=not ok_t):
+        _etapas(lote_t)
 
 if abertos:
     _andamento()
@@ -229,6 +350,8 @@ if lotes:
         if sel and sel[0] < len(tab_l):
             lid = tab_l.iloc[sel[0]]["Lote"]
             lote = lotes[lid]
+            if lote.get("tipo") == md.DIAGNOSTICO:
+                _etapas(lote)
             for c in lote.get("consultas_resultado", []):
                 if c.get("erro"):
                     st.error(f"IW38 de {pd.Timestamp(c['dia']):%d/%m} ({', '.join(c.get('campos', []))}): {c['erro']}")

@@ -18,6 +18,11 @@ Configuração em sincronizador/config.toml (criado pelo configurar.bat):
     token = "github_pat_..."
     pastas = ['~\\OneDrive - Alpargatas S.A\\PCM F26 - Documentos\\1.3 - Controle de Estoque', ...]  # opcional
     intervalo_min = 5                                                                                  # opcional
+    atualizar_horas = 6     # opcional: de quantas em quantas horas busca código novo no GitHub (0 = nunca)
+
+Também, a cada minuto, executa os pedidos de mudança de datas / "Testar o robô" do site
+no robô do SAP deste PC, avisa o site que está ligado (app/robo_pc.json) e, a cada
+poucas horas, atualiza o próprio código e se reinicia (sincronizador/atualizar.py).
 """
 
 from __future__ import annotations
@@ -46,6 +51,7 @@ from central import mudanca_datas as md  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
 from central.fontes import GitHub, NaoEncontrado, Pastas  # noqa: E402
 from central.leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
+from sincronizador import atualizar  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 ARQ_CONFIG = AQUI / "config.toml"
@@ -201,6 +207,10 @@ def rodada(cfg: dict, gh=None, testar: bool = False) -> list[str]:
         log.info("sem arquivo nas pastas para: %s", ", ".join(sorted(faltando)))
     if not testar:
         try:
+            sinal_de_vida(gh, cfg=cfg)
+        except Exception:  # noqa: BLE001 — informativo; tenta de novo na próxima rodada
+            log.warning("não foi possível avisar o site que este PC está ligado", exc_info=True)
+        try:
             executar_mudancas(gh)
         except Exception:  # noqa: BLE001 — tenta de novo na próxima rodada
             log.exception("falha ao executar as mudanças de datas")
@@ -233,35 +243,159 @@ def _gravar_lote(gh, lote_id: str, lote: dict) -> None:
     gh.gravar(md.ARQ_LOTES, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
 
 
+def _rodar_robo(pedido: dict, progresso=None) -> dict:
+    """Roda o robô do SAP deste PC com o pedido e devolve o resultado; enquanto ele roda, repassa o
+    andamento (resultado parcial) ao site, no máximo a cada 45 s."""
+    RESULTADO.unlink(missing_ok=True)
+    PEDIDO.write_text(json.dumps(pedido, ensure_ascii=False, indent=1), encoding="utf-8")
+    opcao = "--diagnosticar" if pedido.get("tipo") == md.DIAGNOSTICO else "--mudar-datas"
+    proc = subprocess.Popen([sys.executable, str(ROBO), opcao, str(PEDIDO)], cwd=str(RAIZ))
+    limite, visto, enviado = time.monotonic() + 3 * 3600, None, 0.0
+    while proc.poll() is None:
+        if time.monotonic() > limite:
+            proc.kill()
+            break
+        time.sleep(5)
+        parcial = _ler_resultado()
+        marca = (len(parcial.get("itens", [])), len(parcial.get("consultas", [])), len(parcial.get("etapas", [])),
+                 parcial.get("aguardando"))
+        if progresso and parcial.get("em_andamento") and marca != visto and time.monotonic() - enviado >= 45:
+            visto, enviado = marca, time.monotonic()
+            try:
+                progresso(parcial)
+            except Exception:  # noqa: BLE001 — andamento é só informativo
+                log.warning("não deu para mandar o andamento ao site", exc_info=True)
+    res = _ler_resultado()
+    if not res or res.get("em_andamento"):
+        ultimo = res.get("erro") or ""
+        res = {**res, "em_andamento": False,
+               "erro": ultimo or f"o robô terminou sem gravar o resultado (código {proc.returncode}); veja "
+                                 "automacao/robo_sap.log neste PC"}
+    return res
+
+
+def _ler_resultado() -> dict:
+    try:
+        return json.loads(RESULTADO.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def executar_mudancas(gh, rodar=None) -> list[str]:
     """Executa no SAP os lotes "solicitada" (um por vez, o mais antigo primeiro). Só no PC com o robô."""
     if rodar is None:
         if not ROBO_CONFIGURADO.exists():
             return []
-
-        def rodar(pedido: dict) -> dict:
-            RESULTADO.unlink(missing_ok=True)
-            PEDIDO.write_text(json.dumps(pedido, ensure_ascii=False, indent=1), encoding="utf-8")
-            subprocess.run([sys.executable, str(ROBO), "--mudar-datas", str(PEDIDO)], cwd=str(RAIZ), timeout=3 * 3600,
-                           check=False)
-            return json.loads(RESULTADO.read_text(encoding="utf-8")) if RESULTADO.exists() else \
-                {"erro": "o robô terminou sem gravar o resultado (veja automacao/robo_sap.log)", "itens": []}
+        rodar = _rodar_robo
     feitos = []
     lotes = _ler_lotes(gh)
     for lote_id in sorted(k for k, v in lotes.items() if isinstance(v, dict) and v.get("status") == md.SOLICITADA):
         lote = {**lotes[lote_id], "status": md.EM_EXECUCAO,
                 "iniciado_em": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         _gravar_lote(gh, lote_id, lote)
-        log.info("mudança de datas: lote %s (%d ordens)", lote_id, len(lote.get("itens", [])))
+        log.info("%s: lote %s (%d ordens)", "teste do robô" if lote.get("tipo") == md.DIAGNOSTICO
+                 else "mudança de datas", lote_id, len(lote.get("itens", [])))
+
+        def progresso(parcial: dict, lote_id=lote_id, lote=lote) -> None:
+            _gravar_lote(gh, lote_id, {**lote, "progresso": md.progresso(parcial)})
+
         try:
-            resultado = rodar(md.job(lote_id, lote))
+            resultado = rodar(md.job(lote_id, lote), progresso)
         except Exception as e:  # noqa: BLE001
+            log.exception("falha ao rodar o robô")
             resultado = {"erro": f"falha ao rodar o robô: {e}", "itens": []}
         lote = md.aplicar_resultado(lote, resultado)
         _gravar_lote(gh, lote_id, lote)
-        log.info("mudança de datas: lote %s → %s", lote_id, lote.get("resumo"))
+        log.info("lote %s → %s", lote_id, lote.get("resumo"))
         feitos.append(lote_id)
+        sinal_de_vida(gh, forcar=True)
     return feitos
+
+
+def recuperar_interrompidos(gh) -> list[str]:
+    """Lotes que este PC deixou "em execução" (PC desligado ou sincronizador reiniciado no meio) voltam
+    como "com erros", para o site não ficar esperando para sempre."""
+    meu = f"robô ({platform.node()})"
+    lotes = _ler_lotes(gh)
+    presos = [k for k, v in lotes.items() if isinstance(v, dict) and v.get("status") == md.EM_EXECUCAO
+              and v.get("atualizado_por") == meu]
+    for lote_id in presos:
+        lote = {**lotes[lote_id], "status": md.COM_ERROS,
+                "resumo": "interrompido: o PC do robô desligou ou o sincronizador reiniciou no meio. Confira as "
+                          "ordens já feitas no histórico e rode de novo o que faltou."}
+        lote.pop("progresso", None)
+        _gravar_lote(gh, lote_id, lote)
+        log.warning("lote %s estava em execução quando o sincronizador parou; marcado como interrompido", lote_id)
+    return presos
+
+
+# ----------------------------------------------------------------------------
+# Sinal de vida para o site (app/robo_pc.json) e atualização do código
+# ----------------------------------------------------------------------------
+INICIADO_EM = datetime.now(timezone.utc).isoformat(timespec="seconds")
+SINAL_MIN = 20
+_ULTIMO_SINAL = [0.0]
+
+
+def _versao_robo() -> tuple[str, list[str]]:
+    try:
+        from automacao import robo_sap
+
+        return robo_sap.VERSAO, list(robo_sap.RECURSOS)
+    except Exception:  # noqa: BLE001
+        return "?", []
+
+
+def sinal_de_vida(gh, forcar: bool = False, cfg: dict | None = None) -> bool:
+    """Grava em app/robo_pc.json que este PC está ligado, com a versão do código e se tem o robô do SAP
+    (a cada SINAL_MIN minutos). O site usa isso para dizer se o pedido vai ser atendido."""
+    if not forcar and time.monotonic() - _ULTIMO_SINAL[0] < SINAL_MIN * 60:
+        return False
+    versao_robo, recursos = _versao_robo()
+    try:
+        atual = json.loads(gh.ler(gh.id_de(md.ARQ_ROBO_PC)).decode("utf-8"))
+    except (NaoEncontrado, ValueError):
+        atual = {}
+    atual[platform.node()] = {
+        "visto_em": datetime.now(timezone.utc).isoformat(timespec="seconds"), "iniciado_em": INICIADO_EM,
+        "versao_codigo": atualizar.versao_local()[:7], "versao_robo": versao_robo, "recursos": recursos,
+        "robo_configurado": ROBO_CONFIGURADO.exists(),
+        "atualizacao_auto": bool((cfg or {}).get("atualizar_horas", 6))}
+    gh.gravar(md.ARQ_ROBO_PC, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
+    _ULTIMO_SINAL[0] = time.monotonic()
+    return True
+
+
+def atualizar_codigo(cfg: dict, est: dict) -> bool:
+    """De tempos em tempos busca código novo no GitHub; True se algo mudou (o loop então se reinicia)."""
+    horas = float(cfg.get("atualizar_horas", 6) or 0)
+    if horas <= 0:
+        return False
+    ultima = est.get("atualizacao_verificada_em")
+    agora = datetime.now(timezone.utc)
+    if ultima and (agora - datetime.fromisoformat(ultima)).total_seconds() < horas * 3600:
+        return False
+    est["atualizacao_verificada_em"] = agora.isoformat(timespec="seconds")
+    _salvar_estado(est)
+    try:
+        r = atualizar.atualizar()
+    except Exception as e:  # noqa: BLE001 — sem internet etc.: tenta na próxima
+        log.warning("não foi possível buscar código novo: %s", e)
+        return False
+    if r["arquivos"]:
+        log.info("código atualizado para %s (%d arquivo(s)); reiniciando", r["para"][:7], len(r["arquivos"]))
+    return bool(r["arquivos"])
+
+
+def _reiniciar() -> None:
+    """Abre de novo o sincronizador (com o código novo) e encerra este."""
+    if _TRAVA is not None:
+        _TRAVA.close()                      # libera a trava para o novo processo
+    vbs = AQUI / "rodar_oculto.vbs"
+    if os.name == "nt" and vbs.exists():
+        subprocess.Popen(["wscript.exe", str(vbs)], cwd=str(RAIZ))   # uv run sincroniza as dependências
+        sys.exit(0)
+    os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), "--loop"])
 
 
 DIAS_COMPACTAR = 7
@@ -320,7 +454,16 @@ def main() -> None:
         return
     intervalo = max(1, int(cfg.get("intervalo_min", 5))) * 60
     gh = GitHub(_Cfg(cfg["repo"], cfg["token"], cfg.get("ramo", "main")))
+    versao_robo, _ = _versao_robo()
+    log.info("sincronizador iniciado · código %s · robô %s · robô do SAP %s", atualizar.versao_local()[:7] or "?",
+             versao_robo, "configurado" if ROBO_CONFIGURADO.exists() else "não configurado neste PC")
+    try:
+        recuperar_interrompidos(gh)
+    except Exception:  # noqa: BLE001
+        log.warning("não foi possível conferir os lotes interrompidos", exc_info=True)
     while True:
+        if atualizar_codigo(cfg, _estado()):
+            _reiniciar()
         try:
             rodada(cfg, gh)
         except Exception:  # noqa: BLE001 — sem internet, GitHub fora etc.: tenta na próxima
@@ -330,6 +473,7 @@ def main() -> None:
             time.sleep(60)
             try:
                 executar_mudancas(gh)
+                sinal_de_vida(gh, cfg=cfg)
             except Exception:  # noqa: BLE001
                 log.exception("falha ao executar as mudanças de datas")
 

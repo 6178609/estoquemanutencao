@@ -118,8 +118,13 @@ def test_pc_envia_e_site_le(ambiente, monkeypatch):
     mb = pd.DataFrame({"Material": [100200.0], "Texto breve material": ["ROLAMENTO"], "Utilização livre": [4.0]})
     mb.to_excel(estoque / "MB52.XLSX", index=False)
 
+    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [0.0])
     assert sorted(sincronizar.rodada(cfg)) == [IW38, MB52]
-    assert set(gh.arquivos) == {"bases/IW38.parquet", "bases/MB52.parquet", "bases/manifesto.json"}
+    assert set(gh.arquivos) == {"bases/IW38.parquet", "bases/MB52.parquet", "bases/manifesto.json", "app/robo_pc.json"}
+    # sinal de vida para o site: versão do robô e recursos (o site avisa quando o PC está com código antigo)
+    sinal = json.loads(gh.arquivos["app/robo_pc.json"])
+    (pc, info), = sinal.items()
+    assert {"mudar_datas_iw38", "diagnostico"} <= set(info["recursos"]) and info["visto_em"]
     man = json.loads(gh.arquivos["bases/manifesto.json"])
     # vale só o export mais recente do IW38
     assert man["bases/IW38.parquet"]["origem"] == "0.1 - Indicadores/2026/Indicadores.xlsx › aba Base"
@@ -195,7 +200,7 @@ def test_mudanca_de_datas_pedida_na_nuvem_roda_no_pc(ambiente, monkeypatch, tmp_
     assert sincronizar.executar_mudancas(gh) == []
     pedidos = []
 
-    def robo_falso(pedido):
+    def robo_falso(pedido, progresso=None):
         pedidos.append(pedido)
         salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
         assert salvo["L1"]["status"] == md.EM_EXECUCAO          # o site vê que o robô pegou o pedido
