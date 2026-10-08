@@ -12,7 +12,7 @@ from urllib.parse import unquote
 import pandas as pd
 import pytest
 
-from central import bases, fontes
+from central import bases, fontes, leitura
 from central.leitura import IW38, MB52
 from sincronizador import sincronizar
 from tests.test_dados import iw38_cru
@@ -214,3 +214,46 @@ def test_mudanca_de_datas_pedida_na_nuvem_roda_no_pc(ambiente, monkeypatch, tmp_
     assert salvo["L1"]["status"] == md.CONCLUIDA and salvo["L1"]["itens"][0]["de_inicio"] == "2026-09-30"
     assert salvo["L0"]["status"] == md.CONCLUIDA                # os outros lotes ficam como estavam
     assert sincronizar.executar_mudancas(gh, rodar=robo_falso) == []   # nada pendente na rodada seguinte
+
+
+def test_robo_nao_apaga_pedido_feito_no_site_enquanto_grava(ambiente, monkeypatch):
+    from central import mudanca_datas as md
+
+    gh_falso, cfg, _, _ = ambiente
+    gh = fontes.GitHub(sincronizar._Cfg(cfg["repo"], cfg["token"], "main"))
+    lote = {"status": md.SOLICITADA, "consultas": [], "itens": []}
+    gh.gravar(md.ARQ_LOTES, json.dumps({"L1": lote}).encode())
+    ler, vez = gh.ler_versionado, []
+
+    def ler_e_o_site_grava_no_meio(nome):
+        r = ler(nome)
+        if nome == md.ARQ_LOTES and not vez:          # entre a leitura e a gravação do robô, alguém pede outro lote
+            vez.append(1)
+            atual = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
+            gh_falso.arquivos["app/" + md.ARQ_LOTES] = json.dumps({**atual, "L2": lote}).encode()
+        return r
+
+    monkeypatch.setattr(gh, "ler_versionado", ler_e_o_site_grava_no_meio)
+    monkeypatch.setattr(sincronizar.time, "sleep", lambda s: None)
+    sincronizar._gravar_lote(gh, "L1", {**lote, "status": md.EM_EXECUCAO})
+    salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
+    assert salvo["L1"]["status"] == md.EM_EXECUCAO and salvo["L2"]["status"] == md.SOLICITADA
+
+
+def test_arquivo_ilegivel_nao_segura_as_outras_bases(ambiente, monkeypatch):
+    gh, cfg, estoque, ind = ambiente
+    (ind / "IW38.xlsx").write_bytes(_xlsx_com_capa(iw38_cru()))
+    pd.DataFrame({"Material": [100200.0], "Texto breve material": ["ROLAMENTO"], "Utilização livre": [4.0]}).to_excel(
+        estoque / "MB52.XLSX", index=False)
+    ler = leitura.ler_arquivo
+
+    def iw38_aberto_no_excel(nome, *a, **kw):
+        if "IW38" in nome:
+            raise PermissionError("arquivo aberto em outro programa")
+        return ler(nome, *a, **kw)
+
+    monkeypatch.setattr(sincronizar.leitura, "ler_arquivo", iw38_aberto_no_excel)
+    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
+    assert sincronizar.rodada(cfg) == [MB52]
+    monkeypatch.setattr(sincronizar.leitura, "ler_arquivo", ler)          # fechou o Excel: vai na rodada seguinte
+    assert sincronizar.rodada(cfg) == [IW38]

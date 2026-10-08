@@ -43,7 +43,7 @@ ID_FORMATO = "wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/r
 
 # Versão do robô e o que ele sabe fazer: o sincronizador manda isso para o site (robo_pc.json), que avisa
 # quando o PC está com o código antigo.
-VERSAO = "2026.10.07"
+VERSAO = "2026.10.08"
 RECURSOS = ("mudar_datas_iw38", "sessao_propria", "diagnostico")
 ESPERA_TRAVA_MIN = 20     # mudança de datas/diagnóstico esperam o robô terminar outra execução (ex.: export)
 
@@ -151,6 +151,27 @@ def _abrir_saplogon() -> None:
     raise RoboErro("SAP Logon não encontrado neste PC.")
 
 
+def _escolher_sessao(app, mandante: str):
+    """(sessão, mandantes de outras sessões): a 1ª sessão já logada no mandante do robô — com o SAP de qualidade ou
+    outro mandante aberto antes, o robô não exporta nem muda datas no lugar errado —; sem ela, a 1ª tela de login."""
+    tela_login, outros = None, []
+    for i in range(int(app.Children.Count)):
+        con = app.Children(i)
+        for j in range(int(con.Children.Count)):
+            s = con.Children(j)
+            try:
+                if logado(s):
+                    cliente = str(getattr(s.Info, "Client", "") or "")
+                    if not mandante or not cliente or cliente == mandante:
+                        return s, outros
+                    outros.append(cliente)
+                elif tela_login is None:
+                    tela_login = s
+            except Exception:  # noqa: BLE001 — sessão ocupada ou fechando
+                continue
+    return tela_login, outros
+
+
 def conectar(cfg: dict, credenciais=None, obter_gui=None):
     """Sessão do SAP pronta para uso (reaproveita a aberta; abre e loga se precisar)."""
     credenciais = credenciais or (lambda: ler_credenciais(cfg))
@@ -175,12 +196,15 @@ def conectar(cfg: dict, credenciais=None, obter_gui=None):
         else:
             raise RoboErro("O SAP Logon não abriu a tempo.")
     app = gui.GetScriptingEngine
-    sessao = None
-    if app.Children.Count > 0 and app.Children(0).Children.Count > 0:
-        sessao = app.Children(0).Children(0)
-    else:
+    mandante = str(cfg.get("sap", {}).get("mandante", "702") or "")
+    sessao, outros = _escolher_sessao(app, mandante)
+    if sessao is None:
         conexao = cfg.get("sap", {}).get("conexao", "")
         if not conexao:
+            if outros:
+                raise RoboErro(f"o SAP está aberto só no mandante {', '.join(sorted(set(outros)))} e o robô trabalha "
+                               f"no {mandante}: entre no mandante {mandante} (ou configure a conexão do SAP Logon no "
+                               "automacao\\configurar_robo.bat para o robô abrir sozinho)")
             raise RoboErro("SAP aberto sem nenhuma sessão e a conexão do SAP Logon não está configurada "
                            "(rode automacao\\configurar_robo.bat).")
         log.info("abrindo a conexão '%s'", conexao)
@@ -328,12 +352,15 @@ def _agora() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def rodar(nomes: list[str] | None = None, cfg: dict | None = None, conectar_fn=conectar,
+def rodar(nomes: list[str] | None = None, cfg: dict | None = None, conectar_fn=None,
           arq_status: Path = ARQ_STATUS) -> dict:
+    # janela própria do robô: o "/n" de cada transação não derruba o que a pessoa estiver fazendo no SAP
+    conectar_fn = conectar_fn or conectar_robo
     cfg = cfg or carregar_config()
     transacoes = [t for t in cfg.get("transacao", []) if not nomes or t.get("nome", t["codigo"]) in nomes]
     status = {"inicio": _agora(), "fim": None, "em_andamento": True, "ok": None, "transacoes": {}, "erro": ""}
     _gravar_status(status, arq_status)
+    sessao = None
     try:
         sessao = conectar_fn(cfg)
         pasta = Path(cfg["pasta_destino"])
@@ -351,6 +378,8 @@ def rodar(nomes: list[str] | None = None, cfg: dict | None = None, conectar_fn=c
     except Exception as e:  # noqa: BLE001 — nunca deixar o status "em andamento"
         log.exception("falha inesperada no robô")
         status["erro"] = _erro_inesperado(e)
+    finally:
+        _encerrar(sessao)
     status["ok"] = not status["erro"] and all(v["ok"] for v in status["transacoes"].values())
     status["fim"], status["em_andamento"] = _agora(), False
     _gravar_status(status, arq_status)
