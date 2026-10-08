@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date, datetime
+from functools import lru_cache
 from datetime import time as dt_time
 from zoneinfo import ZoneInfo
 
@@ -25,7 +26,17 @@ def hoje_local() -> date:
 
 def sem_acento(texto) -> str:
     texto = "" if texto is None else str(texto)
+    if texto.isascii():                  # a maior parte do texto do SAP: nada a tirar (e 10× mais rápido)
+        return texto
     return "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+
+
+_NAO_ALFANUM = re.compile(r"[^A-Z0-9]+")
+
+
+@lru_cache(maxsize=200_000)
+def _chave(texto: str) -> str:
+    return _NAO_ALFANUM.sub(" ", sem_acento(texto).upper()).strip()
 
 
 def chave(texto) -> str:
@@ -33,7 +44,7 @@ def chave(texto) -> str:
 
     "Denominação do loc.instalação" -> "DENOMINACAO DO LOC INSTALACAO"
     """
-    return re.sub(r"[^A-Z0-9]+", " ", sem_acento(texto).upper()).strip()
+    return _chave("" if texto is None else str(texto))
 
 
 def achar_coluna(colunas, *padroes: str, excluir: str | None = None) -> str | None:
@@ -242,7 +253,11 @@ SETORES = [s for _, s in _SETORES] + [OUTROS_SETOR]
 
 def setor_do_centro(codigo) -> str:
     """Setor do centro de trabalho pelo código ("ELE_COMP" → Componentes, "ELE_MONT" → Montagem)."""
-    c = str(codigo or "").strip().upper()
+    return _setor(str(codigo or "").strip().upper())
+
+
+@lru_cache(maxsize=4096)
+def _setor(c: str) -> str:
     if not c:
         return ""
     for rx, setor in _SETORES:

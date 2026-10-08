@@ -9,7 +9,7 @@ import streamlit as st
 
 from . import bases, contexto, ui
 from . import execucao as ex
-from .util import hoje_local, inteiro, sem_acento, setor_do_centro, SETORES
+from .util import hoje_local, inteiro, sem_acento, setor_do_centro, setores, SETORES
 
 
 def _num(v, casas=1, suf="") -> str:
@@ -146,7 +146,7 @@ def mostrar(f: contexto.Filtros) -> None:
         with e, st.container(border=True):
             agrupar = st.segmented_control("Execução por", ["Setor", "Centro de trabalho"], default="Setor",
                                            key="ex_agrupar") or "Setor"
-            vivas = vivas.assign(Setor=vivas["Centro de trabalho"].map(setor_do_centro))
+            vivas = vivas.assign(Setor=setores(vivas["Centro de trabalho"]))
             g = vivas.groupby(agrupar)
             t = pd.DataFrame({"Programadas": g.size(), "Executadas": g["Executada"].sum(),
                               "Atrasadas": g["Situação"].apply(lambda s: int((s == ex.ATRASADA).sum())),
@@ -233,8 +233,10 @@ def mostrar(f: contexto.Filtros) -> None:
                         "Fim real", "Dias após a programação"] if c in vis]
     st.caption(f"{inteiro(len(vis))} atividades · " + " · ".join(
         f"{inteiro((vis['Situação'] == s).sum())} {s.lower()}" for s in ex.SITUACOES if (vis["Situação"] == s).any()))
-    st.dataframe(vis[cols].head(5000).style.map(
-        lambda s: f"color: {ex.COR.get(s, '')}; font-weight: 700" if s in ex.COR else "", subset=["Situação"]),
+    tab = vis[cols].head(5000)
+    # cor na situação só em lista curta: o estilo célula a célula custa ~1 s a cada clique em listas grandes
+    st.dataframe(tab.style.map(lambda s: f"color: {ex.COR.get(s, '')}; font-weight: 700" if s in ex.COR else "",
+                               subset=["Situação"]) if len(tab) <= 1500 else tab,
         hide_index=True, width="stretch", height=ui.altura_tabela(420),
         column_config={"Início": ui.col_data("Programada"), "Fim real": ui.col_data(),
                        "Horas": st.column_config.NumberColumn("HH plan.", format="%.2f"),

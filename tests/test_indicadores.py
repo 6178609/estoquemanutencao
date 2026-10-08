@@ -284,3 +284,14 @@ def test_quebra_e_nota_y1_convertida_em_ym11():
     q = marcar_quebras(notas, tipos).set_index("Nota")
     assert q["Quebra"].to_dict() == {"a": True, "b": False, "c": False, "d": False, "e": True}  # e: tipo desconhecido
     assert q.loc["a", "Tipo da ordem"] == "YM11" and q.loc["e", "Tipo da ordem"] == ""
+
+
+def test_mini_tendencia_em_svg():
+    from central import contexto
+
+    kpi = next(k for k in ind.KPIS if k.mensal)
+    serie = pd.DataFrame({"Mês": pd.to_datetime(["2026-01-01", "2026-02-01", "2026-03-01"]), kpi.id: [1.0, None, 3.0]})
+    svg = contexto.mini_tendencia(serie, kpi, 2.0)
+    assert svg.startswith("<svg") and svg.count("<path") == 2 and "stroke-dasharray" in svg   # 2 pontos + meta
+    assert contexto.mini_tendencia(serie.iloc[:1], kpi, None) == ""
+    assert "stroke-dasharray" not in contexto.mini_tendencia(serie, kpi, None)

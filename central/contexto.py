@@ -17,7 +17,7 @@ import pandas as pd
 import streamlit as st
 
 from . import bases, planos, saude, ui
-from .util import hoje_local, MESES, setor_do_centro, SETORES
+from .util import hoje_local, MESES, setor_do_centro, setores, SETORES
 from . import indicadores as ind
 
 ARQ_METAS = "metas_wcm.json"
@@ -164,7 +164,7 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
     if o is not None:
         o_per = o[ui.entre(o["Data"], ini, fim)]
         if "Setor" not in o_per:
-            o_per = o_per.assign(Setor=o_per["Centro de trabalho"].map(setor_do_centro))
+            o_per = o_per.assign(Setor=setores(o_per["Centro de trabalho"]))
     sel = {k: [str(x) for x in (ss.get(k) or [])] for k in ("f_areas", "f_setores", "f_centros", "f_tipos")}
     cont = {"f_areas": _contagens(o_per, sel, "Localização", "f_areas"),
             "f_setores": _contagens(o_per, sel, "Setor", "f_setores"),
@@ -486,21 +486,38 @@ def cartao(kpi: ind.Kpi, valor, anterior, cad_metas: dict, serie: pd.DataFrame |
             f'<div class="cm-kpi-m">{_texto_meta(kpi, alvo)}{_texto_variacao(kpi, valor, anterior)}</div>',
             unsafe_allow_html=True, help=kpi.formula)
         if serie is not None and kpi.mensal and kpi.id in serie and serie[kpi.id].notna().sum() >= 2:
-            st.altair_chart(mini_tendencia(serie, kpi, alvo), width="stretch")
+            st.markdown(mini_tendencia(serie, kpi, alvo), unsafe_allow_html=True)
         if link:
             st.page_link(kpi.pagina, label="Detalhar", icon=":material/arrow_forward:")
     return cor
 
 
-def mini_tendencia(serie: pd.DataFrame, kpi: ind.Kpi, alvo: float | None) -> alt.Chart:
-    s = serie[["Mês", kpi.id]].dropna()
-    base = alt.Chart(s).encode(x=alt.X("Mês:T", axis=None), y=alt.Y(f"{kpi.id}:Q", axis=None,
-                                                                     scale=alt.Scale(zero=False)))
-    linha = base.mark_line(color=ui.GRAFITE, strokeWidth=1.6) + base.mark_point(color=ui.GRAFITE, size=14, filled=True)
-    ch = linha
-    if alvo is not None:
-        ch = ch + alt.Chart(pd.DataFrame({"m": [alvo]})).mark_rule(color=ui.VERDE, strokeDash=[3, 3]).encode(y="m:Q")
-    return ch.properties(height=38).configure_view(stroke=None)
+def mini_tendencia(serie: pd.DataFrame, kpi: ind.Kpi, alvo: float | None) -> str:
+    """Mini tendência mensal em SVG (linha + pontos + meta tracejada), na cor do texto do tema claro ou
+    escuro. Leve: um gráfico Altair por cartão custava ~40 ms cada, 1 s por clique no Painel."""
+    s = serie[["Mês", kpi.id]].dropna().sort_values("Mês")
+    v = s[kpi.id].astype(float).tolist()
+    if len(v) < 2:
+        return ""
+    lo, hi = min(v + ([alvo] if alvo is not None else [])), max(v + ([alvo] if alvo is not None else []))
+    amp = (hi - lo) or 1.0
+    larg, alt_, m = 100.0, 38.0, 4.0
+
+    def y(val: float) -> float:
+        return round(alt_ - m - (val - lo) / amp * (alt_ - 2 * m), 2)
+
+    xs = [round(m + i * (larg - 2 * m) / (len(v) - 1), 2) for i in range(len(v))]
+    pts = " ".join(f"{x},{y(val)}" for x, val in zip(xs, v))
+    nao_escala = 'vector-effect="non-scaling-stroke"'
+    pontos = "".join(f'<path d="M{x} {y(val)}h0" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" '
+                     f'{nao_escala}/>' for x, val in zip(xs, v))
+    meta = (f'<line x1="0" x2="{larg}" y1="{y(alvo)}" y2="{y(alvo)}" stroke="{ui.VERDE}" stroke-width="1" '
+            f'stroke-dasharray="3 3" {nao_escala}/>' if alvo is not None else "")
+    return (f'<svg class="cm-spark" viewBox="0 0 {larg:g} {alt_:g}" preserveAspectRatio="none" width="100%" '
+            f'height="{alt_:g}" style="opacity:.8" role="img" '
+            f'aria-label="tendência mensal de {html.escape(kpi.nome)}">{meta}'
+            f'<polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" '
+            f'{nao_escala}/>{pontos}</svg>')
 
 
 def grade(kpis: list[ind.Kpi], atual: dict, anterior: dict, cad_metas: dict, serie: pd.DataFrame | None = None,

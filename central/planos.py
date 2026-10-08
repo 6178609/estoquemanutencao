@@ -198,18 +198,6 @@ def _ordem_por_plano_e_data(ch: pd.DataFrame, iw38: pd.DataFrame) -> pd.DataFram
     return ch
 
 
-def _ciclo_estimado(datas: pd.Series) -> str:
-    d = datas.dropna().drop_duplicates().sort_values()
-    if len(d) < 2:
-        return ""
-    dias = float(d.diff().dt.days.median())
-    for limite, nome in [(2, "Diário"), (10, "Semanal"), (20, "Quinzenal"), (45, "Mensal"), (75, "Bimestral"),
-                         (120, "Trimestral"), (270, "Semestral"), (500, "Anual")]:
-        if dias <= limite:
-            return nome + "*"
-    return f"{dias / 365:.0f} anos*"
-
-
 # ----------------------------------------------------------------------------
 # Calendário semanal entre duas datas (52 colunas para um ano)
 # ----------------------------------------------------------------------------
@@ -258,40 +246,80 @@ def _no_intervalo(ch: pd.DataFrame, inicio: date, fim: date) -> pd.DataFrame:
     return d
 
 
+def _moda_por(df: pd.DataFrame, por: str, col: str) -> pd.Series:
+    """Valor (não vazio) mais frequente de `col` em cada grupo; no empate, o menor — como Series.mode().iat[0]."""
+    if col not in df:
+        return pd.Series(dtype=object)
+    v = df[[por, col]]
+    v = v[v[col].notna() & (v[col].astype(str) != "")]
+    if not len(v):
+        return pd.Series(dtype=object)
+    n = v.groupby([por, col], sort=False, observed=True).size().reset_index(name="_n")
+    n = n.sort_values([por, "_n", col], ascending=[True, False, True], kind="stable")
+    return n.drop_duplicates(por).set_index(por)[col]
+
+
+def _ciclos_estimados(ch: pd.DataFrame) -> pd.Series:
+    """Ciclo estimado de cada plano (sem ciclo na IP19): mediana do intervalo entre as datas distintas dele;
+    o "*" marca que foi estimado."""
+    d = ch[["Chave", "Data"]].dropna().drop_duplicates().sort_values(["Chave", "Data"])
+    d["_dif"] = d.groupby("Chave")["Data"].diff().dt.days
+    med = d.groupby("Chave")["_dif"].median().dropna()
+
+    def nome(dias: float) -> str:
+        for limite, rot in [(2, "Diário"), (10, "Semanal"), (20, "Quinzenal"), (45, "Mensal"), (75, "Bimestral"),
+                            (120, "Trimestral"), (270, "Semestral"), (500, "Anual")]:
+            if dias <= limite:
+                return rot + "*"
+        return f"{dias / 365:.0f} anos*"
+
+    return med.map(nome)
+
+
 def montar_calendario(ch: pd.DataFrame, inicio: date, fim: date) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Devolve (grade com o texto das células, grade com a situação de cada célula).
 
     Uma linha por plano (e item, quando a IP19 traz item); uma coluna por semana entre
-    `inicio` e `fim`."""
+    `inicio` e `fim`. Tudo agrupado de uma vez (o laço por plano levava ~3 s a cada clique)."""
     segundas = semanas_entre(inicio, fim)
     cols_sem = rotulos_semanas(segundas)
-    coluna_de = dict(zip(segundas, cols_sem))
-    no_periodo = _no_intervalo(ch, inicio, fim)
-    todas = ch  # ciclo estimado olha o histórico inteiro do plano
+    colunas = ["Plano", "Descrição", "Equipamento", "Centro", "Ciclo", "Chamadas", "Atrasadas", *cols_sem]
+    g = _no_intervalo(ch, inicio, fim)
+    if not len(g):
+        vazio = pd.DataFrame(columns=colunas)
+        return vazio, vazio.copy()
+    planos_ = pd.Index(sorted(g["Chave"].unique()), name="Chave")
 
-    linhas, situ = [], []
-    ordem_pri = {s: i for i, s in enumerate(PRIORIDADE)}
-    for chave_plano, g in no_periodo.groupby("Chave", sort=True):
-        h = todas[todas["Chave"] == chave_plano]
-        moda = lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""  # noqa: E731
-        ciclo = moda(h["Ciclo"]) if "Ciclo" in h else ""
-        ciclo = ciclo or _ciclo_estimado(h["Data"])
-        if not ciclo and "Pacote" in h and moda(h["Pacote"]):
-            ciclo = f"pacote {moda(h['Pacote'])}"
-        info = {"Plano": chave_plano, "Descrição": moda(g["Texto"]), "Equipamento": moda(g["Objeto técnico"]) or moda(g["Equipamento"]),
-                "Centro": moda(g["Centro de trabalho"]), "Ciclo": ciclo,
-                "Chamadas": len(g), "Atrasadas": int((g["Situação"] == ATRASADA).sum())}
-        txt = dict.fromkeys(cols_sem, "")
-        st_ = dict.fromkeys(cols_sem, "")
-        for seg_, gw in g.groupby("Segunda"):
-            pior = min(gw["Situação"], key=lambda s: ordem_pri[s])
-            col = coluna_de[seg_]
-            txt[col] = SIMBOLO[pior] + (f"{len(gw)}" if len(gw) > 1 else "")
-            st_[col] = pior
-        linhas.append({**info, **txt})
-        situ.append({**dict.fromkeys(info, ""), **st_})
-    grade = pd.DataFrame(linhas, columns=["Plano", "Descrição", "Equipamento", "Centro", "Ciclo", "Chamadas", "Atrasadas", *cols_sem])
-    situacoes = pd.DataFrame(situ, columns=grade.columns)
+    # ciclo olha o histórico inteiro do plano (todas as chamadas recebidas), o resto só o período
+    ciclo = _moda_por(ch, "Chave", "Ciclo").reindex(planos_).fillna("")
+    falta = ciclo == ""
+    if falta.any():
+        ciclo[falta] = _ciclos_estimados(ch[ch["Chave"].isin(planos_[falta])]).reindex(planos_[falta]).fillna("")
+        falta = ciclo == ""
+        if falta.any() and "Pacote" in ch:
+            pac = _moda_por(ch, "Chave", "Pacote").reindex(planos_[falta])
+            ciclo[falta] = ("pacote " + pac.astype(str)).where(pac.notna(), "")
+    equip = _moda_por(g, "Chave", "Objeto técnico").reindex(planos_)
+    equip = equip.where(equip.notna(), _moda_por(g, "Chave", "Equipamento").reindex(planos_)).fillna("")
+    cont = g.groupby("Chave").agg(Chamadas=("Situação", "size"),
+                                  Atrasadas=("Situação", lambda x: int((x == ATRASADA).sum()))).reindex(planos_)
+    info = pd.DataFrame({"Plano": planos_, "Descrição": _moda_por(g, "Chave", "Texto").reindex(planos_).fillna(""),
+                         "Equipamento": equip, "Centro": _moda_por(g, "Chave", "Centro de trabalho").reindex(planos_)
+                         .fillna(""), "Ciclo": ciclo, "Chamadas": cont["Chamadas"].astype(int),
+                         "Atrasadas": cont["Atrasadas"].astype(int)}, index=planos_)
+
+    # a pior situação de cada semana (e quantas chamadas caíram nela)
+    ordem_pri = {s_: i for i, s_ in enumerate(PRIORIDADE)}
+    w = g.assign(_pri=g["Situação"].map(ordem_pri), _col=g["Segunda"].map(dict(zip(segundas, cols_sem))))
+    sem = w.groupby(["Chave", "_col"]).agg(_pri=("_pri", "min"), _n=("_pri", "size")).reset_index()
+    sem["_sit"] = sem["_pri"].map(dict(enumerate(PRIORIDADE)))
+    sem["_txt"] = sem["_sit"].map(SIMBOLO) + sem["_n"].map(lambda n: f"{n}" if n > 1 else "")
+    txt = sem.pivot(index="Chave", columns="_col", values="_txt").reindex(index=planos_, columns=cols_sem).fillna("")
+    sit = sem.pivot(index="Chave", columns="_col", values="_sit").reindex(index=planos_, columns=cols_sem).fillna("")
+    grade = pd.concat([info, txt], axis=1).reset_index(drop=True)[colunas]
+    vazio_info = pd.DataFrame("", index=planos_, columns=info.columns)
+    situacoes = pd.concat([vazio_info, sit], axis=1).reset_index(drop=True)[colunas]
+    grade.columns.name = situacoes.columns.name = None
     return grade, situacoes
 
 
