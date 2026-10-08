@@ -74,6 +74,9 @@ if ordens_iw38 is not None and len(ordens_iw38) and "Campo de ordenação" in or
 
 
 def _salvar_dia(iso: str) -> None:
+    if not auth.ainda_pode("programacao", editar=True):   # perdeu a função/perfil com a tela aberta: não grava
+        ss["pm_erro"] = "Sem permissão para alterar a programação."
+        return
     campos = md.separar_campos(ss.get(f"pm_{iso}", ""))
     try:
         bases.gravar_cadastro_lote(md.ARQ_PROGRAMACAO, {iso: {"campos": campos} if campos else None}, quem)
@@ -217,6 +220,8 @@ def _testar_robo() -> None:
 @st.fragment(run_every="5s" if robo.disponivel() else "20s")
 def _andamento():
     """Andamento do lote aberto; quando o robô termina, recarrega a página com o resultado."""
+    if not auth.ainda_pode("programacao"):
+        st.rerun(scope="app")
     if robo.disponivel():
         r = robo.resultado_mudanca()
         if r.get("em_andamento"):

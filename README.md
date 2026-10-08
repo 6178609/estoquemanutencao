@@ -4,7 +4,7 @@ App web de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção 
 **ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe da planilha de Gestão de
 HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52**, **requisições de compra** e o
 **Gerenciador de AF** (análises de falha e plano de ação) numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
-Funciona no computador e no celular, com login e perfis de acesso.
+Funciona no computador e no celular, com login, funções (quem vê cada aba) e perfis de acesso.
 
 Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embutida e dados salvos só no navegador).
 
@@ -120,7 +120,23 @@ clique em **`atualizar.bat`**. Instalação antiga, sem o `atualizar.bat`: baixe
 pasta do sistema (substituir) e reinicie o computador — daí em diante ele se atualiza sozinho. Para desligar a
 atualização automática: `atualizar_horas = 0` em `sincronizador/config.toml`.
 
-## Login e perfis
+## Login, funções e perfis
+
+Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfil**, que define o que pode alterar.
+
+| Função | Abas |
+|---|---|
+| Líder de manutenção | todas |
+| Analista | todas |
+| Manutentor | só **Estoque** (a única aba livre para todas as funções) |
+
+- A navegação é montada por pessoa: as abas bloqueadas não aparecem e o servidor nem as executa (endereço digitado
+  cai na aba inicial da pessoa). Links e botões para abas bloqueadas somem.
+- Trocou a função de alguém com a tela aberta: a pessoa sai da aba na próxima verificação (até 1 min) e não consegue
+  gravar nada nela no meio-tempo.
+- Conta criada antes das funções (sem função): o administrador continua vendo tudo; as demais veem só o Estoque até
+  um administrador definir a função em **Usuários › Editar usuário** (a tela avisa quem está sem função e mostra a
+  tabela "Quem vê cada aba"). As regras estão em `central/auth.py` e a lista de abas em `central/navegacao.py`.
 
 | Perfil | Pode |
 |---|---|

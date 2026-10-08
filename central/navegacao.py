@@ -3,6 +3,8 @@ permite) e a tabela "Quem vê cada aba" da tela de Usuários leem esta lista."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 # grupo do menu → [(id = arquivo em paginas/ sem .py, título, ícone)]
 GRUPOS: dict[str, list[tuple[str, str, str]]] = {
     "Visão geral": [
@@ -66,3 +68,11 @@ def inicial(visiveis_: dict[str, list[tuple[str, str, str]]]) -> str | None:
     if INICIAL in ids:
         return INICIAL
     return ids[0] if ids else None
+
+
+def id_da_pagina(pagina) -> str | None:
+    """Id (arquivo em paginas/) da página que o st.navigation vai rodar; None para as da conta e a de entrada."""
+    origem = getattr(pagina, "_page", None)
+    if isinstance(origem, (str, Path)):
+        return Path(origem).stem
+    return None

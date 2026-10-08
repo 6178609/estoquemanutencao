@@ -97,10 +97,13 @@ def test_manutentor_so_ve_o_estoque(app):
         assert _titulo(at).startswith("Estoque"), pagina
 
 
-def test_manutentor_administrador_ainda_gerencia_usuarios(app):
+def test_manutentor_administrador_ainda_gerencia_usuarios(app, monkeypatch):
     at = app("edu")
     assert _titulo(at).startswith("Estoque")
     assert _titulo(app("edu", "paginas/painel.py")).startswith("Estoque")
+    monkeypatch.setenv("CENTRAL_EXIGIR_LOGIN", "sim")
+    assert auth.paginas_conta(USUARIOS["edu"]) == ["conta", "usuarios", "sair"]      # o perfil admin manda aqui
+    assert auth.paginas_conta(USUARIOS["joao"]) == ["conta", "sair"]
 
 
 @pytest.mark.parametrize("login", ["ana", "leo", "chefe"])
@@ -114,3 +117,52 @@ def test_lider_analista_e_admin_antigo_veem_tudo(app, login):
 def test_conta_antiga_sem_funcao_fica_so_no_estoque(app):
     assert _titulo(app("velho")).startswith("Estoque")
     assert _titulo(app("velho", "paginas/ordens.py")).startswith("Estoque")
+
+
+def _por_endereco(monkeypatch, login: str, endereco: str):
+    """Abre o app como se a pessoa digitasse /<endereco>; devolve (app, apareceu "Page not found")."""
+    from streamlit.commands import navigation as nav
+    from streamlit.runtime.scriptrunner import RerunData
+    from streamlit.testing.v1 import AppTest
+    from streamlit.testing.v1 import local_script_runner as lsr
+
+    nao_achou = []
+    original = nav.send_page_not_found
+    monkeypatch.setattr(nav, "send_page_not_found", lambda ctx: (nao_achou.append(1), original(ctx)))
+    monkeypatch.setattr(lsr, "RerunData", lambda **kw: RerunData(page_name=endereco, **kw))
+    at = AppTest.from_file(str(RAIZ / "streamlit_app.py"), default_timeout=120)
+    at.session_state["auth_login"] = login
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    return at, bool(nao_achou)
+
+
+@pytest.mark.parametrize("login", ["joao", "ana"])
+def test_endereco_do_estoque_vale_para_todas_as_funcoes(app, monkeypatch, login):
+    at, nao_achou = _por_endereco(monkeypatch, login, "estoque")
+    assert _titulo(at).startswith("Estoque") and not nao_achou          # sem o aviso "Page not found"
+
+
+def test_manutentor_pelo_endereco_de_aba_proibida(app, monkeypatch):
+    at, nao_achou = _por_endereco(monkeypatch, "joao", "custos")
+    assert _titulo(at).startswith("Estoque") and nao_achou
+    at, nao_achou = _por_endereco(monkeypatch, "joao", "")                 # raiz do site: entra no Estoque
+    assert _titulo(at).startswith("Estoque") and not nao_achou
+
+
+def test_quem_perde_a_funcao_com_a_tela_aberta_nao_grava(app, tmp_path):
+    at = app("leo", "paginas/programacao.py")
+    assert _titulo(at).startswith("Programação")
+    caixa = next(t for t in at.text_input if t.key and t.key.startswith("pm_2"))
+    us = {**USUARIOS, "leo": {**USUARIOS["leo"], "funcao": "manutentor"}}  # o administrador rebaixa o Leo agora
+    (tmp_path / "app" / auth.ARQ_USUARIOS).write_text(json.dumps(us), encoding="utf-8")
+    bases.recarregar()
+    caixa.input("MAQ-123").run()
+    assert _titulo(at).startswith("Estoque")
+    assert not list((tmp_path / "app").glob("programacao*"))                # nada foi gravado na aba proibida
+
+
+def test_regras_de_edicao_da_propria_funcao():
+    # rebaixar a si mesmo é barrado só quando de fato tira o acesso
+    assert auth.acesso_total({"funcao": "analista"}) and not auth.acesso_total({"funcao": "manutentor"})
+    assert not auth.acesso_total({**USUARIOS["edu"]})                      # já era manutentor: nada a tirar

@@ -258,11 +258,32 @@ def pode_ver(u: dict | None, pagina: str) -> bool:
 
 
 def pode_abrir(pagina: str) -> bool:
-    """pode_ver para quem está usando o app agora (links e botões que levam a outra aba)."""
+    """pode_ver para quem está usando o app (links e botões que levam a outra aba). Decide pelo mesmo usuário
+    que montou a navegação desta execução: se a função mudar no meio dela, o link não aponta para uma aba que
+    ficou fora do menu (o Streamlit daria erro)."""
     try:
-        return pode_ver(usuario_atual(), pagina)
+        u = st.session_state.get("_usuario_exec") or usuario_atual()
+        return pode_ver(u, pagina)
     except Exception:  # noqa: BLE001
         return False
+
+
+def ainda_pode(pagina: str, editar: bool = False) -> bool:
+    """Confere de novo, com o cadastro de agora, antes de gravar algo de uma aba. O Streamlit roda os callbacks
+    dos campos antes do script que monta a navegação: quem perdeu a função (ou o perfil de edição) com a tela
+    aberta não deve conseguir gravar nela."""
+    try:
+        u = usuario_atual()
+    except Exception:  # noqa: BLE001
+        return False
+    return pode_ver(u, pagina) and (not editar or pode_editar(u))
+
+
+def paginas_conta(u: dict | None) -> list[str]:
+    """url_path das páginas da conta que esta pessoa vê no menu (Configuração)."""
+    if not login_exigido():
+        return []
+    return ["conta", *(["usuarios"] if (u or {}).get("perfil") == "admin" else []), "sair"]
 
 
 def nome_funcao(u: dict | None) -> str:
@@ -438,15 +459,16 @@ def pagina_usuarios() -> None:
 
     novo, editar = st.tabs([":material/person_add: Novo usuário", ":material/manage_accounts: Editar usuário"])
     with novo:
-        with st.form("novo_usuario", clear_on_submit=True):
+        # sem clear_on_submit: com um erro (ex.: faltou a função) o que já foi digitado fica; limpa só ao criar
+        with st.form("novo_usuario"):
             c = st.columns(4)
-            nome = c[0].text_input("Nome")
-            login = c[1].text_input("Usuário (login)", placeholder="nome.sobrenome")
+            nome = c[0].text_input("Nome", key="nu_nome")
+            login = c[1].text_input("Usuário (login)", placeholder="nome.sobrenome", key="nu_login")
             funcao = c[2].selectbox("Função", list(FUNCOES), index=None, format_func=FUNCOES.get,
-                                    placeholder="Escolha a função",
+                                    placeholder="Escolha a função", key="nu_funcao",
                                     help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque.")
-            perfil = c[3].selectbox("Perfil", list(PERFIS), index=2, format_func=PERFIS.get)
-            senha = st.text_input("Senha provisória", type="password",
+            perfil = c[3].selectbox("Perfil", list(PERFIS), index=2, format_func=PERFIS.get, key="nu_perfil")
+            senha = st.text_input("Senha provisória", type="password", key="nu_senha",
                                   help="A pessoa vai ser obrigada a trocar no primeiro acesso.")
             ok = st.form_submit_button("Criar usuário", type="primary", icon=":material/person_add:")
         if ok:
@@ -459,7 +481,9 @@ def pagina_usuarios() -> None:
             else:
                 salvar(login, {"nome": nome.strip(), "perfil": perfil, "funcao": funcao, "ativo": True,
                                "trocar_senha": True, **gerar_hash(senha)}, eu["login"])
-                st.success(f"Usuário **{login}** criado. Passe a senha provisória para a pessoa.")
+                for k in ("nu_nome", "nu_login", "nu_funcao", "nu_perfil", "nu_senha"):
+                    st.session_state.pop(k, None)
+                st.toast(f"Usuário {login} criado. Passe a senha provisória para a pessoa.", icon=":material/check:")
                 st.rerun()
 
     with editar:
@@ -484,13 +508,17 @@ def pagina_usuarios() -> None:
         if unico_admin:
             st.caption("Este é o único administrador ativo: perfil e status não podem ser alterados.")
         if ok:
-            erro = (validar_senha(nova) if nova else "") or ("Escolha a função." if funcao not in FUNCOES else "")
-            if not erro and alvo == eu["login"] and funcao not in FUNCOES_ACESSO_TOTAL:
+            # conta antiga sem função pode ser desativada ou ter a senha redefinida sem escolher a função agora
+            erro = (validar_senha(nova) if nova else "") \
+                or ("Escolha a função." if funcao not in FUNCOES and d.get("funcao") in FUNCOES else "")
+            depois = {**d, "funcao": funcao} if funcao in FUNCOES else d
+            if not erro and alvo == eu["login"] and acesso_total(d) and not acesso_total(depois):
                 erro = "Você não pode tirar de si mesmo o acesso às abas (peça a outro administrador)."
             if erro:
                 st.error(erro)
             else:
-                dados = {**_sem_meta(d), "nome": nome.strip() or d.get("nome", ""), "funcao": funcao,
+                dados = {**_sem_meta(d), "nome": nome.strip() or d.get("nome", ""),
+                         **({"funcao": funcao} if funcao in FUNCOES else {}),
                          "perfil": d.get("perfil") if unico_admin else perfil,
                          "ativo": True if (unico_admin or alvo == eu["login"]) else ativo}
                 if nova:
@@ -515,5 +543,5 @@ def pagina_usuarios() -> None:
         matriz = pd.DataFrame([{"Aba": f"{grupo} › {titulo}",
                                 **{FUNCOES[f]: "✓" if pode_ver({"funcao": f}, pid) else "—" for f in FUNCOES}}
                                for grupo, pid, titulo in navegacao.abas()])
-        st.dataframe(matriz, hide_index=True, width="stretch")
+        st.dataframe(matriz, hide_index=True, width="stretch", height=35 * (len(matriz) + 1) + 3)
         st.caption("Minha conta e Sair aparecem para todos; Usuários, só para administradores.")

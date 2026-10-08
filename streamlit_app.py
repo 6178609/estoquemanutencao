@@ -51,21 +51,34 @@ if usuario.get("trocar_senha"):
     st.navigation([st.Page(auth.pagina_trocar_senha, title="Definir senha", icon=":material/key:")], position="hidden").run()
     st.stop()
 
-conta = []
-if auth.login_exigido():
-    conta = [st.Page(auth.pagina_minha_conta, title="Minha conta", icon=":material/account_circle:", url_path="conta")]
-    if usuario.get("perfil") == "admin":
-        conta.append(st.Page(auth.pagina_usuarios, title="Usuários", icon=":material/group:", url_path="usuarios"))
-    conta.append(st.Page(auth.pagina_sair, title="Sair", icon=":material/logout:", url_path="sair"))
+PAGINAS_CONTA = {
+    "conta": lambda: st.Page(auth.pagina_minha_conta, title="Minha conta", icon=":material/account_circle:",
+                             url_path="conta"),
+    "usuarios": lambda: st.Page(auth.pagina_usuarios, title="Usuários", icon=":material/group:", url_path="usuarios"),
+    "sair": lambda: st.Page(auth.pagina_sair, title="Sair", icon=":material/logout:", url_path="sair"),
+}
+conta = [PAGINAS_CONTA[k]() for k in auth.paginas_conta(usuario)]
 
 # Só as abas que a função da pessoa permite entram na navegação: as outras não aparecem no menu e o
 # servidor nem as executa (endereço digitado cai na página inicial dela).
 abas = navegacao.visiveis(lambda pid: auth.pode_ver(usuario, pid))
 inicial = navegacao.inicial(abas)
-menu = {grupo: [st.Page(navegacao.caminho(pid), title=titulo, icon=icone, default=pid == inicial)
+st.session_state["_usuario_exec"] = usuario       # links desta execução decidem pelo mesmo usuário do menu
+menu = {grupo: [st.Page(navegacao.caminho(pid), title=titulo, icon=icone, default=pid == navegacao.INICIAL)
                 for pid, titulo, icone in itens] for grupo, itens in abas.items()}
+if inicial != navegacao.INICIAL:
+    # quem não vê o Painel entra por uma página oculta que leva à primeira aba dele — assim cada aba mantém o
+    # próprio endereço (/estoque continua funcionando, sem o aviso "Page not found")
+    def _entrada():
+        if inicial:
+            st.switch_page(navegacao.caminho(inicial))
+        st.warning("Sua função não dá acesso a nenhuma aba. Fale com um administrador.", icon=":material/lock:")
+
+    menu.setdefault("Configuração", []).insert(0, st.Page(_entrada, title="Início", url_path="inicio",
+                                                          visibility="hidden", default=True))
 if conta:
     menu["Configuração"] = menu.get("Configuração", []) + conta
 paginas = st.navigation(menu, position="top")
+st.session_state["_pagina_exec"] = navegacao.id_da_pagina(paginas)
 ui.barra_lateral(usuario)
 paginas.run()

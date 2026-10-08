@@ -227,6 +227,14 @@ def barra_lateral(usuario: dict | None = None) -> None:
 
         @st.fragment(run_every=cfg.intervalo_verificacao)
         def vigia():
+            # função trocada (ou conta desativada) com a tela aberta: refaz o menu e tira a pessoa da aba
+            pid = st.session_state.get("_pagina_exec")
+            try:
+                agora = auth.usuario_atual()
+            except Exception:  # noqa: BLE001
+                agora = st.session_state.get("_usuario_exec")
+            if agora is None or (pid and not auth.pode_ver(agora, pid)):
+                st.rerun(scope="app")
             try:
                 ass = bases.assinatura_dados()
             except Exception as e:  # noqa: BLE001
