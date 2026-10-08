@@ -111,8 +111,8 @@ with e:
         ev = st.dataframe(eq[["Equip. (chave)", "Equipamento", "Custo", "Ordens", "Backlog", "Custo médio por ordem",
                               "% acumulado"]].head(200), hide_index=True, width="stretch", height=ui.altura_tabela(360),
                           on_select="rerun", selection_mode="single-row", key="cu_eq",
-                          column_config={"Equip. (chave)": "Código", "Custo": ui.col_moeda(),
-                                         "Custo médio por ordem": ui.col_moeda(),
+                          column_config={"Equip. (chave)": "Código", "Custo": ui.col_moeda("Custo (R$)"),
+                                         "Custo médio por ordem": ui.col_moeda("Custo médio por ordem (R$)"),
                                          "% acumulado": st.column_config.NumberColumn(format="%.1f%%")})
         linhas = ev.selection.rows if ev and ev.selection else []
         if linhas:
@@ -124,7 +124,8 @@ with dd:
     top_o = o.nlargest(200, "Custo real")[["Ordem", "Tipo (nome)", "Natureza", "Texto", "Equip. (chave)", "Custo real",
                                           "Data", "Situação"]]
     st.dataframe(top_o, hide_index=True, width="stretch", height=ui.altura_tabela(360),
-                 column_config={"Custo real": ui.col_moeda(), "Data": ui.col_data(), "Tipo (nome)": "Tipo",
+                 column_config={"Custo real": ui.col_moeda("Custo real (R$)"), "Data": ui.col_data(), "Tipo (nome)": "Tipo",
                                 "Equip. (chave)": "Equipamento", "Texto": st.column_config.TextColumn(width="medium")})
     ui.baixar(top_o, "ordens_mais_caras", "Baixar (Excel)", chave="cu_baixar_o")
-st.caption(f"Custo médio mensal no período: {brl(total / meses)} ({meses:.1f} meses)".replace(".", ",", 1))
+meses_txt = f"{meses:.1f}".replace(".", ",")      # só o nº de meses: o valor em R$ já vem formatado (1.234,56)
+st.caption(f"Custo médio mensal no período: {brl(total / meses)} ({meses_txt} meses)")

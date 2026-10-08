@@ -6,7 +6,7 @@ import streamlit as st
 
 from central import bases, contexto, planos, ui
 from central.leitura import IP19
-from central.util import agora_local, brl, inteiro, pct, sem_acento
+from central.util import agora_local, brl, brl_curto, inteiro, pct, sem_acento
 
 ui.cabecalho("Planos de manutenção · IP19",
              "Calendário semanal de cada plano entre as datas escolhidas, cruzado com as ordens do IW38 — atualiza sozinho")
@@ -104,8 +104,8 @@ c[2].metric("Aderência até hoje", pct(concl_venc, len(vencidas)), f"{inteiro(c
             delta_color="off", border=True, delta_arrow="off",
             help="Chamadas com data até hoje que foram concluídas (saltadas e canceladas não contam).")
 c[3].metric("Atrasadas", inteiro((no_ano["Situação"] == planos.ATRASADA).sum()), border=True, delta_arrow="off")
-c[4].metric("Custo das ordens", brl(no_ano["Custo real"].sum()) if iw38 is not None else "—",
-            border=True, delta_arrow="off")
+c[4].metric("Custo das ordens", brl_curto(no_ano["Custo real"].sum()) if iw38 is not None else "—",
+            border=True, delta_arrow="off", help=brl(no_ano["Custo real"].sum()) if iw38 is not None else None)
 
 # ----------------------------------------------------------------------------
 # Calendário
@@ -246,5 +246,5 @@ if plano:
     st.dataframe(d[cols].sort_values("Data planejada", ascending=False), hide_index=True, width="stretch",
                  height=ui.altura_tabela(320),
                  column_config={"Data planejada": ui.col_data(), "Data chamada": ui.col_data(), "Data conclusão": ui.col_data(),
-                                "Custo real": ui.col_moeda(),
+                                "Custo real": ui.col_moeda("Custo real (R$)"),
                                 "Horas": st.column_config.NumberColumn(format="%.1f")})

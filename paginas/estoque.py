@@ -227,9 +227,9 @@ editado = st.data_editor(
     key=f"m_editor_{hash((busca, situ, tuple(sel_dep), st.session_state.get('_m_salvos', 0)))}",
     disabled=[c for c in COLS if c != "Mínimo" or not edita],
     column_config={
-        "Estoque": st.column_config.NumberColumn(format="%.2f"),
-        "Mínimo": st.column_config.NumberColumn(format="%.2f", min_value=0, help="Estoque mínimo / ponto de reposição"),
-        "Valor": ui.col_moeda(),
+        "Estoque": ui.col_num(),
+        "Mínimo": ui.col_num(min_value=0, help="Estoque mínimo / ponto de reposição"),
+        "Valor": ui.col_moeda("Valor (R$)"),
         "Descrição": st.column_config.TextColumn(width="large"),
         "Foto": st.column_config.ImageColumn("Foto", width="small",
                                              help="Envie a foto na visão **Fotos dos materiais**, no topo da página"),
@@ -253,4 +253,4 @@ with st.expander("Saldo por depósito"):
     d = det if not sel_dep else det[det["Depósito"].isin(sel_dep)]
     d = d[d["Material"].isin(set(vis["Material"]))]
     st.dataframe(d, hide_index=True, width="stretch", height=ui.altura_tabela(320),
-                 column_config={"Valor": ui.col_moeda(), "Estoque": st.column_config.NumberColumn(format="%.2f")})
+                 column_config={"Valor": ui.col_moeda("Valor (R$)"), "Estoque": ui.col_num()})

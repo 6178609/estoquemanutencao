@@ -204,7 +204,7 @@ def mostrar(f: contexto.Filtros) -> None:
                                     "Natureza", "Centro de trabalho", "Horas", "Situação"] if c in a]
                 st.dataframe(a.sort_values("Data", ascending=False)[cols], hide_index=True, width="stretch",
                              height=ui.altura_tabela(300),
-                             column_config={"Data": ui.col_data(), "Horas": st.column_config.NumberColumn(format="%.2f"),
+                             column_config={"Data": ui.col_data(), "Horas": ui.col_num(),
                                             "Situação": "Situação da atividade"})
             ui.baixar(pes, "quem_fez_o_que", "Baixar por pessoa (Excel)", chave="ex_baixar_pes")
 
@@ -239,8 +239,8 @@ def mostrar(f: contexto.Filtros) -> None:
                                subset=["Situação"]) if len(tab) <= 1500 else tab,
         hide_index=True, width="stretch", height=ui.altura_tabela(420),
         column_config={"Início": ui.col_data("Programada"), "Fim real": ui.col_data(),
-                       "Horas": st.column_config.NumberColumn("HH plan.", format="%.2f"),
-                       "HH real": st.column_config.NumberColumn("HH real", format="%.2f"),
+                       "Horas": ui.col_num("HH plan."),
+                       "HH real": ui.col_num("HH real"),
                        "Texto da operação": st.column_config.TextColumn("Atividade", width="large"),
                        "Executado por": st.column_config.TextColumn(width="medium")})
     if len(vis) > 5000:

@@ -42,8 +42,8 @@ if aba == "Metas dos indicadores":
     ed = st.data_editor(tab, hide_index=True, width="stretch", key=f"mt_ed_{n}", height=ui.altura_tabela(720),
                         disabled=[c for c in tab.columns if c != "Meta" or not edita], column_order=[
                             "Grupo", "Indicador", "Unidade", "Sentido", "Meta padrão", "Meta", "Fórmula"],
-                        column_config={"Meta": st.column_config.NumberColumn(format="%.2f", min_value=0),
-                                       "Meta padrão": st.column_config.NumberColumn(format="%.2f"),
+                        column_config={"Meta": ui.col_num(min_value=0),
+                                       "Meta padrão": ui.col_num(),
                                        "Fórmula": st.column_config.TextColumn(width="large")})
     mud = ed["Meta"].fillna(-1e18) != tab["Meta"].fillna(-1e18)
     c1, c2, _ = st.columns([1.2, 1.2, 3])

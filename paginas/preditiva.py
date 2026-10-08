@@ -139,7 +139,7 @@ ev = st.dataframe(vis[COLS].style.map(lambda s: f"color: {pr.COR.get(s, '')}; fo
                   hide_index=True, width="stretch", height=ui.altura_tabela(420), on_select="rerun",
                   selection_mode="single-row", key=f"pd_tab_{f.ini}_{f.fim}_{todas_datas}_{len(vis)}",
                   column_config={"Detecção": ui.col_data(), "Fim previsto": ui.col_data(), "Fim real": ui.col_data(),
-                                 "Custo real": ui.col_moeda(), "HH apontadas": st.column_config.NumberColumn(format="%.1f"),
+                                 "Custo real": ui.col_moeda("Custo real (R$)"), "HH apontadas": st.column_config.NumberColumn(format="%.1f"),
                                  "Achado": st.column_config.TextColumn(width="medium")})
 ui.baixar(vis[COLS], "anomalias_semeq", "Baixar anomalias (Excel)")
 linhas = ev.selection.rows if ev and ev.selection else []

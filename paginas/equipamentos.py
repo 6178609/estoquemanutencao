@@ -433,7 +433,7 @@ COLS = ["Código", "Nome", "Criticidade", "ABC", "Categoria", "Local", "Centro",
         "Última", "Peças", "Peças em falta"]
 ev = st.dataframe(vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(380), on_select="rerun",
                   selection_mode="single-row", key="eq_tabela",
-                  column_config={"Custo": ui.col_moeda("Custo no período"), "Última": ui.col_data("Última ordem"),
+                  column_config={"Custo": ui.col_moeda("Custo no período (R$)"), "Última": ui.col_data("Última ordem"),
                                  "Nome": st.column_config.TextColumn(width="medium"),
                                  "Ordens": st.column_config.NumberColumn("Ordens no período")})
 ui.baixar(vis[COLS], "equipamentos", "Baixar lista (Excel)")
@@ -509,7 +509,7 @@ with g:
         ui.mostrar(ch)
     st.dataframe(hist[["Ordem", "Data", "Tipo", "Natureza", "Texto", "Situação", "Custo real"]].head(300), hide_index=True,
                  width="stretch", height=ui.altura_tabela(280),
-                 column_config={"Data": ui.col_data(), "Custo real": ui.col_moeda(), "Texto": st.column_config.TextColumn(width="large")})
+                 column_config={"Data": ui.col_data(), "Custo real": ui.col_moeda("Custo real (R$)"), "Texto": st.column_config.TextColumn(width="large")})
     if notas is not None:
         ne = notas[notas["Equip. (chave)"] == sel].sort_values("Data", ascending=False)
         st.markdown(f"**Notas do equipamento (IW28)** — {inteiro(len(ne))} notas, "

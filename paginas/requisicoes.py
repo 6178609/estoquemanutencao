@@ -67,6 +67,6 @@ with d, st.container(border=True):
 
 COLS = ["Requisição", "Status", "Aprovador", "Solicitante", "Itens", "Enviado em", "Dias aguardando", "Total", "PO", "Justificativa"]
 st.dataframe(f[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(440),
-             column_config={"Total": ui.col_moeda(), "Enviado em": ui.col_data(), "Itens": st.column_config.TextColumn(width="large"),
+             column_config={"Total": ui.col_moeda("Total (R$)"), "Enviado em": ui.col_data(), "Itens": st.column_config.TextColumn(width="large"),
                             "Dias aguardando": st.column_config.NumberColumn(format="%d")})
 ui.baixar(f[COLS], "requisicoes", "Baixar requisições (Excel)")
