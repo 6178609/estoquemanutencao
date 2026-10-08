@@ -61,8 +61,8 @@ hierarquica = "wnd[0]/usr/radPA_HIER"    # Representação hierárquica
 transacao = "IW32"
 formato_data = "%d.%m.%Y"                          # como o SAP mostra as datas (DD.MM.AAAA)
 campo_ordem = "wnd[0]/usr/ctxtCAUFVD-AUFNR"
-campo_inicio = ""                                  # vazio = procurar CAUFVD-GSTRP na tela da ordem
-campo_fim = ""                                     # vazio = procurar CAUFVD-GLTRP na tela da ordem
+campo_inicio = ""                                  # vazio = caminho da aba "Dados principais" (como na planilha Mudar_STATUS) e, sem ele, CAUFVD-GSTRP pelo nome
+campo_fim = ""                                     # vazio = idem para CAUFVD-GLTRP
 conferir = true                                    # reabre na IW33 e confere a data gravada
 iw38_campo_ordenacao = ""                          # nome técnico (ex.: EQFNR); vazio = achar pelo texto
 iw38_botao_campo = ""                              # ID da seta à direita; vazio = btn%_<nome>_%_APP_%-VALU_PUSH

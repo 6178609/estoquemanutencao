@@ -268,6 +268,38 @@ def test_robo_muda_grava_e_confere():
     assert robo_sap.mudar_data_ordem(sap, "100", "2026-10-07", "2026-10-07", {})["mensagem"] == "já estava nesta data"
 
 
+class SAPSemBuscaPorNome(SAPOrdens):
+    """SAP GUI em que findByName não acha os campos das subtelas: só o caminho completo da aba "Dados principais"
+    (o mesmo da planilha Mudar_STATUS) funciona — e a IW32 abriu em outra aba."""
+
+    def __init__(self, ordens):
+        super().__init__(ordens)
+        self.aba = "outra"
+
+    def findById(self, id_):
+        if self.ordem is not None and self.tela in ("IW32", "IW33"):
+            if id_ == robo_sap.ABA_DADOS:
+                return type("Aba", (), {"select": lambda _s: setattr(self, "aba", "IHKZ")})()
+            for chave, nome in (("campo_inicio", "CAUFVD-GSTRP"), ("campo_fim", "CAUFVD-GLTRP")):
+                if id_ == robo_sap.IDS_DATAS[chave] and self.aba == "IHKZ":
+                    return self.campos[nome]
+        if id_ == "wnd[0]/usr":
+            return type("U", (), {"findByName": lambda _s, nome, tipo: None,
+                                  "Children": property(lambda _s: Lista([]))})()
+        return super().findById(id_)
+
+    def abrir_ordem(self, num):
+        super().abrir_ordem(num)
+        self.aba = "outra"                                   # cada abertura cai na última aba usada
+
+
+def test_robo_usa_o_caminho_completo_das_datas():
+    sap = SAPSemBuscaPorNome(_sap().ordens)
+    r = robo_sap.mudar_data_ordem(sap, "100", "2026-10-07", "2026-10-07", {})
+    assert r["ok"], r["mensagem"]
+    assert sap.ordens["100"]["ini"] == "07.10.2026" and sap.ordens["100"]["fim"] == "07.10.2026"
+
+
 def test_robo_simulacao_nao_grava_e_erros_por_ordem():
     sap = _sap()
     r = robo_sap.mudar_data_ordem(sap, "100", "2026-10-07", "2026-10-09", {}, simular=True)

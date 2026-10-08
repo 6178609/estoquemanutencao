@@ -43,7 +43,7 @@ ID_FORMATO = "wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/r
 
 # Versão do robô e o que ele sabe fazer: o sincronizador manda isso para o site (robo_pc.json), que avisa
 # quando o PC está com o código antigo.
-VERSAO = "2026.10.08"
+VERSAO = "2026.10.08.2"
 RECURSOS = ("mudar_datas_iw38", "sessao_propria", "diagnostico")
 ESPERA_TRAVA_MIN = 20     # mudança de datas/diagnóstico esperam o robô terminar outra execução (ex.: export)
 
@@ -393,23 +393,64 @@ def rodar(nomes: list[str] | None = None, cfg: dict | None = None, conectar_fn=N
 # a IW38 abre num duplo clique): início-base (CAUFVD-GSTRP) e fim-base (CAUFVD-GLTRP), depois Gravar.
 CAMPO_INICIO, CAMPO_FIM = "CAUFVD-GSTRP", "CAUFVD-GLTRP"
 MAX_ORDENS = 300
+# Caminho completo dos campos de data na IW32/IW33 (aba "Dados principais"), o mesmo da planilha Mudar_STATUS
+# que a equipe já usa com o SAP da F26. Vem antes da busca pelo nome técnico, que nem todo SAP GUI resolve.
+TELA_ORDEM = "wnd[0]/usr/subSUB_ALL:SAPLCOIH:3001/ssubSUB_LEVEL:SAPLCOIH:1100"
+ABA_DADOS = f"{TELA_ORDEM}/tabsTS_1100/tabpIHKZ"
+QUADRO_DATAS = f"{ABA_DADOS}/ssubSUB_AUFTRAG:SAPLCOIH:1120/subTERM:SAPLCOIH:7300"
+IDS_DATAS = {"campo_inicio": f"{QUADRO_DATAS}/ctxt{CAMPO_INICIO}", "campo_fim": f"{QUADRO_DATAS}/ctxt{CAMPO_FIM}"}
+
+
+def _procurar(no, nome: str, nivel: int = 0):
+    """Procura um campo pelo nome técnico em toda a árvore da tela (subtelas e abas)."""
+    if nivel > 10:
+        return None
+    try:
+        filhos = no.Children
+        n = int(filhos.Count)
+    except Exception:  # noqa: BLE001
+        return None
+    for i in range(n):
+        try:
+            f = filhos(i)
+        except Exception:  # noqa: BLE001
+            continue
+        if str(getattr(f, "Name", "") or "") == nome:
+            return f
+        achado = _procurar(f, nome, nivel + 1)
+        if achado is not None:
+            return achado
+    return None
 
 
 def _campo_data(sessao, md: dict, chave: str, nome: str):
-    """Campo de data na tela da ordem: o ID configurado ou, sem ele, procurado pelo nome técnico."""
-    id_ = md.get(chave)
-    if id_:
-        campo = _existe(sessao, id_)
-        if campo is not None:
-            return campo
+    """Campo de data na tela da ordem: o ID configurado; o caminho completo da aba "Dados principais"; o nome
+    técnico (findByName); por fim, a tela inteira percorrida."""
+    for id_ in (md.get(chave), IDS_DATAS.get(chave)):
+        if id_:
+            campo = _existe(sessao, id_)
+            if campo is not None:
+                return campo
     try:
         campo = sessao.findById("wnd[0]/usr").findByName(nome, "GuiCTextField")
     except Exception:  # noqa: BLE001
         campo = None
     if campo is None:
+        campo = _procurar(_existe(sessao, "wnd[0]/usr"), nome)
+    if campo is None:
         raise RoboErro(f"campo {nome} não encontrado na tela da ordem; grave a IW32 no Script Recording e "
-                       f"informe o ID em [mudanca_datas] {chave} (automacao/transacoes.toml)")
+                       f"informe o ID em [mudanca_datas] {chave} (automacao/robo_local.toml)")
     return campo
+
+
+def _aba_dados_principais(sessao) -> None:
+    """A IW32 lembra a última aba aberta: volta para "Dados principais", onde ficam as datas-base."""
+    aba = _existe(sessao, ABA_DADOS)
+    if aba is not None:
+        try:
+            aba.select()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _ler_data(texto: str, fmt: str) -> str:
@@ -458,6 +499,7 @@ def mudar_data_ordem(sessao, ordem: str, inicio: str, fim: str, md: dict, simula
         tipo, texto = _barra_de_status(sessao)
         if tipo in ("E", "A"):
             raise RoboErro(texto or "ordem não abriu")
+        _aba_dados_principais(sessao)
         c_ini = _campo_data(sessao, md, "campo_inicio", CAMPO_INICIO)
         c_fim = _campo_data(sessao, md, "campo_fim", CAMPO_FIM)
         res["inicio_sap"], res["fim_sap"] = _ler_data(c_ini.text, fmt), _ler_data(c_fim.text, fmt)
@@ -467,8 +509,14 @@ def mudar_data_ordem(sessao, ordem: str, inicio: str, fim: str, md: dict, simula
             return res
         if not getattr(c_ini, "Changeable", True):
             raise RoboErro("a data de início não pode ser alterada (ordem encerrada ou bloqueada por outro usuário?)")
-        c_fim.text = novo_fim
+        # como na planilha Mudar_STATUS: início, fim, cursor no fim e Enter (o SAP valida as duas juntas)
         c_ini.text = novo_ini
+        c_fim.text = novo_fim
+        try:
+            c_fim.setFocus()
+            c_fim.caretPosition = len(novo_fim)
+        except Exception:  # noqa: BLE001
+            pass
         _confirmar_tela(sessao, avisos)
         if simular:
             res.update(ok=True, mensagem="simulação: o SAP aceitou as datas, nada foi gravado")
@@ -485,10 +533,12 @@ def mudar_data_ordem(sessao, ordem: str, inicio: str, fim: str, md: dict, simula
             sessao.findById(md.get("campo_ordem", "wnd[0]/usr/ctxtCAUFVD-AUFNR")).text = ordem
             sessao.findById("wnd[0]").sendVKey(0)
             _popups(sessao, avisos)
+            _aba_dados_principais(sessao)
             gravado = _ler_data(_campo_data(sessao, md, "campo_inicio", CAMPO_INICIO).text, fmt)
+            gravado_fim = _ler_data(_campo_data(sessao, md, "campo_fim", CAMPO_FIM).text, fmt)
             if gravado != datetime.fromisoformat(inicio).date().isoformat():
-                raise RoboErro(f"depois de gravar, o SAP mostra início {gravado or '?'} (a programação da ordem "
-                               "pode ter recalculado a data)")
+                raise RoboErro(f"depois de gravar, o SAP mostra início {gravado or '?'} e fim {gravado_fim or '?'} "
+                               "(a programação da ordem pode ter recalculado a data)")
         res["ok"] = True
     except RoboErro as e:
         res["mensagem"] = str(e)
