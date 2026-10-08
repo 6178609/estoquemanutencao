@@ -599,6 +599,14 @@ def preparar_confirmacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True)
     return df.drop(columns=["Trabalho", "Atividade planejada"]).reset_index(drop=True)
 
 
+def so_da_equipe(conf: pd.DataFrame | None, equipe: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Apontamentos (IW47) só das pessoas da planilha de Gestão de HH — a base das visões de HH (horas,
+    utilização, quem fez o quê). Sem a planilha, não há como filtrar: volta tudo."""
+    if conf is None or equipe is None or not len(equipe) or "Nº pessoal" not in conf:
+        return conf
+    return conf[conf["Nº pessoal"].isin(set(equipe["Nº pessoal"]))]
+
+
 @st.cache_resource(show_spinner="Preparando apontamentos de horas (IW47)…", max_entries=2)
 def _conf(origens: tuple, excluir: bool) -> pd.DataFrame:
     return preparar_confirmacoes(_cru(CONF, origens), excluir)

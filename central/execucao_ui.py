@@ -28,8 +28,9 @@ def _ops(chave: str, areas: tuple, centros: tuple, tipos: tuple) -> tuple[pd.Dat
         op = op[op["Ordem"].isin(set(ordens["Ordem"]))]
     eq = bases.equipe().df
     conf = bases.confirmacoes().df
-    # quem fez o quê: a mesma regra de recorte dos indicadores (centro, área pela ordem/equipamento, tipo)
-    ap = ex.apontamentos(contexto.filtrar_conf(conf, f, o), eq)
+    # quem fez o quê: a mesma regra de recorte dos indicadores (centro, área pela ordem/equipamento, tipo) e só
+    # as pessoas da planilha de Gestão de HH; a situação das atividades continua vendo todos os apontamentos
+    ap = ex.apontamentos(bases.so_da_equipe(contexto.filtrar_conf(conf, f, o), eq), eq)
     return ex.operacoes(op, ordens, conf, eq, pd.Timestamp(hoje_local())), ap
 
 
