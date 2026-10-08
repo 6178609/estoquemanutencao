@@ -3,7 +3,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, contexto, execucao_ui, ui
+from central import bases, contexto, execucao_ui, hh, ui
 from central import indicadores as ind
 from central import semanal as sem
 from central.leitura import OPER
@@ -30,14 +30,15 @@ seg = c_sem.selectbox("Semana", semanas, index=semanas.index(padrao), key="sem_s
                       format_func=lambda s: sem.rotulo_semana(s, hoje),
                       help="De quinta-feira em diante a página já abre na próxima semana, a que está sendo programada.")
 c_info.caption(f"Recorte: **{f.recorte or 'fábrica inteira'}** · atividade = operação do IW38OP pela data programada · "
-               "capacidade: Metas e parâmetros › Equipe e capacidade (sem configuração: técnicos da Gestão de HH × "
-               f"{d.horas_semana:.0f} h)")
+               "capacidade: Metas e parâmetros › Equipe e capacidade; sem configuração, a disponibilidade da equipe "
+               "na semana pelo **Gerenciador de HH** (jornada, % disponível e ausências)")
 
 prog = sem.programadas(ops, seg)
 centros = sorted({c for c in prog["Centro de trabalho"] if c}) if len(prog) else []
 executadas = d.memo("hh_exec", ind.hh_executadas)
+disp_semana = hh.por_centro(ind.pessoas_hh(d), d.disponibilidade, seg, seg + pd.Timedelta(days=6))
 cap = sem.capacidade(centros, ind.tecnicos(d), d.horas_semana, {k: v for k, v in d.capacidade.items() if k},
-                     executadas, hoje)
+                     executadas, hoje, disp_semana)
 carga = sem.carga_por_centro(prog, cap)
 cand = sem.candidatos(ops, seg)
 
@@ -164,7 +165,7 @@ else:
     # centros sem nada programado na semana: a capacidade inteira é folga
     livres = sem.capacidade(sorted({c for c in cand["Centro de trabalho"] if c and c not in folga}),
                             ind.tecnicos(d), d.horas_semana, {k_: v for k_, v in d.capacidade.items() if k_},
-                            executadas, hoje)
+                            executadas, hoje, disp_semana)
     folga.update(dict(zip(livres["Centro de trabalho"], livres["Capacidade"])))
     cand["Cabe na folga"] = sem.encaixar(cand, folga)
     st.caption(f"{inteiro(len(cand))} operações ({inteiro(cand['Horas'].sum())} HH) atrasadas e em aberto, na ordem de "

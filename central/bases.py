@@ -22,7 +22,7 @@ import pandas as pd
 import streamlit as st
 
 from . import af as af_mod
-from . import config, fontes, fotos, leitura
+from . import config, fontes, fotos, hh, leitura
 from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
 from .util import achar_coluna, agora_local, chave, fora_da_visao, hoje_local, marcar_quebras, para_data, para_numero, sem_acento, setores, texto
 
@@ -213,7 +213,7 @@ def assinatura_geral() -> str:
 
 # cadastros que entram nos indicadores (os de controle — usuários, lotes do robô, sinal do PC, backups —
 # não recarregam a tela de ninguém nem invalidam os indicadores)
-CADASTROS_DOS_DADOS = ("metas_wcm.json", ARQ_CAD_EQUIP, ARQ_CAD_MAT, ARQ_PREF)
+CADASTROS_DOS_DADOS = ("metas_wcm.json", ARQ_CAD_EQUIP, ARQ_CAD_MAT, ARQ_PREF, hh.ARQ)
 
 
 def assinatura_dados() -> str:

@@ -188,6 +188,11 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   amarelo = backlog, borda verde/vermelha = concluída/atrasada; ↻ = data alterada pelo robô (Programação do mês).
 - **Programação do mês** — previsão manual das paradas por campo de ordenação e mudança de datas no SAP (abaixo).
 - **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
+- **Gerenciador de HH** (Planejamento) — disponibilidade de cada pessoa da planilha de Gestão de HH: jornada
+  semanal, % disponível para manutenção, se conta na capacidade, observação e ausências com período (férias,
+  afastamento, treinamento, folga, licença…). Alimenta a utilização da mão de obra, a capacidade do backlog e a
+  carga × capacidade da Programação semanal. Grava em `hh_disponibilidade.json` na pasta do app (editores e
+  administradores; Líder e Analista veem).
 - **Visões de HH** (indicadores de horas, Mão de obra e backlog, quem fez o quê): só as pessoas da planilha de
   **Gestão de HH** — quem aponta na IW47 sem estar nela aparece em Qualidade dos dados; execução das atividades,
   MTTR e preditiva continuam com todos os apontamentos.
