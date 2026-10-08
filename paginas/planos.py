@@ -150,8 +150,8 @@ with aba_cal:
     y = alt.Y("Plano:N", title=None, sort=rotulos, scale=alt.Scale(domain=rotulos, paddingInner=0.12),
               axis=alt.Axis(labelLimit=150 if celular else 300, ticks=False, domain=False))
     fundo = alt.Chart(pd.DataFrame([{"Plano": r, "Semana": w} for r in rotulos for w in cols_sem])).mark_rect(
-        color="#EEF1EF", cornerRadius=2).encode(x=x, y=y)
-    marcas = alt.Chart(cel).mark_rect(cornerRadius=2, stroke="white", strokeWidth=0.5).encode(
+        color=ui.CINZA, opacity=0.13, cornerRadius=2).encode(x=x, y=y)    # translúcido: claro e escuro
+    marcas = alt.Chart(cel).mark_rect(cornerRadius=2).encode(
         x=x, y=y,
         color=alt.Color("Situação:N", legend=None,
                         scale=alt.Scale(domain=planos.SITUACOES, range=[planos.COR[s][1] if s in (planos.CONCLUIDA, planos.ABERTA,
