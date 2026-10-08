@@ -169,3 +169,17 @@ def test_rodar_grava_status_para_o_site(tmp_path):
         raise robo_sap.RoboErro("SAP Logon não encontrado neste PC.")
     st = robo_sap.rodar(cfg=cfg(tmp_path), conectar_fn=sem_sap, arq_status=arq)
     assert not st["ok"] and "SAP Logon" in st["erro"]
+
+
+def test_usa_a_sessao_do_mandante_certo(tmp_path):
+    qas, prd = SessaoFalsa(logado=True), SessaoFalsa(logado=True)
+    qas.Info.Client, prd.Info.Client = "300", "702"
+    cons = [type("C", (), {"Children": Colecao([x])})() for x in (qas, prd)]
+    gui = type("G", (), {"GetScriptingEngine": type("A", (), {"Children": Colecao(cons)})()})()
+    sessao = robo_sap.conectar(cfg(tmp_path), credenciais=lambda: pytest.fail("não devia pedir senha"),
+                               obter_gui=lambda: gui)
+    assert sessao is prd                          # o 1º SAP aberto (outro mandante) não é tocado
+    gui_so_qas = type("G", (), {"GetScriptingEngine": type("A", (), {"Children": Colecao(cons[:1])})()})()
+    with pytest.raises(robo_sap.RoboErro, match="mandante 300 e o robô trabalha no 702"):
+        robo_sap.conectar(cfg(tmp_path), credenciais=lambda: pytest.fail("não devia pedir senha"),
+                          obter_gui=lambda: gui_so_qas)

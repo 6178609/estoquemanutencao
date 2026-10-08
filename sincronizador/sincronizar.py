@@ -49,7 +49,7 @@ sys.path.insert(0, str(RAIZ))
 from central import leitura  # noqa: E402
 from central import mudanca_datas as md  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
-from central.fontes import GitHub, NaoEncontrado, Pastas  # noqa: E402
+from central.fontes import FonteErro, GitHub, NaoEncontrado, Pastas  # noqa: E402
 from central.leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
 from sincronizador import atualizar  # noqa: E402
 
@@ -186,10 +186,14 @@ def rodada(cfg: dict, gh=None, testar: bool = False) -> list[str]:
         if testar:
             log.info("[teste] enviaria %s ← %s", DESTINO[tipo], rotulo)
             continue
-        df = leitura.mesclar(tipo, [leitura.ler_arquivo(o.arquivo.id, Path(o.arquivo.id).read_bytes(), o.aba, o.linha)
-                                    for o in origens])
         arq = origens[0].arquivo
-        gh.gravar_caminho(DESTINO[tipo], para_parquet(df), f"{tipo.upper()}: {arq.arquivo} ({len(df)} linhas)")
+        try:
+            df = leitura.mesclar(tipo, [leitura.ler_arquivo(o.arquivo.id, Path(o.arquivo.id).read_bytes(), o.aba,
+                                                            o.linha) for o in origens])
+            gh.gravar_caminho(DESTINO[tipo], para_parquet(df), f"{tipo.upper()}: {arq.arquivo} ({len(df)} linhas)")
+        except Exception as e:  # noqa: BLE001 — um arquivo aberto no Excel ou corrompido não segura as outras bases
+            log.warning("não deu para enviar %s ← %s: %s (tento de novo na próxima rodada)", DESTINO[tipo], rotulo, e)
+            continue
         manifesto[DESTINO[tipo]] = {
             "modificado": arq.modificado.isoformat(timespec="seconds"),
             "origem": rotulo,
@@ -235,12 +239,32 @@ def _ler_lotes(gh) -> dict:
         return {}
 
 
+def _atualizar_json(gh, nome: str, mudar, tolerar_invalido: bool = False) -> dict:
+    """Lê o JSON do app com a versão, aplica `mudar` e só grava se ninguém gravou no meio — o site cria e cancela
+    lotes enquanto o robô grava o andamento; sem isso, um pedido feito nesse instante sumia. Até 5 tentativas."""
+    for tentativa in range(5):
+        bruto, versao = gh.ler_versionado(nome)
+        try:
+            atual = json.loads(bruto.decode("utf-8")) if bruto else {}
+        except ValueError:
+            if not tolerar_invalido:
+                raise
+            atual = {}
+        novo = mudar(atual if isinstance(atual, dict) else {})
+        if gh.gravar_condicional(nome, json.dumps(novo, ensure_ascii=False, indent=1).encode("utf-8"), versao):
+            return novo
+        time.sleep(0.5 * (tentativa + 1))
+    raise FonteErro(f"{nome} está sendo alterado ao mesmo tempo por outra pessoa; tento de novo na próxima rodada")
+
+
 def _gravar_lote(gh, lote_id: str, lote: dict) -> None:
-    """Relê o arquivo na hora e troca só este lote (o site pode ter criado outros enquanto isso)."""
-    atual = _ler_lotes(gh)
-    atual[lote_id] = {**lote, "atualizado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                      "atualizado_por": f"robô ({platform.node()})"}
-    gh.gravar(md.ARQ_LOTES, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
+    """Troca só este lote na versão mais recente do arquivo (o site pode ter criado outros enquanto isso)."""
+    def mudar(atual: dict) -> dict:
+        atual[lote_id] = {**lote, "atualizado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                          "atualizado_por": f"robô ({platform.node()})"}
+        return atual
+
+    _atualizar_json(gh, md.ARQ_LOTES, mudar)
 
 
 def _rodar_robo(pedido: dict, progresso=None) -> dict:
@@ -352,16 +376,12 @@ def sinal_de_vida(gh, forcar: bool = False, cfg: dict | None = None) -> bool:
     if not forcar and _ULTIMO_SINAL[0] is not None and time.monotonic() - _ULTIMO_SINAL[0] < SINAL_MIN * 60:
         return False
     versao_robo, recursos = _versao_robo()
-    try:
-        atual = json.loads(gh.ler(gh.id_de(md.ARQ_ROBO_PC)).decode("utf-8"))
-    except (NaoEncontrado, ValueError):
-        atual = {}
-    atual[platform.node()] = {
-        "visto_em": datetime.now(timezone.utc).isoformat(timespec="seconds"), "iniciado_em": INICIADO_EM,
-        "versao_codigo": atualizar.versao_local()[:7], "versao_robo": versao_robo, "recursos": recursos,
-        "robo_configurado": ROBO_CONFIGURADO.exists(),
-        "atualizacao_auto": bool((cfg or {}).get("atualizar_horas", 6))}
-    gh.gravar(md.ARQ_ROBO_PC, json.dumps(atual, ensure_ascii=False, indent=1).encode("utf-8"))
+    meu = {"visto_em": datetime.now(timezone.utc).isoformat(timespec="seconds"), "iniciado_em": INICIADO_EM,
+           "versao_codigo": atualizar.versao_local()[:7], "versao_robo": versao_robo, "recursos": recursos,
+           "robo_configurado": ROBO_CONFIGURADO.exists(),
+           "atualizacao_auto": bool((cfg or {}).get("atualizar_horas", 6))}
+    # outros PCs gravam no mesmo arquivo: grava só o seu, sem apagar o sinal de quem gravou no meio
+    _atualizar_json(gh, md.ARQ_ROBO_PC, lambda atual: {**atual, platform.node(): meu}, tolerar_invalido=True)
     _ULTIMO_SINAL[0] = time.monotonic()
     return True
 
