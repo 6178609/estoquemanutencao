@@ -111,8 +111,8 @@ st.caption("Passe o mouse num cartão para ver a ordem, o texto e a situação. 
            "quem apontou na IW47; ordens sem apontamento ficam em \"Sem executante\" com o centro de trabalho."
            + (f" ↻ = data alterada pelo robô do SAP ({len(ajustes)} ordem(ns)), ainda não no IW38 exportado."
               if ajustes else ""))
-st.page_link("paginas/programacao.py", label="Programação do mês (previsão manual e mudança de datas no SAP)",
-             icon=":material/edit_calendar:")
+ui.link_pagina("paginas/programacao.py", label="Programação do mês (previsão manual e mudança de datas no SAP)",
+               icon=":material/edit_calendar:")
 
 # ----------------------------------------------------------------------------
 # Tabela

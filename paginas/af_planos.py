@@ -101,7 +101,7 @@ def ficha(codigo: str, rotulo: str, chave: str) -> None:
 
 def link_acoes() -> None:
     try:
-        st.page_link("paginas/af_acoes.py", label="Abrir Ações de AF", icon=":material/task_alt:")
+        ui.link_pagina("paginas/af_acoes.py", label="Abrir Ações de AF", icon=":material/task_alt:")
     except Exception:  # noqa: BLE001 — a aba de ações ainda não está na navegação
         st.caption("A aba **Ações de AF** detalha o plano de ação de cada análise.")
 

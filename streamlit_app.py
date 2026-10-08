@@ -8,7 +8,7 @@ import streamlit as st
 # central/ ficariam na versão antiga (AttributeError, cache com classes velhas). Quando algum deles
 # muda no disco, recarrega todos na ordem das dependências e limpa os caches.
 ORDEM_MODULOS = ["util", "config", "fontes", "fotos", "leitura", "af", "execucao", "preditiva", "planos", "calendario", "mudanca_datas", "saude", "semanal", "busca", "qualidade", "bases", "indicadores",
-                 "ui", "auth", "robo", "contexto", "execucao_ui"]
+                 "ui", "navegacao", "auth", "robo", "contexto", "execucao_ui"]
 
 
 @st.cache_resource
@@ -34,7 +34,7 @@ def _recarregar_central_se_mudou() -> None:
 
 _recarregar_central_se_mudou()
 
-from central import auth, ui  # noqa: E402
+from central import auth, navegacao, ui  # noqa: E402
 
 st.set_page_config(page_title="Central de Manutenção", page_icon=":material/build:", layout="wide",
                    initial_sidebar_state="auto")
@@ -58,44 +58,14 @@ if auth.login_exigido():
         conta.append(st.Page(auth.pagina_usuarios, title="Usuários", icon=":material/group:", url_path="usuarios"))
     conta.append(st.Page(auth.pagina_sair, title="Sair", icon=":material/logout:", url_path="sair"))
 
-paginas = st.navigation(
-    {
-        "Visão geral": [
-            st.Page("paginas/painel.py", title="Painel WCM", icon=":material/dashboard:", default=True),
-            st.Page("paginas/busca.py", title="Buscar", icon=":material/search:"),
-        ],
-        "Confiabilidade": [
-            st.Page("paginas/confiabilidade.py", title="Quebras, MTBF e MTTR", icon=":material/health_and_safety:"),
-            st.Page("paginas/saude.py", title="Saúde dos ativos", icon=":material/monitor_heart:"),
-            st.Page("paginas/preditiva.py", title="Preditiva (SEMEQ)", icon=":material/sensors:"),
-            st.Page("paginas/equipamentos.py", title="Equipamentos", icon=":material/precision_manufacturing:"),
-            st.Page("paginas/notas.py", title="Notas", icon=":material/notification_important:"),
-        ],
-        "Análise de falhas": [
-            st.Page("paginas/af_planos.py", title="Planos de AF", icon=":material/troubleshoot:"),
-            st.Page("paginas/af_acoes.py", title="Ações de AF", icon=":material/task_alt:"),
-        ],
-        "Planejamento": [
-            st.Page("paginas/ordens.py", title="Ordens", icon=":material/assignment:"),
-            st.Page("paginas/planos.py", title="Planos", icon=":material/calendar_month:"),
-            st.Page("paginas/calendario.py", title="Calendário de ordens", icon=":material/event_note:"),
-            st.Page("paginas/semanal.py", title="Programação semanal", icon=":material/view_week:"),
-            st.Page("paginas/programacao.py", title="Programação do mês", icon=":material/edit_calendar:"),
-            st.Page("paginas/mao_de_obra.py", title="Mão de obra e backlog", icon=":material/engineering:"),
-        ],
-        "Custos e suprimentos": [
-            st.Page("paginas/custos.py", title="Custos", icon=":material/payments:"),
-            st.Page("paginas/estoque.py", title="Estoque", icon=":material/inventory_2:"),
-            st.Page("paginas/requisicoes.py", title="Requisições", icon=":material/request_quote:"),
-        ],
-        "Configuração": [
-            st.Page("paginas/metas.py", title="Metas e parâmetros", icon=":material/tune:"),
-            st.Page("paginas/qualidade.py", title="Qualidade dos dados", icon=":material/rule:"),
-            st.Page("paginas/dados.py", title="Fontes de dados", icon=":material/folder_open:"),
-            *conta,
-        ],
-    },
-    position="top",
-)
+# Só as abas que a função da pessoa permite entram na navegação: as outras não aparecem no menu e o
+# servidor nem as executa (endereço digitado cai na página inicial dela).
+abas = navegacao.visiveis(lambda pid: auth.pode_ver(usuario, pid))
+inicial = navegacao.inicial(abas)
+menu = {grupo: [st.Page(navegacao.caminho(pid), title=titulo, icon=icone, default=pid == inicial)
+                for pid, titulo, icone in itens] for grupo, itens in abas.items()}
+if conta:
+    menu["Configuração"] = menu.get("Configuração", []) + conta
+paginas = st.navigation(menu, position="top")
 ui.barra_lateral(usuario)
 paginas.run()

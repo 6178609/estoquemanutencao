@@ -162,6 +162,24 @@ def altura_tabela(padrao: int) -> int:
 # ----------------------------------------------------------------------------
 # Estrutura de página
 # ----------------------------------------------------------------------------
+def link_pagina(pagina: str, onde=None, **kw) -> None:
+    """st.page_link só para quem pode abrir a aba: a que a função da pessoa não libera fica fora da navegação
+    (o Streamlit daria erro no link) e o link simplesmente não aparece."""
+    from . import auth
+
+    if auth.pode_abrir(pagina):
+        (onde if onde is not None else st).page_link(pagina, **kw)
+
+
+def ir_para(pagina: str) -> None:
+    """st.switch_page só para quem pode abrir a aba; sem acesso, avisa em vez de dar erro."""
+    from . import auth
+
+    if auth.pode_abrir(pagina):
+        st.switch_page(pagina)
+    st.warning("Sua função não dá acesso a essa aba. Peça a um administrador, se precisar.", icon=":material/lock:")
+
+
 def cabecalho(titulo: str, sub: str = "") -> None:
     st.title(titulo)
     if sub:
@@ -177,7 +195,7 @@ def aviso_base(base: bases.Base, tipo: str) -> bool:
         st.info(f"Nenhum arquivo de **{NOMES_BASE[tipo]}** foi encontrado nas pastas monitoradas. "
                 "Salve o export do SAP numa delas (o app acha sozinho) ou envie pela página **Fontes de dados**.",
                 icon=":material/search_off:")
-        st.page_link("paginas/dados.py", label="Abrir Fontes de dados", icon=":material/folder_open:")
+        link_pagina("paginas/dados.py", label="Abrir Fontes de dados", icon=":material/folder_open:")
         return False
     cfg = config.carregar()
     if datetime.now(timezone.utc) - base.atualizado > timedelta(days=cfg.dias_alerta):
@@ -187,22 +205,25 @@ def aviso_base(base: bases.Base, tipo: str) -> bool:
 
 
 def barra_lateral(usuario: dict | None = None) -> None:
+    from . import auth
+
     cfg = config.carregar()
     with st.sidebar:
         if LOGO_ALPA.exists():
             st.image(str(LOGO_ALPA), width=96)
         st.markdown("**Central de Manutenção** · PCM F26")
         if usuario and usuario.get("login"):
-            perfil = {"admin": "Administrador", "editor": "Editor", "leitor": "Leitor"}.get(usuario.get("perfil"), "")
-            st.caption(f":material/person: **{usuario.get('nome') or usuario['login']}** · {perfil}")
+            st.caption(f":material/person: **{usuario.get('nome') or usuario['login']}** · {auth.nome_funcao(usuario)}"
+                       f" · {auth.PERFIS.get(usuario.get('perfil'), '')}")
         else:
             st.caption("Ordens IW38 · Estoque MB52 · Requisições · Equipamentos")
-        with st.form("busca_lateral", clear_on_submit=True, border=False):
-            q = st.text_input("Buscar no sistema", placeholder="ordem, equipamento, material, AF…",
-                              label_visibility="collapsed")
-            if st.form_submit_button("Buscar", icon=":material/search:", width="stretch") and q.strip():
-                st.session_state["busca_q"] = q.strip()
-                st.switch_page("paginas/busca.py")
+        if auth.pode_ver(usuario, "busca"):
+            with st.form("busca_lateral", clear_on_submit=True, border=False):
+                q = st.text_input("Buscar no sistema", placeholder="ordem, equipamento, material, AF…",
+                                  label_visibility="collapsed")
+                if st.form_submit_button("Buscar", icon=":material/search:", width="stretch") and q.strip():
+                    st.session_state["busca_q"] = q.strip()
+                    st.switch_page("paginas/busca.py")
 
         @st.fragment(run_every=cfg.intervalo_verificacao)
         def vigia():

@@ -162,4 +162,4 @@ if linhas:
                                     "Texto": st.column_config.TextColumn(width="large")})
         if st.button("Abrir ficha do equipamento", icon=":material/precision_manufacturing:"):
             st.session_state["eq_sel"] = o["Equip. (chave)"]
-            st.switch_page("paginas/equipamentos.py")
+            ui.ir_para("paginas/equipamentos.py")
