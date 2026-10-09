@@ -85,9 +85,32 @@ def validar_senha(senha: str) -> str:
 
 
 def validar_login(login: str) -> str:
-    if not re.fullmatch(r"[a-z0-9._-]{3,40}", login):
-        return "Login: 3 a 40 caracteres, só letras minúsculas, números, ponto, hífen ou sublinhado."
+    """O usuário é o Número Pessoal (NP) do funcionário: só números (ex.: 6178609)."""
+    if not re.fullmatch(r"\d{5,10}", login or ""):
+        return "Usuário: use seu Número Pessoal (NP), só números (ex.: 6178609)."
     return ""
+
+
+def normalizar_login(login: str) -> str:
+    """NP digitado com espaços, pontos ou traços (ex.: "6.178.609") vira só os números; logins antigos (com letras)
+    continuam como eram, em minúsculas."""
+    t = str(login or "").strip()
+    so_digitos = re.sub(r"[\s.\-]", "", t)
+    return so_digitos if so_digitos.isdigit() else t.lower()
+
+
+def pessoa_da_equipe(np_: str) -> dict | None:
+    """O NP na planilha de Gestão de HH (nome, cargo, centro), para conferir o cadastro."""
+    try:
+        eq = bases.equipe().df
+    except Exception:  # noqa: BLE001
+        return None
+    if eq is None or not len(eq):
+        return None
+    achado = eq[eq["Nº pessoal"] == str(np_).lstrip("0")]
+    if not len(achado):
+        achado = eq[eq["Nº pessoal"] == str(np_)]
+    return achado.iloc[0].to_dict() if len(achado) else None
 
 
 # ----------------------------------------------------------------------------
@@ -175,7 +198,7 @@ def _definir_cookie(token: str | None) -> None:
 
 def entrar(login: str, senha: str, manter: bool) -> str:
     """Devolve mensagem de erro, ou "" se entrou."""
-    login = login.strip().lower()
+    login = normalizar_login(login)
     tent = _tentativas()
     falhas, ate = tent.get(login, (0, 0.0))
     if ate > time.time():
@@ -251,10 +274,9 @@ def pendentes(fresco: bool = False) -> dict:
     return {k: v for k, v in solicitacoes(fresco).items() if v.get("status") == "pendente"}
 
 
-def solicitar(nome: str, login: str, senha: str, senha2: str, matricula: str = "", setor: str = "",
-              funcao: str | None = None, motivo: str = "") -> str:
+def solicitar(nome: str, login: str, senha: str, senha2: str, funcao: str | None = None, motivo: str = "") -> str:
     """Grava o pedido de cadastro (a senha escolhida só como hash). Devolve a mensagem de erro, ou ""."""
-    login = login.strip().lower()
+    login = normalizar_login(login)
     nome = " ".join(nome.split())[:80]
     erro = ("Informe seu nome." if len(nome) < 3 else "") or validar_login(login) or validar_senha(senha) \
         or ("As senhas não conferem." if senha != senha2 else "")
@@ -264,14 +286,14 @@ def solicitar(nome: str, login: str, senha: str, senha2: str, matricula: str = "
     if time.time() - ultimo < INTERVALO_SOLICITACAO_S:
         return "Você acabou de enviar um pedido. Aguarde a aprovação (ou tente de novo em alguns minutos)."
     if login in usuarios(fresco=True):
-        return "Esse usuário já existe. Escolha outro login (ou peça a senha a um administrador)."
+        return "Esse Número Pessoal já tem usuário. Se esqueceu a senha, peça a um administrador para redefinir."
     pend = pendentes(fresco=True)
     if login in pend:
-        return "Já existe um pedido para esse login aguardando aprovação."
+        return "Já existe um pedido para esse Número Pessoal aguardando aprovação."
     if len(pend) >= MAX_PENDENTES:
         return "Há muitos pedidos aguardando aprovação. Fale direto com o PCM."
     bases.gravar_cadastro_lote(ARQ_SOLICITACOES, {login: {
-        "nome": nome, "matricula": matricula.strip()[:20], "setor": setor.strip()[:60],
+        "nome": nome,
         "funcao": funcao if funcao in FUNCOES else "", "motivo": motivo.strip()[:300], "status": "pendente",
         "criado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"), **gerar_hash(senha)}},
         "pedido de acesso")
@@ -290,8 +312,6 @@ def aprovar(login: str, funcao: str, perfil: str, abas: list[str] | None, por: s
         return "Escolha a função e o perfil."
     dados = {"nome": ped.get("nome", login), "perfil": perfil, "funcao": funcao, "ativo": True, "trocar_senha": False,
              "sal": ped["sal"], "senha_hash": ped["senha_hash"]}
-    if ped.get("matricula"):
-        dados["matricula"] = ped["matricula"]
     if abas is not None:
         dados["abas"] = sorted({id_pagina(a) for a in abas})
     salvar(login, dados, por)
@@ -446,7 +466,7 @@ def pagina_login() -> None:
         aba_entrar, aba_pedir = st.tabs([":material/login: Entrar", ":material/person_add: Solicitar acesso"])
         with aba_entrar:
             with st.form("login", border=True):
-                login = st.text_input("Usuário", autocomplete="username")
+                login = st.text_input("Usuário (Número Pessoal)", autocomplete="username", placeholder="ex.: 6178609")
                 senha = st.text_input("Senha", type="password", autocomplete="current-password")
                 manter = st.checkbox("Manter conectado neste aparelho", value=True)
                 ok = st.form_submit_button("Entrar", type="primary", width="stretch", icon=":material/login:")
@@ -470,17 +490,14 @@ def _form_solicitacao() -> None:
                    "definir o que você pode ver; depois é só entrar com o login e a senha que você escolheu.",
                    icon=":material/schedule_send:")
         return
-    st.caption("Preencha seus dados e escolha login e senha. O acesso só vale depois da aprovação de um "
+    st.caption("Informe seu nome e seu Número Pessoal (NP) e crie uma senha. O acesso só vale depois da aprovação de um "
                "administrador do PCM.")
     with st.form("solicitar_acesso", border=True):
         nome = st.text_input("Nome completo", max_chars=80)
         c = st.columns(2)
-        login = c[0].text_input("Login desejado", placeholder="nome.sobrenome", max_chars=40)
-        matricula = c[1].text_input("Matrícula (opcional)", max_chars=20)
-        c = st.columns(2)
-        setor = c[0].text_input("Setor / área", max_chars=60, placeholder="ex.: Manutenção Montagem")
-        funcao = c[1].selectbox("Sua função", list(FUNCOES), index=None, format_func=FUNCOES.get,
-                                placeholder="Escolha")
+        login = c[0].text_input("Número Pessoal (NP)", placeholder="ex.: 6178609", max_chars=12,
+                                help="É o seu usuário: com ele você entra no site.")
+        funcao = c[1].selectbox("Sua função", list(FUNCOES), index=None, format_func=FUNCOES.get, placeholder="Escolha")
         motivo = st.text_area("Para que você precisa do acesso? (opcional)", max_chars=300, height=80)
         c = st.columns(2)
         s1 = c[0].text_input("Senha", type="password", help="Mínimo de 8 caracteres, com letras e números.",
@@ -489,13 +506,13 @@ def _form_solicitacao() -> None:
         ok = st.form_submit_button("Enviar pedido", type="primary", width="stretch", icon=":material/send:")
     if ok:
         try:
-            erro = solicitar(nome, login, s1, s2, matricula, setor, funcao, motivo)
+            erro = solicitar(nome, login, s1, s2, funcao=funcao, motivo=motivo)
         except Exception as e:  # noqa: BLE001
             erro = f"Não foi possível enviar agora. Tente de novo em instantes. ({e})"
         if erro:
             st.error(erro)
         else:
-            st.session_state["_pedido_ok"] = login.strip().lower()
+            st.session_state["_pedido_ok"] = normalizar_login(login)
             st.rerun()
 
 
@@ -504,7 +521,7 @@ def _primeiro_admin() -> None:
             icon=":material/admin_panel_settings:")
     with st.form("primeiro", border=True):
         nome = st.text_input("Seu nome")
-        login = st.text_input("Usuário (login)", placeholder="ex.: nome.sobrenome").strip().lower()
+        login = normalizar_login(st.text_input("Usuário = seu Número Pessoal (NP)", placeholder="ex.: 6178609"))
         funcao = st.selectbox("Função", [f for f in FUNCOES if f in FUNCOES_ACESSO_TOTAL], format_func=FUNCOES.get,
                               help="O administrador vê todas as abas: Líder de manutenção ou Analista.")
         s1 = st.text_input("Senha", type="password")
@@ -615,6 +632,10 @@ def pagina_usuarios() -> None:
                "(ou as abas escolhidas para a pessoa, na aprovação ou em Editar usuário). "
                "**Perfil** define o que pode alterar: Administrador faz tudo, inclusive esta tela · Editor edita "
                "cadastros e fontes de dados · Leitor só consulta.")
+    fora_np = [k for k in sorted(us) if validar_login(k)]
+    if fora_np:
+        st.warning(f"**{len(fora_np)} usuário(s) não usam o Número Pessoal** como login: {', '.join(fora_np)}. Troque "
+                   "para o NP em **Editar usuário** (a senha continua a mesma).", icon=":material/badge:")
     sem_funcao = [k for k, v in sorted(us.items()) if v.get("funcao") not in FUNCOES and v.get("ativo", True)]
     if sem_funcao:
         st.warning(f"**{len(sem_funcao)} usuário(s) sem função definida**: {', '.join(sem_funcao)}. Enquanto isso, "
@@ -632,7 +653,7 @@ def pagina_usuarios() -> None:
         with st.form("novo_usuario"):
             c = st.columns(4)
             nome = c[0].text_input("Nome", key="nu_nome")
-            login = c[1].text_input("Usuário (login)", placeholder="nome.sobrenome", key="nu_login")
+            login = c[1].text_input("Usuário (Número Pessoal)", placeholder="ex.: 6178609", key="nu_login")
             funcao = c[2].selectbox("Função", list(FUNCOES), index=None, format_func=FUNCOES.get,
                                     placeholder="Escolha a função", key="nu_funcao",
                                     help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque.")
@@ -641,7 +662,7 @@ def pagina_usuarios() -> None:
                                   help="A pessoa vai ser obrigada a trocar no primeiro acesso.")
             ok = st.form_submit_button("Criar usuário", type="primary", icon=":material/person_add:")
         if ok:
-            login = login.strip().lower()
+            login = normalizar_login(login)
             erro = validar_login(login) or validar_senha(senha) or ("Informe o nome." if not nome.strip() else "") \
                 or ("Escolha a função." if funcao not in FUNCOES else "") \
                 or ("Esse usuário já existe." if login in us else "")
@@ -662,7 +683,12 @@ def pagina_usuarios() -> None:
         d = us[alvo]
         admins = _admins_ativos(us)
         unico_admin = alvo in admins and len(admins) == 1
+        if validar_login(alvo):
+            st.warning(f"O usuário **{alvo}** não é um Número Pessoal. Informe o NP da pessoa no campo "
+                       "**Usuário (NP)** abaixo — ela passa a entrar com ele (a senha continua a mesma).",
+                       icon=":material/badge:")
         with st.form(f"editar_{alvo}"):
+            novo_login = st.text_input("Usuário (Número Pessoal)", alvo, max_chars=12)
             c = st.columns(4)
             nome = c[0].text_input("Nome", d.get("nome", ""))
             funcao = c[1].selectbox("Função", list(FUNCOES), format_func=FUNCOES.get, placeholder="Escolha a função",
@@ -685,6 +711,9 @@ def pagina_usuarios() -> None:
             depois.pop("abas", None)
             if modo == ESCOLHER:
                 depois["abas"] = abas_sel
+            novo_login = normalizar_login(novo_login)
+            if not erro and novo_login != alvo:
+                erro = validar_login(novo_login) or ("Já existe um usuário com esse NP." if novo_login in us else "")
             if not erro and alvo == eu["login"] and acesso_total(d) and not acesso_total(depois):
                 erro = "Você não pode tirar de si mesmo o acesso às abas (peça a outro administrador)."
             if erro:
@@ -700,8 +729,16 @@ def pagina_usuarios() -> None:
                     dados.update(gerar_hash(nova), trocar_senha=True, sessoes=[])
                 if not dados["ativo"]:
                     dados["sessoes"] = []
-                salvar(alvo, dados, eu["login"])
-                st.toast("Usuário atualizado.", icon=":material/check:")
+                if novo_login != alvo:              # troca do login (ex.: o antigo nome.sobrenome pelo NP)
+                    salvar(novo_login, dados, eu["login"])
+                    salvar(alvo, None, eu["login"])
+                    if alvo == eu["login"]:
+                        st.session_state["auth_login"] = novo_login
+                    st.session_state.pop("usr_alvo", None)
+                    st.toast(f"Usuário agora entra com o NP {novo_login}.", icon=":material/check:")
+                else:
+                    salvar(alvo, dados, eu["login"])
+                    st.toast("Usuário atualizado.", icon=":material/check:")
                 st.rerun()
 
         pode_excluir = alvo != eu["login"] and not unico_admin
@@ -755,19 +792,23 @@ def _aprovacoes(eu: dict, pend: dict) -> None:
         st.info("Nenhum pedido de acesso aguardando aprovação. Quem abre o site sem login pode pedir em "
                 "**Solicitar acesso**, na tela de entrada.", icon=":material/inbox:")
     else:
-        tab = pd.DataFrame([{"Login": k, "Nome": v.get("nome", ""), "Matrícula": v.get("matricula", ""),
-                             "Setor": v.get("setor", ""), "Função informada": FUNCOES.get(v.get("funcao"), "—"),
+        tab = pd.DataFrame([{"NP": k, "Nome": v.get("nome", ""),
+                             "Função informada": FUNCOES.get(v.get("funcao"), "—"),
                              "Motivo": v.get("motivo", ""), "Pedido em": (v.get("criado_em") or "")[:16].replace("T", " ")}
                             for k, v in sorted(pend.items(), key=lambda kv: kv[1].get("criado_em", ""))])
         st.dataframe(tab, hide_index=True, width="stretch",
                      column_config={"Motivo": st.column_config.TextColumn(width="large")})
-        alvo = st.selectbox("Pedido", list(tab["Login"]), key="ped_alvo",
+        alvo = st.selectbox("Pedido", list(tab["NP"]), key="ped_alvo",
                             format_func=lambda k: f"{k} · {pend[k].get('nome', '')}")
         ped = pend[alvo]
         with st.form(f"aprovar_{alvo}", border=True):
-            st.markdown(f"**{ped.get('nome', alvo)}** · login `{alvo}`"
-                        + (f" · matrícula {ped['matricula']}" if ped.get("matricula") else "")
-                        + (f" · {ped['setor']}" if ped.get("setor") else ""))
+            st.markdown(f"**{ped.get('nome', alvo)}** · NP `{alvo}`")
+            na_equipe = pessoa_da_equipe(alvo)
+            if na_equipe:
+                st.caption(f":material/verified: NP na planilha de Gestão de HH: **{na_equipe.get('Nome', '')}** · "
+                           f"{na_equipe.get('Cargo', '')} · {na_equipe.get('Centro de trabalho', '')}")
+            else:
+                st.caption(":material/help: Esse NP não está na planilha de Gestão de HH — confira com a pessoa.")
             c = st.columns(2)
             funcao = c[0].selectbox("Função", list(FUNCOES), format_func=FUNCOES.get,
                                     index=list(FUNCOES).index(ped["funcao"]) if ped.get("funcao") in FUNCOES else None,

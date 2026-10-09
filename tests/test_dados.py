@@ -206,8 +206,8 @@ def test_regras_de_senha_e_login():
     assert auth.validar_senha("curta1")
     assert auth.validar_senha("somenteletras")
     assert not auth.validar_senha("boa12345")
-    assert auth.validar_login("Jeferson")  # maiúscula não
-    assert not auth.validar_login("jeferson.silva")
+    assert auth.validar_login("jeferson.silva")  # o usuário é o Número Pessoal (NP)
+    assert not auth.validar_login("6178609")
 
 
 # ----------------------------------------------------------------------------

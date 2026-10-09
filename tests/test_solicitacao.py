@@ -28,7 +28,7 @@ def ambiente(tmp_path, monkeypatch):
     pasta_app = tmp_path / "app"
     pasta_app.mkdir()
     adm = {"nome": "Chefe", "perfil": "admin", "funcao": "analista", "ativo": True, **auth.gerar_hash("chefe1234")}
-    (pasta_app / auth.ARQ_USUARIOS).write_text(json.dumps({"chefe": adm}), encoding="utf-8")
+    (pasta_app / auth.ARQ_USUARIOS).write_text(json.dumps({"6000001": adm}), encoding="utf-8")
     vazia = tmp_path / "dados"
     vazia.mkdir()
     for k, v in {"PASTAS": str(vazia), "PASTA_APP": str(pasta_app), "EXIGIR_LOGIN": "sim", "FONTE": "pasta"}.items():
@@ -52,32 +52,31 @@ def test_pedido_aprovacao_e_entrada(ambiente):
     at.run()
     campos = {t.label: t for t in at.text_input}
     campos["Nome completo"].input("Maria Teste")
-    campos["Login desejado"].input("maria.teste")
-    campos["Setor / área"].input("Manutenção Montagem")
+    campos["Número Pessoal (NP)"].input("7.001.234")      # com pontos: vira só os números
     campos["Senha"].input("segredo123")
     campos["Repita a senha"].input("segredo123")
     next(b for b in at.button if "Enviar pedido" in str(b.label)).click().run()
     assert not at.exception and not at.error, [e.value for e in at.error]
-    ped = json.loads((ambiente / auth.ARQ_SOLICITACOES).read_text(encoding="utf-8"))["maria.teste"]
+    ped = json.loads((ambiente / auth.ARQ_SOLICITACOES).read_text(encoding="utf-8"))["7001234"]
     assert ped["status"] == "pendente" and "segredo123" not in json.dumps(ped) and ped["senha_hash"]
     assert any("Pedido enviado" in s.value for s in at.success)
 
     # o mesmo login de novo: recusado (já há pedido pendente, e o navegador acabou de pedir)
-    assert auth.solicitar("Maria", "maria.teste", "segredo123", "segredo123")
+    assert auth.solicitar("Maria", "7001234", "segredo123", "segredo123")
 
     # administrador aprova como manutentor, liberando Ordens e Planos além do Estoque
     bases.recarregar()
-    assert auth.aprovar("maria.teste", "manutentor", "leitor", ["ordens", "planos"], "chefe") == ""
-    u = auth.usuarios(fresco=True)["maria.teste"]
+    assert auth.aprovar("7001234", "manutentor", "leitor", ["ordens", "planos"], "chefe") == ""
+    u = auth.usuarios(fresco=True)["7001234"]
     assert u["abas"] == ["ordens", "planos"] and u["funcao"] == "manutentor" and not u["trocar_senha"]
     assert auth.confere(u, "segredo123")                                    # entra com a senha que escolheu
-    final = json.loads((ambiente / auth.ARQ_SOLICITACOES).read_text(encoding="utf-8"))["maria.teste"]
+    final = json.loads((ambiente / auth.ARQ_SOLICITACOES).read_text(encoding="utf-8"))["7001234"]
     assert final["status"] == "aprovada" and "senha_hash" not in final      # a senha não fica no pedido
-    assert auth.aprovar("maria.teste", "manutentor", "leitor", None, "chefe")  # já decidido
+    assert auth.aprovar("7001234", "manutentor", "leitor", None, "chefe")  # já decidido
 
     # logada, ela vê só as abas liberadas
     at = _app()
-    at.session_state["auth_login"] = "maria.teste"
+    at.session_state["auth_login"] = "7001234"
     at.run()
     at.switch_page("paginas/ordens.py").run()
     assert at.title[0].value.startswith("Ordens")
@@ -88,10 +87,19 @@ def test_pedido_aprovacao_e_entrada(ambiente):
 
 
 def test_pedido_recusado_e_validacoes(ambiente):
-    assert "senhas" in auth.solicitar("Ana Silva", "ana.silva", "segredo123", "outra1234")
-    assert "existe" in auth.solicitar("Chefe", "chefe", "segredo123", "segredo123")
-    bases.gravar_cadastro_lote(auth.ARQ_SOLICITACOES, {"ana.silva": {"nome": "Ana", "status": "pendente",
+    assert "senhas" in auth.solicitar("Ana Silva", "7005678", "segredo123", "outra1234")
+    assert "já tem usuário" in auth.solicitar("Chefe", "6000001", "segredo123", "segredo123")
+    assert "Número Pessoal" in auth.solicitar("Ana", "ana.silva", "segredo123", "segredo123")    # login fora do NP
+    bases.gravar_cadastro_lote(auth.ARQ_SOLICITACOES, {"7005678": {"nome": "Ana", "status": "pendente",
                                                                      **auth.gerar_hash("segredo123")}})
-    assert auth.recusar("ana.silva", "não é da manutenção", "chefe") == ""
+    assert auth.recusar("7005678", "não é da manutenção", "chefe") == ""
     assert auth.pendentes(fresco=True) == {}
-    assert "ana.silva" not in auth.usuarios(fresco=True)
+    assert "7005678" not in auth.usuarios(fresco=True)
+
+
+def test_login_e_o_numero_pessoal():
+    assert auth.validar_login("6178609") == "" and auth.validar_login("12345") == ""
+    for ruim in ("jeferson.silva", "617", "61786091234", "6178609a", ""):
+        assert auth.validar_login(ruim), ruim
+    assert auth.normalizar_login(" 6.178-609 ") == "6178609"
+    assert auth.normalizar_login("Jeferson.Silva") == "jeferson.silva"       # conta antiga continua entrando
