@@ -65,11 +65,16 @@ def visiveis(pode_ver) -> dict[str, list[tuple[str, str, str]]]:
     return saida
 
 
-def inicial(visiveis_: dict[str, list[tuple[str, str, str]]]) -> str | None:
+def inicial(visiveis_: dict[str, list[tuple[str, str, str]]], secundarias: tuple[str, ...] = ()) -> str | None:
+    """Painel; sem ele, a primeira aba própria da pessoa; sem nenhuma, a primeira das `secundarias` (as abas
+    abertas a todos, na ordem de preferência)."""
     ids = [pid for itens in visiveis_.values() for pid, _, _ in itens]
     if INICIAL in ids:
         return INICIAL
-    return ids[0] if ids else None
+    proprias = [p for p in ids if p not in secundarias]
+    if proprias:
+        return proprias[0]
+    return next((p for p in secundarias if p in ids), ids[0] if ids else None)
 
 
 def id_da_pagina(pagina) -> str | None:

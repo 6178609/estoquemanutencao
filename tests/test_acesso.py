@@ -1,4 +1,5 @@
-"""Bloqueio de abas pela função: Líder de manutenção e Analista veem tudo; Manutentor só o Estoque."""
+"""Bloqueio de abas pela função: Líder de manutenção e Analista veem tudo; Manutentor só o Estoque e a Gestão de
+ativos (a parte livre da aba Equipamentos)."""
 
 import json
 from pathlib import Path
@@ -16,13 +17,16 @@ def test_regras_por_funcao():
         u = {"funcao": funcao, "perfil": "leitor"}
         assert auth.acesso_total(u) and all(auth.pode_ver(u, p) for p in TODAS)
     manutentor = {"funcao": "manutentor", "perfil": "admin"}          # a função manda nas abas, não o perfil
-    assert [p for p in TODAS if auth.pode_ver(manutentor, p)] == ["estoque"]
+    assert [p for p in TODAS if auth.pode_ver(manutentor, p)] == ["equipamentos", "estoque"]
+    assert [p for p in TODAS if auth.ve_inteira(manutentor, p)] == ["estoque"]     # Equipamentos: só a Gestão de ativos
+    assert all(auth.ve_inteira({"funcao": f}, "equipamentos") for f in ("lider", "analista"))
+    assert auth.ve_inteira({"funcao": "manutentor", "abas": ["equipamentos"]}, "paginas/equipamentos.py")
     assert auth.pode_ver(manutentor, "paginas/estoque.py") and not auth.pode_ver(manutentor, "paginas/painel.py")
     assert auth.pode_ver(manutentor, "paginas\\estoque.py")
     # conta antiga sem função: administrador continua vendo tudo; os demais, só as abas livres
     assert auth.acesso_total({"perfil": "admin"})
-    assert [p for p in TODAS if auth.pode_ver({"perfil": "editor"}, p)] == ["estoque"]
-    assert [p for p in TODAS if auth.pode_ver({"funcao": "chefe", "perfil": "leitor"}, p)] == ["estoque"]
+    assert [p for p in TODAS if auth.pode_ver({"perfil": "editor"}, p)] == ["equipamentos", "estoque"]
+    assert [p for p in TODAS if auth.pode_ver({"funcao": "chefe", "perfil": "leitor"}, p)] == ["equipamentos", "estoque"]
     assert not auth.pode_ver(None, "estoque") and not auth.pode_ver({}, "estoque")
 
 
@@ -34,9 +38,13 @@ def test_toda_pagina_esta_na_lista_de_abas():
 
 
 def test_navegacao_por_funcao():
+    livres = ("estoque", *auth.PAGINAS_PARCIAIS)
     so_estoque = navegacao.visiveis(lambda pid: auth.pode_ver({"funcao": "manutentor"}, pid))
-    assert so_estoque == {"Custos e suprimentos": [("estoque", "Estoque", ":material/inventory_2:")]}
-    assert navegacao.inicial(so_estoque) == "estoque"
+    assert so_estoque == {"Confiabilidade": [("equipamentos", "Equipamentos", ":material/precision_manufacturing:")],
+                          "Custos e suprimentos": [("estoque", "Estoque", ":material/inventory_2:")]}
+    assert navegacao.inicial(so_estoque, livres) == "estoque"                    # continua entrando pelo Estoque
+    com_ordens = navegacao.visiveis(lambda pid: auth.pode_ver({"funcao": "manutentor", "abas": ["ordens"]}, pid))
+    assert navegacao.inicial(com_ordens, livres) == "ordens"                     # a aba própria vem antes das livres
     tudo = navegacao.visiveis(lambda pid: auth.pode_ver({"funcao": "analista"}, pid))
     assert list(tudo) == list(navegacao.GRUPOS) and navegacao.inicial(tudo) == "painel"
     assert navegacao.inicial({}) is None
@@ -92,9 +100,20 @@ def test_manutentor_so_ve_o_estoque(app):
     at = app("joao")
     assert _titulo(at).startswith("Estoque")                          # entra direto no Estoque
     assert not [t for t in at.sidebar.text_input if t.placeholder.startswith("ordem")]   # sem a busca geral
-    for pagina in ("paginas/painel.py", "paginas/custos.py", "paginas/dados.py", "paginas/busca.py"):
+    for pagina in ("paginas/painel.py", "paginas/custos.py", "paginas/dados.py", "paginas/busca.py",
+                   "paginas/ordens.py"):
         at = app("joao", pagina)                                       # endereço digitado: cai no Estoque
         assert _titulo(at).startswith("Estoque"), pagina
+
+
+def test_manutentor_ve_so_a_gestao_de_ativos(app):
+    at = app("joao", "paginas/equipamentos.py")
+    assert _titulo(at).startswith("Equipamentos")
+    assert not at.segmented_control                                    # sem Cadastro nem Análise pelas ordens
+    assert not [b for b in at.button if b.label == "Novo equipamento"]
+    at = app("ana", "paginas/equipamentos.py")
+    assert [s.options for s in at.segmented_control][0][0] == "Gestão de ativos"
+    assert [b for b in at.button if b.label == "Novo equipamento"]
 
 
 def test_manutentor_administrador_ainda_gerencia_usuarios(app, monkeypatch):

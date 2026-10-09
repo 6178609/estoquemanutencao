@@ -16,11 +16,12 @@ def test_abas_escolhidas_mandam_no_acesso():
     assert not auth.pode_ver(u, "painel") and not auth.acesso_total(u)
     assert auth.descrever_acesso(u) == "3 aba(s) escolhidas"
     analista_restrito = {"funcao": "analista", "abas": []}                  # a lista vale mais que a função
-    assert [p for p in auth.todas_as_abas() if auth.pode_ver(analista_restrito, p)] == ["estoque"]
+    assert [p for p in auth.todas_as_abas() if auth.pode_ver(analista_restrito, p)] == ["equipamentos", "estoque"]
+    assert [p for p in auth.todas_as_abas() if auth.ve_inteira(analista_restrito, p)] == ["estoque"]
     tudo = {"funcao": "manutentor", "abas": auth.todas_as_abas()}
     assert auth.acesso_total(tudo) and auth.descrever_acesso(tudo) == "todas"
     assert auth.descrever_acesso({"funcao": "lider"}) == "todas"
-    assert auth.descrever_acesso({"funcao": "manutentor"}) == "só Estoque"
+    assert auth.descrever_acesso({"funcao": "manutentor"}) == "Estoque e Gestão de ativos"
 
 
 @pytest.fixture
