@@ -2,7 +2,7 @@
 
 App web de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção Profissional · Alpargatas F26. Junta
 **ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe da planilha de Gestão de
-HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52**, **requisições de compra** e o
+HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52**, o **catálogo de materiais do Sysmat**, **requisições de compra** e o
 **Gerenciador de AF** (análises de falha e plano de ação) numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
 Funciona no computador e no celular, com login, funções (quem vê cada aba) e perfis de acesso.
 
@@ -221,7 +221,17 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   próximas 12 semanas.
 - **Custos** — custo por mês e classe (com orçamento), por tipo, área, centro de trabalho, Pareto por equipamento e
   ordens mais caras.
-- **Estoque** — saldo do MB52, estoque mínimo editável, alerta de peças críticas e **foto de cada material**.
+- **Estoque** — três áreas:
+  - **Material do almoxarifado**: saldo do MB52, estoque mínimo editável, alerta de peças críticas e, de cada item, a
+    **informação técnica** do cadastro (descrição completa do Sysmat, um atributo por linha), categoria, fabricante /
+    referência e a situação do cadastro (ativo, bloqueado, cancelado, duplicado ou não encontrado no Sysmat). Exibe em
+    **Ficha técnica** (páginas de 25, 50 ou 100 itens; na impressão, Ctrl+P, cada página sai sem cortar o item) ou em
+    **Tabela** (para editar o mínimo).
+  - **Material cadastrado**: o catálogo inteiro do Sysmat (busca por código, Sysmat, descrição, fabricante,
+    referência e NCM; filtros de status, categoria e "no almoxarifado / fora"), com a mesma ficha técnica paginada.
+  - **Fotos dos materiais**: foto de cada material.
+  A extração do Sysmat (planilha com Código Sysmat, Código Alpargatas, Descr Completa e Status) é reconhecida sozinha
+  pelas colunas; o cruzamento com o MB52 é pelo código Alpargatas (= código do material no SAP).
 - **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.
 - **Planos de AF** e **Ações de AF** — gestão das análises de falha e do plano de ação (veja abaixo).
 - **Metas e parâmetros** — meta de cada indicador, jornada semanal, capacidade por centro de trabalho e classe WCM de

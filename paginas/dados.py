@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from central import auth, bases, config, leitura, ui
-from central.leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOMES_BASE, NOTAS, OPER, REQ, TIPOS
+from central.leitura import ACAO_AF, AF, CATMAT, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOMES_BASE, NOTAS, OPER, REQ, TIPOS
 from central.util import inteiro
 
 ui.cabecalho("Fontes de dados", "De onde o app lê cada base e como mantê-las sempre atualizadas")
@@ -51,7 +51,8 @@ with st.container(border=True):
 
 carregadas = {IW38: bases.iw38(), MB52: bases.mb52(), REQ: bases.requisicoes(), IP19: bases.ip19(),
                OPER: bases.operacoes(), NOTAS: bases.notas(), EQUIP: bases.equipamentos(),
-               CONF: bases.confirmacoes(), EQUIPE: bases.equipe(), AF: bases.afs(), ACAO_AF: bases.acoes_af()}
+               CONF: bases.confirmacoes(), EQUIPE: bases.equipe(), AF: bases.afs(), ACAO_AF: bases.acoes_af(),
+               CATMAT: bases.catalogo()}
 
 for tipo in TIPOS:
     b = carregadas[tipo]

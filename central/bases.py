@@ -23,7 +23,7 @@ import streamlit as st
 
 from . import af as af_mod
 from . import config, fontes, fotos, hh, leitura
-from .leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
+from .leitura import ACAO_AF, AF, CATMAT, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS
 from .util import achar_coluna, agora_local, chave, fora_da_visao, hoje_local, marcar_quebras, para_data, para_numero, sem_acento, setores, texto
 
 ARQ_CAD_EQUIP = "cadastro_equipamentos.json"
@@ -35,7 +35,7 @@ _PISTAS = [(AF, r"GERENCIADOR DE AF|ANALISE.*FALHA|\bAF\b"), (CONF, r"IW47|IW41|
            (EQUIPE, r"GESTAO.*HH|EQUIPE|EFETIVO"),
            (OPER, r"IW38OP|IW37|OPERAC"), (IP19, r"IP19|IP24|PLANOS?\b"), (IW38, r"IW38|IW39|ORDENS?"),
            (NOTAS, r"IW28|IW29|NOTAS?\b"), (EQUIP, r"IH08|IE05|EQUIPAMENT"), (MB52, r"MB52|MB51|ESTOQUE|MATERIA"),
-           (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS|SOLICITA")]
+           (REQ, r"REQUISI|REQ\b|APROVA|COMPRAS|SOLICITA"), (CATMAT, r"SYSMAT|EXTRACAO|CATALOGO")]
 
 
 # ----------------------------------------------------------------------------
@@ -964,6 +964,18 @@ def mb52() -> Base:
         resumo, det = _mb52(us)
         return Base(resumo, None, extra=det)
     return _carregar(MB52, fn)
+
+
+@st.cache_resource(show_spinner="Preparando o catálogo de materiais (Sysmat)…", max_entries=2)
+def _catalogo(origens: tuple) -> pd.DataFrame:
+    from . import materiais
+
+    return materiais.preparar_catalogo(_cru(CATMAT, origens))
+
+
+def catalogo() -> Base:
+    """Catálogo de materiais cadastrados (extração do Sysmat)."""
+    return _carregar(CATMAT, lambda us: Base(_catalogo(us), None))
 
 
 def requisicoes() -> Base:
