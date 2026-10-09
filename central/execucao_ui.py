@@ -62,7 +62,7 @@ def mostrar(f: contexto.Filtros) -> None:
     sel_ctr = c_ctr.multiselect(
         "Centro de trabalho", centros_opc, key="ex_ctr", placeholder="Todos os centros",
         help="Filtra toda a execução pelo centro de trabalho da operação (IW38OP) e do apontamento (IW47). "
-             "Soma-se aos filtros da barra lateral (que valem para o site todo).")
+             "Soma-se ao período, área e tipo de ordem escolhidos acima.")
     if sel_setor and not sel_ctr:
         sel_ctr = centros_opc
     if sel_ctr:

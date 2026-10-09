@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import timedelta
 
 import altair as alt
 import pandas as pd
@@ -56,13 +56,13 @@ if fg.tipos and "Tipo de ordem" in ch:
     ch = ch[ch["Tipo de ordem"].isin(fg.tipos) | (ch["Tipo de ordem"] == "")]
 st.caption("O calendário usa o período próprio abaixo (pode incluir semanas futuras); centro de trabalho e tipo de "
            "ordem seguem os filtros globais da barra lateral.")
-ano_atual = hoje.date().year
 with ui.caixa_filtros():
     f = st.columns([3, 3, 2, 2, 2])
     with f[0]:
-        ini, fim = ui.filtro_datas("p_faixa", "Data planejada (de / até)",
-                                   (date(ano_atual, 1, 1), date(ano_atual, 12, 31)), ch["Data"],
-                                   atalhos=["Mês atual", "Próximos 30 dias", "Próximos 90 dias", "Últimos 90 dias",
+        mes_ini = hoje.date().replace(day=1)
+        mes_fim = (mes_ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        ini, fim = ui.filtro_datas("p_faixa", "Data planejada (de / até)", (mes_ini, mes_fim), ch["Data"],
+                                   atalhos=["Este mês", "Mês passado", "Próximo mês", "Próximos 90 dias",
                                             "Ano atual", "Tudo"])
     busca = f[1].text_input("Buscar plano", placeholder="nº do plano, descrição, equipamento…", key="p_busca")
     doano = ch[ui.entre(ch["Data"], ini, fim)]
