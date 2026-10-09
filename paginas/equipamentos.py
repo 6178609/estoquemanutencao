@@ -4,20 +4,23 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import auth, bases, contexto, fotos, ui
+from central import ativos, ativos_ui, auth, bases, contexto, fotos, ui
 from central import indicadores as ind
 from central.leitura import IW38
-from central.util import brl, inteiro, sem_acento
+from central.util import brl, hoje_local, inteiro, sem_acento
 
 CRITICIDADES = ["Alta", "Média", "Baixa"]
 CATEGORIAS = ["Mecânico", "Elétrico", "Instrumentação", "Hidráulico", "Pneumático", "Civil", "Utilidades", "Outro"]
 COR_CRIT = {"Alta": "red", "Média": "orange", "Baixa": "green"}
-VISOES = ["Cadastro de equipamentos", "Análise pelas ordens (IW38)"]
+V_ATIVOS, V_CADASTRO, V_ANALISE = "Gestão de ativos", "Cadastro de equipamentos", "Análise pelas ordens (IW38)"
+VISOES = [V_ATIVOS, V_CADASTRO, V_ANALISE]
 MAX_CANDIDATOS = 60  # itens da base de material listados por busca
 
 eu = auth.usuario_atual()
-cadastra = bool(eu)            # qualquer usuário logado cadastra e edita equipamentos (e envia fotos)
-edita = auth.pode_editar(eu)   # remover equipamento: só editor/administrador
+# a aba inteira é de quem tem Equipamentos liberado; os demais (Manutentor) veem só a Gestão de ativos, sem editar
+completo = auth.ve_inteira(eu, "equipamentos")
+cadastra = bool(eu) and completo            # quem vê a aba inteira cadastra e edita equipamentos (e envia fotos)
+edita = completo and auth.pode_editar(eu)   # remover equipamento: só editor/administrador
 ss = st.session_state
 
 base = bases.iw38()
@@ -37,6 +40,15 @@ if base.df is not None:
 if ih08 is not None:
     nome_sap.update({k: v for k, v in zip(ih08["Equipamento"], ih08["Denominação"]) if v})
 abc_sap = dict(zip(ih08["Equipamento"], ih08["Código ABC"])) if ih08 is not None else {}
+desativado_sap = set(ih08.loc[ih08["Desativado"], "Equipamento"]) if ih08 is not None and "Desativado" in ih08 else set()
+
+
+def _numero(v):
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return x if x == x and x > 0 else None
 
 
 def md(texto) -> str:
@@ -153,11 +165,26 @@ def abrir_formulario(tag: str | None = None) -> None:
     ss["eqf_crit"] = (info.get("criticidade") if info.get("criticidade") in CRITICIDADES
                       else bases.ABC_PARA_CRITICIDADE.get(abc_sap.get(tag or "", ""), "Média"))
     ss["eqf_ov"] = info.get("observacoes", "")
+    ss["eqf_sit"] = (info.get("situacao") if info.get("situacao") in ativos.SITUACOES
+                     else ativos.DESATIVADO if (tag or "") in desativado_sap else ativos.OPERACAO)
+    ss["eqf_fab"], ss["eqf_mod"], ss["eqf_ser"] = (str(info.get(c) or "") for c in ("fabricante", "modelo", "serie"))
+    ano = _numero(info.get("ano_instalacao"))
+    ss["eqf_ano"] = int(ano) if ano else None
+    vida = _numero(info.get("vida_util"))
+    ss["eqf_vida"] = int(vida) if vida else None
+    gar = pd.to_datetime(info.get("garantia_ate") or None, errors="coerce")
+    ss["eqf_gar"] = None if pd.isna(gar) else gar.date()
+    ss["eqf_rep"] = _numero(info.get("valor_reposicao"))
     ss["eqf_links"] = list(dict.fromkeys(info.get("materiais", [])))
     ss["eqf_busca"] = ""
     for k in [k for k in ss if str(k).startswith("eqf_l_")]:
         del ss[k]
-    ss["eq_visao"] = VISOES[0]
+    ss["eq_visao"] = V_CADASTRO
+
+
+def abrir_ficha(tag: str) -> None:
+    ss["eq_ficha"] = tag
+    ss["eq_visao"] = V_ANALISE
 
 
 def fechar_formulario() -> None:
@@ -187,28 +214,41 @@ def desvincular(codigo: str) -> None:
 
 
 if "eq_sel" in ss:  # veio da página de Ordens: abre a análise com a ficha do equipamento
-    ss["eq_ficha"] = ss.pop("eq_sel")
-    ss["eq_visao"] = VISOES[1]
+    tag_sel = ss.pop("eq_sel")
+    if completo:
+        abrir_ficha(tag_sel)
 
 # ----------------------------------------------------------------------------
 # Cabeçalho
 # ----------------------------------------------------------------------------
 h1, h2 = st.columns([4, 1.4], vertical_alignment="center")
 with h1:
-    ui.cabecalho("Gerenciamento de equipamentos", "Categoria, criticidade e componentes vinculados à base de material")
+    ui.cabecalho("Equipamentos · gestão de ativos",
+                 "Inventário, criticidade, custo, cobertura preventiva e ciclo de vida dos ativos — e o cadastro "
+                 "com os componentes vinculados à base de material")
 if cadastra:
     h2.button("Novo equipamento", icon=":material/add:", type="primary", width="stretch", on_click=abrir_formulario)
 
-if ss.get("eq_visao") not in VISOES:
-    ss["eq_visao"] = VISOES[0]
-visao = st.segmented_control("Visão", VISOES, key="eq_visao", label_visibility="collapsed")
-if visao is None:  # clique na opção já marcada desmarca: volta para o cadastro
-    visao = VISOES[0]
+if not completo:
+    visao = V_ATIVOS
+else:
+    if ss.get("eq_visao") not in VISOES:
+        ss["eq_visao"] = V_ATIVOS
+    visao = st.segmented_control("Visão", VISOES, key="eq_visao", label_visibility="collapsed")
+    if visao is None:  # clique na opção já marcada desmarca: volta para a gestão de ativos
+        visao = V_ATIVOS
+
+# ============================================================================
+# Visão 0 · Gestão de ativos (a única de quem não tem a aba inteira)
+# ============================================================================
+if visao == V_ATIVOS:
+    ativos_ui.mostrar(cadastra, abrir_formulario, abrir_ficha if completo else None)
+    st.stop()
 
 # ============================================================================
 # Visão 1 · Cadastro (configuração da antiga tela de equipamentos)
 # ============================================================================
-if visao == VISOES[0]:
+if visao == V_CADASTRO:
     if cad:
         cards = st.columns(len(CRITICIDADES) + 1)
         for col, crit in zip(cards, CRITICIDADES):
@@ -227,6 +267,23 @@ if visao == VISOES[0]:
             l1[1].text_input("Nome (obrigatório)", key="eqf_nome", placeholder="Ex: Motor bomba centrífuga")
             l1[2].selectbox("Categoria", CATEGORIAS, key="eqf_cat")
             l1[3].selectbox("Criticidade", CRITICIDADES, key="eqf_crit")
+            st.markdown("<div class='cm-rotulo'>GESTÃO DO ATIVO · SITUAÇÃO E CICLO DE VIDA</div>", unsafe_allow_html=True)
+            l2 = st.columns([1.2, 1.4, 1.4, 1.2])
+            l2[0].selectbox("Situação", ativos.SITUACOES, key="eqf_sit")
+            l2[1].text_input("Fabricante", key="eqf_fab", max_chars=80)
+            l2[2].text_input("Modelo", key="eqf_mod", max_chars=80)
+            l2[3].text_input("Nº de série", key="eqf_ser", max_chars=60)
+            l3 = st.columns([1.2, 1.4, 1.4, 1.2])
+            l3[0].number_input("Ano de instalação", key="eqf_ano", min_value=1900, max_value=hoje_local().year, step=1,
+                               value=None, placeholder="Ex: 2015")
+            l3[1].number_input("Vida útil (anos)", key="eqf_vida", min_value=1, max_value=100, step=1, value=None,
+                               placeholder="Ex: 20", help="Vida útil esperada; com o ano de instalação, a gestão de "
+                                                          "ativos avisa o fim da vida útil.")
+            l3[2].date_input("Garantia até", key="eqf_gar", value=None, format="DD/MM/YYYY")
+            l3[3].number_input("Valor de reposição (R$)", key="eqf_rep", min_value=0.0, step=100.0, value=None,
+                               format="%.2f", placeholder="Ex: 85000",
+                               help=f"Custo de um equipamento novo. Custo de manutenção em 12 meses acima de "
+                                    f"{ativos.LIMITE_SUBSTITUICAO:.0%} dele = avaliar substituição.")
             st.text_area("Visão geral", key="eqf_ov", height=80,
                          placeholder="Função do equipamento, observações gerais de manutenção…")
 
@@ -269,11 +326,19 @@ if visao == VISOES[0]:
                 tag, nome = ss.get("eqf_tag", "").strip().upper(), ss.get("eqf_nome", "").strip()
                 if not tag or not nome:
                     st.error("Preencha a **TAG** e o **nome** do equipamento.")
+                elif not auth.abre_inteira("equipamentos"):
+                    st.error("Seu acesso mudou: você não pode mais alterar o cadastro de equipamentos.")
                 elif tag != editando and tag in cad:
                     st.error(f"A TAG **{md(tag)}** já está cadastrada — use **Editar** na lista abaixo.")
                 else:
+                    gar = ss.get("eqf_gar")
                     itens = {tag: {"nome": nome, "categoria": ss["eqf_cat"], "criticidade": ss["eqf_crit"],
-                                   "observacoes": ss.get("eqf_ov", "").strip(), "materiais": list(links)}}
+                                   "observacoes": ss.get("eqf_ov", "").strip(), "materiais": list(links),
+                                   "situacao": ss.get("eqf_sit") or ativos.OPERACAO,
+                                   "fabricante": ss.get("eqf_fab", "").strip(), "modelo": ss.get("eqf_mod", "").strip(),
+                                   "serie": ss.get("eqf_ser", "").strip(), "ano_instalacao": ss.get("eqf_ano"),
+                                   "vida_util": ss.get("eqf_vida"), "garantia_ate": gar.isoformat() if gar else None,
+                                   "valor_reposicao": ss.get("eqf_rep")}}
                     if editando and editando != tag:  # TAG renomeada
                         itens[editando] = None
                     bases.gravar_cadastro_lote(bases.ARQ_CAD_EQUIP, itens, auth.nome_de(eu))
@@ -315,10 +380,23 @@ if visao == VISOES[0]:
             alerta = pecas_em_alerta(comps)
             rotulo = (f"**{md(tag)}**  {md(v.get('nome', ''))}  :blue-badge[{md(v.get('categoria', '—'))}]"
                       f"  :{COR_CRIT.get(crit, 'gray')}-badge[{md(crit or 'sem criticidade')}]"
-                      f"  :gray[:material/link: {len(comps)}]" + ("  :red[:material/warning:]" if alerta else ""))
+                      f"  :gray[:material/link: {len(comps)}]" + ("  :red[:material/warning:]" if alerta else "")
+                      + (f"  :violet-badge[{md(v['situacao'])}]" if v.get("situacao") not in (None, "", ativos.OPERACAO)
+                         else ""))
             with st.expander(rotulo):
                 if v.get("observacoes"):
                     st.markdown(f"> {md(v['observacoes'])}")
+                ciclo = [x for x in (
+                    " ".join(str(v.get(c) or "") for c in ("fabricante", "modelo")).strip(),
+                    f"série {v['serie']}" if v.get("serie") else "",
+                    f"instalado em {int(_numero(v.get('ano_instalacao')))}" if _numero(v.get("ano_instalacao")) else "",
+                    f"vida útil {int(_numero(v.get('vida_util')))} anos" if _numero(v.get("vida_util")) else "",
+                    f"garantia até {pd.to_datetime(v['garantia_ate'], errors='coerce'):%d/%m/%Y}"
+                    if pd.notna(pd.to_datetime(v.get("garantia_ate") or None, errors="coerce")) else "",
+                    f"reposição {brl(_numero(v.get('valor_reposicao')))}" if _numero(v.get("valor_reposicao")) else "",
+                ) if x]
+                if ciclo:
+                    st.caption(":material/hourglass_bottom: " + md(" · ".join(ciclo)))
                 if resumo_iw38 is not None and tag in resumo_iw38.index:
                     r = resumo_iw38.loc[tag]
                     st.caption(f":material/assignment: {inteiro(r['Ordens'])} ordens no IW38 · "
@@ -338,7 +416,7 @@ if visao == VISOES[0]:
                 if edita:
                     with e2.popover("Remover", icon=":material/delete:", width="stretch", key=f"eqc_rmp_{tag}"):
                         st.markdown(f"Remover **{md(tag)}** do cadastro? As ordens do SAP não são afetadas.")
-                        if st.button("Remover", type="primary", key=f"eqc_rm_{tag}"):
+                        if st.button("Remover", type="primary", key=f"eqc_rm_{tag}") and auth.abre_inteira("equipamentos"):
                             bases.gravar_cadastro(bases.ARQ_CAD_EQUIP, tag, None, auth.nome_de(eu))
                             apos_gravar()
                             if ss.get("eqf_editando") == tag:
@@ -375,9 +453,12 @@ def agregar(_todas: pd.DataFrame, _df: pd.DataFrame, chave: str) -> pd.DataFrame
 
 tab = agregar(todas, df, f"{base.origem.arquivo.assinatura}|{desc}|{pd.Timestamp.today():%Y-%m-%d}")
 # equipamentos cadastrados à mão (sem ordem no IW38) também aparecem
-extras = [k for k in cad if k not in set(tab["Código"])]
+# (e o ativo aberto pela Gestão de ativos, mesmo só no IH08)
+ja = set(tab["Código"])
+extras = [k for k in dict.fromkeys([*cad, ss.get("eq_ficha") or ""]) if k and k not in ja and (k in cad or k in nome_sap)]
 if extras:
-    tab = pd.concat([tab, pd.DataFrame({"Código": extras, "Nome": [cad[k].get("nome", "") for k in extras]})], ignore_index=True)
+    tab = pd.concat([tab, pd.DataFrame({"Código": extras, "Nome": [(cad.get(k) or {}).get("nome") or nome_sap.get(k, "")
+                                                                   for k in extras]})], ignore_index=True)
     tab = tab.fillna({"Ordens": 0, "Backlog": 0, "Custo": 0.0, "Pendentes": 0, "Local": "", "Centro": ""})
 if ih08 is not None:
     ref = ih08.set_index("Equipamento")

@@ -128,7 +128,7 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
 |---|---|
 | Líder de manutenção | todas |
 | Analista | todas |
-| Manutentor | só **Estoque** (a única aba livre para todas as funções) |
+| Manutentor | **Estoque** e **Equipamentos › Gestão de ativos** (só consulta; as outras visões de Equipamentos e o cadastro ficam para quem tem a aba inteira) |
 
 - A navegação é montada por pessoa: as abas bloqueadas não aparecem e o servidor nem as executa (endereço digitado
   cai na aba inicial da pessoa). Links e botões para abas bloqueadas somem.
@@ -140,7 +140,7 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   aprova (define função, perfil e **quais abas** a pessoa vê — o padrão da função ou uma lista escolhida) ou
   recusa com motivo; a barra lateral avisa quando há pedidos. Limite de 30 pedidos pendentes e um por navegador
   a cada 10 min. As abas escolhidas também podem ser alteradas depois em **Editar usuário**.
-- Conta criada antes das funções (sem função): o administrador continua vendo tudo; as demais veem só o Estoque até
+- Conta criada antes das funções (sem função): o administrador continua vendo tudo; as demais veem só o Estoque e a Gestão de ativos até
   um administrador definir a função em **Usuários › Editar usuário** (a tela avisa quem está sem função e mostra a
   tabela "Quem vê cada aba"). As regras estão em `central/auth.py` e a lista de abas em `central/navegacao.py`.
 
@@ -182,8 +182,18 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   texto): situação de cada uma (tratada, em tratativa, atrasada, sem ordem), fila das abertas, técnica (vibração,
   óleo, termografia), Pareto dos achados, equipamentos reincidentes, quem tratou (IW47) e custo. O Painel mostra o
   resumo logo no topo.
-- **Equipamentos** — gerenciamento no formato da tela antiga (TAG, nome, categoria, criticidade, visão geral e
-  componentes vinculados da base de material) e análise pelas ordens, com ficha (quebras, MTBF, MTTR, HH, histórico).
+- **Equipamentos** — três visões:
+  - **Gestão de ativos** (abre nela): inventário único (IH08 + cadastro do site + equipamentos das ordens) com
+    situação, criticidade, área/local de instalação, saúde, custo de 12 meses, quebras e MTBF, planos preventivos,
+    pendências, idade e garantia; indicadores (cobertura preventiva dos críticos, ativos parados, custo), Pareto dos
+    *bad actors*, ativos por área, ciclo de vida (vida útil vencida, garantia a vencer, reparar × substituir) e lacunas
+    do cadastro. Cada ativo recebe uma recomendação: avaliar substituição (custo de 12 meses ≥ 50% do valor de
+    reposição, ou vida útil vencida com saúde crítica), criar plano preventivo (Alta/Média sem plano), atacar a causa
+    das falhas (saúde crítica), classificar criticidade ou manter. Regras em `central/ativos.py`.
+  - **Cadastro de equipamentos**: o gerenciamento no formato da tela antiga (TAG, nome, categoria, criticidade, visão
+    geral e componentes vinculados da base de material), agora com situação (em operação, parado, reserva, em
+    reforma, desativado), fabricante, modelo, nº de série, ano de instalação, vida útil, garantia e valor de reposição.
+  - **Análise pelas ordens (IW38)**, com ficha (quebras, MTBF, MTTR, HH, histórico).
 - **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
 - **Ordens** — busca, filtros (situação, plano/backlog, classe WCM, status), fim real, lead time, prazo, HH apontadas,
   detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.

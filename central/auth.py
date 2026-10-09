@@ -6,7 +6,7 @@ dos cadastros), com a senha guardada só como hash PBKDF2-SHA256 com sal.
 Função (quais abas a pessoa vê):
 
 - Líder de manutenção e Analista: todas as abas;
-- Manutentor: só as abas livres (Estoque).
+- Manutentor: só as abas livres (Estoque) e a parte livre das abas parciais (Equipamentos › Gestão de ativos).
 
 Perfil (o que a pessoa pode alterar):
 
@@ -45,6 +45,8 @@ FUNCOES = {"lider": "Líder de manutenção", "analista": "Analista", "manutento
 FUNCOES_ACESSO_TOTAL = {"lider", "analista"}
 # abas liberadas para todas as funções (o id é o nome do arquivo em paginas/, sem .py)
 PAGINAS_LIVRES = {"estoque"}
+# abas abertas a todas as funções só em parte: quem não tem a aba liberada vê só esta visão dela
+PAGINAS_PARCIAIS = {"equipamentos": "Gestão de ativos"}
 COOKIE = "cm_sessao"
 DIAS_SESSAO = 30
 MAX_FALHAS, BLOQUEIO_S = 5, 300
@@ -373,9 +375,9 @@ def acesso_total(u: dict | None) -> bool:
     return u.get("perfil") == "admin"
 
 
-def pode_ver(u: dict | None, pagina: str) -> bool:
-    """A aba (id ou caminho em paginas/) aparece para esta pessoa? A navegação só registra as permitidas —
-    o servidor nem executa as outras, mesmo com o endereço digitado."""
+def ve_inteira(u: dict | None, pagina: str) -> bool:
+    """A pessoa vê a aba inteira (pela função ou pela lista escolhida)? Nas abas parciais, quem não vê a aba
+    inteira fica só com a parte livre dela (PAGINAS_PARCIAIS)."""
     if not u:
         return False
     pid = id_pagina(pagina)
@@ -385,13 +387,29 @@ def pode_ver(u: dict | None, pagina: str) -> bool:
     return pid in pers if pers is not None else acesso_total(u)
 
 
+def pode_ver(u: dict | None, pagina: str) -> bool:
+    """A aba (id ou caminho em paginas/) aparece para esta pessoa? A navegação só registra as permitidas —
+    o servidor nem executa as outras, mesmo com o endereço digitado."""
+    if not u:
+        return False
+    return id_pagina(pagina) in PAGINAS_PARCIAIS or ve_inteira(u, pagina)
+
+
+def abre_inteira(pagina: str) -> bool:
+    """ve_inteira para quem está usando o app, com o cadastro de agora."""
+    try:
+        return ve_inteira(usuario_atual(), pagina)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def descrever_acesso(u: dict | None) -> str:
     pers = abas_personalizadas(u)
     if acesso_total(u):
         return "todas"
     if pers is not None:
         return f"{len((pers | PAGINAS_LIVRES) & set(todas_as_abas()))} aba(s) escolhidas"
-    return "só Estoque"
+    return "Estoque e Gestão de ativos"
 
 
 def pode_abrir(pagina: str) -> bool:
@@ -592,11 +610,13 @@ def pagina_minha_conta() -> None:
         pers = abas_personalizadas(u)
         if pers is not None:
             rot = _rotulos_abas()
-            vistas = ["Estoque", *(rot[p] for p in rot if p in pers)]
+            vistas = ["Estoque", *(rot[p] for p in rot if p in pers),
+                      *(f"{t} (Equipamentos)" for p, t in PAGINAS_PARCIAIS.items() if p not in pers)]
             st.info("Você vê as abas: " + " · ".join(f"**{v}**" for v in vistas) + ". Para mudar, peça a um "
                     "administrador.", icon=":material/lock:")
         else:
-            st.info("Sua função dá acesso só à aba **Estoque**. Para ver as outras abas, peça a um administrador.",
+            st.info("Sua função dá acesso às abas **Estoque** e **Equipamentos › Gestão de ativos**. Para ver as outras "
+                    "abas, peça a um administrador.",
                     icon=":material/lock:")
     st.subheader("Trocar senha")
     _form_senha(u, exigir_atual=True)
@@ -628,8 +648,8 @@ def pagina_usuarios() -> None:
                "Ativo": v.get("ativo", True), "Último acesso": (v.get("ultimo_acesso") or "")[:16].replace("T", " "),
                "Troca de senha pendente": v.get("trocar_senha", False)} for k, v in sorted(us.items())]
     st.dataframe(pd.DataFrame(linhas), hide_index=True, width="stretch")
-    st.caption("**Função** define as abas: Líder de manutenção e Analista veem todas; Manutentor vê só o Estoque "
-               "(ou as abas escolhidas para a pessoa, na aprovação ou em Editar usuário). "
+    st.caption("**Função** define as abas: Líder de manutenção e Analista veem todas; Manutentor vê só o Estoque e "
+               "a Gestão de ativos (ou as abas escolhidas para a pessoa, na aprovação ou em Editar usuário). "
                "**Perfil** define o que pode alterar: Administrador faz tudo, inclusive esta tela · Editor edita "
                "cadastros e fontes de dados · Leitor só consulta.")
     fora_np = [k for k in sorted(us) if validar_login(k)]
@@ -639,7 +659,7 @@ def pagina_usuarios() -> None:
     sem_funcao = [k for k, v in sorted(us.items()) if v.get("funcao") not in FUNCOES and v.get("ativo", True)]
     if sem_funcao:
         st.warning(f"**{len(sem_funcao)} usuário(s) sem função definida**: {', '.join(sem_funcao)}. Enquanto isso, "
-                   "quem não é administrador vê só o Estoque. Defina a função em **Editar usuário**.",
+                   "quem não é administrador vê só o Estoque e a Gestão de ativos. Defina a função em **Editar usuário**.",
                    icon=":material/person_alert:")
 
     pend = pendentes(fresco=True)
@@ -656,7 +676,8 @@ def pagina_usuarios() -> None:
             login = c[1].text_input("Usuário (Número Pessoal)", placeholder="ex.: 6178609", key="nu_login")
             funcao = c[2].selectbox("Função", list(FUNCOES), index=None, format_func=FUNCOES.get,
                                     placeholder="Escolha a função", key="nu_funcao",
-                                    help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque.")
+                                    help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque e a "
+                                         "Gestão de ativos.")
             perfil = c[3].selectbox("Perfil", list(PERFIS), index=2, format_func=PERFIS.get, key="nu_perfil")
             senha = st.text_input("Senha provisória", type="password", key="nu_senha",
                                   help="A pessoa vai ser obrigada a trocar no primeiro acesso.")
@@ -693,7 +714,8 @@ def pagina_usuarios() -> None:
             nome = c[0].text_input("Nome", d.get("nome", ""))
             funcao = c[1].selectbox("Função", list(FUNCOES), format_func=FUNCOES.get, placeholder="Escolha a função",
                                     index=list(FUNCOES).index(d["funcao"]) if d.get("funcao") in FUNCOES else None,
-                                    help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque.")
+                                    help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque e a "
+                                         "Gestão de ativos.")
             perfil = c[2].selectbox("Perfil", list(PERFIS), index=list(PERFIS).index(d.get("perfil", "leitor")),
                                     format_func=PERFIS.get, disabled=unico_admin)
             ativo = c[3].toggle("Ativo", d.get("ativo", True), disabled=unico_admin or alvo == eu["login"])
@@ -753,7 +775,7 @@ def pagina_usuarios() -> None:
         from . import navegacao
 
         matriz = pd.DataFrame([{"Aba": f"{grupo} › {titulo}",
-                                **{FUNCOES[f]: "✓" if pode_ver({"funcao": f}, pid) else "—" for f in FUNCOES}}
+                                **{FUNCOES[f]: _marca_acesso({"funcao": f}, pid) for f in FUNCOES}}
                                for grupo, pid, titulo in navegacao.abas()])
         st.dataframe(matriz, hide_index=True, width="stretch", height=35 * (len(matriz) + 1) + 3)
         st.caption("Minha conta e Sair aparecem para todos; Usuários, só para administradores.")
@@ -761,6 +783,12 @@ def pagina_usuarios() -> None:
 
 
 PADRAO_FUNCAO, ESCOLHER = "Padrão da função", "Escolher as abas"
+
+
+def _marca_acesso(u: dict, pid: str) -> str:
+    if ve_inteira(u, pid):
+        return "✓"
+    return f"só {PAGINAS_PARCIAIS[pid]}" if pid in PAGINAS_PARCIAIS else "—"
 
 
 def _rotulos_abas() -> dict[str, str]:
@@ -776,8 +804,9 @@ def _campo_abas(chave: str, u: dict | None, funcao: str | None = None) -> tuple[
     modo = st.radio("O que a pessoa vai ver", [PADRAO_FUNCAO, ESCOLHER], horizontal=True, key=f"{chave}_modo",
                     index=1 if pers is not None else 0,
                     help="Padrão da função: Líder de manutenção e Analista veem todas as abas; Manutentor, só o "
-                         "Estoque. Escolher: só as abas marcadas abaixo (o Estoque é sempre liberado).")
-    base = pers if pers is not None else {pid for pid in rot if pode_ver({"funcao": funcao or (u or {}).get("funcao")},
+                         "Estoque e a Gestão de ativos. Escolher: só as abas marcadas abaixo (o Estoque e a Gestão "
+                         "de ativos são sempre liberados; marque Equipamentos para a aba inteira).")
+    base = pers if pers is not None else {pid for pid in rot if ve_inteira({"funcao": funcao or (u or {}).get("funcao")},
                                                                           pid)}
     sel = st.multiselect("Abas liberadas (vale quando a opção é \"Escolher as abas\")", list(rot),
                          default=[pid for pid in rot if pid in base], format_func=rot.get, key=f"{chave}_abas",

@@ -62,7 +62,7 @@ conta = [PAGINAS_CONTA[k]() for k in auth.paginas_conta(usuario)]
 # Só as abas que a função da pessoa permite entram na navegação: as outras não aparecem no menu e o
 # servidor nem as executa (endereço digitado cai na página inicial dela).
 abas = navegacao.visiveis(lambda pid: auth.pode_ver(usuario, pid))
-inicial = navegacao.inicial(abas)
+inicial = navegacao.inicial(abas, secundarias=("estoque", *auth.PAGINAS_PARCIAIS))
 st.session_state["_usuario_exec"] = usuario       # links desta execução decidem pelo mesmo usuário do menu
 menu = {grupo: [st.Page(navegacao.caminho(pid), title=titulo, icon=icone, default=pid == navegacao.INICIAL)
                 for pid, titulo, icone in itens] for grupo, itens in abas.items()}
