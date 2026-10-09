@@ -903,7 +903,7 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
     ext = PurePath(nome_original).suffix.lower() or ".xlsx"
     prefixo = {IW38: "IW38", MB52: "MB52", REQ: "REQUISICOES", IP19: "IP19", OPER: "IW38OP", NOTAS: "IW28",
                EQUIP: "IH08", CONF: "IW47", EQUIPE: "GESTAO_HH", AF: "GERENCIADOR_AF",
-               ACAO_AF: "GERENCIADOR_AF_ACOES"}[tipo]
+               ACAO_AF: "GERENCIADOR_AF_ACOES", CATMAT: "CATALOGO_SYSMAT"}[tipo]
     nome = f"{prefixo}_{datetime.now():%Y-%m-%d_%H%M%S}{ext}"
     fonte().gravar(nome, conteudo)
     recarregar()

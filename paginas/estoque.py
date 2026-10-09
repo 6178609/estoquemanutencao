@@ -75,7 +75,7 @@ visao = st.segmented_control(
 # Visão · Material cadastrado (catálogo do Sysmat)
 # ============================================================================
 if visao == VISOES[1]:
-    materiais_ui.mostrar_cadastrados()
+    materiais_ui.mostrar_cadastrados(edita)
     st.stop()
 
 # ============================================================================
@@ -200,6 +200,11 @@ if visao == VISOES[2]:
 # ============================================================================
 # Visão · Material do almoxarifado
 # ============================================================================
+catalogo = bases.catalogo()
+if catalogo.df is None:
+    if catalogo.erro:
+        st.error(f"Não foi possível ler a extração do Sysmat: {catalogo.erro}")
+    materiais_ui.aviso_sem_catalogo(edita, "m_cat_up")
 if len(criticos):
     st.error(f"**{len(criticos)} peça(s) de equipamentos críticos sem estoque suficiente:** "
              + "; ".join(f"{r['Material']} {r['Descrição'][:40]} → {r['Usado em']}" for _, r in criticos.head(8).iterrows()),
@@ -207,8 +212,9 @@ if len(criticos):
 
 with ui.caixa_filtros():
     f = st.columns([3, 3, 2])
-    busca = f[0].text_input("Buscar material", placeholder="código, descrição, informação técnica, fabricante…",
-                            key="m_busca")
+    busca = f[0].text_input("Buscar material", placeholder="código, descrição, Descr Completa, fabricante…",
+                            key="m_busca", help="Procura em todos os materiais, inclusive no texto inteiro da "
+                                                "Descr Completa — sem limite de resultados.")
     situ = f[1].segmented_control("Situação", ["Todos", "Zerado", "Abaixo do mínimo", "OK", "Vinculado a equipamento"],
                                   default="Todos", key="m_sit")
     depositos = sorted({d for d in det["Depósito"].unique() if d})
@@ -240,27 +246,18 @@ if sel_cad:
 ordem = t["Situação"].map({"Zerado": 0, "Abaixo do mínimo": 1, "OK": 2})
 vis = t.loc[m].assign(_o=ordem).sort_values(["_o", "Descrição"]).drop(columns="_o").reset_index(drop=True)
 
-modo = st.segmented_control(
-    "Exibir", ["Ficha técnica", "Tabela"], default="Ficha técnica", required=True, key="m_modo",
-    label_visibility="collapsed",
-    format_func=lambda v: ":material/description: Ficha técnica" if v == "Ficha técnica"
-    else ":material/table: Tabela" + (" (editar mínimo)" if edita else ""))
 COLS = ["Material", "Descrição", "Informação técnica", "UM", "Estoque", "Mínimo", "Situação", "Cadastro", "Categoria",
         "Fabricante / referência", "Depósitos", "Valor", "Usado em"]
-if modo == "Ficha técnica":
-    # informação técnica com quebra de linha em cada atributo, em páginas (e sem cortar o item na impressão)
-    pag = materiais_ui.paginar(vis, f"m_pag_{hash((busca, situ, tuple(sel_dep), tuple(sel_cat), tuple(sel_cad)))}",
-                               "materiais")
-    st.html(materiais_ui.tabela_ficha(pag, ["Material", "Descrição", "Informação técnica", "UM", "Estoque", "Mínimo",
-                                            "Situação", "Cadastro", "Depósitos", "Usado em"]))
-    ui.baixar(vis[COLS], "estoque_filtrado", "Baixar lista (Excel)", chave="m_baixar_ficha")
-    st.stop()
-
-st.caption(f"{inteiro(len(vis))} materiais" + (" · a coluna **Mínimo** é editável — altere e clique em Salvar mínimos" if edita else ""))
+a, b = st.columns([3, 2], vertical_alignment="bottom")
+a.caption(f"**{inteiro(len(vis))}** materiais — a lista não tem limite: role até o fim. A **Descr Completa** (informação "
+          "técnica do Sysmat) quebra linha dentro da célula"
+          + (" · a coluna **Mínimo** é editável — altere e clique em Salvar mínimos" if edita else ""))
+with b:
+    alt_linha = materiais_ui.altura_linha("m_altura")
 if TEM_FOTO.any():  # coluna de foto só quando algum material tem foto
     COLS = ["Foto", *COLS]
 editado = st.data_editor(
-    vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(480),
+    vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(720), row_height=alt_linha,
     # a chave muda com o filtro: edições pendentes nunca "pulam" para outra linha
     key=f"m_editor_{hash((busca, situ, tuple(sel_dep), tuple(sel_cat), tuple(sel_cad), ss.get('_m_salvos', 0)))}",
     disabled=[c for c in COLS if c != "Mínimo" or not edita],
@@ -269,8 +266,7 @@ editado = st.data_editor(
         "Mínimo": ui.col_num(min_value=0, help="Estoque mínimo / ponto de reposição"),
         "Valor": ui.col_moeda("Valor (R$)"),
         "Descrição": st.column_config.TextColumn(width="medium"),
-        "Informação técnica": st.column_config.TextColumn(width="large",
-                                                          help="Descrição completa do Sysmat — veja inteira em Ficha técnica"),
+        "Informação técnica": materiais_ui.col_descr(),
         "Foto": st.column_config.ImageColumn("Foto", width="small",
                                              help="Envie a foto na visão **Fotos dos materiais**, no topo da página"),
     },
@@ -287,7 +283,18 @@ if edita and b1.button(f"Salvar mínimos ({int(mudou.sum())})", icon=":material/
     st.toast(f"{len(itens)} mínimo(s) salvo(s).", icon=":material/check:")
     st.rerun()
 with b2:
-    ui.baixar(vis[[c for c in COLS if c != "Foto"]], "estoque_filtrado", "Baixar lista (Excel)")
+    ui.baixar(vis[[c for c in COLS if c != "Foto"]].rename(columns={"Informação técnica": materiais_ui.DESCR}),
+              "estoque_filtrado", "Baixar lista (Excel)")
+
+# ficha técnica completa (a Descr Completa um atributo por linha) do material escolhido
+rot_vis = dict(zip(vis["Material"], vis["Descrição"]))
+if ss.get("m_ficha") not in rot_vis:
+    ss.pop("m_ficha", None)
+esc = st.selectbox("Ficha técnica completa", list(rot_vis), index=None, key="m_ficha",
+                   format_func=lambda c: f"{c} · {rot_vis.get(c, '')}",
+                   placeholder="Escolha um material da lista para ler a Descr Completa inteira…")
+if esc:
+    materiais_ui.ficha(vis[vis["Material"] == esc].iloc[0], f"{esc} · {rot_vis[esc]}")
 
 with st.expander("Saldo por depósito"):
     d = det if not sel_dep else det[det["Depósito"].isin(sel_dep)]

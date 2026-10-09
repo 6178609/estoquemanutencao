@@ -57,3 +57,30 @@ def test_almoxarifado_e_cadastrados():
     k = materiais.cadastrados(cat, mb52).set_index("Sysmat")
     assert k["No almoxarifado"].sum() == 3 and k.loc["10000003", "Estoque"] == 0
     assert not k.loc["10000004", "No almoxarifado"] and pd.isna(k.loc["10000004", "Estoque"])
+
+
+def test_extracao_enviada_pela_tela_vira_o_catalogo(tmp_path, monkeypatch):
+    """Antes faltava o prefixo do catálogo e o envio pela tela (Fontes de dados / Estoque) dava erro."""
+    import io
+
+    from central import bases
+
+    pasta_app, dados = tmp_path / "app", tmp_path / "dados"
+    pasta_app.mkdir()
+    dados.mkdir()
+    for k, v in {"PASTAS": str(dados), "PASTA_APP": str(pasta_app), "FONTE": "pasta"}.items():
+        monkeypatch.setenv(f"CENTRAL_{k}", v)
+    bases._fonte_cacheada.clear()
+    bases.recarregar()
+    try:
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf) as xw:
+            pd.DataFrame({"STATUS": ["APROVADO"], "QTDE ITENS": [5]}).to_excel(xw, sheet_name="Sumário", index=False)
+            CRU.to_excel(xw, sheet_name="Extração", index=False)
+        nome = bases.enviar_arquivo(leitura.CATMAT, "Extração_Geral.xlsx", buf.getvalue())
+        assert nome.startswith("CATALOGO_SYSMAT_")
+        cat = bases.catalogo().df
+        assert len(cat) == 5 and cat.set_index("Material").loc["111", "Informação técnica"].startswith("ROLAMENTO")
+    finally:
+        bases._fonte_cacheada.clear()
+        bases.recarregar()
