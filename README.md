@@ -157,6 +157,10 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
 
 ## Telas
 
+- **Execução das atividades** (Planejamento) — aba própria, com filtros próprios (período pela data programada,
+  área, tipo de ordem, setor e centro): taxa de execução, executadas, atrasadas, HH real × programada, quem fez o
+  quê e a lista de atividades. O Painel só tem um atalho para ela.
+
 - **Painel WCM** (tela inicial), em três blocos: **Visão geral** — índice WCM do pilar com a variação contra o período
   anterior, quantos indicadores estão na meta/atenção/fora, os 8 indicadores-chave (manutenção planejada, ordens no
   prazo, backlog, quebras, MTBF, MTTR, custo, execução de AFs) com mini-tendência, saúde por grupo do pilar, pontos de
@@ -218,8 +222,9 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   criticidade…), com farol, índice de qualidade, como corrigir no SAP e a lista para baixar.
 - **Fontes de dados** — de onde vem cada base, data do arquivo, troca/fixação de arquivo e envio manual.
 
-Por padrão o período é "últimos 12 meses" (até hoje); ordens com data-base futura entram em "Tudo" ou num
-período personalizado.
+Por padrão **todo o site abre no mês atual** (do dia 1º até hoje; Planos e Calendário, o mês inteiro); os
+atalhos "Mês passado", "Últimos 3 meses", "Ano atual", "Últimos 12 meses" e "Tudo" (ou as datas de/até) trazem os
+outros meses; ordens com data-base futura entram em "Tudo" ou num período personalizado.
 
 ### IW47 e Gestão de HH
 

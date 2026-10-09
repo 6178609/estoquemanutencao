@@ -3,7 +3,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from central import bases, contexto, execucao_ui, saude, ui
+from central import bases, contexto, saude, ui
 from central import indicadores as ind
 from central.leitura import IW38
 from central.util import brl, hoje_local, inteiro
@@ -145,8 +145,11 @@ if _saude["ativos"]:
 # 2. EXECUÇÃO DAS ATIVIDADES
 # ============================================================================
 st.divider()
-st.markdown("### :material/task_alt: Execução das atividades · IW38/IW38OP × IW47")
-execucao_ui.mostrar(f)
+with st.container(border=True):
+    e_, d_ = st.columns([4, 1], vertical_alignment="center")
+    e_.markdown("**:material/task_alt: Execução das atividades** · programado × executado, quem fez o quê e a lista "
+                "de atividades — numa aba própria, com filtros próprios")
+    ui.link_pagina("paginas/execucao.py", label="Abrir execução", icon=":material/arrow_forward:", onde=d_)
 
 # ============================================================================
 # 3. MAIS DETALHES

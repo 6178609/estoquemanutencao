@@ -89,7 +89,7 @@ def tipos() -> dict[str, dict]:
     return ind.tipos_de(metas(), bases.tipos_de_ordem_padrao())
 
 
-ATALHOS_PERIODO = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Próximos 30 dias", "Ano atual",
+ATALHOS_PERIODO = ["Mês atual", "Mês passado", "Últimos 3 meses", "Próximos 30 dias", "Ano atual",
                    "Últimos 12 meses", "Tudo"]
 
 
@@ -131,7 +131,7 @@ def filtros_globais(periodo: bool = True, datas: pd.Series | None = None, bases_
     referência (lida depois em st.session_state[chave_base])."""
     ss = st.session_state
     hoje = hoje_local()
-    padrao = ((pd.Timestamp(hoje) - pd.DateOffset(months=12)).date(), hoje)
+    padrao = (hoje.replace(day=1), hoje)     # todo o site abre no mês atual (realizado até hoje)
     o = bases.iw38().df
     n = bases.notas().df
     if datas is None:

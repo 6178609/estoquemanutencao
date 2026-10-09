@@ -315,7 +315,7 @@ def manter_filtros() -> None:
 # ----------------------------------------------------------------------------
 # Filtro de datas "entre" (de / até), usado em todas as telas com data
 # ----------------------------------------------------------------------------
-ATALHOS = ["Mês atual", "Últimos 30 dias", "Últimos 90 dias", "Ano atual", "Últimos 12 meses", "Tudo"]
+ATALHOS = ["Mês atual", "Mês passado", "Últimos 3 meses", "Ano atual", "Últimos 12 meses", "Tudo"]
 
 
 def _atalho(nome: str, minimo: date, maximo: date) -> tuple[date, date]:
@@ -331,6 +331,11 @@ def _atalho(nome: str, minimo: date, maximo: date) -> tuple[date, date]:
         return ini, (ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     if nome == "Mês atual":
         return hoje.replace(day=1), hoje
+    if nome == "Mês passado":
+        fim_ant = hoje.replace(day=1) - timedelta(days=1)
+        return fim_ant.replace(day=1), fim_ant
+    if nome == "Últimos 3 meses":   # o mês atual e os 2 anteriores, inteiros
+        return (pd.Timestamp(hoje.replace(day=1)) - pd.DateOffset(months=2)).date(), hoje
     if nome == "Últimos 30 dias":
         return hoje - timedelta(days=30), hoje
     if nome == "Últimos 90 dias":

@@ -1,4 +1,3 @@
-from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
@@ -22,7 +21,7 @@ with ui.caixa_filtros():
     aprov = f[2].multiselect("Aprovador atual", sorted(a for a in df["Aprovador"].unique() if a), key="r_apr", placeholder="Todos")
     solic = f[3].multiselect("Solicitado por", sorted(a for a in df["Solicitante"].unique() if a), key="r_sol", placeholder="Todos")
     datas = df["Enviado em"].dropna()
-    padrao = (datas.min().date(), datas.max().date()) if len(datas) else (hoje_local() - timedelta(days=365), hoje_local())
+    padrao = (hoje_local().replace(day=1), hoje_local())   # abre no mês atual; "Tudo" mostra o histórico
     g = st.columns([3, 6])
     with g[0]:
         ini, fim = ui.filtro_datas("r_faixa", "Enviado em (de / até)", padrao, df["Enviado em"])
@@ -39,9 +38,13 @@ if aprov:
     m &= df["Aprovador"].isin(aprov)
 if solic:
     m &= df["Solicitante"].isin(solic)
-if (ini, fim) != padrao:  # requisição sem data de envio (rascunho) só some quando há filtro de data
-    m &= ui.entre(df["Enviado em"], ini, fim)
+sem_data = m.copy()                     # os outros filtros, sem o período (para avisar o que ficou de fora)
+m &= ui.entre(df["Enviado em"], ini, fim)
 f = df.loc[m].sort_values(["Pendente", "Total"], ascending=[False, False])
+fora = df.loc[sem_data & ~m & df["Pendente"]]
+if len(fora):
+    st.info(f"**{inteiro(len(fora))} requisição(ões) pendente(s)** ({brl(fora['Total'].sum())}) foram enviadas fora do "
+            "período escolhido — use o atalho **Tudo** para ver todas.", icon=":material/schedule:")
 
 pend = f[f["Pendente"]]
 c = st.columns(4)

@@ -35,12 +35,13 @@ hoje = hoje_local()
 # ----------------------------------------------------------------------------
 # Período (entre datas: data inicial → data final)
 # ----------------------------------------------------------------------------
-ATALHOS_CAL = ["Esta semana", "Próxima semana", "Semana passada", "Este mês", "Próximo mês", "Próximos 30 dias"]
+ATALHOS_CAL = ["Este mês", "Mês passado", "Próximo mês", "Esta semana", "Próxima semana", "Semana passada"]
 MAX_DIAS_GRADE = 63  # 9 semanas: acima disso o calendário fica ilegível (a lista mostra tudo)
 
 with st.container(border=True, key="periodo-cal"):
-    semana = cal.inicio_semana(hoje)
-    ini, fim = ui.filtro_datas("cal_faixa", "Período (de / até)", (semana, semana + timedelta(days=6)), ag["Dia"],
+    mes_ini = hoje.replace(day=1)
+    mes_fim = (mes_ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    ini, fim = ui.filtro_datas("cal_faixa", "Período (de / até)", (mes_ini, mes_fim), ag["Dia"],
                                atalhos=ATALHOS_CAL)
     if fim < ini:
         ini, fim = fim, ini
