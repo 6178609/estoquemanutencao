@@ -223,15 +223,18 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   ordens mais caras.
 - **Estoque** — três áreas:
   - **Material do almoxarifado**: saldo do MB52, estoque mínimo editável, alerta de peças críticas e, de cada item, a
-    **informação técnica** do cadastro (descrição completa do Sysmat, um atributo por linha), categoria, fabricante /
-    referência e a situação do cadastro (ativo, bloqueado, cancelado, duplicado ou não encontrado no Sysmat). Exibe em
-    **Ficha técnica** (páginas de 25, 50 ou 100 itens; na impressão, Ctrl+P, cada página sai sem cortar o item) ou em
-    **Tabela** (para editar o mínimo).
-  - **Material cadastrado**: o catálogo inteiro do Sysmat (busca por código, Sysmat, descrição, fabricante,
-    referência e NCM; filtros de status, categoria e "no almoxarifado / fora"), com a mesma ficha técnica paginada.
+    coluna **Descr Completa** do Sysmat (a informação técnica, quebrando linha dentro da célula), categoria,
+    fabricante / referência e a situação do cadastro (ativo, bloqueado, cancelado, duplicado ou não encontrado no
+    Sysmat). A lista **não tem limite**: todos os itens numa rolagem só, com a altura da linha ajustável (compacta a
+    muito alta) e a **ficha técnica completa** (um atributo por linha) do material escolhido.
+  - **Material cadastrado**: o catálogo inteiro do Sysmat numa rolagem só, sem limite de resultados (busca por código,
+    Sysmat, descrição, Descr Completa, fabricante, referência e NCM; filtros de status, categoria e "no almoxarifado /
+    fora"); clicar numa linha abre a ficha técnica completa.
   - **Fotos dos materiais**: foto de cada material.
   A extração do Sysmat (planilha com Código Sysmat, Código Alpargatas, Descr Completa e Status) é reconhecida sozinha
-  pelas colunas; o cruzamento com o MB52 é pelo código Alpargatas (= código do material no SAP).
+  pelas colunas — na pasta das bases, em **Fontes de dados** ou no aviso da própria área de material, que deixa o
+  editor enviar o arquivo quando o catálogo não está carregado. O cruzamento com o MB52 é pelo código Alpargatas
+  (= código do material no SAP).
 - **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.
 - **Planos de AF** e **Ações de AF** — gestão das análises de falha e do plano de ação (veja abaixo).
 - **Metas e parâmetros** — meta de cada indicador, jornada semanal, capacidade por centro de trabalho e classe WCM de
