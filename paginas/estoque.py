@@ -2,17 +2,20 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from central import auth, bases, fotos, ui
+from central import auth, bases, fotos, materiais, materiais_ui, ui
 from central.leitura import MB52
 from central.util import brl, brl_curto, inteiro, sem_acento
 
-ui.cabecalho("Estoque de manutenção · MB52", "Saldo atual do almoxarifado, com estoque mínimo por item e as peças ligadas a cada equipamento")
+ui.cabecalho("Estoque de manutenção · MB52",
+             "Material do almoxarifado (saldo, mínimo e informação técnica de cada item) e o material cadastrado no "
+             "Sysmat, com as peças ligadas a cada equipamento")
 
 eu = auth.usuario_atual()
 edita = auth.pode_editar(eu)  # estoque mínimo e remover foto: só editor/administrador
 envia = bool(eu)              # enviar foto: qualquer usuário logado
 ss = st.session_state
-VISOES = ["Lista de materiais", "Fotos dos materiais"]
+VISOES = ["Material do almoxarifado", "Material cadastrado", "Fotos dos materiais"]
+ICONES = {VISOES[0]: ":material/inventory_2:", VISOES[1]: ":material/menu_book:", VISOES[2]: ":material/photo_camera:"}
 
 
 def apos_gravar() -> None:
@@ -36,7 +39,8 @@ for k, v in cad_eq.items():
     for m in v.get("materiais", []):
         uso.setdefault(m, []).append(f"{k} ({v.get('criticidade', '?')})")
 
-t = base.df.copy()
+# informação técnica, categoria e status do cadastro (Sysmat) de cada material do almoxarifado
+t = materiais.almoxarifado(base.df, bases.catalogo().df)
 t["Mínimo"] = t["Material"].map(lambda c: (cad_mat.get(c) or {}).get("minimo")).astype(float)
 t["Usado em"] = t["Material"].map(lambda c: ", ".join(uso.get(c, [])))
 t["Foto"] = t["Material"].map(lambda c: bases.miniatura_material(cad_mat[c]["foto"], cad_mat[c].get("foto_versao", ""))
@@ -65,7 +69,14 @@ com_foto = sorted(k for k, v in cad_mat.items() if (v or {}).get("foto"))
 visao = st.segmented_control(
     "Visão", VISOES, default=VISOES[0], required=True, key="m_visao", label_visibility="collapsed",
     # rótulos fixos (sem contagem): se mudassem entre execuções, o widget seria recriado e voltaria à lista
-    format_func=lambda v: f":material/photo_camera: {v}" if v == VISOES[1] else f":material/inventory_2: {v}")
+    format_func=lambda v: f"{ICONES[v]} {v}")
+
+# ============================================================================
+# Visão · Material cadastrado (catálogo do Sysmat)
+# ============================================================================
+if visao == VISOES[1]:
+    materiais_ui.mostrar_cadastrados()
+    st.stop()
 
 # ============================================================================
 # Visão · Fotos dos materiais
@@ -89,7 +100,7 @@ def foto_galeria(caminho: str, versao: str) -> str | None:
         return None
 
 
-if visao == VISOES[1]:
+if visao == VISOES[2]:
     # materiais da MB52 + os que têm foto mas saíram do export (a foto continua valendo)
     opcoes = list(t.sort_values("Descrição")["Material"]) + [c for c in com_foto if c not in rotulo]
     if ss.get("m_foto_mat") is not None and ss["m_foto_mat"] not in opcoes:
@@ -187,7 +198,7 @@ if visao == VISOES[1]:
     st.stop()
 
 # ============================================================================
-# Visão · Lista de materiais
+# Visão · Material do almoxarifado
 # ============================================================================
 if len(criticos):
     st.error(f"**{len(criticos)} peça(s) de equipamentos críticos sem estoque suficiente:** "
@@ -196,15 +207,23 @@ if len(criticos):
 
 with ui.caixa_filtros():
     f = st.columns([3, 3, 2])
-    busca = f[0].text_input("Buscar material", placeholder="código ou descrição…", key="m_busca")
+    busca = f[0].text_input("Buscar material", placeholder="código, descrição, informação técnica, fabricante…",
+                            key="m_busca")
     situ = f[1].segmented_control("Situação", ["Todos", "Zerado", "Abaixo do mínimo", "OK", "Vinculado a equipamento"],
                                   default="Todos", key="m_sit")
     depositos = sorted({d for d in det["Depósito"].unique() if d})
     sel_dep = f[2].multiselect("Depósito", depositos, key="m_dep", placeholder="Todos")
+    g = st.columns([3, 3, 2])
+    sel_cat = g[0].multiselect("Categoria (Sysmat)", sorted(x for x in t["Categoria"].unique() if x), key="m_cat",
+                               placeholder="Todas")
+    sel_cad = g[1].multiselect("Cadastro no Sysmat", sorted(t["Cadastro"].unique()), key="m_cad", placeholder="Todos",
+                               help="Ativo = aprovado (ou em inventário/inclusão); Bloqueado, Cancelado e Duplicado "
+                                    "pedem revisão do cadastro; Não encontrado = o código não está na extração.")
 
 m = pd.Series(True, index=t.index)
 if busca.strip():
-    hay = (t["Material"] + " " + t["Descrição"]).map(lambda s: sem_acento(s).upper())
+    hay = (t["Material"] + " " + t["Descrição"] + " " + t["Informação técnica"] + " " + t["Fabricante / referência"]
+           + " " + t["Sysmat"]).map(lambda s: sem_acento(s).upper())
     for termo in sem_acento(busca).upper().split():
         m &= hay.str.contains(termo, regex=False)
 if situ in ("Zerado", "Abaixo do mínimo", "OK"):
@@ -214,23 +233,44 @@ elif situ == "Vinculado a equipamento":
 if sel_dep:
     mats = set(det.loc[det["Depósito"].isin(sel_dep), "Material"])
     m &= t["Material"].isin(mats)
+if sel_cat:
+    m &= t["Categoria"].isin(sel_cat)
+if sel_cad:
+    m &= t["Cadastro"].isin(sel_cad)
 ordem = t["Situação"].map({"Zerado": 0, "Abaixo do mínimo": 1, "OK": 2})
 vis = t.loc[m].assign(_o=ordem).sort_values(["_o", "Descrição"]).drop(columns="_o").reset_index(drop=True)
 
+modo = st.segmented_control(
+    "Exibir", ["Ficha técnica", "Tabela"], default="Ficha técnica", required=True, key="m_modo",
+    label_visibility="collapsed",
+    format_func=lambda v: ":material/description: Ficha técnica" if v == "Ficha técnica"
+    else ":material/table: Tabela" + (" (editar mínimo)" if edita else ""))
+COLS = ["Material", "Descrição", "Informação técnica", "UM", "Estoque", "Mínimo", "Situação", "Cadastro", "Categoria",
+        "Fabricante / referência", "Depósitos", "Valor", "Usado em"]
+if modo == "Ficha técnica":
+    # informação técnica com quebra de linha em cada atributo, em páginas (e sem cortar o item na impressão)
+    pag = materiais_ui.paginar(vis, f"m_pag_{hash((busca, situ, tuple(sel_dep), tuple(sel_cat), tuple(sel_cad)))}",
+                               "materiais")
+    st.html(materiais_ui.tabela_ficha(pag, ["Material", "Descrição", "Informação técnica", "UM", "Estoque", "Mínimo",
+                                            "Situação", "Cadastro", "Depósitos", "Usado em"]))
+    ui.baixar(vis[COLS], "estoque_filtrado", "Baixar lista (Excel)", chave="m_baixar_ficha")
+    st.stop()
+
 st.caption(f"{inteiro(len(vis))} materiais" + (" · a coluna **Mínimo** é editável — altere e clique em Salvar mínimos" if edita else ""))
-COLS = ["Material", "Descrição", "UM", "Estoque", "Mínimo", "Situação", "Depósitos", "Valor", "Usado em"]
 if TEM_FOTO.any():  # coluna de foto só quando algum material tem foto
     COLS = ["Foto", *COLS]
 editado = st.data_editor(
     vis[COLS], hide_index=True, width="stretch", height=ui.altura_tabela(480),
     # a chave muda com o filtro: edições pendentes nunca "pulam" para outra linha
-    key=f"m_editor_{hash((busca, situ, tuple(sel_dep), st.session_state.get('_m_salvos', 0)))}",
+    key=f"m_editor_{hash((busca, situ, tuple(sel_dep), tuple(sel_cat), tuple(sel_cad), ss.get('_m_salvos', 0)))}",
     disabled=[c for c in COLS if c != "Mínimo" or not edita],
     column_config={
         "Estoque": ui.col_num(),
         "Mínimo": ui.col_num(min_value=0, help="Estoque mínimo / ponto de reposição"),
         "Valor": ui.col_moeda("Valor (R$)"),
-        "Descrição": st.column_config.TextColumn(width="large"),
+        "Descrição": st.column_config.TextColumn(width="medium"),
+        "Informação técnica": st.column_config.TextColumn(width="large",
+                                                          help="Descrição completa do Sysmat — veja inteira em Ficha técnica"),
         "Foto": st.column_config.ImageColumn("Foto", width="small",
                                              help="Envie a foto na visão **Fotos dos materiais**, no topo da página"),
     },

@@ -50,7 +50,7 @@ from central import leitura  # noqa: E402
 from central import mudanca_datas as md  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
 from central.fontes import FonteErro, GitHub, NaoEncontrado, Pastas  # noqa: E402
-from central.leitura import ACAO_AF, AF, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
+from central.leitura import ACAO_AF, AF, CATMAT, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
 from sincronizador import atualizar  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
@@ -59,7 +59,7 @@ ARQ_ESTADO = AQUI / "estado.json"
 DESTINO = {IW38: "bases/IW38.parquet", MB52: "bases/MB52.parquet", REQ: "bases/REQUISICOES.parquet",
            IP19: "bases/IP19.parquet", OPER: "bases/IW38OP.parquet", NOTAS: "bases/IW28.parquet",
            EQUIP: "bases/IH08.parquet", CONF: "bases/IW47.parquet", EQUIPE: "bases/EQUIPE.parquet",
-           AF: "bases/AF.parquet", ACAO_AF: "bases/AF_ACOES.parquet"}
+           AF: "bases/AF.parquet", ACAO_AF: "bases/AF_ACOES.parquet", CATMAT: "bases/CATALOGO_MATERIAIS.parquet"}
 
 log = logging.getLogger("sincronizador")
 
@@ -107,7 +107,7 @@ class _Origem:
         return self.arquivo.nome + (f" › aba {self.aba}" if self.aba else "")
 
 
-_PISTA = re.compile(r"IW38|IW39|IW28|IW29|IP19|IP24|IH08|IE05|MB52|MB51|IW47|IW41|REQUISI|SOLICITA|GEST.*HH|GERENCIADOR DE AF", re.I)
+_PISTA = re.compile(r"IW38|IW39|IW28|IW29|IP19|IP24|IH08|IE05|MB52|MB51|IW47|IW41|REQUISI|SOLICITA|GEST.*HH|GERENCIADOR DE AF|SYSMAT|EXTRA[CÇ][AÃ]O", re.I)
 
 
 def localizar(pastas: list[Path], est: dict) -> dict[str, list[_Origem]]:

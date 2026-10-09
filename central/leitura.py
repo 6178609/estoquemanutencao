@@ -22,12 +22,14 @@ IW38, MB52, REQ, IP19 = "iw38", "mb52", "requisicoes", "ip19"
 OPER, NOTAS, EQUIP = "iw38op", "iw28", "ih08"
 CONF, EQUIPE = "iw47", "equipe"
 AF, ACAO_AF = "af", "acoes_af"
+CATMAT = "catalogo_materiais"
 NOMES_BASE = {IW38: "Ordens (IW38)", IP19: "Planos de manutenção (IP19)", OPER: "Operações das ordens (IW38OP)",
               NOTAS: "Notas de manutenção (IW28)", EQUIP: "Cadastro de equipamentos (IH08)",
               MB52: "Estoque (MB52)", REQ: "Requisições de compra",
               CONF: "Apontamentos de horas (IW47)", EQUIPE: "Equipe de manutenção (Gestão de HH)",
-              AF: "Análises de falha (Gerenciador de AF)", ACAO_AF: "Ações das análises de falha (Gerenciador de AF)"}
-TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, REQ, CONF, EQUIPE, AF, ACAO_AF)
+              AF: "Análises de falha (Gerenciador de AF)", ACAO_AF: "Ações das análises de falha (Gerenciador de AF)",
+              CATMAT: "Catálogo de materiais cadastrados (Sysmat)"}
+TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, CATMAT, REQ, CONF, EQUIPE, AF, ACAO_AF)
 
 # Cada base é UM arquivo: vale o export mais recente (o PCM gera um IW38 único com plano
 # de manutenção e backlog, e um IW28 único). O mecanismo abaixo permite que uma base
@@ -336,6 +338,9 @@ def identificar(colunas) -> str | None:
 
     if tem(_COLUNAS_DO_APP):
         return None
+    # Extração do cadastro de materiais (Sysmat): código Sysmat + código Alpargatas + descrição completa
+    if tem(r"^CODIGO SYSMAT$|^CODIGOSYSMAT$") and tem(r"CODIGO ?ALPARGATAS") and tem(r"DESCR(ICAO)? COMPLETA"):
+        return CATMAT
     # Gerenciador de AF: ações (nº da análise + nº da ação + ação) e as análises de falha
     if tem(r"^N DA ANALISE$") and tem(r"^N DA ACAO$") and tem(r"^ACAO$"):
         return ACAO_AF
