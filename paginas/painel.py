@@ -36,10 +36,6 @@ st.markdown("### :material/dashboard: Visão geral")
 st.caption(f"Variações contra {ui.descrever(a_ini, a_fim)} (período anterior de mesma duração) · passe o mouse no "
            "título de cada indicador para ver a fórmula")
 cores = {k.id: ind.farol(k, atual.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
-n = {c: sum(v == c for v in cores.values()) for c in (ind.VERDE, ind.AMARELO, ind.VERMELHO, ind.NEUTRO)}
-sem_meta = sum(1 for k in ind.KPIS if cores[k.id] == ind.NEUTRO and ind.meta(k, cad) is None)
-sem_dado = n[ind.NEUTRO] - sem_meta
-cores_ant = {k.id: ind.farol(k, anterior.get(k.id), ind.meta(k, cad)) for k in ind.KPIS}
 
 
 def _indice(ids) -> float | None:
@@ -48,36 +44,7 @@ def _indice(ids) -> float | None:
         if ids else None
 
 
-avaliados = [i for i, c_ in cores.items() if c_ != ind.NEUTRO]
-indice = _indice(avaliados)
-# a variação compara só os indicadores avaliados nos dois períodos (senão compara cestas diferentes)
-comuns = [i for i in avaliados if cores_ant[i] != ind.NEUTRO]
-indice_ant = ((sum(cores_ant[i] == ind.VERDE for i in comuns) + 0.5 * sum(cores_ant[i] == ind.AMARELO for i in comuns))
-              / len(comuns) * 100) if comuns else None
-indice_comum = _indice(comuns)
-cor_indice = ui.VERDE if (indice or 0) >= 80 else ("#F2B705" if (indice or 0) >= 60 else ui.VERMELHO)
-
-c = st.columns([1.5, 1, 1, 1, 1])
-with c[0], st.container(border=True, key="kpi-neutro-indice"):
-    var = ""
-    if indice_comum is not None and indice_ant is not None:
-        dv = indice_comum - indice_ant
-        classe = "cm-up" if dv > 0 else ("cm-down" if dv < 0 else "cm-eq")
-        var = f'<span class="{classe}">{"▲" if dv > 0 else ("▼" if dv < 0 else "=")} {abs(dv):.0f} p.p.</span> vs anterior'
-    st.markdown(f'<div class="cm-kpi-t">Índice WCM do pilar</div><div class="cm-indice" style="color:{cor_indice}">'
-                f'{"—" if indice is None else f"{indice:.0f}%"}</div><div class="cm-kpi-m">{var}</div>',
-                unsafe_allow_html=True,
-                help="(indicadores na meta + metade dos em atenção) ÷ indicadores com meta e valor. A variação usa só "
-                     "os indicadores avaliados nos dois períodos. Metas em Configuração › Metas e parâmetros. Os de "
-                     f"análise de falhas (AF) valem sempre para a fábrica inteira. {len(comuns)} de {len(avaliados)} "
-                     "indicadores entram na comparação.")
-for col, (cor, nome, valor) in zip(c[1:], [(ind.VERDE, "Na meta", n[ind.VERDE]),
-                                           (ind.AMARELO, "Atenção", n[ind.AMARELO]),
-                                           (ind.VERMELHO, "Fora da meta", n[ind.VERMELHO]),
-                                           (ind.NEUTRO, "Sem meta · sem dado", f"{sem_meta} · {sem_dado}")]):
-    with col, st.container(border=True, key=f"kpi-{cor}-resumo"):
-        st.markdown(f'<div class="cm-kpi-t"><span class="cm-dot" style="background:{contexto.COR_FAROL[cor]}"></span>'
-                    f'{nome}</div><div class="cm-kpi-v">{valor}</div>', unsafe_allow_html=True)
+indice = _indice([i for i, c_ in cores.items() if c_ != ind.NEUTRO])   # só vai no Excel do scorecard
 
 # o IW38 sem as corretivas deixa "manutenção planejada" otimista: avisa (as horas da IW47 mostram o tamanho)
 cob_hh = atual.get("cobertura_hh")

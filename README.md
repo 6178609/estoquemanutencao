@@ -134,8 +134,9 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   cai na aba inicial da pessoa). Links e botões para abas bloqueadas somem.
 - Trocou a função de alguém com a tela aberta: a pessoa sai da aba na próxima verificação (até 1 min) e não consegue
   gravar nada nela no meio-tempo.
-- **Pedido de acesso**: na tela de entrada, a aba **Solicitar acesso** recebe nome, login, matrícula, setor,
-  função e a senha que a pessoa escolhe (guardada só como hash). Em **Usuários › Solicitações** o administrador
+- **Pedido de acesso**: na tela de entrada, a aba **Solicitar acesso** recebe nome, **Número Pessoal (NP)** — que é o login —,
+  função e a senha que a pessoa escolhe (guardada só como hash). O usuário é sempre o NP, só números
+  (ex.: 6178609); logins antigos fora do padrão aparecem em Usuários para trocar pelo NP. Em **Usuários › Solicitações** o administrador
   aprova (define função, perfil e **quais abas** a pessoa vê — o padrão da função ou uma lista escolhida) ou
   recusa com motivo; a barra lateral avisa quando há pedidos. Limite de 30 pedidos pendentes e um por navegador
   a cada 10 min. As abas escolhidas também podem ser alteradas depois em **Editar usuário**.
