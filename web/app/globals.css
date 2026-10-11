@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* tema escuro pelo atributo (o script do <head> já põe o certo antes de pintar a tela) */
+@custom-variant dark (&:where([data-tema=escuro], [data-tema=escuro] *));
+
+/* Paleta corporativa: verde SIM/Alpargatas como marca, azul para ação, semáforo para status. */
+@theme {
+  --font-sans: var(--fonte-texto), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--fonte-titulo), var(--fonte-texto), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
+
+  --color-marca-50: #ecfdf3;
+  --color-marca-100: #d1fadf;
+  --color-marca-200: #a6f4c5;
+  --color-marca-300: #6ce9a6;
+  --color-marca-400: #32d583;
+  --color-marca-500: #12b76a;
+  --color-marca-600: #0e9f46;
+  --color-marca-700: #087a36;
+  --color-marca-800: #05603a;
+  --color-marca-900: #054f31;
+
+  --color-acao-500: #0a6ebd;
+  --color-acao-600: #085a9b;
+  --color-alerta-500: #f7931e;
+  --color-perigo-500: #e3262b;
+  --color-sol-400: #ffc20e;
+
+  --shadow-cartao: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-flutuante: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08);
+  --radius-cartao: 1rem;
+}
+
+:root {
+  --fundo: #f6f7f5;
+  --superficie: #ffffff;
+  --superficie-2: #f2f4f1;
+  --borda: #e4e7e2;
+  --texto: #101828;
+  --texto-2: #475467;
+  --texto-3: #667085;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --fundo: #0b0f0d;
+    --superficie: #121815;
+    --superficie-2: #18201c;
+    --borda: #24302a;
+    --texto: #eef2ef;
+    --texto-2: #b3beb7;
+    --texto-3: #8a968f;
+    color-scheme: dark;
+  }
+}
+:root[data-tema="escuro"] {
+  --fundo: #0b0f0d;
+  --superficie: #121815;
+  --superficie-2: #18201c;
+  --borda: #24302a;
+  --texto: #eef2ef;
+  --texto-2: #b3beb7;
+  --texto-3: #8a968f;
+  color-scheme: dark;
+}
+
+@utility bg-fundo { background-color: var(--fundo); }
+@utility bg-superficie { background-color: var(--superficie); }
+@utility bg-superficie-2 { background-color: var(--superficie-2); }
+@utility border-borda { border-color: var(--borda); }
+@utility text-texto { color: var(--texto); }
+@utility text-texto-2 { color: var(--texto-2); }
+@utility text-texto-3 { color: var(--texto-3); }
+@utility divide-borda { & > :not(:last-child) { border-color: var(--borda); } }
+
+html, body { background: var(--fundo); color: var(--texto); }
+body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
+::selection { background: color-mix(in srgb, var(--color-marca-500) 30%, transparent); }
+
+/* números alinhados nas tabelas e nos indicadores */
+.num { font-variant-numeric: tabular-nums; }
+
+/* faixa de brilho dos esqueletos de carregamento */
+@keyframes brilho { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+.esqueleto {
+  background: linear-gradient(90deg, var(--superficie-2) 0px, var(--borda) 120px, var(--superficie-2) 240px);
+  background-size: 800px 100%;
+  animation: brilho 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@media print {
+  .nao-imprimir { display: none !important; }
+}

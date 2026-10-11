@@ -1,0 +1,86 @@
+import "server-only";
+
+import { catalogo, estoque } from "./bases";
+import { ATIVOS, INATIVOS, type ItemCatalogo } from "./materiais";
+import { casaBusca, normalizarBusca } from "./texto";
+
+export interface FiltroCatalogo {
+  q: string;
+  status: string[];
+  categorias: string[];
+  onde: "todos" | "almox" | "fora";
+  cursor: number;
+  limite: number;
+}
+
+export interface ItemCatalogoTela extends ItemCatalogo {
+  noAlmox: boolean;
+  estoque: number | null;
+}
+
+interface Indice {
+  chave: string;
+  itens: ItemCatalogoTela[];
+  busca: string[];
+  resumo: { total: number; ativos: number; aprovados: number; inativos: number; noAlmox: number;
+    status: [string, number][]; categorias: string[] };
+}
+
+let indice: Indice | null = null;
+const semZeros = (c: string) => c.replace(/^0+/, "");
+
+async function montar(): Promise<Indice | null> {
+  const [cat, est] = await Promise.all([catalogo(), estoque()]);
+  if (!cat.dados) return null;
+  const chave = `${cat.atualizado}|${cat.dados.length}|${est.atualizado}|${est.dados?.length ?? 0}`;
+  if (indice?.chave === chave) return indice;
+  const saldo = new Map<string, number>();
+  for (const e of est.dados || []) saldo.set(semZeros(e.material), (saldo.get(semZeros(e.material)) || 0) + e.estoque);
+  const itens: ItemCatalogoTela[] = cat.dados.map((c) => {
+    const s = c.material ? saldo.get(semZeros(c.material)) : undefined;
+    return { ...c, noAlmox: s !== undefined, estoque: s ?? null };
+  });
+  // no almoxarifado primeiro, depois pela descrição
+  itens.sort((a, b) => Number(b.noAlmox) - Number(a.noAlmox) || a.descricaoCurta.localeCompare(b.descricaoCurta, "pt-BR"));
+  const busca = itens.map((c) => normalizarBusca(
+    [c.material, c.sysmat, c.ncm, c.descricaoCurta, c.pdm, c.fabricanteRef, c.descrCompleta].join(" ")));
+  const contagem = new Map<string, number>();
+  for (const c of itens) contagem.set(c.status, (contagem.get(c.status) || 0) + 1);
+  const ordem = [...ATIVOS, ...INATIVOS];
+  const status = [...contagem.entries()].filter(([s]) => s)
+    .sort((a, b) => (ordem.indexOf(a[0]) + 1 || 99) - (ordem.indexOf(b[0]) + 1 || 99) || b[1] - a[1]);
+  indice = {
+    chave, itens, busca,
+    resumo: {
+      total: itens.length, ativos: itens.filter((c) => ATIVOS.includes(c.status)).length,
+      aprovados: contagem.get("APROVADO") || 0, inativos: itens.filter((c) => INATIVOS.includes(c.status)).length,
+      noAlmox: itens.filter((c) => c.noAlmox).length, status,
+      categorias: [...new Set(itens.map((c) => c.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    },
+  };
+  return indice;
+}
+
+export async function resumoCatalogo() {
+  return (await montar())?.resumo ?? null;
+}
+
+/** Uma "página" da rolagem infinita: sem limite no total, a tela pede o próximo pedaço quando chega ao fim. */
+export async function buscarCatalogo(f: FiltroCatalogo) {
+  const ind = await montar();
+  if (!ind) return null;
+  const st = new Set(f.status), cats = new Set(f.categorias);
+  const achados: number[] = [];
+  for (let i = 0; i < ind.itens.length; i++) {
+    const c = ind.itens[i];
+    if (st.size && !st.has(c.status)) continue;
+    if (cats.size && !cats.has(c.categoria)) continue;
+    if (f.onde === "almox" && !c.noAlmox) continue;
+    if (f.onde === "fora" && c.noAlmox) continue;
+    if (f.q && !casaBusca(ind.busca[i], f.q)) continue;
+    achados.push(i);
+  }
+  const fatia = achados.slice(f.cursor, f.cursor + f.limite).map((i) => ind.itens[i]);
+  const proximo = f.cursor + f.limite < achados.length ? f.cursor + f.limite : null;
+  return { itens: fatia, total: achados.length, proximo };
+}

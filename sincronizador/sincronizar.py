@@ -27,10 +27,8 @@ poucas horas, atualiza o próprio código e se reinicia (sincronizador/atualizar
 
 from __future__ import annotations
 
-import io
 import json
 import logging
-import math
 import os
 import platform
 import re
@@ -38,10 +36,9 @@ import subprocess
 import sys
 import time
 import tomllib
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
-import pandas as pd
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
@@ -50,16 +47,13 @@ from central import leitura  # noqa: E402
 from central import mudanca_datas as md  # noqa: E402
 from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
 from central.fontes import FonteErro, GitHub, NaoEncontrado, Pastas  # noqa: E402
-from central.leitura import ACAO_AF, AF, CATMAT, CONF, EQUIP, EQUIPE, IP19, IW38, MB52, NOTAS, OPER, REQ, TIPOS  # noqa: E402
+from central.leitura import TIPOS  # noqa: E402
 from sincronizador import atualizar  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 ARQ_CONFIG = AQUI / "config.toml"
 ARQ_ESTADO = AQUI / "estado.json"
-DESTINO = {IW38: "bases/IW38.parquet", MB52: "bases/MB52.parquet", REQ: "bases/REQUISICOES.parquet",
-           IP19: "bases/IP19.parquet", OPER: "bases/IW38OP.parquet", NOTAS: "bases/IW28.parquet",
-           EQUIP: "bases/IH08.parquet", CONF: "bases/IW47.parquet", EQUIPE: "bases/EQUIPE.parquet",
-           AF: "bases/AF.parquet", ACAO_AF: "bases/AF_ACOES.parquet", CATMAT: "bases/CATALOGO_MATERIAIS.parquet"}
+from central.nuvem import DESTINO, para_parquet  # noqa: E402,F401 — o site também grava parquet ao receber um envio
 
 log = logging.getLogger("sincronizador")
 
@@ -137,35 +131,6 @@ def localizar(pastas: list[Path], est: dict) -> dict[str, list[_Origem]]:
         if k not in existentes:
             del sondagens[k]
     return {t: leitura.escolher_origens(t, lst) for t, lst in candidatos.items()}
-
-
-# ----------------------------------------------------------------------------
-# Conversão para parquet (tudo como texto, no formato que o app já entende)
-# ----------------------------------------------------------------------------
-def _texto(v) -> str:
-    if v is None:
-        return ""
-    if isinstance(v, float):
-        if math.isnan(v):
-            return ""
-        if v.is_integer():
-            return str(int(v))
-        s = repr(v)
-        return f"{v:.10f}".rstrip("0") if "e" in s else s
-    if isinstance(v, (datetime, pd.Timestamp)):
-        if pd.isna(v):
-            return ""
-        return v.strftime("%d/%m/%Y %H:%M") if (v.hour or v.minute) else v.strftime("%d/%m/%Y")
-    if isinstance(v, date):
-        return v.strftime("%d/%m/%Y")
-    return str(v).strip()
-
-
-def para_parquet(df: pd.DataFrame) -> bytes:
-    saida = pd.DataFrame({c: df[c].map(_texto).astype(str) for c in df.columns})
-    buf = io.BytesIO()
-    saida.to_parquet(buf, index=False, compression="zstd")
-    return buf.getvalue()
 
 
 # ----------------------------------------------------------------------------
