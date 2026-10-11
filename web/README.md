@@ -53,7 +53,7 @@ o da Vercel não fica gravado (`central/vercel.py`).
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
 | `URL_SITE_ATUAL` | endereço do site atual, para as abas ainda não migradas |
 
-Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 —
+Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
 cada push no `main` publica em produção (https://estoquemanutencao.vercel.app) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para
 uso na empresa, o plano Pro.
 

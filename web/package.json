@@ -11,7 +11,7 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
     "@tanstack/react-virtual": "3.14.15",
