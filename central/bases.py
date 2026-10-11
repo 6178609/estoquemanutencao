@@ -906,8 +906,29 @@ def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
                ACAO_AF: "GERENCIADOR_AF_ACOES", CATMAT: "CATALOGO_SYSMAT"}[tipo]
     nome = f"{prefixo}_{datetime.now():%Y-%m-%d_%H%M%S}{ext}"
     fonte().gravar(nome, conteudo)
+    _espelhar_na_nuvem(tipo, nome, nome_original, conteudo)
     recarregar()
     return nome
+
+
+def _espelhar_na_nuvem(tipo: str, nome: str, nome_original: str, conteudo: bytes) -> None:
+    """Modo GitHub: grava também a base em parquet (bases/<TIPO>.parquet), como faz o sincronizador — é o que o
+    site novo (web/, na Vercel) lê. Falhar aqui não desfaz o envio: este site continua usando o arquivo original."""
+    f = fonte()
+    if not isinstance(f, fontes.GitHub):
+        return
+    from . import nuvem
+
+    try:
+        aba, linha = next((a, l_) for t, a, l_ in leitura.sondar(nome_original, conteudo) if t == tipo)
+        df = leitura.mesclar(tipo, [leitura.ler_arquivo(nome_original, conteudo, aba, linha)])
+        destino = nuvem.DESTINO[tipo]
+        f.gravar_caminho(destino, nuvem.para_parquet(df), f"{tipo.upper()}: enviado pelo site ({len(df)} linhas)")
+        agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        f.registrar_no_manifesto({destino: {"modificado": agora, "enviado_em": agora, "linhas": len(df),
+                                            "origem": f"{nome_original} (envio pelo site)"}})
+    except Exception:  # noqa: BLE001 — o envio original já valeu; o site novo pega no próximo envio do sincronizador
+        pass
 
 
 def recarregar() -> None:

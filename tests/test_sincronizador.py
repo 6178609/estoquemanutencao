@@ -257,3 +257,23 @@ def test_arquivo_ilegivel_nao_segura_as_outras_bases(ambiente, monkeypatch):
     assert sincronizar.rodada(cfg) == [MB52]
     monkeypatch.setattr(sincronizar.leitura, "ler_arquivo", ler)          # fechou o Excel: vai na rodada seguinte
     assert sincronizar.rodada(cfg) == [IW38]
+
+
+def test_envio_pela_tela_tambem_grava_o_parquet_que_o_site_novo_le(ambiente, monkeypatch):
+    """Modo GitHub: o export enviado pela tela vira também bases/<TIPO>.parquet (como o sincronizador grava)."""
+    gh, *_ = ambiente
+    for k, v in {"GH_REPO": "org/dados", "GH_TOKEN": "t"}.items():
+        monkeypatch.setenv(f"CENTRAL_{k}", v)
+    bases._fonte_cacheada.clear()
+    bases.recarregar()
+    try:
+        buf = io.BytesIO()
+        iw38_cru().to_excel(buf, index=False)
+        bases.enviar_arquivo(IW38, "export.xlsx", buf.getvalue())
+        pq = pd.read_parquet(io.BytesIO(gh.arquivos["bases/IW38.parquet"]))
+        assert len(pq) == len(iw38_cru()) and all(pd.api.types.is_string_dtype(pq[c]) for c in pq)
+        man = json.loads(gh.arquivos["bases/manifesto.json"])
+        assert "envio pelo site" in man["bases/IW38.parquet"]["origem"]
+    finally:
+        bases._fonte_cacheada.clear()
+        bases.recarregar()

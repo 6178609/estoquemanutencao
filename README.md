@@ -87,6 +87,14 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
   são compartilhados com toda a equipe. Antes da primeira gravação do dia, cada cadastro ganha uma cópia em
   `backup/<cadastro>-<data>.json`; se a leitura do cadastro falhar, nada é gravado (para nunca sobrescrever com vazio).
 
+## Site novo (Vercel)
+
+O frontend está sendo migrado **por etapas** para um site novo em Next.js, publicado na **Vercel** (pasta
+[`web/`](web/README.md)). Ele lê e grava o mesmo repositório de dados, com as mesmas contas (NP e senha), as mesmas
+funções e os mesmos cadastros — os dois sites funcionam juntos. Já estão no site novo: **Início** e **Estoque**
+(material do almoxarifado com a Descr Completa e material cadastrado, sem limite); as demais abas abrem no site atual
+até serem migradas.
+
 ## Site online 24h (nuvem)
 
 O app pode ficar publicado no **Streamlit Community Cloud**, com um endereço que abre de qualquer lugar.
