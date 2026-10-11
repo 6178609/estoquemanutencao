@@ -14,6 +14,7 @@ function fonteFalsa(inicial: Record<string, unknown>, intrometer = false) {
     modo: "pasta", descricao: "memória",
     versoes: async () => new Map([...arquivos.entries()].map(([k, v]) => [k, v.versao])),
     ler: async (c) => arquivos.get(c) ?? null,
+    apagar: async (c) => { arquivos.delete(c); return true; },
     gravarCondicional: async (c, bytes, versao) => {
       if (!intrometeu && c === "app/cadastro_materiais.json") {
         intrometeu = true; // outra pessoa grava a foto do 222 antes de nós

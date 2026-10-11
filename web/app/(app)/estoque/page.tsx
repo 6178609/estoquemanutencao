@@ -51,16 +51,16 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
       </nav>
       {aba === "almox" && almox && (
         <>
-          {!almox.estoque.dados && <Aviso>O export do <b>MB52</b> ainda não está no repositório de dados{almox.estoque.erro ? ` (${almox.estoque.erro})` : ""}.</Aviso>}
+          {!almox.estoque.dados && <Aviso>O export do <b>MB52</b> ainda não está no repositório de dados{almox.estoque.erro ? ` (${almox.estoque.erro})` : ""}. Envie em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>}
           {almox.estoque.dados && !almox.catalogo.dados && (
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
-              <b> Configuração › Fontes de dados</b> no site atual (ou deixe o sincronizador do PC enviar).</Aviso>
+              <Link href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
           <Almoxarifado itens={almox.itens} edita={podeEditar(u)} />
         </>
       )}
       {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} /> : (
-        <Aviso>O <b>catálogo de materiais (Sysmat)</b> ainda não está no repositório de dados. Envie a extração em <b>Configuração › Fontes de dados</b> no site atual.</Aviso>
+        <Aviso>O <b>catálogo de materiais (Sysmat)</b> ainda não está no repositório de dados. Envie a extração em <Link href="/dados" className="font-medium underline">Configuração › Fontes de dados</Link>.</Aviso>
       ))}
     </Pagina>
   );

@@ -1,16 +1,16 @@
 # Central de Manutenção · site novo (Next.js na Vercel)
 
-Frontend novo da Central de Manutenção, migrado **por etapas** a partir do site atual (Streamlit). Lê e grava o
-**mesmo repositório privado de dados** que o site atual e o sincronizador do PC usam — os dois sites funcionam ao
-mesmo tempo, com as mesmas contas, as mesmas regras de acesso por função e os mesmos cadastros.
+Central de Manutenção na Vercel — funciona sozinha, sem o app Streamlit (`../streamlit_app.py`). Lê e grava um
+**repositório privado de dados** no GitHub: as bases do SAP (anexadas em **Fontes de dados** ou enviadas pelo
+sincronizador do PC) e os cadastros (usuários, mínimos, equipamentos), no mesmo formato do app Streamlit.
 
-| Onda | Abas no site novo | Situação |
+| Onda | Abas | Situação |
 |---|---|---|
-| 1 | Início · Estoque (material do almoxarifado e material cadastrado) | no ar |
+| 1 | Início · Estoque · Fontes de dados · Usuários · Minha conta | no ar |
 | 2 | Equipamentos / Gestão de ativos · Painel WCM | próxima |
 | 3+ | Ordens, planos, programação, HH, AF, custos, configuração… | a seguir |
 
-As abas ainda não migradas aparecem no menu e abrem no site atual (`URL_SITE_ATUAL`).
+As abas ainda não migradas aparecem no menu como "em breve".
 
 ## Visual
 
@@ -24,36 +24,30 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
 
 ## Como os dados chegam
 
-- **`bases/*.parquet`** no repositório de dados: o sincronizador do PC grava o export mais novo de cada base; quando
-  alguém envia um export pela tela do site atual (modo nuvem), o site atual grava também o parquet
-  (`central/nuvem.py`). O site novo só lê esses parquets — nunca planilhas soltas.
-- **`app/*.json`**: cadastros (usuários, mínimos de estoque, equipamentos…). As gravações daqui usam a mesma regra do
-  site atual: relê, aplica só o que mudou, grava condicionado à versão (sem perder a gravação de outra pessoa) e faz
+- **`bases/*.parquet`** no repositório de dados: gravados pela aba **Fontes de dados** (o export é lido no navegador)
+  ou pelo sincronizador do PC; `bases/manifesto.json` guarda a data do export, a origem e, numa base grande, as
+  partes. O servidor só lê esses parquets — nunca planilhas soltas.
+- **`app/*.json`**: cadastros (usuários, mínimos de estoque, equipamentos…). As gravações usam a mesma regra do app
+  Streamlit: relê, aplica só o que mudou, grava condicionado à versão (sem perder a gravação de outra pessoa) e faz
   a cópia diária em `app/backup/`.
-- **Login**: Número Pessoal (NP) + senha do site atual (mesmo hash PBKDF2). A sessão fica registrada em
-  `usuarios.json` como no site atual: desativar a pessoa ou trocar a senha dela derruba o acesso nos dois sites.
+- **Login**: Número Pessoal (NP) + senha (hash PBKDF2, o mesmo formato do app Streamlit). A sessão fica registrada
+  em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora.
 - Sem repositório configurado o site abre em **modo demonstração** (dados fictícios gerados no código).
 
 Nenhum dado da empresa vai para este repositório (ele é público).
 
-## Ligar aos dados reais direto na Vercel (sem o site atual)
+## Ligar aos dados reais
 
 1. Crie o repositório **privado** `estoquemanutencao-dados` e um token fine-grained só para ele (Contents: read/write).
-2. No PC com os exports do SAP, rode `sincronizador\configurar.bat` com esse token: ele envia os exports para
-   `bases/` a cada 5 min.
-3. Na Vercel (Settings › Environment Variables), crie `DADOS_GH_REPO` e `DADOS_GH_TOKEN` (Sensitive) e publique de
+2. Na Vercel (Settings › Environment Variables), crie `DADOS_GH_REPO` e `DADOS_GH_TOKEN` (Sensitive) e publique de
    novo (Deployments › Redeploy).
-4. **Primeiro acesso**: com o repositório sem usuários, a tela de entrada pede para criar o administrador, com o
+3. **Primeiro acesso**: com o repositório sem usuários, a tela de entrada pede para criar o administrador, com o
    **código de configuração** = os 6 últimos caracteres do token (prova que quem cria configurou o site). Depois,
    a equipe é cadastrada em **Usuários** (senha provisória, trocada no primeiro acesso).
-
-## Ligar aos dados reais pelo site atual (sem copiar o token do GitHub)
-
-No site atual, um **administrador** abre **Configuração › Fontes de dados › Site novo (Vercel)**, cola um token da
-Vercel (vercel.com › Account Settings › Tokens, validade curta) e clica em **Ligar o site novo**. O site atual grava
-na Vercel o repositório de dados e o token que ele mesmo já usa (secrets do modo GitHub ou o
-`sincronizador/config.toml` do PC), mais o endereço dele, e publica de novo. O token do GitHub nunca aparece na tela;
-o da Vercel não fica gravado (`central/vercel.py`).
+4. **Fontes de dados**: anexe os exports do SAP (vários de uma vez). O navegador reconhece cada base pelos
+   cabeçalhos (`lib/leitura/`, porta de `central/leitura.py`), gera o parquet e envia — em partes de até 3 MB
+   quando a base é grande (limite de 4,5 MB por requisição da Vercel). O manifesto só aponta para a base nova quando
+   a última parte chega. O sincronizador do PC (`sincronizador/`) continua opcional, gravando o mesmo arquivo.
 
 ## Variáveis (Vercel › Project › Settings › Environment Variables)
 
@@ -62,7 +56,6 @@ o da Vercel não fica gravado (`central/vercel.py`).
 | `DADOS_GH_REPO` | repositório privado de dados, ex.: `6178609/estoquemanutencao-dados` |
 | `DADOS_GH_TOKEN` | token do GitHub com leitura e escrita **só** nesse repositório (fine-grained, Contents: read/write) |
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
-| `URL_SITE_ATUAL` | endereço do site atual, para as abas ainda não migradas |
 
 Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
 cada push no `main` publica em produção (https://estoquemanutencao.vercel.app) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para

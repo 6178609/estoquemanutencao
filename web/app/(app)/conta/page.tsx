@@ -48,7 +48,7 @@ export default async function MinhaConta() {
         <Cartao className="p-6">
           <IconeQuadro icone={MonitorSmartphone} tom="azul" />
           <div className="mt-4 font-display text-[17px] font-medium">Aparelhos conectados</div>
-          <p className="mt-1 text-[13.5px] text-texto-3">{aparelhos} aparelho(s) com sessão ativa nos dois sites.</p>
+          <p className="mt-1 text-[13.5px] text-texto-3">{aparelhos} aparelho(s) com sessão ativa.</p>
           {aparelhos > 0 && (
             <form action={acaoDesconectarTodos} className="mt-5">
               <button className={BOTAO_SECUNDARIO}>Desconectar todos os aparelhos</button>

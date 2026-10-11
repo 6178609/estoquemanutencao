@@ -14,6 +14,7 @@ function fonteMemoria() {
     modo: "github", descricao: "memória",
     versoes: async () => new Map([...arquivos.entries()].map(([k, v]) => [k, v.versao])),
     ler: async (c) => arquivos.get(c) ?? null,
+    apagar: async (c) => { arquivos.delete(c); return true; },
     gravarCondicional: async (c, bytes, versao) => {
       if ((arquivos.get(c)?.versao ?? null) !== versao) return false;
       arquivos.set(c, { bytes, versao: String(n++) });

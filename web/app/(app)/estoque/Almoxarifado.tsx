@@ -202,7 +202,7 @@ function Detalhe({ it, edita, aoSalvar }: { it: ItemAlmox; edita: boolean; aoSal
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setEstado({ gravando: false, msg: j.erro || "Não foi possível salvar.", erro: true }); return; }
     aoSalvar(it.material, minimo);
-    setEstado({ gravando: false, msg: "Mínimo salvo — vale também no site atual.", erro: false });
+    setEstado({ gravando: false, msg: "Mínimo salvo.", erro: false });
   };
   const cartoes = [
     { r: "Estoque", v: `${numero(it.estoque)} ${it.um}` }, { r: "Mínimo", v: it.minimo == null ? "—" : numero(it.minimo) },

@@ -89,11 +89,11 @@ Central de Manutenção  →  todas as telas abertas recarregam quando chega arq
 
 ## Site novo (Vercel)
 
-O frontend está sendo migrado **por etapas** para um site novo em Next.js, publicado na **Vercel** (pasta
-[`web/`](web/README.md)). Ele lê e grava o mesmo repositório de dados, com as mesmas contas (NP e senha), as mesmas
-funções e os mesmos cadastros — os dois sites funcionam juntos. Já estão no site novo: **Início** e **Estoque**
-(material do almoxarifado com a Descr Completa e material cadastrado, sem limite); as demais abas abrem no site atual
-até serem migradas.
+O site novo em Next.js, publicado na **Vercel** (pasta [`web/`](web/README.md)), funciona **sozinho**, sem este app
+Streamlit: lê o repositório privado de dados no GitHub, tem login, usuários e a aba **Fontes de dados**, onde os
+exports do SAP são anexados direto (lidos e compactados no navegador). O sincronizador do PC continua opcional.
+Já estão no site novo: **Início**, **Estoque**, **Fontes de dados**, **Usuários** e **Minha conta**; as demais abas
+aparecem como "em breve" até serem migradas.
 
 ## Site online 24h (nuvem)
 

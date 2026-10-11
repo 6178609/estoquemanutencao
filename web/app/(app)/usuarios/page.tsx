@@ -47,7 +47,7 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
   return (
     <Pagina>
       <Cabecalho titulo="Usuários," destaque="quem acessa e o que cada um pode fazer."
-        subtitulo="As contas valem nos dois sites (o mesmo cadastro). Função define as abas; perfil define o que a pessoa pode alterar." />
+        subtitulo="Função define as abas; perfil define o que a pessoa pode alterar." />
       {primeiro && (
         <div className="flex gap-3 rounded-cartao border border-marca-500/30 bg-marca-500/10 px-4 py-3 text-[14px] text-texto-2">
           <PartyPopper className="mt-0.5 size-4 shrink-0 text-marca-600" />

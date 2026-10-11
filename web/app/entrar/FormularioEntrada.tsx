@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 
 import { acaoDemo, acaoEntrar, type EstadoEntrada } from "./acoes";
 
-export function FormularioEntrada({ demo, siteAtual }: { demo: boolean; siteAtual: string | null }) {
+export function FormularioEntrada({ demo }: { demo: boolean }) {
   const [estado, enviar, enviando] = useActionState<EstadoEntrada, FormData>(acaoEntrar, { erro: "", login: "" });
   const [ver, setVer] = useState(false);
 
@@ -61,8 +61,7 @@ export function FormularioEntrada({ demo, siteAtual }: { demo: boolean; siteAtua
         </button>
       </form>
       <p className="text-center text-[12.5px] text-texto-3">
-        Sem acesso ou esqueceu a senha? Peça a um administrador do PCM
-        {siteAtual ? <> (ou em <a href={siteAtual} className="font-medium text-acao-500 hover:underline">Solicitar acesso</a>, no site atual)</> : ""}.
+        Sem acesso ou esqueceu a senha? Peça a um administrador do PCM.
       </p>
     </div>
   );

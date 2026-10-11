@@ -9,7 +9,7 @@ import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
 import { modo } from "@/lib/dados/fonte";
 import { brlCurto, dataHora, idade, inteiro, saudacao } from "@/lib/formato";
-import { GRUPOS, urlSiteAtual } from "@/lib/navegacao";
+import { GRUPOS } from "@/lib/navegacao";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +87,7 @@ export default async function Inicio() {
         <section className="space-y-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <Titulo nivel={2} titulo="Suas abas," destaque="num lugar só." />
-            <span className="text-[13px] text-texto-3"><Selo cor="verde">● no site novo</Selo> as demais abrem no site atual</span>
+            <span className="text-[13px] text-texto-3"><Selo cor="verde">● pronta</Selo> as demais chegam em breve</span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {abas.map((a) => {
@@ -103,9 +103,7 @@ export default async function Inicio() {
               );
               const cls = "group flex flex-col items-center rounded-cartao px-2 py-4 transition hover:bg-superficie-2";
               if (a.rota) return <Link key={a.id} href={a.rota} className={cls}>{conteudo}</Link>;
-              const url = urlSiteAtual(a.id);
-              return url ? <a key={a.id} href={url} className={cls}>{conteudo}</a>
-                : <div key={a.id} className={cls + " cursor-default opacity-50"} title="Em breve no site novo">{conteudo}</div>;
+              return <div key={a.id} className={cls + " cursor-default opacity-50"} title="Em breve">{conteudo}</div>;
             })}
           </div>
         </section>
@@ -127,7 +125,7 @@ export default async function Inicio() {
               <div className="font-display text-[15px] font-medium">Fonte de dados</div>
               <p className="mt-1 text-[13.5px] text-texto-3">
                 {modo() === "demo" ? "Demonstração (dados fictícios). Para os dados reais, preencha DADOS_GH_REPO e DADOS_GH_TOKEN nas variáveis do projeto na Vercel."
-                  : modo() === "github" ? "Repositório privado de dados — o mesmo do site atual e do sincronizador." : "Pasta local."}
+                  : modo() === "github" ? "Repositório privado de dados — atualizado em Fontes de dados (ou pelo sincronizador do PC)." : "Pasta local."}
               </p>
             </div>
           </div>

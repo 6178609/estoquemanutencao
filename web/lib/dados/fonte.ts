@@ -25,10 +25,12 @@ export interface Fonte {
   modo: Modo;
   descricao: string;
   /** Versões de todos os arquivos (uma chamada só): para saber se algo mudou sem baixar nada. */
-  versoes(): Promise<Map<string, string>>;
+  versoes(fresco?: boolean): Promise<Map<string, string>>;
   ler(caminho: string): Promise<Lido | null>;
   /** Grava só se a versão ainda é `versao` (null = arquivo novo). false = alguém gravou antes (releia). */
   gravarCondicional(caminho: string, bytes: Uint8Array, versao: string | null, mensagem: string): Promise<boolean>;
+  /** Apaga o arquivo (se ainda estiver na versão informada). */
+  apagar(caminho: string, versao: string, mensagem: string): Promise<boolean>;
 }
 
 export class FonteErro extends Error {}
@@ -70,8 +72,8 @@ class GitHub implements Fonte {
     return `/repos/${this.repo}/contents/${caminho.split("/").map(encodeURIComponent).join("/")}`;
   }
 
-  async versoes(): Promise<Map<string, string>> {
-    if (this.cacheVersoes && Date.now() - this.cacheVersoes.em < TEMPO_VERSOES_MS) return this.cacheVersoes.mapa;
+  async versoes(fresco = false): Promise<Map<string, string>> {
+    if (!fresco && this.cacheVersoes && Date.now() - this.cacheVersoes.em < TEMPO_VERSOES_MS) return this.cacheVersoes.mapa;
     const r = await this.pedir(`/repos/${this.repo}/git/trees/${encodeURIComponent(this.ramo)}?recursive=1`);
     if (r.status === 404 || r.status === 409) return new Map();
     if (!r.ok) throw new FonteErro(`Erro ${r.status} ao listar o repositório de dados.`);
@@ -111,6 +113,15 @@ class GitHub implements Fonte {
       return false;
     }
     throw new FonteErro(`Erro ${r.status} ao gravar ${caminho}.`);
+  }
+
+  async apagar(caminho: string, versao: string, mensagem: string) {
+    const r = await this.pedir(this.url(caminho), { method: "DELETE",
+      body: JSON.stringify({ message: mensagem, sha: versao, branch: this.ramo }) }, 1);
+    this.cacheVersoes = null;
+    if (r.ok || r.status === 404) return true;
+    if (r.status === 409 || r.status === 422) return false;
+    throw new FonteErro(`Erro ${r.status} ao apagar ${caminho}.`);
   }
 }
 
@@ -170,6 +181,14 @@ class Pasta implements Fonte {
     const tmp = `${alvo}.${process.pid}.tmp`;
     await fs.writeFile(tmp, bytes);
     await fs.rename(tmp, alvo);
+    return true;
+  }
+
+  async apagar(caminho: string, versao: string) {
+    const atual = await this.ler(caminho);
+    if (!atual) return true;
+    if (atual.versao !== versao) return false;
+    await fs.unlink(this.abs(caminho));
     return true;
   }
 }

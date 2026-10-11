@@ -13,7 +13,18 @@ export const ARQUIVOS = {
   mb52: "bases/MB52.parquet",
   catalogo: "bases/CATALOGO_MATERIAIS.parquet",
 } as const;
-const MANIFESTO = "bases/manifesto.json";
+export const MANIFESTO = "bases/manifesto.json";
+
+/** Entrada do manifesto: data do export original, de onde veio e, numa base grande enviada pelo site, as partes. */
+export interface InfoBase {
+  modificado?: string;
+  origem?: string;
+  linhas?: number;
+  enviado_em?: string;
+  enviado_por?: string;
+  pc?: string;
+  partes?: string[];
+}
 
 export interface Base<T> {
   dados: T | null;
@@ -25,13 +36,13 @@ export interface Base<T> {
 const g = globalThis as unknown as { __cmBases?: Map<string, { versao: string; valor: unknown }> };
 const cache = (g.__cmBases ??= new Map()); // uma cópia por processo (páginas e rotas de API)
 
-async function manifesto(): Promise<Record<string, { modificado?: string; origem?: string }>> {
+export async function manifesto(): Promise<Record<string, InfoBase>> {
   const f = fonte();
   if (!f) return {};
   const versao = (await f.versoes()).get(MANIFESTO);
   if (!versao) return {};
   const c = cache.get(MANIFESTO);
-  if (c?.versao === versao) return c.valor as Record<string, { modificado?: string; origem?: string }>;
+  if (c?.versao === versao) return c.valor as Record<string, InfoBase>;
   const lido = await f.ler(MANIFESTO);
   const valor = lido ? JSON.parse(new TextDecoder().decode(lido.bytes)) : {};
   cache.set(MANIFESTO, { versao, valor });
@@ -41,16 +52,19 @@ async function manifesto(): Promise<Record<string, { modificado?: string; origem
 async function lerBase<T>(caminho: string, preparar: (linhas: Record<string, unknown>[]) => T): Promise<Base<T>> {
   const f = fonte()!;
   const [versoes, man] = await Promise.all([f.versoes(), manifesto()]);
-  const versao = versoes.get(caminho);
   const info = man[caminho] || {};
   const meta = { atualizado: info.modificado || null, origem: info.origem || caminho };
-  if (!versao) return { dados: null, ...meta };
+  // base enviada em partes pelo site (o manifesto diz quais) ou o arquivo único do sincronizador
+  const arquivos = info.partes?.length ? info.partes : [caminho];
+  if (arquivos.some((a) => !versoes.has(a))) return { dados: null, ...meta };
+  const versao = arquivos.map((a) => versoes.get(a)).join("+");
   const c = cache.get(caminho);
   if (c?.versao === versao) return { dados: c.valor as T, ...meta };
   try {
-    const lido = await f.ler(caminho);
-    if (!lido) return { dados: null, ...meta };
-    const valor = preparar(await lerParquet(lido.bytes));
+    const lidos = await Promise.all(arquivos.map((a) => f.ler(a)));
+    if (lidos.some((l) => !l)) return { dados: null, ...meta };
+    const linhas = (await Promise.all(lidos.map((l) => lerParquet(l!.bytes)))).flat();
+    const valor = preparar(linhas);
     cache.set(caminho, { versao, valor });
     return { dados: valor, ...meta };
   } catch (e) {

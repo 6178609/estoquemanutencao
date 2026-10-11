@@ -1,6 +1,6 @@
 /**
  * Abas do sistema — a MESMA lista de central/navegacao.py (o teste tests/test_web_navegacao.py confere).
- * `migrada`: a aba já existe no site novo; as demais abrem no site atual (URL_SITE_ATUAL).
+ * `rota`: a aba já existe aqui; as demais aparecem como "em breve" no menu.
  */
 export interface Aba {
   id: string;
@@ -43,13 +43,9 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Configuração", abas: [
     { id: "metas", titulo: "Metas e parâmetros", icone: "SlidersHorizontal" },
     { id: "qualidade", titulo: "Qualidade dos dados", icone: "BadgeCheck" },
-    { id: "dados", titulo: "Fontes de dados", icone: "FolderOpen" },
+    { id: "dados", titulo: "Fontes de dados", icone: "FolderOpen", rota: "/dados" },
   ] },
 ];
 
 export const TODAS = GRUPOS.flatMap((g) => g.abas.map((a) => a.id));
 
-export function urlSiteAtual(id: string): string | null {
-  const base = process.env.URL_SITE_ATUAL?.trim().replace(/\/$/, "");
-  return base ? `${base}/${id}` : null;
-}
