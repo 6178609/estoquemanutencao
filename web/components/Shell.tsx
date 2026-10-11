@@ -34,39 +34,40 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
   const rota = usePathname();
   const ativo = (href: string) => (href === "/" ? rota === "/" : rota.startsWith(href));
   return (
-    <nav className="space-y-6">
+    <nav className="space-y-5">
       <Link href="/" onClick={aoNavegar}
-        className={clsx("flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
-          ativo("/") ? "bg-marca-600 text-white shadow-cartao" : "text-texto-2 hover:bg-superficie-2 hover:text-texto")}>
-        <Icone nome="Home" className="size-4 shrink-0" />{!recolhido && "Início"}
+        className={clsx("relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition",
+          ativo("/") ? "bg-superficie-3 font-medium text-texto" : "text-texto-2 hover:bg-superficie-2 hover:text-texto")}>
+        {ativo("/") && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
+        <Icone nome="Home" className="size-4 shrink-0" strokeWidth={1.75} />{!recolhido && "Início"}
       </Link>
       {grupos.map((g) => (
         <div key={g.titulo}>
-          {!recolhido && <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-texto-3">{g.titulo}</div>}
+          {!recolhido && <div className="mb-1 px-3 text-[11px] font-medium text-texto-4">{g.titulo}</div>}
           <ul className="space-y-0.5">
             {g.itens.map((it) => (
               <li key={it.id}>
                 {it.externo && !it.href ? (
                   <span title={`${it.titulo} — em breve no site novo`}
-                    className="flex cursor-default items-center gap-3 rounded-xl px-3 py-2 text-sm text-texto-3/70">
-                    <Icone nome={it.icone} className="size-4 shrink-0 opacity-50" />
-                    {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span><span className="text-[10px] font-semibold uppercase tracking-wide">em breve</span></>}
+                    className="flex cursor-default items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] text-texto-4">
+                    <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
+                    {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span><span className="text-[10.5px]">em breve</span></>}
                   </span>
                 ) : it.externo ? (
                   <a href={it.href} title={`${it.titulo} — ainda no site atual`}
-                    className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-texto-3 transition hover:bg-superficie-2 hover:text-texto-2">
-                    <Icone nome={it.icone} className="size-4 shrink-0 opacity-70" />
+                    className="group flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] text-texto-3 transition hover:bg-superficie-2 hover:text-texto">
+                    <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
                     {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span>
                       <ArrowUpRight className="size-3.5 opacity-0 transition group-hover:opacity-100" /></>}
                   </a>
                 ) : (
                   <Link href={it.href} onClick={aoNavegar} title={it.titulo}
-                    className={clsx("flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
-                      ativo(it.href) ? "bg-marca-600 text-white shadow-cartao" : "text-texto hover:bg-superficie-2")}>
-                    <Icone nome={it.icone} className="size-4 shrink-0" />
+                    className={clsx("relative flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] transition",
+                      ativo(it.href) ? "bg-superficie-3 font-medium text-texto" : "text-texto hover:bg-superficie-2")}>
+                    {ativo(it.href) && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
+                    <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
                     {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span>
-                      <span className={clsx("rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                        ativo(it.href) ? "bg-white/20" : "bg-marca-100 text-marca-800 dark:bg-marca-900/50 dark:text-marca-200")}>novo</span></>}
+                      <span className="size-1.5 rounded-full bg-marca-500" title="Já no site novo" /></>}
                   </Link>
                 )}
               </li>
@@ -95,8 +96,8 @@ function BotaoTema() {
   };
   return (
     <button onClick={trocar} aria-label="Alternar tema claro/escuro"
-      className="grid size-9 place-items-center rounded-xl text-texto-2 transition hover:bg-superficie-2">
-      {escuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      className="grid size-9 place-items-center rounded-lg text-texto-2 transition hover:bg-superficie-2">
+      {escuro ? <Sun className="size-4" strokeWidth={1.75} /> : <Moon className="size-4" strokeWidth={1.75} />}
     </button>
   );
 }
@@ -113,14 +114,14 @@ export function Shell({ grupos, pessoa, sair, children }: {
   useEffect(() => setAberto(false), [rota]);
 
   const rodape = (
-    <div className="flex items-center gap-3 rounded-2xl border border-borda bg-superficie p-2.5">
-      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-marca-500 to-acao-500 font-display text-sm font-bold text-white">
+    <div className="flex items-center gap-3 rounded-xl border border-borda bg-superficie-2 p-2">
+      <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-marca-500 font-display text-[13px] font-medium text-white">
         {iniciais(pessoa.nome) || "?"}
       </div>
       {!recolhido && (
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-sm font-semibold">{pessoa.nome}</div>
-          <div className="truncate text-xs text-texto-3">{pessoa.funcao} · {pessoa.perfil}</div>
+          <div className="truncate text-[13px] font-medium">{pessoa.nome}</div>
+          <div className="truncate text-[11.5px] text-texto-3">{pessoa.funcao} · {pessoa.perfil}</div>
         </div>
       )}
       <form action={sair}>
@@ -134,8 +135,8 @@ export function Shell({ grupos, pessoa, sair, children }: {
   return (
     <div className="min-h-dvh lg:flex">
       {/* barra lateral (computador) */}
-      <aside className={clsx("nao-imprimir sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-borda bg-superficie/80 backdrop-blur lg:flex",
-        recolhido ? "w-[76px]" : "w-[272px]")}>
+      <aside className={clsx("nao-imprimir sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-borda bg-superficie lg:flex",
+        recolhido ? "w-[72px]" : "w-[256px]")}>
         <div className="flex items-center justify-between px-4 pb-4 pt-5">
           <Marca compacta={recolhido} />
         </div>
@@ -182,7 +183,8 @@ export function Shell({ grupos, pessoa, sair, children }: {
 
       <main className="min-w-0 flex-1">
         {pessoa.demo && (
-          <div className="nao-imprimir border-b border-sol-400/40 bg-sol-400/15 px-4 py-2 text-center text-sm font-medium text-texto">
+          <div className="nao-imprimir border-b border-borda bg-superficie-2 px-4 py-2 text-center text-[13px] text-texto-2">
+            <span className="mr-2 inline-block size-1.5 -translate-y-0.5 rounded-full bg-alp-amarelo" />
             Modo demonstração — dados fictícios. Ligue o repositório de dados nas variáveis da Vercel para ver os dados reais.
           </div>
         )}

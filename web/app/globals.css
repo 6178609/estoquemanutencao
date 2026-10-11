@@ -3,83 +3,113 @@
 /* tema escuro pelo atributo (o script do <head> já põe o certo antes de pintar a tela) */
 @custom-variant dark (&:where([data-tema=escuro], [data-tema=escuro] *));
 
-/* Paleta corporativa: verde SIM/Alpargatas como marca, azul para ação, semáforo para status. */
+/*
+ * Estilo: base neutra quase preto/branco, tipografia faz a hierarquia (títulos em dois tons: a segunda parte no
+ * cinza da marca SIM), um objeto por seção. Cores SÓ das logos:
+ *   SIM ........ verde #009C48 · cinza #6D6E71
+ *   Alpargatas . vermelho #E41824 · laranja #F07818 · amarelo #FCB40C · azul #006CB4 · ciano #009CD8
+ *                azul-claro #6CCCF0 · lima #A8C024 · verde #009C48
+ */
 @theme {
   --font-sans: var(--fonte-texto), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--fonte-titulo), var(--fonte-texto), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
 
-  --color-marca-50: #ecfdf3;
-  --color-marca-100: #d1fadf;
-  --color-marca-200: #a6f4c5;
-  --color-marca-300: #6ce9a6;
-  --color-marca-400: #32d583;
-  --color-marca-500: #12b76a;
-  --color-marca-600: #0e9f46;
-  --color-marca-700: #087a36;
-  --color-marca-800: #05603a;
-  --color-marca-900: #054f31;
+  /* verde SIM (marca, ação principal) */
+  --color-marca-50: #e8f7ef;
+  --color-marca-100: #c9eedb;
+  --color-marca-200: #93dcb6;
+  --color-marca-300: #57c58c;
+  --color-marca-400: #22b068;
+  --color-marca-500: #009c48;
+  --color-marca-600: #008a40;
+  --color-marca-700: #007134;
+  --color-marca-800: #005a29;
+  --color-marca-900: #003f1d;
 
-  --color-acao-500: #0a6ebd;
-  --color-acao-600: #085a9b;
-  --color-alerta-500: #f7931e;
-  --color-perigo-500: #e3262b;
-  --color-sol-400: #ffc20e;
+  /* espectro Alpargatas (dados, categorias, status) */
+  --color-alp-vermelho: #e41824;
+  --color-alp-laranja: #f07818;
+  --color-alp-amarelo: #fcb40c;
+  --color-alp-azul: #006cb4;
+  --color-alp-ciano: #009cd8;
+  --color-alp-celeste: #6cccf0;
+  --color-alp-lima: #a8c024;
+  --color-alp-verde: #009c48;
 
-  --shadow-cartao: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
-  --shadow-flutuante: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08);
+  /* nomes de uso (status) apontando para a paleta das logos */
+  --color-acao-500: #006cb4;
+  --color-acao-600: #005a96;
+  --color-alerta-500: #f07818;
+  --color-perigo-500: #e41824;
+  --color-sol-400: #fcb40c;
+  --color-sim-cinza: #6d6e71;
+
+  --shadow-cartao: 0 1px 2px rgb(9 9 11 / 0.04);
+  --shadow-flutuante: 0 24px 48px -16px rgb(9 9 11 / 0.22), 0 2px 6px rgb(9 9 11 / 0.06);
   --radius-cartao: 1rem;
 }
 
 :root {
-  --fundo: #f6f7f5;
+  --fundo: #ffffff;
   --superficie: #ffffff;
-  --superficie-2: #f2f4f1;
-  --borda: #e4e7e2;
-  --texto: #101828;
-  --texto-2: #475467;
-  --texto-3: #667085;
+  --superficie-2: #fafafa;
+  --superficie-3: #f4f4f5;
+  --borda: #ececee;
+  --borda-forte: #dedee2;
+  --texto: #09090b;
+  --texto-2: #52525b;
+  --texto-3: #6d6e71;          /* o cinza da marca SIM */
+  --texto-4: #a1a1aa;
+  --tinta: #09090b;            /* botão principal (como no template): preto no claro */
+  --tinta-texto: #ffffff;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --fundo: #0b0f0d;
-    --superficie: #121815;
-    --superficie-2: #18201c;
-    --borda: #24302a;
-    --texto: #eef2ef;
-    --texto-2: #b3beb7;
-    --texto-3: #8a968f;
-    color-scheme: dark;
+    --fundo: #09090b; --superficie: #0c0c0e; --superficie-2: #111113; --superficie-3: #18181b;
+    --borda: #1f1f23; --borda-forte: #2a2a30; --texto: #fafafa; --texto-2: #b4b4bb; --texto-3: #8e8f93;
+    --texto-4: #5c5c63; --tinta: #fafafa; --tinta-texto: #09090b; color-scheme: dark;
   }
 }
 :root[data-tema="escuro"] {
-  --fundo: #0b0f0d;
-  --superficie: #121815;
-  --superficie-2: #18201c;
-  --borda: #24302a;
-  --texto: #eef2ef;
-  --texto-2: #b3beb7;
-  --texto-3: #8a968f;
-  color-scheme: dark;
+  --fundo: #09090b; --superficie: #0c0c0e; --superficie-2: #111113; --superficie-3: #18181b;
+  --borda: #1f1f23; --borda-forte: #2a2a30; --texto: #fafafa; --texto-2: #b4b4bb; --texto-3: #8e8f93;
+  --texto-4: #5c5c63; --tinta: #fafafa; --tinta-texto: #09090b; color-scheme: dark;
 }
 
 @utility bg-fundo { background-color: var(--fundo); }
 @utility bg-superficie { background-color: var(--superficie); }
 @utility bg-superficie-2 { background-color: var(--superficie-2); }
+@utility bg-superficie-3 { background-color: var(--superficie-3); }
+@utility bg-tinta { background-color: var(--tinta); }
+@utility text-tinta-texto { color: var(--tinta-texto); }
 @utility border-borda { border-color: var(--borda); }
+@utility border-borda-forte { border-color: var(--borda-forte); }
 @utility text-texto { color: var(--texto); }
 @utility text-texto-2 { color: var(--texto-2); }
 @utility text-texto-3 { color: var(--texto-3); }
+@utility text-texto-4 { color: var(--texto-4); }
 @utility divide-borda { & > :not(:last-child) { border-color: var(--borda); } }
 
 html, body { background: var(--fundo); color: var(--texto); }
 body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
-::selection { background: color-mix(in srgb, var(--color-marca-500) 30%, transparent); }
+::selection { background: color-mix(in srgb, var(--color-marca-500) 25%, transparent); }
 
 /* números alinhados nas tabelas e nos indicadores */
 .num { font-variant-numeric: tabular-nums; }
+
+/* título em dois tons: <span class="tom2"> leva a segunda parte (o que importa) no cinza SIM */
+.tom2 { color: var(--texto-4); }
+:root:not([data-tema="escuro"]) .tom2 { color: color-mix(in srgb, var(--texto-3) 70%, white); }
+
+/* grade de pontos do topo (como o fundo do template), apagando nas bordas */
+.pontos {
+  background-image: radial-gradient(color-mix(in srgb, var(--texto) 16%, transparent) 1px, transparent 1px);
+  background-size: 14px 14px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 25%, transparent 75%);
+}
 
 /* faixa de brilho dos esqueletos de carregamento */
 @keyframes brilho { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
@@ -88,6 +118,10 @@ body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01
   background-size: 800px 100%;
   animation: brilho 1.4s linear infinite;
 }
+
+/* o objeto (mosaico Alpargatas) flutua devagar */
+@keyframes flutuar { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(-1deg); } }
+.flutuar { animation: flutuar 7s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

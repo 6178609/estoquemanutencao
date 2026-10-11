@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
 
 const texto = Inter({ subsets: ["latin"], variable: "--fonte-texto", display: "swap" });
-const titulo = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--fonte-titulo", display: "swap", weight: ["500", "600", "700", "800"] });
+const titulo = Space_Grotesk({ subsets: ["latin"], variable: "--fonte-titulo", display: "swap", weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
   title: { default: "Central de Manutenção · PCM F26", template: "%s · Central de Manutenção" },
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f7f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0f0d" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
   ],
 };
 

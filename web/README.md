@@ -12,6 +12,16 @@ mesmo tempo, com as mesmas contas, as mesmas regras de acesso por função e os 
 
 As abas ainda não migradas aparecem no menu e abrem no site atual (`URL_SITE_ATUAL`).
 
+## Visual
+
+Inspirado no template *Developer Tools Landing* (21st.dev): base neutra quase preto/branco, a tipografia faz a
+hierarquia — títulos em dois tons, com a segunda parte no cinza da marca SIM —, cartões claros de borda fina com o
+ícone num quadradinho, faixa de números grandes e "um objeto por seção" (o mosaico de triângulos da Alpargatas em
+SVG, `components/Objeto.tsx`). As cores vêm só das logos: verde SIM `#009C48` (ação principal) e o espectro
+Alpargatas — vermelho `#E41824`, laranja `#F07818`, amarelo `#FCB40C`, azul `#006CB4`, ciano `#009CD8`, azul-claro
+`#6CCCF0`, lima `#A8C024` — para status, categorias e dados (`app/globals.css`, `components/ui.tsx`). Tema claro e
+escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
+
 ## Como os dados chegam
 
 - **`bases/*.parquet`** no repositório de dados: o sincronizador do PC grava o export mais novo de cada base; quando

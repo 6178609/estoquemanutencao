@@ -3,7 +3,7 @@ import { AlertTriangle, BookOpen, Boxes } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Cabecalho, Pagina } from "@/components/ui";
+import { Cabecalho, Pagina, Pilula } from "@/components/ui";
 import { podeEditar } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
@@ -18,8 +18,8 @@ export const maxDuration = 60;
 
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-2xl border border-alerta-500/30 bg-alerta-500/10 px-4 py-3 text-sm">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-alerta-500" /><div>{children}</div>
+    <div className="flex gap-3 rounded-cartao border border-borda bg-superficie-2 px-4 py-3 text-[13.5px] text-texto-2">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-alp-laranja" strokeWidth={1.75} /><div>{children}</div>
     </div>
   );
 }
@@ -37,15 +37,15 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
 
   return (
     <Pagina>
-      <Cabecalho sobre="Custos e suprimentos" titulo="Estoque de manutenção"
-        subtitulo="O almoxarifado (MB52) com a ficha técnica de cada item e o catálogo inteiro de materiais cadastrados no Sysmat."
-        acoes={base?.atualizado ? <span className="rounded-full border border-borda bg-superficie px-3 py-1.5 text-xs font-medium text-texto-2">MB52 de {dataHora(base.atualizado)} · {idade(base.atualizado)}</span> : undefined} />
-      <nav className="flex gap-1 overflow-x-auto border-b border-borda">
+      <Cabecalho titulo="Estoque de manutenção," destaque="com a ficha técnica de cada item."
+        sobre={<Pilula>{base?.atualizado ? `MB52 de ${dataHora(base.atualizado)} · ${idade(base.atualizado)}` : "Custos e suprimentos"}</Pilula>}
+        subtitulo="O almoxarifado (MB52) com a Descr Completa do Sysmat e o catálogo inteiro de materiais cadastrados — tudo numa rolagem só, sem limite." />
+      <nav className="flex flex-wrap gap-1">
         {abas.map((a) => (
           <Link key={a.id} href={a.href} scroll={false}
-            className={clsx("-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition",
-              aba === a.id ? "border-marca-600 text-marca-700 dark:text-marca-300" : "border-transparent text-texto-3 hover:text-texto")}>
-            <a.icone className="size-4" />{a.titulo}
+            className={clsx("inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] transition",
+              aba === a.id ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
+            <a.icone className="size-4" strokeWidth={1.75} />{a.titulo}
           </Link>
         ))}
       </nav>

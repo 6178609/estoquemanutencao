@@ -17,8 +17,8 @@ type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
-const COR_CADASTRO: Record<string, "verde" | "laranja" | "vermelho" | "cinza"> = {
-  Ativo: "verde", Bloqueado: "laranja", Cancelado: "vermelho", Duplicado: "laranja", "Não encontrado no Sysmat": "cinza",
+const COR_CADASTRO: Record<string, "verde" | "laranja" | "vermelho" | "amarelo" | "cinza"> = {
+  Ativo: "verde", Bloqueado: "laranja", Cancelado: "vermelho", Duplicado: "amarelo", "Não encontrado no Sysmat": "cinza",
   "Sem catálogo": "cinza",
 };
 
@@ -40,13 +40,13 @@ function baixarCsv(itens: ItemAlmox[]) {
 function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
   return (
     <button onClick={aoAbrir}
-      className="group grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2/70 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_150px]">
+      className="group grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_150px]">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="num font-mono text-sm font-bold text-acao-500">{it.material}</span>
+          <span className="num font-mono text-[13px] font-medium text-alp-azul">{it.material}</span>
           <Selo cor={COR_SITUACAO[it.situacao]}>{it.situacao}</Selo>
         </div>
-        <div className="mt-1 font-display text-[15px] font-semibold leading-snug">{it.descricao || "—"}</div>
+        <div className="mt-1 font-display text-[15px] font-medium leading-snug tracking-[-0.01em]">{it.descricao || "—"}</div>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <Selo cor={COR_CADASTRO[it.cadastro] || "cinza"}>{it.cadastro === "Ativo" ? "Cadastro ativo" : it.cadastro}</Selo>
           {it.categoria && <Selo>{it.categoria}</Selo>}
@@ -56,7 +56,7 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
       <DescrCorrida texto={it.descrCompleta} />
       <div className="flex items-start justify-between gap-4 md:flex-col md:items-end md:text-right">
         <div>
-          <div className={clsx("num font-display text-2xl font-extrabold leading-none", it.estoque <= 0 && "text-perigo-500")}>{numero(it.estoque)}</div>
+          <div className={clsx("num font-display text-[26px] font-medium leading-none tracking-[-0.03em]", it.estoque <= 0 && "text-perigo-500")}>{numero(it.estoque)}</div>
           <div className="mt-1 text-xs text-texto-3">{it.um || "—"} em estoque</div>
         </div>
         <div className="text-xs text-texto-3">
@@ -161,9 +161,9 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
         </div>
       </div>
 
-      <p className="text-sm text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a ficha técnica completa{edita ? " e ajustar o mínimo" : ""}.</p>
+      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a ficha técnica completa{edita ? " e ajustar o mínimo" : ""}.</p>
 
-      <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie shadow-cartao">
+      <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {visiveis.length === 0 ? (
           <div className="grid place-items-center gap-2 px-6 py-16 text-center text-texto-3">
             <PackageSearch className="size-8" /> Nenhum material com esses filtros.
