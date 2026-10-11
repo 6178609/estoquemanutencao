@@ -54,7 +54,12 @@ export default async function Entrar() {
                     Não consegui ler o repositório de dados: {erroFonte} Confira DADOS_GH_REPO e DADOS_GH_TOKEN na Vercel.
                   </p>
                 )}
-                {primeiro ? <FormularioPrimeiroAdmin pedeCodigo={!!codigoConfiguracao()} />
+                {primeiro && !codigoConfiguracao() ? (
+                  <p role="alert" className="rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-3.5 py-2.5 text-sm text-perigo-500">
+                    Cadastro inicial desligado. Peça a quem configura o site para definir CODIGO_CONFIG (mínimo de 16 caracteres)
+                    na Vercel e refazer o deploy.
+                  </p>
+                ) : primeiro ? <FormularioPrimeiroAdmin pedeCodigo />
                   : <FormularioEntrada demo={demo} />}
               </div>
             </div>

@@ -23,10 +23,23 @@ export async function gerarHash(senha: string): Promise<{ sal: string; senha_has
   return { sal, senha_hash: await hashSenha(senha, sal) };
 }
 
-/** Mesma regra de validar_senha: 8+ caracteres, com letras e números. */
-export function validarSenha(senha: string): string {
-  if ((senha || "").length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
-  if (/^\d+$/.test(senha) || /^\p{L}+$/u.test(senha)) return "Use letras e números na senha.";
+/** Senhas que aparecem em todas as listas de vazamento (e variações óbvias do nome do site). */
+const COMUNS = new Set([
+  "12345678", "123456789", "1234567890", "12345678910", "password", "password1", "senha123", "senha1234", "senha12345",
+  "abc12345", "abcd1234", "qwerty123", "qwertyuiop", "q1w2e3r4", "alpargatas", "alpargatas1", "alpargatas123",
+  "manutencao", "manutencao1", "manutencao123", "mudar123", "mudar1234", "trocar123", "trocar1234", "sim12345",
+  "f26f26f26", "estoque123", "estoque1234",
+]);
+
+/** 10+ caracteres, com letras e números, fora da lista de senhas comuns e sem ser o próprio NP.
+ *  (A senha só é conferida pelo PBKDF2 do arquivo compartilhado com o site antigo, que aceita qualquer tamanho.) */
+export function validarSenha(senha: string, login = ""): string {
+  const s = senha || "";
+  if (s.length < 10) return "A senha precisa ter pelo menos 10 caracteres.";
+  if (s.length > 128) return "A senha pode ter no máximo 128 caracteres.";
+  if (/^\d+$/.test(s) || /^\p{L}+$/u.test(s)) return "Use letras e números na senha.";
+  if (COMUNS.has(s.toLowerCase()) || /^(.)\1+$/.test(s)) return "Essa senha é muito comum: escolha outra.";
+  if (login && s.includes(login)) return "A senha não pode conter o seu NP.";
   return "";
 }
 

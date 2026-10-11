@@ -5,6 +5,7 @@ import {
   criarPrimeiroAdmin, criarUsuario, editarUsuario, excluirUsuario, precisaPrimeiroAdmin, trocarSenha, usuarios,
 } from "@/lib/auth/usuarios";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
+import { limpar } from "@/lib/seguranca/limite";
 
 /** Repositório de dados na memória, no modo GitHub (o código do 1º acesso vem do fim do token). */
 function fonteMemoria() {
@@ -24,40 +25,57 @@ function fonteMemoria() {
   return f;
 }
 
-const SENHA = "Senha-Forte-1";
+const SENHA = "Senha-Forte-12";
+const CODIGO = "codigo-de-teste-1234567890";
 const novoAdmin = { nome: "Ana Lima", login: "6.178.609", funcao: "lider", senha: SENHA, senha2: SENHA };
 
-beforeEach(() => {
+beforeEach(async () => {
+  await limpar("codigo:desconhecido");
+  await limpar("codigo:todos");
   process.env.DADOS_GH_TOKEN = "github_pat_FICTICIO_abc123XYZ789";
+  process.env.CODIGO_CONFIG = CODIGO;
   _definirFonte(fonteMemoria());
 });
 afterEach(() => {
   delete process.env.DADOS_GH_TOKEN;
+  delete process.env.CODIGO_CONFIG;
   _definirFonte(undefined);
 });
 
 describe("primeiro administrador (repositório de dados vazio)", () => {
-  it("exige o código (6 últimos caracteres do token) e cria só uma vez", async () => {
+  it("exige o código (CODIGO_CONFIG) e cria só uma vez", async () => {
     expect(await precisaPrimeiroAdmin()).toBe(true);
     expect((await criarPrimeiroAdmin({ ...novoAdmin, codigo: "errado" })).erro).toMatch(/Código/);
-    expect((await criarPrimeiroAdmin({ ...novoAdmin, funcao: "manutentor", codigo: "XYZ789" })).erro).toMatch(/Líder/);
-    const r = await criarPrimeiroAdmin({ ...novoAdmin, codigo: "XYZ789" });
+    expect((await criarPrimeiroAdmin({ ...novoAdmin, funcao: "manutentor", codigo: CODIGO })).erro).toMatch(/Líder/);
+    const r = await criarPrimeiroAdmin({ ...novoAdmin, codigo: CODIGO });
     expect(r).toEqual({ erro: "", login: "6178609" });
     const us = await usuarios();
     expect(us["6178609"]).toMatchObject({ nome: "Ana Lima", perfil: "admin", funcao: "lider", ativo: true });
     expect(await confere(us["6178609"], SENHA)).toBe(true); // mesmo hash PBKDF2 do site atual
     expect(await precisaPrimeiroAdmin()).toBe(false);
-    expect((await criarPrimeiroAdmin({ ...novoAdmin, login: "1234567", codigo: "XYZ789" })).erro).toMatch(/Já existe/);
+    expect((await criarPrimeiroAdmin({ ...novoAdmin, login: "1234567", codigo: CODIGO })).erro).toMatch(/Já existe/);
+  });
+});
+
+describe("primeiro administrador sem CODIGO_CONFIG forte", () => {
+  it("fica desligado", async () => {
+    process.env.CODIGO_CONFIG = "curto";
+    expect((await criarPrimeiroAdmin({ ...novoAdmin, codigo: "curto" })).erro).toMatch(/CODIGO_CONFIG/);
+    expect(await precisaPrimeiroAdmin()).toBe(true);
+  });
+  it("bloqueia depois de 5 códigos errados, mesmo que o sexto esteja certo", async () => {
+    for (let i = 0; i < 5; i++) await criarPrimeiroAdmin({ ...novoAdmin, codigo: `errado-${i}` });
+    expect((await criarPrimeiroAdmin({ ...novoAdmin, codigo: CODIGO })).erro).toMatch(/Muitas tentativas/);
   });
 });
 
 describe("tela Usuários (mesmas regras de central/auth.py)", () => {
   const eu = { login: "6178609", perfil: "admin", funcao: "lider" };
-  beforeEach(async () => { await criarPrimeiroAdmin({ ...novoAdmin, codigo: "XYZ789" }); });
+  beforeEach(async () => { await criarPrimeiroAdmin({ ...novoAdmin, codigo: CODIGO }); });
 
   it("novo usuário com senha provisória; valida NP, senha e duplicado", async () => {
     expect(await criarUsuario(eu.login, { nome: "Rui", login: "abc", funcao: "manutentor", perfil: "leitor", senha: SENHA })).toMatch(/NP/);
-    expect(await criarUsuario(eu.login, { nome: "Rui", login: "1111111", funcao: "manutentor", perfil: "leitor", senha: "12345678" })).toMatch(/letras/);
+    expect(await criarUsuario(eu.login, { nome: "Rui", login: "1111111", funcao: "manutentor", perfil: "leitor", senha: "1234567890123" })).toMatch(/letras/);
     expect(await criarUsuario(eu.login, { nome: "Rui", login: "1111111", funcao: "manutentor", perfil: "leitor", senha: SENHA })).toBe("");
     expect(await criarUsuario(eu.login, { nome: "Rui", login: "1111111", funcao: "manutentor", perfil: "leitor", senha: SENHA })).toMatch(/já existe/);
     expect((await usuarios())["1111111"]).toMatchObject({ trocar_senha: true, perfil: "leitor", atualizado_por: "6178609" });
@@ -88,10 +106,10 @@ describe("tela Usuários (mesmas regras de central/auth.py)", () => {
   it("trocar a senha confere a atual e derruba os outros aparelhos", async () => {
     const { gravarCadastroLote } = await import("@/lib/dados/cadastros");
     await gravarCadastroLote("usuarios.json", { "6178609": { sessoes: [{ h: "este", ate: "2999" }, { h: "outro", ate: "2999" }] } }, "x", true);
-    expect(await trocarSenha("6178609", "errada", "Nova-Senha-2", "Nova-Senha-2", "este")).toMatch(/atual/);
-    expect(await trocarSenha("6178609", SENHA, "Nova-Senha-2", "Nova-Senha-2", "este")).toBe("");
+    expect(await trocarSenha("6178609", "errada", "Nova-Senha-22", "Nova-Senha-22", "este")).toMatch(/atual/);
+    expect(await trocarSenha("6178609", SENHA, "Nova-Senha-22", "Nova-Senha-22", "este")).toBe("");
     const u = (await usuarios())["6178609"];
     expect(u.sessoes).toEqual([{ h: "este", ate: "2999" }]);
-    expect(await confere(u, "Nova-Senha-2")).toBe(true);
+    expect(await confere(u, "Nova-Senha-22")).toBe(true);
   });
 });

@@ -1,1 +1,6 @@
-* @streamlit/community-cloud
+# Quem revisa mudanças (o arquivo antigo apontava para o time do template do Streamlit)
+* @6178609
+/web/lib/auth/ @6178609
+/web/proxy.ts @6178609
+/web/next.config.ts @6178609
+/.github/ @6178609
