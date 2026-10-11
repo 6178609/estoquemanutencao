@@ -26,6 +26,14 @@ As abas ainda não migradas aparecem no menu e abrem no site atual (`URL_SITE_AT
 
 Nenhum dado da empresa vai para este repositório (ele é público).
 
+## Ligar aos dados reais (sem copiar o token do GitHub)
+
+No site atual, um **administrador** abre **Configuração › Fontes de dados › Site novo (Vercel)**, cola um token da
+Vercel (vercel.com › Account Settings › Tokens, validade curta) e clica em **Ligar o site novo**. O site atual grava
+na Vercel o repositório de dados e o token que ele mesmo já usa (secrets do modo GitHub ou o
+`sincronizador/config.toml` do PC), mais o endereço dele, e publica de novo. O token do GitHub nunca aparece na tela;
+o da Vercel não fica gravado (`central/vercel.py`).
+
 ## Variáveis (Vercel › Project › Settings › Environment Variables)
 
 | Variável | Para quê |
