@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Cabecalho, Cartao, IconeQuadro, Pagina, Pilula, Selo } from "@/components/ui";
 import { podeEditar } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
-import { manifesto } from "@/lib/dados/bases";
+import { manifesto, type InfoBase } from "@/lib/dados/bases";
 import { fonte, modo } from "@/lib/dados/fonte";
 import { dataHora, idade, inteiro } from "@/lib/formato";
 import { DESTINO, NOMES_BASE, TIPOS } from "@/lib/leitura/tipos";
@@ -18,7 +18,8 @@ const DIAS_ALERTA = 2; // base mais velha que isso aparece como desatualizada
 export default async function FontesDeDados() {
   const u = await exigir("dados");
   const f = fonte();
-  const [man, versoes] = f ? await Promise.all([manifesto(), f.versoes()]) : [{}, new Map<string, string>()];
+  const [man, versoes]: [Record<string, InfoBase>, Map<string, string>] = f
+    ? await Promise.all([manifesto(), f.versoes()]) : [{}, new Map<string, string>()];
   const agora = Date.now();
   const bases = TIPOS.map((tipo) => {
     const caminho = DESTINO[tipo];

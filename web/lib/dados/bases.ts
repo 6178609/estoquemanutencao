@@ -49,7 +49,11 @@ export async function manifesto(): Promise<Record<string, InfoBase>> {
   return valor;
 }
 
-async function lerBase<T>(caminho: string, preparar: (linhas: Record<string, unknown>[]) => T): Promise<Base<T>> {
+/**
+ * Lê uma base do repositório e prepara (com cache pela versão do arquivo; `sufixo` entra na chave do cache —
+ * ex.: o dia, para bases cujo preparo depende de hoje).
+ */
+export async function lerBase<T>(caminho: string, preparar: (linhas: Record<string, unknown>[]) => T, sufixo = ""): Promise<Base<T>> {
   const f = fonte()!;
   const [versoes, man] = await Promise.all([f.versoes(), manifesto()]);
   const info = man[caminho] || {};
@@ -57,7 +61,7 @@ async function lerBase<T>(caminho: string, preparar: (linhas: Record<string, unk
   // base enviada em partes pelo site (o manifesto diz quais) ou o arquivo único do sincronizador
   const arquivos = info.partes?.length ? info.partes : [caminho];
   if (arquivos.some((a) => !versoes.has(a))) return { dados: null, ...meta };
-  const versao = arquivos.map((a) => versoes.get(a)).join("+");
+  const versao = arquivos.map((a) => versoes.get(a)).join("+") + (sufixo ? `@${sufixo}` : "");
   const c = cache.get(caminho);
   if (c?.versao === versao) return { dados: c.valor as T, ...meta };
   try {
