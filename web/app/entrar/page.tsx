@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
 import { Marca } from "@/components/Marca";
+import { Objeto } from "@/components/Objeto";
+import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { FormularioEntrada } from "./FormularioEntrada";
@@ -11,50 +13,57 @@ export const metadata: Metadata = { title: "Entrar" };
 export const dynamic = "force-dynamic";
 
 const DESTAQUES = [
-  { icone: Gauge, titulo: "Indicadores WCM", texto: "MTBF, MTTR, backlog e aderência num só lugar." },
-  { icone: Boxes, titulo: "Estoque e materiais", texto: "Almoxarifado com a ficha técnica completa do Sysmat." },
-  { icone: Factory, titulo: "Gestão de ativos", texto: "Criticidade, saúde e ciclo de vida dos equipamentos." },
-  { icone: ShieldCheck, titulo: "Acesso por função", texto: "Cada pessoa vê só o que a função dela libera." },
+  { icone: Gauge, tom: "verde" as const, titulo: "Indicadores WCM", texto: "MTBF, MTTR, backlog e aderência num só lugar, sempre do export mais novo do SAP." },
+  { icone: Boxes, tom: "azul" as const, titulo: "Estoque e materiais", texto: "O almoxarifado com a Descr Completa do Sysmat de cada item, sem limite de busca." },
+  { icone: Factory, tom: "laranja" as const, titulo: "Gestão de ativos", texto: "Criticidade, saúde e ciclo de vida dos equipamentos da fábrica." },
+  { icone: ShieldCheck, tom: "vermelho" as const, titulo: "Acesso por função", texto: "Líder, analista e manutentor: cada um vê só o que a função libera." },
 ];
 
 export default async function Entrar() {
   if (await usuarioAtual()) redirect("/");
   const demo = modo() === "demo";
+  const siteAtual = process.env.URL_SITE_ATUAL?.trim() || null;
   return (
-    <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden bg-[#06281a] p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div aria-hidden className="absolute inset-0 opacity-90"
-          style={{ background: "radial-gradient(60% 50% at 20% 10%, #0e9f46 0%, transparent 60%), radial-gradient(50% 40% at 90% 90%, #0a6ebd 0%, transparent 60%), radial-gradient(40% 30% at 70% 30%, #ffc20e33 0%, transparent 60%)" }} />
-        <div aria-hidden className="absolute inset-0 opacity-[0.07]"
-          style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
-        <div className="relative"><Marca claro /></div>
-        <div className="relative max-w-xl">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-marca-200">SIM · Manutenção Profissional</p>
-          <h1 className="mt-4 font-display text-5xl font-extrabold leading-[1.05] tracking-tight">
-            A manutenção da F26, <span className="text-marca-300">em tempo real.</span>
-          </h1>
-          <div className="mt-10 grid grid-cols-2 gap-4">
-            {DESTAQUES.map(({ icone: I, titulo, texto }) => (
-              <div key={titulo} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                <I className="size-5 text-marca-300" />
-                <div className="mt-3 font-display font-semibold">{titulo}</div>
-                <div className="mt-1 text-sm text-white/70">{texto}</div>
+    <div className="min-h-dvh bg-fundo">
+      <header className="border-b border-borda">
+        <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-4 sm:px-8">
+          <Marca />
+          {siteAtual && <a href={siteAtual} className="text-[14px] text-texto-3 transition hover:text-texto">Site atual</a>}
+        </div>
+      </header>
+
+      <main>
+        <section className="relative overflow-hidden">
+          <div aria-hidden className="pontos absolute inset-0" />
+          <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 py-14 sm:px-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:py-20">
+            <div className="max-w-[560px] space-y-6">
+              <Pilula>SIM · Manutenção Profissional · F26</Pilula>
+              <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[56px]" />
+              <p className="text-[15.5px] leading-relaxed text-texto-3">
+                Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o
+                seu Número Pessoal — o mesmo NP e senha do site atual.
+              </p>
+              <div className="max-w-sm rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante">
+                <FormularioEntrada demo={demo} siteAtual={siteAtual} />
+              </div>
+            </div>
+            <div className="hidden justify-center lg:flex"><Objeto tamanho={460} /></div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-[1240px] px-4 pb-20 sm:px-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {DESTAQUES.map((d) => (
+              <div key={d.titulo} className="rounded-cartao border border-borda bg-superficie-2 p-6">
+                <IconeQuadro icone={d.icone} tom={d.tom} />
+                <div className="mt-5 font-display text-[15px] font-medium">{d.titulo}</div>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-texto-3">{d.texto}</p>
               </div>
             ))}
           </div>
-        </div>
-        <p className="relative text-xs text-white/50">Alpargatas · Fábrica 26</p>
-      </section>
-      <section className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden"><Marca /></div>
-          <h2 className="mt-8 font-display text-3xl font-bold tracking-tight lg:mt-0">Entrar</h2>
-          <p className="mt-2 text-texto-2">Acesse com seu Número Pessoal.</p>
-          <div className="mt-8">
-            <FormularioEntrada demo={demo} siteAtual={process.env.URL_SITE_ATUAL?.trim() || null} />
-          </div>
-        </div>
-      </section>
-    </main>
+          <p className="mt-12 text-center text-[12.5px] text-texto-4">Alpargatas · Fábrica 26 · Central de Manutenção</p>
+        </section>
+      </main>
+    </div>
   );
 }

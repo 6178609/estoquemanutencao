@@ -23,13 +23,13 @@ export interface ResumoCatalogo {
 function Linha({ c, aoAbrir }: { c: ItemCatalogoTela; aoAbrir: () => void }) {
   return (
     <button onClick={aoAbrir}
-      className="grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2/70 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_130px]">
+      className="grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_130px]">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="num font-mono text-sm font-bold text-acao-500">{c.material || "—"}</span>
+          <span className="num font-mono text-[13px] font-medium text-alp-azul">{c.material || "—"}</span>
           <span className="num font-mono text-xs text-texto-3">Sysmat {c.sysmat}</span>
         </div>
-        <div className="mt-1 font-display text-[15px] font-semibold leading-snug">{c.descricaoCurta || c.pdm || "—"}</div>
+        <div className="mt-1 font-display text-[15px] font-medium leading-snug tracking-[-0.01em]">{c.descricaoCurta || c.pdm || "—"}</div>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <Selo cor={INATIVOS.has(c.status) ? (c.status === "CANCELADO" ? "vermelho" : "laranja") : "verde"}>{c.status || "sem status"}</Selo>
           {c.categoria && <Selo>{c.categoria}</Selo>}
@@ -39,7 +39,7 @@ function Linha({ c, aoAbrir }: { c: ItemCatalogoTela; aoAbrir: () => void }) {
       <div className="md:text-right">
         {c.noAlmox ? (
           <>
-            <div className="num font-display text-2xl font-extrabold leading-none">{numero(c.estoque)}</div>
+            <div className="num font-display text-[26px] font-medium leading-none tracking-[-0.03em]">{numero(c.estoque)}</div>
             <div className="mt-1 text-xs text-texto-3">{c.um} no almoxarifado</div>
           </>
         ) : <span className="text-xs text-texto-3">fora do almoxarifado</span>}
@@ -103,9 +103,9 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
         {[["Materiais cadastrados", resumo.total, "itens da extração do Sysmat"], ["Cadastro ativo", resumo.ativos, `${inteiro(resumo.aprovados)} aprovados`],
           ["Bloqueados, cancelados ou duplicados", resumo.inativos, "pedem revisão"], ["No almoxarifado", resumo.noAlmox, "estão na MB52"]]
           .map(([r, v, d]) => (
-            <div key={r as string} className="rounded-cartao border border-borda bg-superficie p-4 shadow-cartao">
+            <div key={r as string} className="rounded-cartao border border-borda bg-superficie-2 p-5">
               <div className="text-[13px] text-texto-2">{r}</div>
-              <div className="num mt-2 font-display text-2xl font-extrabold">{inteiro(v as number)}</div>
+              <div className="num mt-2 font-display text-[28px] font-medium tracking-[-0.03em]">{inteiro(v as number)}</div>
               <div className="mt-1 text-xs text-texto-3">{d}</div>
             </div>
           ))}
@@ -123,13 +123,13 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
           { valor: "todos", rotulo: "Todos" }, { valor: "almox", rotulo: "No almoxarifado" }, { valor: "fora", rotulo: "Fora do almoxarifado" }]} />
       </div>
 
-      <p className="flex items-center gap-2 text-sm text-texto-3">
+      <p className="flex items-center gap-2 text-[13px] text-texto-3">
         {total === null ? "Buscando…" : <><span className="num font-semibold text-texto">{inteiro(total)}</span> material(is) — role até o fim, sem limite.</>}
         {carregando && <LoaderCircle className="size-4 animate-spin" />}
       </p>
       {erro && <p className="rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-4 py-3 text-sm text-perigo-500">{erro}</p>}
 
-      <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie shadow-cartao">
+      <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {total === 0 ? (
           <div className="grid place-items-center gap-2 px-6 py-16 text-center text-texto-3"><PackageSearch className="size-8" /> Nenhum material com esses filtros.</div>
         ) : itens.length === 0 ? (

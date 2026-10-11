@@ -9,7 +9,7 @@ export function CampoBusca({ valor, aoMudar, placeholder }: { valor: string; aoM
     <label className="relative block min-w-0 flex-1">
       <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
       <input value={valor} onChange={(e) => aoMudar(e.target.value)} placeholder={placeholder} type="text" enterKeyHint="search"
-        className="h-11 w-full rounded-xl border border-borda bg-superficie pl-10 pr-9 text-sm outline-none transition placeholder:text-texto-3 focus:border-marca-500 focus:ring-4 focus:ring-marca-500/15" />
+        className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-9 text-[14px] outline-none transition placeholder:text-texto-4 focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12" />
       {valor && (
         <button onClick={() => aoMudar("")} aria-label="Limpar busca" className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2">
           <X className="size-4" />
@@ -22,11 +22,11 @@ export function CampoBusca({ valor, aoMudar, placeholder }: { valor: string; aoM
 export function Segmentos<T extends string>({ opcoes, valor, aoMudar }: { opcoes: { valor: T; rotulo: string; n?: number }[];
   valor: T; aoMudar: (v: T) => void }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-xl border border-borda bg-superficie-2 p-1">
+    <div className="flex flex-wrap gap-1">
       {opcoes.map((o) => (
         <button key={o.valor} onClick={() => aoMudar(o.valor)}
-          className={clsx("rounded-lg px-3 py-1.5 text-sm font-medium transition",
-            valor === o.valor ? "bg-superficie text-texto shadow-cartao" : "text-texto-2 hover:text-texto")}>
+          className={clsx("rounded-full px-3.5 py-1.5 text-[13.5px] transition",
+            valor === o.valor ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
           {o.rotulo}{o.n !== undefined && <span className="num ml-1.5 text-xs text-texto-3">{o.n.toLocaleString("pt-BR")}</span>}
         </button>
       ))}
@@ -50,9 +50,9 @@ export function MultiEscolha({ rotulo, opcoes, valor, aoMudar }: { rotulo: strin
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setAberta(!aberta)}
-        className={clsx("flex h-11 items-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition",
-          valor.length ? "border-marca-400 bg-marca-50 text-marca-800 dark:bg-marca-900/30 dark:text-marca-200" : "border-borda bg-superficie text-texto-2 hover:text-texto")}>
-        {rotulo}{valor.length > 0 && <span className="num rounded-full bg-marca-600 px-1.5 text-xs text-white">{valor.length}</span>}
+        className={clsx("flex h-11 items-center gap-2 rounded-xl border px-3.5 text-[13.5px] transition",
+          valor.length ? "border-marca-300 bg-marca-50 font-medium text-marca-700 dark:bg-marca-900/30 dark:text-marca-200" : "border-borda bg-superficie-2 text-texto-2 hover:text-texto")}>
+        {rotulo}{valor.length > 0 && <span className="num rounded-full bg-marca-500 px-1.5 text-xs text-white">{valor.length}</span>}
         <ChevronDown className={clsx("size-4 transition", aberta && "rotate-180")} />
       </button>
       {aberta && (
@@ -67,7 +67,7 @@ export function MultiEscolha({ rotulo, opcoes, valor, aoMudar }: { rotulo: strin
             {vis.map((o) => (
               <li key={o.valor}>
                 <button onClick={() => alternar(o.valor)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-superficie-2">
-                  <span className={clsx("grid size-4 shrink-0 place-items-center rounded border", valor.includes(o.valor) ? "border-marca-600 bg-marca-600 text-white" : "border-borda")}>
+                  <span className={clsx("grid size-4 shrink-0 place-items-center rounded border", valor.includes(o.valor) ? "border-marca-500 bg-marca-500 text-white" : "border-borda")}>
                     {valor.includes(o.valor) && <Check className="size-3" />}
                   </span>
                   <span className="flex-1 truncate">{o.rotulo || o.valor}</span>
