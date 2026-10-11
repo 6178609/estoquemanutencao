@@ -11,3 +11,19 @@ updates:
       python-dependencies:
         patterns:
           - "*"
+
+  # site novo (web/): dependências do npm, agrupadas em um PR por semana
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

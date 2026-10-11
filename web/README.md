@@ -75,3 +75,20 @@ npm run build
 Estrutura: `app/` (telas e rotas de API), `components/` (design system), `lib/dados/` (fonte GitHub/pasta/demo,
 parquet, MB52 e catálogo do Sysmat, cadastros), `lib/auth/` (login, sessões e acesso por função),
 `lib/navegacao.ts` (a mesma lista de abas de `central/navegacao.py` — `tests/test_web_navegacao.py` confere).
+
+## Segurança
+
+O que o site faz e o que precisa ser configurado na Vercel (Settings › Environment Variables):
+
+| Variável | Para quê |
+|---|---|
+| `DADOS_GH_TOKEN` | Token **fine-grained** só do repositório de dados, permissão *Contents: Read and write*, validade ≤ 90 dias. Quem tem esse token consegue gravar `usuarios.json`: guarde e rode a troca no vencimento. |
+| `CODIGO_CONFIG` | **Obrigatória** para criar o primeiro administrador (mín. 16 caracteres aleatórios; `openssl rand -base64 24`). Sem ela o cadastro inicial fica desligado. Depois que o administrador existir, pode remover. |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Recomendado: faz o limite de tentativas de login valer entre todas as instâncias da Vercel (Storage › Upstash Redis). Sem elas o limite vale por instância. |
+
+Camadas: `proxy.ts` (sem cookie de sessão só passa `/entrar`), `usuarioAtual`/`autorizar` em cada página e rota (validação de verdade), limite de tentativas por NP+IP, por IP e por NP, checagem de `Origin` nas rotas `POST`, cookie `__Host-` httpOnly/secure/lax, cabeçalhos de segurança e CSP com nonce.
+
+- **Auditoria:** cada login, falha, bloqueio, criação/edição/exclusão de usuário, troca de senha e envio de base gera uma linha JSON no log da Vercel com `"cm_auditoria"` (nunca com senha, token ou código). Crie um alerta para picos de `login_falha`/`login_bloqueado`.
+- **CSP:** hoje em modo relatório (`CSP_ENFORCAR = false` em `proxy.ts`); violações aparecem no log com `"cm_csp"`. Quando ficarem em zero por alguns dias, troque para `true`.
+- **Dependências:** Dependabot (npm e Actions) e `npm audit --audit-level=high` no CI.
+- **Site Streamlit antigo:** usa o mesmo `usuarios.json`; uma falha em um dos dois afeta o outro. Desligue-o assim que a migração terminar. O hash continua PBKDF2 com 260 mil iterações por compatibilidade com ele; subir para 600 mil só depois do desligamento.

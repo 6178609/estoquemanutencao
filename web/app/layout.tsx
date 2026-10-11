@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
@@ -22,11 +23,13 @@ export const viewport: Viewport = {
 // tema antes da primeira pintura (sem piscar claro → escuro)
 const TEMA = `try{var t=localStorage.getItem("tema");document.documentElement.dataset.tema=t||(matchMedia("(prefers-color-scheme: dark)").matches?"escuro":"claro")}catch(e){}`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // o proxy.ts gera um nonce por requisição para a Content-Security-Policy; o script do tema precisa carregá-lo
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="pt-BR" className={`${texto.variable} ${titulo.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: TEMA }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: TEMA }} />
       </head>
       <body className="min-h-dvh font-sans">{children}</body>
     </html>
