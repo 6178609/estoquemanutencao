@@ -36,7 +36,18 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
 
 Nenhum dado da empresa vai para este repositório (ele é público).
 
-## Ligar aos dados reais (sem copiar o token do GitHub)
+## Ligar aos dados reais direto na Vercel (sem o site atual)
+
+1. Crie o repositório **privado** `estoquemanutencao-dados` e um token fine-grained só para ele (Contents: read/write).
+2. No PC com os exports do SAP, rode `sincronizador\configurar.bat` com esse token: ele envia os exports para
+   `bases/` a cada 5 min.
+3. Na Vercel (Settings › Environment Variables), crie `DADOS_GH_REPO` e `DADOS_GH_TOKEN` (Sensitive) e publique de
+   novo (Deployments › Redeploy).
+4. **Primeiro acesso**: com o repositório sem usuários, a tela de entrada pede para criar o administrador, com o
+   **código de configuração** = os 6 últimos caracteres do token (prova que quem cria configurou o site). Depois,
+   a equipe é cadastrada em **Usuários** (senha provisória, trocada no primeiro acesso).
+
+## Ligar aos dados reais pelo site atual (sem copiar o token do GitHub)
 
 No site atual, um **administrador** abre **Configuração › Fontes de dados › Site novo (Vercel)**, cola um token da
 Vercel (vercel.com › Account Settings › Tokens, validade curta) e clica em **Ligar o site novo**. O site atual grava

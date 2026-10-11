@@ -1,13 +1,13 @@
 import {
   BadgeCheck, BellRing, Boxes, CalendarClock, CalendarCog, CalendarDays, CalendarRange, CircleCheckBig, ClipboardList,
   Factory, FolderOpen, HardHat, HeartPulse, Home, LayoutDashboard, ListChecks, Microscope, Radar, Receipt, Search,
-  ShieldCheck, SlidersHorizontal, UsersRound, Wallet, type LucideProps,
+  ShieldCheck, SlidersHorizontal, UserRound, UsersRound, Wallet, type LucideProps,
 } from "lucide-react";
 
 const MAPA = {
   BadgeCheck, BellRing, Boxes, CalendarClock, CalendarCog, CalendarDays, CalendarRange, CircleCheckBig, ClipboardList,
   Factory, FolderOpen, HardHat, HeartPulse, Home, LayoutDashboard, ListChecks, Microscope, Radar, Receipt, Search,
-  ShieldCheck, SlidersHorizontal, UsersRound, Wallet,
+  ShieldCheck, SlidersHorizontal, UserRound, UsersRound, Wallet,
 };
 
 export function Icone({ nome, ...p }: { nome: string } & LucideProps) {

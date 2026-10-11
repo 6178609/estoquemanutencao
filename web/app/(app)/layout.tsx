@@ -3,11 +3,13 @@ import { nomeFuncao, PAGINAS_PARCIAIS, PERFIS, podeVer, veInteira } from "@/lib/
 import { exigir } from "@/lib/auth/sessao";
 import { GRUPOS, urlSiteAtual } from "@/lib/navegacao";
 import { acaoSair } from "./acoes";
+import { TrocaObrigatoria } from "./TrocaObrigatoria";
 
 export const dynamic = "force-dynamic";
 
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
   const u = await exigir();
+  if (u.trocarSenha && !u.demo) return <TrocaObrigatoria nome={u.nome || u.login} sair={acaoSair} />;
   const grupos = GRUPOS.map((g) => ({
     titulo: g.titulo,
     itens: g.abas
@@ -19,6 +21,10 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         return [{ id: a.id, titulo: parcial ? `${a.titulo} (${parcial})` : a.titulo, icone: a.icone, href: url, externo: true, parcial }];
       }),
   })).filter((g) => g.itens.length);
+  grupos.push({ titulo: "Conta", itens: [
+    { id: "conta", titulo: "Minha conta", icone: "UserRound", href: "/conta", externo: false },
+    ...(u.perfil === "admin" && !u.demo ? [{ id: "usuarios", titulo: "Usuários", icone: "UsersRound", href: "/usuarios", externo: false }] : []),
+  ] });
   return (
     <Shell grupos={grupos} sair={acaoSair}
       pessoa={{ nome: u.nome || u.login, funcao: nomeFuncao(u), perfil: PERFIS[u.perfil || ""] || "Leitor", demo: !!u.demo }}>
