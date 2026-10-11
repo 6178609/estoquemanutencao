@@ -119,6 +119,13 @@ export async function usuarioAtual(): Promise<UsuarioSessao | null> {
   return (u.sessoes || []).some((s) => s.h === h && (s.ate || "") > agora) ? publico(login, u) : null;
 }
 
+/** Hash do token deste aparelho (para manter só esta sessão ao trocar a senha). */
+export async function hashSessaoAtual(): Promise<string | null> {
+  const valor = (await cookies()).get(COOKIE)?.value || "";
+  const i = valor.indexOf(":");
+  return i > 0 ? hashToken(valor.slice(i + 1)) : null;
+}
+
 /** Para páginas: exige login e acesso à aba (senão vai para a entrada / para o início). */
 export async function exigir(aba?: string): Promise<UsuarioSessao> {
   const u = await usuarioAtual();

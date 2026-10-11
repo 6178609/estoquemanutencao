@@ -1,4 +1,4 @@
-import { createHash, pbkdf2, timingSafeEqual } from "node:crypto";
+import { createHash, pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
 
 /** Mesmo hash do site atual: PBKDF2-SHA256, 260.000 iterações, sal em hex (central/auth.py). */
 export const ITERACOES = 260_000;
@@ -15,6 +15,19 @@ export async function confere(u: Record<string, unknown> | null, senha: string):
   const calculado = await hashSenha(senha, sal);   // calcula sempre: o tempo não revela se o usuário existe
   const a = Buffer.from(calculado, "hex"), b = Buffer.from(esperado, "hex");
   return !!u?.sal && !!u?.senha_hash && a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Sal novo + hash, nos mesmos campos do site atual (gerar_hash). */
+export async function gerarHash(senha: string): Promise<{ sal: string; senha_hash: string }> {
+  const sal = randomBytes(16).toString("hex");
+  return { sal, senha_hash: await hashSenha(senha, sal) };
+}
+
+/** Mesma regra de validar_senha: 8+ caracteres, com letras e números. */
+export function validarSenha(senha: string): string {
+  if ((senha || "").length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
+  if (/^\d+$/.test(senha) || /^\p{L}+$/u.test(senha)) return "Use letras e números na senha.";
+  return "";
 }
 
 export function hashToken(token: string): string {

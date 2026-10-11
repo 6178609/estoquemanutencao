@@ -61,8 +61,8 @@ export function FormularioEntrada({ demo, siteAtual }: { demo: boolean; siteAtua
         </button>
       </form>
       <p className="text-center text-[12.5px] text-texto-3">
-        Use o mesmo NP e senha do site atual.
-        {siteAtual && (<> Sem acesso? Peça em <a href={siteAtual} className="font-medium text-acao-500 hover:underline">Solicitar acesso</a>.</>)}
+        Sem acesso ou esqueceu a senha? Peça a um administrador do PCM
+        {siteAtual ? <> (ou em <a href={siteAtual} className="font-medium text-acao-500 hover:underline">Solicitar acesso</a>, no site atual)</> : ""}.
       </p>
     </div>
   );

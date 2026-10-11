@@ -126,7 +126,7 @@ export default async function Inicio() {
             <div>
               <div className="font-display text-[15px] font-medium">Fonte de dados</div>
               <p className="mt-1 text-[13.5px] text-texto-3">
-                {modo() === "demo" ? "Demonstração (dados fictícios). Ligue em Fontes de dados › Site novo, no site atual."
+                {modo() === "demo" ? "Demonstração (dados fictícios). Para os dados reais, preencha DADOS_GH_REPO e DADOS_GH_TOKEN nas variáveis do projeto na Vercel."
                   : modo() === "github" ? "Repositório privado de dados — o mesmo do site atual e do sincronizador." : "Pasta local."}
               </p>
             </div>

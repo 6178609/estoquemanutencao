@@ -7,7 +7,9 @@ import { Objeto } from "@/components/Objeto";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { usuarioAtual } from "@/lib/auth/sessao";
+import { codigoConfiguracao, precisaPrimeiroAdmin } from "@/lib/auth/usuarios";
 import { FormularioEntrada } from "./FormularioEntrada";
+import { FormularioPrimeiroAdmin } from "./FormularioPrimeiroAdmin";
 
 export const metadata: Metadata = { title: "Entrar" };
 export const dynamic = "force-dynamic";
@@ -23,6 +25,12 @@ export default async function Entrar() {
   if (await usuarioAtual()) redirect("/");
   const demo = modo() === "demo";
   const siteAtual = process.env.URL_SITE_ATUAL?.trim() || null;
+  let primeiro = false, erroFonte = "";
+  try {
+    primeiro = !demo && (await precisaPrimeiroAdmin());
+  } catch (e) {
+    erroFonte = (e as Error).message;
+  }
   return (
     <div className="min-h-dvh bg-fundo">
       <header className="border-b border-borda">
@@ -43,8 +51,14 @@ export default async function Entrar() {
                 Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o
                 seu Número Pessoal — o mesmo NP e senha do site atual.
               </p>
-              <div className="max-w-sm rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante">
-                <FormularioEntrada demo={demo} siteAtual={siteAtual} />
+              <div className={`${primeiro ? "max-w-md" : "max-w-sm"} rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante`}>
+                {erroFonte && (
+                  <p role="alert" className="mb-4 rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-3.5 py-2.5 text-sm text-perigo-500">
+                    Não consegui ler o repositório de dados: {erroFonte} Confira DADOS_GH_REPO e DADOS_GH_TOKEN na Vercel.
+                  </p>
+                )}
+                {primeiro ? <FormularioPrimeiroAdmin pedeCodigo={!!codigoConfiguracao()} />
+                  : <FormularioEntrada demo={demo} siteAtual={siteAtual} />}
               </div>
             </div>
             <div className="hidden justify-center lg:flex"><Objeto tamanho={460} /></div>
