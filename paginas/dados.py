@@ -103,47 +103,6 @@ for tipo in TIPOS:
             except Exception as e:  # noqa: BLE001
                 st.error(f"Arquivo não aceito: {e}")
 
-# ----------------------------------------------------------------------------
-# Site novo (Vercel): grava lá o repositório de dados e o token que este site já usa
-# ----------------------------------------------------------------------------
-if (eu or {}).get("perfil") == "admin":
-    from central import vercel  # noqa: E402
-
-    with st.container(border=True):
-        st.markdown("#### :material/rocket_launch: Site novo (Vercel)")
-        cred = vercel.credenciais_dados()
-        if not cred:
-            st.info("Este site não tem o repositório de dados configurado (modo GitHub) nem o sincronizador neste PC, "
-                    "então não há o que enviar para o site novo. Configure o sincronizador primeiro.",
-                    icon=":material/info:")
-        else:
-            st.markdown(f"Liga o site novo ao repositório de dados **`{cred.repo}`** (token `{cred.token_mascarado}`, "
-                        f"vindo da {cred.origem}) sem ninguém copiar o token do GitHub: o site grava as variáveis "
-                        "no projeto da Vercel e publica de novo.")
-            st.caption("1. Em vercel.com › Account Settings › **Tokens**, crie um token (escopo: a conta do projeto; "
-                       "validade curta, ex.: 1 dia). 2. Cole abaixo e clique em **Ligar o site novo**. O token da "
-                       "Vercel é usado só agora — não fica gravado.")
-            with st.form("ligar_vercel", clear_on_submit=True):
-                c1, c2 = st.columns([2, 2])
-                tok = c1.text_input("Token da Vercel", type="password", autocomplete="off")
-                proj = c2.text_input("Projeto na Vercel", value=vercel.PROJETO_PADRAO)
-                atual = str(st.context.url or "").split("?")[0].rsplit("/", 1)[0] if st.context.url else ""
-                url = st.text_input("Endereço deste site (para as abas que ainda não foram migradas)", value=atual)
-                if st.form_submit_button("Ligar o site novo", icon=":material/link:", type="primary"):
-                    if (auth.usuario_atual() or {}).get("perfil") != "admin":
-                        st.error("Só administradores podem fazer isso.")
-                    else:
-                        try:
-                            with st.spinner("Gravando na Vercel e publicando de novo…"):
-                                r = vercel.ligar_site_novo(tok, cred, url, proj.strip() or vercel.PROJETO_PADRAO)
-                        except vercel.VercelErro as e:
-                            st.error(f"Não deu certo: {e}.")
-                        else:
-                            st.success(f"Pronto: {', '.join(r['variaveis'])} gravadas no projeto **{r['projeto']}**"
-                                       + (". Publicando de novo — em 1 a 2 minutos o site novo mostra os dados reais."
-                                          if r["republicado"] else
-                                          ". Publique de novo na Vercel (Deployments › Redeploy) para valer."))
-
 from central import robo  # noqa: E402
 
 with st.container(border=True):

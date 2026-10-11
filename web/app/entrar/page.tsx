@@ -24,7 +24,6 @@ const DESTAQUES = [
 export default async function Entrar() {
   if (await usuarioAtual()) redirect("/");
   const demo = modo() === "demo";
-  const siteAtual = process.env.URL_SITE_ATUAL?.trim() || null;
   let primeiro = false, erroFonte = "";
   try {
     primeiro = !demo && (await precisaPrimeiroAdmin());
@@ -36,7 +35,6 @@ export default async function Entrar() {
       <header className="border-b border-borda">
         <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-4 sm:px-8">
           <Marca />
-          {siteAtual && <a href={siteAtual} className="text-[14px] text-texto-3 transition hover:text-texto">Site atual</a>}
         </div>
       </header>
 
@@ -48,8 +46,7 @@ export default async function Entrar() {
               <Pilula>SIM · Manutenção Profissional · F26</Pilula>
               <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[56px]" />
               <p className="text-[15.5px] leading-relaxed text-texto-3">
-                Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o
-                seu Número Pessoal — o mesmo NP e senha do site atual.
+                Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o seu Número Pessoal (NP) e a sua senha.
               </p>
               <div className={`${primeiro ? "max-w-md" : "max-w-sm"} rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante`}>
                 {erroFonte && (
@@ -58,7 +55,7 @@ export default async function Entrar() {
                   </p>
                 )}
                 {primeiro ? <FormularioPrimeiroAdmin pedeCodigo={!!codigoConfiguracao()} />
-                  : <FormularioEntrada demo={demo} siteAtual={siteAtual} />}
+                  : <FormularioEntrada demo={demo} />}
               </div>
             </div>
             <div className="hidden justify-center lg:flex"><Objeto tamanho={460} /></div>

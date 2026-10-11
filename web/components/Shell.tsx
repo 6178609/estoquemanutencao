@@ -54,7 +54,7 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
                     {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span><span className="text-[10.5px]">em breve</span></>}
                   </span>
                 ) : it.externo ? (
-                  <a href={it.href} title={`${it.titulo} — ainda no site atual`}
+                  <a href={it.href} title={it.titulo}
                     className="group flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] text-texto-3 transition hover:bg-superficie-2 hover:text-texto">
                     <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
                     {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span>
