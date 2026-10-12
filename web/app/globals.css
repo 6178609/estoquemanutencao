@@ -63,6 +63,11 @@
   --texto-4: #a1a1aa;
   --tinta: #09090b;            /* botão principal (como no template): preto no claro */
   --tinta-texto: #ffffff;
+  /* gráficos (validados no scripts/validate_palette.js do método de dataviz: ordem fixa, daltonismo, contraste) */
+  --serie-1: #006cb4; --serie-2: #f07818; --serie-3: #009cd8; --serie-4: #a8c024;
+  --st-bom: #009c48; --st-atencao: #fcb40c; --st-serio: #f07818; --st-critico: #e41824;
+  --seq-1: #e6f0f9; --seq-2: #c2dbf1; --seq-3: #7aafe0; --seq-4: #4f97d3; --seq-5: #1c75bd; --seq-6: #005799; --seq-7: #003b6b;
+  --grade: #ececee; --eixo: #a1a1aa;
   color-scheme: light;
 }
 
@@ -70,13 +75,21 @@
   :root:not([data-tema="claro"]) {
     --fundo: #09090b; --superficie: #0c0c0e; --superficie-2: #111113; --superficie-3: #18181b;
     --borda: #1f1f23; --borda-forte: #2a2a30; --texto: #fafafa; --texto-2: #b4b4bb; --texto-3: #8e8f93;
-    --texto-4: #5c5c63; --tinta: #fafafa; --tinta-texto: #09090b; color-scheme: dark;
+    --texto-4: #5c5c63; --tinta: #fafafa; --tinta-texto: #09090b;
+    --serie-1: #3384d6; --serie-2: #d8620e; --serie-3: #0a90c8; --serie-4: #869f18;
+    --st-bom: #22b068; --st-atencao: #fcb40c; --st-serio: #f08a3c; --st-critico: #ff4d55;
+    --seq-1: #0f2236; --seq-2: #143654; --seq-3: #1a4f7a; --seq-4: #2468a3; --seq-5: #3a86cf; --seq-6: #6aa8e2; --seq-7: #a9ccef;
+    --grade: #1f1f23; --eixo: #5c5c63; color-scheme: dark;
   }
 }
 :root[data-tema="escuro"] {
   --fundo: #09090b; --superficie: #0c0c0e; --superficie-2: #111113; --superficie-3: #18181b;
   --borda: #1f1f23; --borda-forte: #2a2a30; --texto: #fafafa; --texto-2: #b4b4bb; --texto-3: #8e8f93;
-  --texto-4: #5c5c63; --tinta: #fafafa; --tinta-texto: #09090b; color-scheme: dark;
+  --texto-4: #5c5c63; --tinta: #fafafa; --tinta-texto: #09090b;
+  --serie-1: #3384d6; --serie-2: #d8620e; --serie-3: #0a90c8; --serie-4: #869f18;
+    --st-bom: #22b068; --st-atencao: #fcb40c; --st-serio: #f08a3c; --st-critico: #ff4d55;
+    --seq-1: #0f2236; --seq-2: #143654; --seq-3: #1a4f7a; --seq-4: #2468a3; --seq-5: #3a86cf; --seq-6: #6aa8e2; --seq-7: #a9ccef;
+    --grade: #1f1f23; --eixo: #5c5c63; color-scheme: dark;
 }
 
 @utility bg-fundo { background-color: var(--fundo); }
@@ -130,3 +143,6 @@ body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01
 @media print {
   .nao-imprimir { display: none !important; }
 }
+
+/* filtros recalculando: mantém o desenho anterior esmaecido (sem esqueleto piscando) */
+[data-carregando] main { opacity: 0.55; transition: opacity 0.2s; }
