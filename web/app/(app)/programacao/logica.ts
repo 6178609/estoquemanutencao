@@ -239,3 +239,25 @@ export function paradoHa(l: Lote, agoraMs = Date.now()): number | null {
   const ts = [l.atualizado_em, l.iniciado_em, l.criado_em, l.progresso?.em].map((x) => Date.parse(x ?? "")).filter((x) => !Number.isNaN(x));
   return ts.length ? Math.floor((agoraMs - Math.max(...ts)) / 60_000) : null;
 }
+
+/** Código → nome do ativo: o objeto técnico mais comum das ordens (o campo de ordenação vence o equipamento); o IH08 por cima. */
+export function nomesDeAtivos(ordens: { equipamento: string; campo: string; objeto: string }[], ih08: [string, string][]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const col of ["equipamento", "campo"] as const) {
+    const cont = new Map<string, Map<string, number>>();
+    for (const o of ordens) {
+      const k = (o[col] ?? "").trim().toUpperCase();
+      if (!k || !o.objeto) continue;
+      const m = cont.get(k) ?? cont.set(k, new Map()).get(k)!;
+      m.set(o.objeto, (m.get(o.objeto) ?? 0) + 1);
+    }
+    for (const [k, m] of cont) {
+      let melhor = "", n = -1;
+      for (const [v, q] of m) if (q > n || (q === n && v < melhor)) { melhor = v; n = q; }
+      out[k] = melhor;
+    }
+  }
+  for (const [e, nome] of ih08) if (nome.trim()) out[e.trim().toUpperCase()] = nome;
+  return out;
+}
+

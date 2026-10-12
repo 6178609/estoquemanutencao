@@ -56,7 +56,7 @@ export default async function Programacao(props: { searchParams: Promise<Params>
   const concluidas = new Set([...tokens].filter(([, t]) => t.has("CONF") && t.has("ENTE")).map(([o]) => o));
   const ordensCampo: md.OrdemCampo[] = ordens.filter((o) => campoDe.has(o.ordem)).map((o) => ({ ordem: o.ordem, campo: campoDe.get(o.ordem)!,
     texto: o.texto, tipo: o.tipo, situacao: o.situacao, inicio: o.inicio, fim: o.fim }));
-  const nomes = nomesDeAtivos(ordens.map((o) => ({ equipamento: o.equipamento, campo: campoDe.get(o.ordem) ?? "", objeto: o.objeto })),
+  const nomes = md.nomesDeAtivos(ordens.map((o) => ({ equipamento: o.equipamento, campo: campoDe.get(o.ordem) ?? "", objeto: o.objeto })),
     (c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
 
   // mês escolhido (15 meses: 2 antes do atual e 12 depois)
@@ -224,27 +224,6 @@ const isoMes = (d: Dia, n: number) => { const p = partes(d); const m = p.mes - 1
 function situacaoCelula(status: string, rotulo: string) {
   const cor = status === md.CONCLUIDA ? "var(--st-bom)" : status === md.COM_ERROS ? "var(--st-critico)" : md.ABERTOS.includes(status) ? "var(--serie-1)" : "var(--texto-4)";
   return { t: rotulo, fundo: `color-mix(in srgb, ${cor} 18%, transparent)`, cor: "var(--texto)" };
-}
-
-/** Código → nome do ativo: o objeto técnico mais comum das ordens (o campo de ordenação vence o equipamento); o IH08 por cima. */
-function nomesDeAtivos(ordens: { equipamento: string; campo: string; objeto: string }[], ih08: [string, string][]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const col of ["equipamento", "campo"] as const) {
-    const cont = new Map<string, Map<string, number>>();
-    for (const o of ordens) {
-      const k = (o[col] ?? "").trim().toUpperCase();
-      if (!k || !o.objeto) continue;
-      const m = cont.get(k) ?? cont.set(k, new Map()).get(k)!;
-      m.set(o.objeto, (m.get(o.objeto) ?? 0) + 1);
-    }
-    for (const [k, m] of cont) {
-      let melhor = "", n = -1;
-      for (const [v, q] of m) if (q > n || (q === n && v < melhor)) { melhor = v; n = q; }
-      out[k] = melhor;
-    }
-  }
-  for (const [e, nome] of ih08) if (nome.trim()) out[e.trim().toUpperCase()] = nome;
-  return out;
 }
 
 function DetalheLote({ id, l, pode, haAbertos }: { id: string; l: md.Lote; pode: boolean; haAbertos: boolean }) {
