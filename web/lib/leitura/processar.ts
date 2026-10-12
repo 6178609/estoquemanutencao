@@ -1,4 +1,5 @@
-import { lerArquivo, LeituraErro, sondar } from "./leitura";
+import { chave } from "../dados/texto";
+import { lerArquivo, LeituraErro, paraTexto, sondar } from "./leitura";
 import { emPartes } from "./parquet";
 import { NOMES_BASE, type Tipo } from "./tipos";
 import { Xlsx } from "./xlsx";
@@ -17,6 +18,25 @@ export interface Processado {
   arquivo: string;
   bases: BaseLida[];
   erro?: string;
+  /** nomes dos tipos de ordem (YM11 → "Corretiva Emergencial…") da aba de apoio da Gestão de HH */
+  tiposOrdem?: Record<string, string>;
+}
+
+/** A aba de apoio da planilha de Gestão de HH: colunas "TIPO" (código) e "TIPO DE OM" (descrição) — como _tipos_da_gestao. */
+export function tiposDaGestao(x: Xlsx): Record<string, string> {
+  for (const aba of x.abas) {
+    const linhas = x.linhas(aba, 60);
+    const cab = (linhas[0] || []).map((v) => chave(paraTexto(v)));
+    const i = cab.indexOf("TIPO"), j = cab.indexOf("TIPO DE OM");
+    if (i < 0 || j < 0) continue;
+    const out: Record<string, string> = {};
+    for (const r of linhas.slice(1)) {
+      const cod = paraTexto(r[i]).trim(), desc = paraTexto(r[j]).trim();
+      if (cod && desc && /^[A-Z]{1,3}\d{2}$/.test(cod)) out[cod] = desc;
+    }
+    return out;
+  }
+  return {};
 }
 
 export function processar(arquivo: string, bytes: Uint8Array): Processado {
@@ -30,7 +50,8 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
       const t = lerArquivo(arquivo, bytes, a.aba, a.linhaCab, x);
       return { tipo: a.tipo, nome: NOMES_BASE[a.tipo], aba: a.aba, colunas: t.colunas, linhas: t.linhas.length, partes: emPartes(t) };
     });
-    return { arquivo, bases };
+    const tiposOrdem = x && bases.some((b) => b.tipo === "equipe") ? tiposDaGestao(x) : undefined;
+    return { arquivo, bases, ...(tiposOrdem && Object.keys(tiposOrdem).length ? { tiposOrdem } : {}) };
   } catch (e) {
     return { arquivo, bases: [], erro: e instanceof LeituraErro ? e.message : `falha ao ler: ${(e as Error).message}` };
   }

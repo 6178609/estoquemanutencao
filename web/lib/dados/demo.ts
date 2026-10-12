@@ -73,6 +73,8 @@ const globalDemo = globalThis as unknown as { __cmCadastrosDemo?: Map<string, Re
 const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<string, Record<string, unknown>>>([
   ["cadastro_materiais.json", {}],
   ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] } }],
+  ["tipos_ordem.json", { YM01: { descricao: "Preventiva" }, YM03: { descricao: "Preditiva / inspeção" },
+    YM11: { descricao: "Corretiva Emergencial" }, YM12: { descricao: "Corretiva programada" }, YM13: { descricao: "Melhoria" } }],
 ]));
 
 export function lerJsonDemo(nome: string) {

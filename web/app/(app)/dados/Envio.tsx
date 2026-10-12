@@ -15,6 +15,7 @@ interface Item {
   arquivo: File;
   situacao: Situacao;
   bases: (BaseLida & { situacao?: Situacao; erro?: string; progresso?: number })[];
+  tiposOrdem?: Record<string, string>;
   erro?: string;
 }
 
@@ -71,7 +72,7 @@ export function Envio({ demo }: { demo: boolean }) {
     for (const arquivo of Array.from(arquivos)) {
       const id = proximo.current++;
       setItens((xs) => [...xs, { id, arquivo, situacao: "lendo", bases: [] }]);
-      ler(id, arquivo).then((r) => atualizar(id, (i) => ({ ...i, situacao: r.erro ? "erro" : "pronto", erro: r.erro, bases: r.bases })),
+      ler(id, arquivo).then((r) => atualizar(id, (i) => ({ ...i, situacao: r.erro ? "erro" : "pronto", erro: r.erro, bases: r.bases, tiposOrdem: r.tiposOrdem })),
         (e) => atualizar(id, (i) => ({ ...i, situacao: "erro", erro: String(e) })));
     }
   }, [ler]);
@@ -115,6 +116,9 @@ export function Envio({ demo }: { demo: boolean }) {
         marcar({ situacao: "erro", erro: (e as Error).message });
       }
     }
+    // nomes dos tipos de ordem da Gestão de HH (deixam "corretivas emergenciais" com base)
+    const tipos = Object.assign({}, ...itens.map((i) => i.tiposOrdem || {}));
+    if (Object.keys(tipos).length) await fetch("/api/dados/tipos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(tipos) }).catch(() => null);
     setEnviando(false);
     router.refresh();
   }
