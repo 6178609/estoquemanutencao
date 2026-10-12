@@ -57,11 +57,12 @@ function useLargura<T extends HTMLElement>(): [React.RefObject<T | null>, number
 }
 
 /** Escala "bonita" (0, 25, 50, 75, 100) que cobre o máximo. */
-function escala(max: number, min = 0, passos = 4): { ticks: number[]; topo: number; base: number } {
+function escala(max: number, min = 0, passos = 4, inteiro = false): { ticks: number[]; topo: number; base: number } {
   const span = Math.max(max - min, 1e-9);
   const bruto = span / passos;
   const mag = 10 ** Math.floor(Math.log10(bruto));
-  const passo = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((p) => p >= bruto) ?? 10 * mag;
+  let passo = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((p) => p >= bruto) ?? 10 * mag;
+  if (inteiro) passo = Math.max(1, Math.ceil(passo)); // contagens: nada de "0,5 ordem" (que virava 1, 1, 0, 0 no eixo)
   const base = Math.floor(min / passo) * passo;
   const topo = Math.ceil(max / passo) * passo || passo;
   const ticks: number[] = [];
@@ -171,7 +172,7 @@ export function Colunas({ rotulos, series, empilhar, meta, formato: fmtNome = "p
   const BASE = 22, TOPO = 16;
   const totais = rotulos.map((_, i) => empilhar ? series.reduce((s, x) => s + Math.max(0, x.valores[i] ?? 0), 0)
     : Math.max(0, ...series.map((x) => x.valores[i] ?? 0)));
-  const { ticks, topo } = escala(Math.max(...totais, meta ?? 0, 0));
+  const { ticks, topo } = escala(Math.max(...totais, meta ?? 0, 0), 0, 4, fmtNome === "inteiro" || fmtNome === "un");
   const ESQ = margemEixo(ticks.map(fmtV));
   const w = Math.max(largura - ESQ, 10), h = altura - BASE - TOPO;
   const banda = w / Math.max(rotulos.length, 1);
@@ -331,7 +332,7 @@ export function Linhas({ rotulos, series, meta, formato: fmtNome = "padrao", alt
   const id = useId();
   const BASE = 22, TOPO = 16;
   const todos = series.flatMap((s) => s.valores.filter((v): v is number => v != null));
-  const { ticks, topo, base } = escala(Math.max(...todos, meta ?? 0, 0), minimo ?? Math.min(0, ...todos));
+  const { ticks, topo, base } = escala(Math.max(...todos, meta ?? 0, 0), minimo ?? Math.min(0, ...todos), 4, fmtNome === "inteiro" || fmtNome === "un");
   const ESQ = margemEixo(ticks.map(fmtV));
   const finais = series.map((s) => [...s.valores].reverse().find((v) => v != null)).filter((v): v is number => v != null);
   const DIR = series.length <= 4 && finais.length ? Math.max(30, ...finais.map((v) => fmtV(v).length * 6.6 + 12)) : 12;

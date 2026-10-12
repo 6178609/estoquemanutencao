@@ -169,7 +169,7 @@ function Mensal({ gerP, serie }: { gerP: AfG[]; serie: ({ mes: Dia } & af.Indica
   const series = af.GRUPOS_AF.map((g) => ({ nome: g, cor: COR_GRUPO[g], valores: meses.map((m) => gerP.filter((a) => a.grupo === g && inicioDoMes(a.dataFalha!) === m).length) }));
   const taxa = serie.map((s) => (s.taxa_quebra_a == null ? null : Math.round(s.taxa_quebra_a * 10) / 10));
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
       <Grafico titulo="AFs geradas por mês" subtitulo="Pelo resultado da análise" legenda={<LegendaCores itens={series.map((s) => [s.nome, s.cor!])} />}
         dica="AFs geradas no mês (data da falha), separadas em analisadas no prazo, fora do prazo, em aberto e atrasadas."
         tabela={{ colunas: ["Mês", ...af.GRUPOS_AF], linhas: rot.map((r, i) => [r, ...series.map((s) => s.valores[i])]) }}>

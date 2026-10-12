@@ -137,7 +137,7 @@ function Scorecard({ vivas, ini, fim, hoje, params }: { vivas: af.AcaoAf[]; ini:
     <Secao titulo="Cumprimento por responsável e supervisor"
       sub="Ações com data limite no período; atrasadas e abertas são de hoje. Concluídas no prazo % = realizadas até a data limite ÷ vencidas no período (farol: ≥ 90% verde, ≥ 70% amarelo, abaixo vermelho). Dias médios de atraso = média entre as ações do período que atrasaram."
       acoes={<Opcoes param="sc" atual={dim} params={params} rotulo="Agrupar por" opcoes={[{ valor: "responsavel", rotulo: "Responsável" }, { valor: "supervisor", rotulo: "Supervisor" }]} />}>
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Quadro titulo="Scorecard" subtitulo={`${int(sc.length)} ${dim === "supervisor" ? "supervisores" : "responsáveis"}`}>
           {!sc.length ? <p className="text-[13px] text-texto-3">Nenhuma ação com data limite no período.</p> : (
             <TabelaSimples minimo={820}
@@ -171,7 +171,7 @@ function TiposWcm({ vivas, ini, fim }: { vivas: af.AcaoAf[]; ini: Dia; fim: Dia 
   const comAcoes = linhas.filter((l) => l.n);
   return (
     <Secao titulo="Tipos de ação WCM" sub={`${int(ger.length)} ações iniciadas no período. Uma ação pode ter mais de um tipo marcado no gerenciador, então os percentuais somam mais de 100%.`}>
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Quadro titulo="Ações iniciadas no período por tipo">
           <TabelaSimples minimo={620}
             colunas={[{ rotulo: "Tipo da ação" }, { rotulo: "Ações", direita: true }, { rotulo: "% das ações", direita: true }, { rotulo: "Concluídas", direita: true },
