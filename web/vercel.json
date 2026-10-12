@@ -4,5 +4,9 @@
     "deploymentEnabled": {
       "claude/*": false
     }
-  }
+  },
+  "fluid": true,
+  "regions": [
+    "gru1"
+  ]
 }

@@ -1,4 +1,5 @@
 import { Pencil, Search } from "lucide-react";
+import Form from "next/form";
 import Link from "next/link";
 
 import { Colunas, Grafico, Legenda } from "@/components/graficos";
@@ -75,7 +76,7 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
       </div>
 
       <div id="ficha" className="scroll-mt-24 space-y-4 border-t border-borda pt-6">
-        <form method="get" className="flex flex-wrap items-end gap-2">
+        <Form action="/equipamentos" scroll={false} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="visao" value={String(params.visao ?? "")} />
           <label className="block min-w-0 flex-1 sm:max-w-md">
             <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Ficha do equipamento</span>
@@ -87,7 +88,7 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
             <datalist id="eq-opcoes">{opcoesFicha.map((x) => <option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</datalist>
           </label>
           <button className="inline-flex h-11 items-center rounded-xl border border-borda bg-superficie px-4 text-[14px] font-medium transition hover:bg-superficie-2">Abrir ficha</button>
-        </form>
+        </Form>
         {sel && (tab.some((x) => x.codigo === sel) || c.b.ordens.dados.some((o) => o.equipChave === sel))
           ? <Ficha c={c} sel={sel} nome={tab.find((x) => x.codigo === sel)?.nome ?? ""} est={est} cadastra={cadastra} />
           : sel ? <p className="text-[13px] text-texto-3">Equipamento <b>{sel}</b> não encontrado nas ordens, no IH08 nem no cadastro do site.</p> : null}

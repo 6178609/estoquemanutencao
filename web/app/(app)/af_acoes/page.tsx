@@ -252,6 +252,8 @@ function SituacaoPeriodo({ acoes, ini, fim }: { acoes: af.AcaoAf[]; ini: Dia; fi
 }
 
 // ----------------------------------------------------------------------------
+const LISTAS = [{ valor: "periodo", rotulo: "Só no período" }, { valor: "todas", rotulo: "Todas as datas" }];
+
 const COLS: Coluna[] = [
   { id: "id", rotulo: "ID", tipo: "codigo", largura: 110 }, { id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 180 },
   { id: "af", rotulo: "Nº AF", tipo: "codigo", largura: 100 }, { id: "n", rotulo: "Nº ação", tipo: "codigo", largura: 80 }, { id: "acao", rotulo: "Ação", largura: 320 },
@@ -273,22 +275,26 @@ function Todas({ acoes, afs, ini, fim, params }: { acoes: af.AcaoAf[]; afs: af.A
   const sel = selId ? acoes.find((a) => a.id === selId) : undefined;
   const orig = sel ? afs.find((a) => a.numero === sel.numeroAf) : undefined;
   const outras = sel ? af.acoesDaAf(acoes, sel.numeroAf) : [];
+  // "Só no período" decidido no servidor: o navegador recebe só as ações que vai mostrar (as 6 mil de uma vez pesam)
+  const lista = param(params, "lista") === "todas" ? "todas" : "periodo";
+  const visiveis = lista === "todas" ? ord : ord.filter((a) => { const d = a[campo]; return d != null && d >= ini && d <= fim; });
   return (
     <>
-      <Secao titulo="Todas as ações" sub="Clique numa ação para ver a ação completa e a análise de falha de origem. Escolha uma AF no filtro “Nº AF” para ver as ações dela de qualquer data (desligue “Só no período”)."
-        acoes={<Opcoes param="base" rotulo="Data de referência" opcoes={BASES} atual={base} params={params} />}>
+      <Secao titulo="Todas as ações" sub="Clique numa ação para ver a ação completa e a análise de falha de origem. Para ver as ações de uma AF de qualquer data, escolha “Todas as datas” e filtre pelo “Nº AF”."
+        acoes={<div className="flex flex-wrap items-center gap-3">
+          <Opcoes param="lista" rotulo="Mostrar" opcoes={LISTAS} atual={lista} params={params} />
+          <Opcoes param="base" rotulo="Data de referência" opcoes={BASES} atual={base} params={params} />
+        </div>}>
         <Tabela colunas={COLS} cores={COR_ACAO} contagem="ações" resumoPor="situacao" arquivo="acoes_af" altura={500}
           busca={{ campos: ["id", "acao", "equipamento", "sap", "responsavel", "supervisor", "obs"], placeholder: "ação, AF, equipamento, responsável…" }}
           facetas={[{ id: "situacao", rotulo: "Situação", ordem: [...af.SITUACOES_ACAO] }, { id: "responsavel", rotulo: "Responsável" }, { id: "supervisor", rotulo: "Supervisor" },
             { id: "area", rotulo: "Área" }, { id: "tipoF", rotulo: "Tipo da ação", lista: true, ordem: [...af.TIPOS_ACAO, af.SEM_TIPO] }, { id: "af", rotulo: "Nº AF" }]}
-          alternancias={[{ id: "per", rotulo: "Só no período", campo: "noPeriodo", padrao: true, dica: "Ligado: só ações com a data de referência (escolhida ao lado) no período." }]}
           abrirParam={{ param: "acao", campo: "id", ancora: "acao" }}
-          linhas={ord.map((a) => {
-            const d = a[campo];
+          linhas={visiveis.map((a) => {
             return { id: a.id, situacao: a.situacao, af: a.numeroAf, n: a.numeroAcao, acao: a.acao, tipo: a.tipoDaAcao, tipoF: a.tipoDaAcao || af.SEM_TIPO,
               responsavel: a.responsavel, supervisor: a.supervisor, ini: a.dataInicio, limite: a.dataLimite, feita: a.dataRealizada, atraso: a.diasDeAtraso,
               concluir: a.diasParaConcluir, equipamento: a.equipamento, sap: a.codigoSap, area: a.area, especialidade: a.especialidade, crit: a.criticidade,
-              pilar: a.pilar, status: a.status, os: a.osCorrecao, link: a.link, obs: a.observacoes, noPeriodo: d != null && d >= ini && d <= fim ? 1 : null };
+              pilar: a.pilar, status: a.status, os: a.osCorrecao, link: a.link, obs: a.observacoes };
           })} />
       </Secao>
       {sel && (

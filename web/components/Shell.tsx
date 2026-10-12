@@ -1,8 +1,8 @@
 "use client";
 
 import clsx from "clsx";
-import { ArrowUpRight, ChevronsLeft, LogOut, Menu, Moon, Sun, X } from "lucide-react";
-import Link from "next/link";
+import { ArrowUpRight, ChevronsLeft, LoaderCircle, LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -27,6 +27,12 @@ export interface Pessoa {
 
 function iniciais(nome: string) {
   return nome.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
+}
+
+/** Girando ao lado da aba clicada enquanto ela abre (resposta imediata ao clique). */
+function Abrindo() {
+  const { pending } = useLinkStatus();
+  return <LoaderCircle aria-hidden className={clsx("size-3.5 shrink-0 animate-spin text-texto-3 transition-opacity", pending ? "opacity-100" : "opacity-0")} />;
 }
 
 function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string; itens: ItemMenu[] }[];
@@ -67,6 +73,7 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
                     {ativo(it.href) && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
                     <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
                     {!recolhido && <span className="flex-1 truncate">{it.titulo}</span>}
+                    <Abrindo />
                   </Link>
                 )}
               </li>

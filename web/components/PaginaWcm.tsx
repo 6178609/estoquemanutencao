@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { BarraFiltros, type OpcoesFiltro } from "./BarraFiltros";
@@ -42,10 +43,10 @@ export function AbasVisao({ visoes, atual, params }: { visoes: string[]; atual: 
         const p = new URLSearchParams(base);
         p.set("visao", v);
         return (
-          <a key={v} href={`?${p.toString()}`}
+          <Link key={v} href={`?${p.toString()}`} scroll={false}
             className={v === atual ? "rounded-full bg-superficie-3 px-4 py-2 text-[13.5px] font-medium text-texto" : "rounded-full px-4 py-2 text-[13.5px] text-texto-3 transition hover:text-texto"}>
             {v}
-          </a>
+          </Link>
         );
       })}
     </nav>
@@ -62,5 +63,5 @@ export function Aviso({ children, tom = "laranja" }: { children: React.ReactNode
 }
 
 export function SemDados({ base }: { base: string }) {
-  return <Aviso>A base <b>{base}</b> ainda não está no repositório de dados. Envie o export em <a href="/dados" className="font-medium underline">Fontes de dados</a>.</Aviso>;
+  return <Aviso>A base <b>{base}</b> ainda não está no repositório de dados. Envie o export em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>;
 }

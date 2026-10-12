@@ -181,7 +181,15 @@ function diaDe(s: string): Dia {
 
 const base = <T,>(dados: T, hoje: Dia): Base<T> => ({ dados, atualizado: new Date((hoje - 1) * 86_400_000 + 9 * 3_600_000).toISOString(), origem: "demonstração" });
 
+const prontas: { dia?: Dia; valor?: ReturnType<typeof montarDemo> } = {};
+
+/** As bases fictícias já preparadas — geradas e preparadas uma vez por dia (não a cada página). */
 export function basesDemo(hoje: Dia) {
+  if (prontas.dia !== hoje || !prontas.valor) { prontas.valor = montarDemo(hoje); prontas.dia = hoje; }
+  return prontas.valor;
+}
+
+function montarDemo(hoje: Dia) {
   if (memo.dia !== hoje) { memo.valor = gerar(hoje); memo.dia = hoje; }
   const g = memo.valor!;
   const ordens = prepararIw38(g.iw38, hoje).ordens, oper = prepararOperacoes(g.iw38op), conf = prepararConfirmacoes(g.iw47);

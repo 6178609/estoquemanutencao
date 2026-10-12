@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 import { Barras, Colunas, Grafico, Linhas, Partes } from "@/components/graficos";
@@ -80,7 +81,7 @@ export default async function Execucao(props: { searchParams: Promise<Record<str
         {visao === "Visão geral" && <VisaoGeral ops={ops} ini={ini} fim={fim} hoje={hoje} params={params} />}
         {visao === "Quem fez o quê" && (temIw47
           ? <QuemFez ap={ap} ops={ops} equipe={c.b.equipe.dados} ini={ini} fim={fim} sel={param(params, "pessoa")} />
-          : <Aviso>Envie o export da <b>IW47</b> (apontamentos) em <a href="/dados" className="font-medium underline">Fontes de dados</a> para ver quem executou cada atividade.</Aviso>)}
+          : <Aviso>Envie o export da <b>IW47</b> (apontamentos) em <Link href="/dados" className="font-medium underline">Fontes de dados</Link> para ver quem executou cada atividade.</Aviso>)}
         {visao === "Atividades" && <Atividades ops={ops} ini={ini} fim={fim} />}
       </Secao>
     </PaginaWcm>

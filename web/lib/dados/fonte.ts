@@ -36,6 +36,7 @@ export interface Fonte {
 export class FonteErro extends Error {}
 
 const TEMPO_VERSOES_MS = 30_000;
+const TEMPO_MAX_VERSOES_MS = 10 * 60_000;
 
 // ----------------------------------------------------------------------------
 // GitHub
@@ -73,7 +74,24 @@ class GitHub implements Fonte {
   }
 
   async versoes(fresco = false): Promise<Map<string, string>> {
-    if (!fresco && this.cacheVersoes && Date.now() - this.cacheVersoes.em < TEMPO_VERSOES_MS) return this.cacheVersoes.mapa;
+    const c = this.cacheVersoes;
+    if (!fresco && c) {
+      const idade = Date.now() - c.em;
+      if (idade < TEMPO_VERSOES_MS) return c.mapa;
+      // passou de 30 s: responde com a lista que já tem e confere o GitHub em segundo plano (a página não espera);
+      // só bloqueia se a lista estiver velha demais
+      if (idade < TEMPO_MAX_VERSOES_MS) {
+        this.listando ??= this.listar().catch(() => c.mapa).finally(() => { this.listando = null; });
+        return c.mapa;
+      }
+    }
+    this.listando ??= this.listar().finally(() => { this.listando = null; });
+    return this.listando;
+  }
+
+  private listando: Promise<Map<string, string>> | null = null;
+
+  private async listar(): Promise<Map<string, string>> {
     const r = await this.pedir(`/repos/${this.repo}/git/trees/${encodeURIComponent(this.ramo)}?recursive=1`);
     if (r.status === 404 || r.status === 409) return new Map();
     if (!r.ok) throw new FonteErro(`Erro ${r.status} ao listar o repositório de dados.`);

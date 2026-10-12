@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Bot, CircleAlert, CircleCheck, Info } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -157,7 +158,7 @@ export default async function Programacao(props: { searchParams: Promise<Params>
               <p className="flex items-start gap-2 text-[13.5px]">
                 {ultimoTeste.status === md.CONCLUIDA ? <CircleCheck className="mt-0.5 size-4 shrink-0" style={{ color: "var(--st-bom)" }} /> : <CircleAlert className="mt-0.5 size-4 shrink-0" style={{ color: "var(--st-critico)" }} />}
                 <span>Último teste ({dataHora(lotes[ultimoTeste.lote].executado_em || ultimoTeste.criadoEm)}): {ultimoTeste.resumo}{" "}
-                  <a className="underline" href={hrefCom(params, { lote: ultimoTeste.lote })}>ver etapas</a></span>
+                  <Link className="underline" href={hrefCom(params, { lote: ultimoTeste.lote })}>ver etapas</Link></span>
               </p>
             ) : <p className="text-[13.5px] text-texto-3">Nenhum teste do robô ainda.</p>}
             <FormTeste mes={md.isoDe(mes)} bloqueio={!pode ? "Só administrador ou editor." : abertos.length ? "Já há um pedido em andamento." : ""} />

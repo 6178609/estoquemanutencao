@@ -30,9 +30,24 @@ export interface Bases {
 
 const ident = (l: Crua[]) => l;
 
+// o objeto montado fica guardado enquanto nenhuma base mudar (a marcação das quebras cruza 150 mil linhas)
+const gb = globalThis as unknown as { __cmBasesWcm?: { chave: string; valor: Bases }; __cmBasesWcmEm?: Promise<Bases> | null };
+
 export async function bases(): Promise<Bases> {
   const h = hoje();
   if (!fonte()) return basesDemo(h);
+  // várias requisições ao mesmo tempo (servidor recém-ligado) esperam a MESMA leitura, em vez de baixar tudo de novo
+  if (gb.__cmBasesWcmEm) return gb.__cmBasesWcmEm;
+  const p = montarBases(h);
+  gb.__cmBasesWcmEm = p;
+  try {
+    return await p;
+  } finally {
+    gb.__cmBasesWcmEm = null;
+  }
+}
+
+async function montarBases(h: number): Promise<Bases> {
   const dia = String(h);
   const [iw38, oper, conf, iw28, ih08, equipe, req, ip19, af, acoesAf] = await Promise.all([
     lerBase(DESTINO.iw38, (l) => prepararIw38(l, h).ordens, dia),
@@ -46,11 +61,16 @@ export async function bases(): Promise<Bases> {
     lerBase(DESTINO.af, ident),
     lerBase(DESTINO.acoes_af, ident),
   ]);
+  const todas = [iw38, oper, conf, iw28, ih08, equipe, req, ip19, af, acoesAf];
+  const chave = `${h}|` + todas.map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|");
+  if (gb.__cmBasesWcm?.chave === chave) return gb.__cmBasesWcm.valor;
   // quebra = Y1 convertida em YM11: o tipo da ordem vem das três bases que têm ordem
   const tipos = tiposPorOrdem(iw38.dados || [], oper.dados || [], conf.dados || []);
   const notas = { ...iw28, dados: iw28.dados ? marcarQuebras(iw28.dados, tipos) : null };
-  return { ordens: iw38, notas, operacoes: oper, confirmacoes: conf, equipamentos: ih08, equipe, requisicoes: req,
+  const valor: Bases = { ordens: iw38, notas, operacoes: oper, confirmacoes: conf, equipamentos: ih08, equipe, requisicoes: req,
     cruas: { ip19, af, acoesAf }, hoje: h };
+  gb.__cmBasesWcm = { chave, valor };
+  return valor;
 }
 
 /** Só a lista da Gestão de HH (para conferir um pedido de acesso sem ler as outras bases). */

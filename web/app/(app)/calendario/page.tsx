@@ -94,11 +94,27 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   // ordens por dia e situação (uma vez por ordem)
   const diasPer: number[] = [];
   for (let d = ini; d <= fim && diasPer.length < 120; d++) diasPer.push(d);
-  const porDia = (sit: string) => diasPer.map((d) => new Set(noPeriodo.filter((l) => l.dia === d && l.situacao === sit).map((l) => l.ordem)).size);
+  // ordens distintas por dia e situação — contadas uma vez (antes recontava a agenda inteira para cada célula)
+  const ordensDiaSit = new Map<string, Set<string>>();
+  for (const l of noPeriodo) {
+    const k = `${l.dia}|${l.situacao}`;
+    let c = ordensDiaSit.get(k);
+    if (!c) ordensDiaSit.set(k, (c = new Set()));
+    c.add(l.ordem);
+  }
+  const porSit = new Map<string, number[]>();
+  const porDia = (sit: string) => {
+    let v = porSit.get(sit);
+    if (!v) porSit.set(sit, (v = diasPer.map((d) => ordensDiaSit.get(`${d}|${sit}`)?.size ?? 0)));
+    return v;
+  };
   const primeira = new Map<string, cal.ItemAgenda>();
   for (const l of noPeriodo) if (!primeira.has(l.ordem)) primeira.set(l.ordem, l);
   const unicas = [...primeira.values()];
   const nAjust = Object.keys(ajustes).length;
+  const turnoOrdens = new Map<string, Set<string>>();
+  for (const l of noPeriodo) { let c = turnoOrdens.get(l.turno); if (!c) turnoOrdens.set(l.turno, (c = new Set())); c.add(l.ordem); }
+  const porTurno = new Map([...turnoOrdens].map(([t, c]) => [t, c.size]));
 
   return moldura(
     <>
@@ -164,9 +180,9 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
               <div className="font-display text-[15px] font-medium">Por turno</div>
               <div className="mb-3 mt-0.5 text-[12.5px] text-texto-3">Linhas da agenda (uma ordem aparece em cada turno que apontou)</div>
               <ul className="space-y-1.5 text-[13px]">
-                {cal.ORDEM_TURNOS.map((t) => {
-                  const n = new Set(noPeriodo.filter((l) => l.turno === t).map((l) => l.ordem)).size;
-                  const max = Math.max(1, ...cal.ORDEM_TURNOS.map((x) => new Set(noPeriodo.filter((l) => l.turno === x).map((l) => l.ordem)).size));
+                {cal.ORDEM_TURNOS.map((t, _i, todos) => {
+                  const n = porTurno.get(t) ?? 0;
+                  const max = Math.max(1, ...todos.map((x) => porTurno.get(x) ?? 0));
                   return (
                     <li key={t} className="grid grid-cols-[150px_1fr_44px] items-center gap-2">
                       <span className="truncate text-texto-2">{t}</span>
