@@ -364,6 +364,8 @@ const COLS_ACAO: Coluna[] = [
   { id: "status", rotulo: "Status", largura: 70 }, { id: "obs", rotulo: "Observações", largura: 240 },
 ];
 
+const LISTAS = [{ valor: "periodo", rotulo: "Só no período" }, { valor: "todas", rotulo: "Todas as datas" }];
+
 function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.AcaoAf[]; ini: Dia; fim: Dia; params: Params }) {
   const base = (["falha", "limite", "analise"].includes(param(params, "base")) ? param(params, "base") : "falha") as keyof typeof CAMPO_BASE;
   const campo = CAMPO_BASE[base];
@@ -379,24 +381,28 @@ function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.A
   const sel = selN ? afs.find((a) => a.numero === selN) : undefined;
   const acs = sel ? af.acoesDaAf(acoes, sel.numero) : [];
   const nan = (v: number) => (Number.isNaN(v) ? null : v);
+  // "Só no período" decidido no servidor: o navegador recebe só as AFs que vai mostrar (a lista inteira é pesada)
+  const lista = param(params, "lista") === "todas" || (q && param(params, "lista") !== "periodo") ? "todas" : "periodo";
+  const visiveis = lista === "todas" ? ord : ord.filter((a) => { const d = a[campo]; return d != null && d >= ini && d <= fim; });
   return (
     <>
       <Secao titulo="Análises de falha" sub="Atrasadas e em risco primeiro · clique numa AF para ver o detalhe e o plano de ação."
-        acoes={<Opcoes param="base" rotulo="Data de referência" opcoes={BASES} atual={base} params={params} />}>
+        acoes={<div className="flex flex-wrap items-center gap-3">
+          <Opcoes param="lista" rotulo="Mostrar" opcoes={LISTAS} atual={lista} params={params} />
+          <Opcoes param="base" rotulo="Data de referência" opcoes={BASES} atual={base} params={params} />
+        </div>}>
         <Tabela key={q} colunas={COLS_AF} cores={COR_AF} contagem="AFs" resumoPor="situacao" arquivo="planos_de_af" altura={500}
           busca={{ campos: ["numero", "os", "resumo", "equipamento", "sap", "causa", "componente"], placeholder: "nº da AF, resumo, equipamento ou causa…" }}
           facetas={[{ id: "situacao", rotulo: "Situação", ordem: [...af.SITUACOES_AF] }, { id: "area", rotulo: "Área" }, { id: "crit", rotulo: "Criticidade" },
             { id: "pilar", rotulo: "Pilar" }, { id: "supervisor", rotulo: "Supervisor" }]}
-          alternancias={[{ id: "per", rotulo: "Só no período", campo: "noPeriodo", padrao: !q, dica: "Ligado: só AFs com a data de referência (escolhida ao lado) no período." }]}
           buscaInicial={q}
           abrirParam={{ param: "af", campo: "numero", ancora: "af" }}
-          linhas={ord.map((a) => {
-            const d = a[campo];
+          linhas={visiveis.map((a) => {
             return { numero: a.numero, situacao: a.situacao, crit: a.criticidade, falha: a.dataFalha, limite: a.dataLimite, analise: a.dataAnalise,
               atraso: a.diasDeAtraso, diasAnalise: a.diasParaAnalise, area: a.area, equipamento: a.equipamento, sap: a.codigoSap, resumo: a.resumo,
               causa: a.causaRaiz, pilar: a.pilar, especialidade: a.especialidade, supervisor: a.supervisor, turno: a.turno, parada: nan(a.duracaoParada),
               pctAcoes: nan(a.pctAcoesConcluidas), acoes: qtd.get(a.numero) ?? 0, abertas: abertas.get(a.numero) ?? 0, link: a.link,
-              os: a.osCorretiva, componente: a.componente, noPeriodo: d != null && d >= ini && d <= fim ? 1 : null };
+              os: a.osCorretiva, componente: a.componente };
           })} />
         <Link href="/af_acoes" className="inline-flex items-center gap-1 text-[13px] text-texto-3 hover:text-texto">Abrir Ações de AF <ArrowRight className="size-3.5" /></Link>
       </Secao>

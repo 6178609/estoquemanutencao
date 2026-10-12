@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 import { Colunas, Grafico, Partes } from "@/components/graficos";
@@ -117,7 +118,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
       {cab}
       {!temIp19 && (
         <Aviso tom="azul">A exportação da <b>IP19</b> ainda não está no repositório de dados. Enquanto isso, o calendário mostra as <b>ordens do IW38 que têm plano</b> —
-          só o que já virou ordem. Para ver também as chamadas futuras, envie o export da IP19 em <a href="/dados" className="font-medium underline">Fontes de dados</a>.</Aviso>
+          só o que já virou ordem. Para ver também as chamadas futuras, envie o export da IP19 em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>
       )}
       <div className="space-y-3">
         {controles}

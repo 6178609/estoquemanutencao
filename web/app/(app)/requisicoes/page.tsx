@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 import { Barras, Grafico } from "@/components/graficos";
@@ -74,7 +75,7 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
 
         {fora.length > 0 && (
           <Aviso><b>{inteiro(fora.length)} requisição(ões) pendente(s)</b> ({brl(soma(fora))}) foram enviadas fora do período escolhido —{" "}
-            <a href={href(params, { per: "tudo", de: null, ate: null, pag: null })} className="font-medium underline">ver tudo</a>.</Aviso>
+            <Link href={href(params, { per: "tudo", de: null, ate: null, pag: null })} className="font-medium underline">ver tudo</Link>.</Aviso>
         )}
 
         <Numeros colunas={4} itens={[

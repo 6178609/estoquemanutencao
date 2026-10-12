@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 /** Escolha por endereço (?<chave>=…) mantendo os filtros e a visão — como o AbasVisao, para outro parâmetro. */
 export function LinksParam({ chave, opcoes, atual, params, rotulo }: { chave: string; opcoes: string[]; atual: string;
   params: Record<string, string | string[] | undefined>; rotulo?: string }) {
@@ -9,10 +11,10 @@ export function LinksParam({ chave, opcoes, atual, params, rotulo }: { chave: st
         const p = new URLSearchParams(base);
         p.set(chave, o);
         return (
-          <a key={o} href={`?${p.toString()}`} aria-current={o === atual ? "true" : undefined}
+          <Link key={o} href={`?${p.toString()}`} scroll={false} aria-current={o === atual ? "true" : undefined}
             className={o === atual ? "rounded-full bg-superficie-3 px-3 py-1.5 text-[13px] font-medium text-texto" : "rounded-full px-3 py-1.5 text-[13px] text-texto-3 transition hover:text-texto"}>
             {o}
-          </a>
+          </Link>
         );
       })}
     </nav>

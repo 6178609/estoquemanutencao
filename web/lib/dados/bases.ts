@@ -35,6 +35,8 @@ export interface Base<T> {
 
 const g = globalThis as unknown as { __cmBases?: Map<string, { versao: string; valor: unknown }> };
 const cache = (g.__cmBases ??= new Map()); // uma cópia por processo (páginas e rotas de API)
+const gl = globalThis as unknown as { __cmLendo?: Map<string, Promise<unknown>> };
+const lendo = (gl.__cmLendo ??= new Map());
 
 export async function manifesto(): Promise<Record<string, InfoBase>> {
   const f = fonte();
@@ -64,6 +66,21 @@ export async function lerBase<T>(caminho: string, preparar: (linhas: Record<stri
   const versao = arquivos.map((a) => versoes.get(a)).join("+") + (sufixo ? `@${sufixo}` : "");
   const c = cache.get(caminho);
   if (c?.versao === versao) return { dados: c.valor as T, ...meta };
+  // a mesma base pedida por duas requisições ao mesmo tempo: baixa e prepara uma vez só
+  const chaveEm = `${caminho}|${versao}`;
+  const emAndamento = lendo.get(chaveEm) as Promise<Base<T>> | undefined;
+  if (emAndamento) return emAndamento;
+  const p = lerEPreparar(f, caminho, arquivos, versao, preparar, meta);
+  lendo.set(chaveEm, p);
+  try {
+    return await p;
+  } finally {
+    lendo.delete(chaveEm);
+  }
+}
+
+async function lerEPreparar<T>(f: NonNullable<ReturnType<typeof fonte>>, caminho: string, arquivos: string[], versao: string,
+  preparar: (linhas: Record<string, unknown>[]) => T, meta: { atualizado: string | null; origem: string }): Promise<Base<T>> {
   try {
     const lidos = await Promise.all(arquivos.map((a) => f.ler(a)));
     if (lidos.some((l) => !l)) return { dados: null, ...meta };
