@@ -85,7 +85,10 @@ export async function contexto(params: Record<string, string | string[] | undefi
   const [metas, equipamentos, materiais, cadHh] = await Promise.all([
     lerCadastro(ind.ARQ_METAS), lerCadastro("cadastro_equipamentos.json"), lerCadastro("cadastro_materiais.json"), lerCadastro(hh.ARQ),
   ]);
-  const tipos = ind.tiposDe(metas as Cadastro, (await lerCadastro("tipos_ordem.json")) as unknown as Record<string, string>);
+  // nomes dos tipos de ordem: os da Gestão de HH (Fontes de dados) completados/sobrescritos pelos cadastrados em Metas
+  const daGestao = Object.fromEntries(Object.entries(await lerCadastro("tipos_ordem.json"))
+    .map(([cod, v]) => [cod, String((v as { descricao?: unknown })?.descricao ?? "")]).filter(([, d]) => d));
+  const tipos = ind.tiposDe(metas as Cadastro, daGestao);
   const sig = assinatura(b);
   const chamadas = guardado(`ch|${sig}`, () => {
     const origem = b.cruas.ip19.dados?.length ? planos.prepararIp19(b.cruas.ip19.dados) : b.ordens.dados ? planos.deIw38(b.ordens.dados) : null;

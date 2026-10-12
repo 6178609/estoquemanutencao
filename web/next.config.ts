@@ -10,6 +10,8 @@ const seguranca = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // pasta de build própria por servidor local (várias telas testadas ao mesmo tempo); na Vercel fica o padrão
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // o leitor de parquet e os compressores rodam só no servidor
   serverExternalPackages: ["hyparquet", "hyparquet-compressors"],
   async headers() {
