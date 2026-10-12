@@ -14,7 +14,8 @@ export type Campo =
   | { tipo: "busca"; chave: string; placeholder: string }
   | { tipo: "multi"; chave: string; rotulo: string; opcoes: { valor: string; rotulo?: string; n?: number }[] }
   | { tipo: "alternar"; chave: string; rotulo: string; dica?: string; padrao?: boolean }
-  | { tipo: "segmentos"; chave: string; opcoes: { valor: string; rotulo: string }[]; padrao: string };
+  | { tipo: "segmentos"; chave: string; opcoes: { valor: string; rotulo: string }[]; padrao: string; limpa?: string[]; atual?: string }
+  | { tipo: "datas"; de: string; ate: string; rotulo: string; padraoDe: string; padraoAte: string; limpa?: string[] };
 
 export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar?: string[] }) {
   const router = useRouter();
@@ -23,9 +24,9 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
   const [pendente, iniciar] = useTransition();
   useEffect(() => { document.documentElement.toggleAttribute("data-carregando", pendente); }, [pendente]);
 
-  function aplicar(chave: string, valor: string) {
+  function aplicar(chave: string, valor: string, extra: Record<string, string> = {}) {
     const p = new URLSearchParams(params.toString());
-    if (valor) p.set(chave, valor); else p.delete(chave);
+    for (const [k, v] of Object.entries({ [chave]: valor, ...extra })) if (v) p.set(k, v); else p.delete(k);
     for (const k of ["pag", ...limpar]) p.delete(k);
     iniciar(() => router.replace(`${rota}?${p.toString()}`, { scroll: false }));
   }
@@ -57,13 +58,27 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
                 </button>
               );
             }
-            if (c.tipo === "segmentos") {
-              const atual = params.get(c.chave) || c.padrao;
+            if (c.tipo === "datas") {
+              const de = params.get(c.de) || c.padraoDe, ate = params.get(c.ate) || c.padraoAte;
+              const entrada = "h-9 rounded-lg bg-superficie px-2 text-[13px] text-texto outline-none focus:ring-2 focus:ring-marca-500/30";
               return (
-                <div key={c.chave} className="flex h-11 items-center gap-0.5 rounded-xl border border-borda bg-superficie-2 p-1">
+                <div key={c.de} className="flex h-11 flex-wrap items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-2 text-[13px] text-texto-3">
+                  <span className="pl-1">{c.rotulo}</span>
+                  <input type="date" aria-label="De" value={de} max={ate} className={entrada}
+                    onChange={(e) => e.target.value && aplicar(c.de, e.target.value, { [c.ate]: ate, ...vazios(c.limpa) })} />
+                  <span>a</span>
+                  <input type="date" aria-label="Até" value={ate} min={de} className={entrada}
+                    onChange={(e) => e.target.value && aplicar(c.ate, e.target.value, { [c.de]: de, ...vazios(c.limpa) })} />
+                </div>
+              );
+            }
+            if (c.tipo === "segmentos") {
+              const atual = c.atual ?? (params.get(c.chave) || c.padrao);
+              return (
+                <div key={c.chave} className="flex h-11 max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-borda bg-superficie-2 p-1">
                   {c.opcoes.map((o) => (
-                    <button key={o.valor} onClick={() => aplicar(c.chave, o.valor === c.padrao ? "" : o.valor)} aria-pressed={atual === o.valor}
-                      className={clsx("h-full rounded-lg px-3 text-[13px] transition",
+                    <button key={o.valor} onClick={() => aplicar(c.chave, o.valor === c.padrao ? "" : o.valor, vazios(c.limpa))} aria-pressed={atual === o.valor}
+                      className={clsx("h-full shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] transition",
                         atual === o.valor ? "bg-superficie font-medium text-texto shadow-sm" : "text-texto-3 hover:text-texto")}>
                       {o.rotulo}
                     </button>
@@ -79,6 +94,8 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
     </div>
   );
 }
+
+const vazios = (ks: string[] = []) => Object.fromEntries(ks.map((k) => [k, ""]));
 
 /** Busca com espera de 350 ms (não refaz a página a cada tecla). */
 function Busca({ placeholder, inicial, aoMudar }: { placeholder: string; inicial: string; aoMudar: (v: string) => void }) {

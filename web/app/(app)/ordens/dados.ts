@@ -1,7 +1,7 @@
 import "server-only";
 
 import { ordensEnriquecidas, type Contexto, type OrdemEnriquecida } from "@/lib/wcm/contexto";
-import { NAT_BACKLOG, NAT_PLANO, PENDENTES, STATUS_USUARIO } from "@/lib/wcm/preparo";
+import { NAT_BACKLOG, NAT_PLANO, PENDENTES, SITUACOES, STATUS_USUARIO } from "@/lib/wcm/preparo";
 import { casa, ligado, lista, ordenar, termos, um, type Params } from "./_comum/url";
 import type { Coluna, Linha } from "./_comum/TabelaDados";
 
@@ -89,6 +89,28 @@ export function colunasEscolhidas(p: Params): { colunas: Coluna[]; escolhidas: b
 }
 
 export const linha = (o: OrdemEnriquecida): Linha => o as unknown as Linha;
+
+/** Ordens do recorte global no período (a base da página) e as que passam nos filtros da página. */
+export function ordensDaPagina(c: Contexto, p: Params): { base: OrdemEnriquecida[]; filtradas: OrdemEnriquecida[]; filtro: FiltroOrdens } {
+  const base = noPeriodo(c, doRecorte(c));
+  const filtro = lerFiltro(p);
+  return { base, filtradas: filtrar(base, filtro), filtro };
+}
+
+/** Opções dos filtros da página, com a contagem no recorte. */
+export function opcoesFiltro(base: OrdemEnriquecida[]) {
+  const conta = (f: (o: OrdemEnriquecida) => string[]) => {
+    const m = new Map<string, number>();
+    for (const o of base) for (const v of f(o)) if (v) m.set(v, (m.get(v) ?? 0) + 1);
+    return m;
+  };
+  const sit = conta((o) => [o.situacao]), st = conta((o) => o.statusUsuario.split(" ")), cls = conta((o) => [o.classe]);
+  return {
+    sit: SITUACOES.map((v) => ({ valor: v, n: sit.get(v) ?? 0 })).filter((x) => x.n),
+    st: [...st.keys()].sort().map((v) => ({ valor: v, rotulo: rotuloStatus(v), n: st.get(v) })),
+    cls: [...cls.keys()].sort().map((v) => ({ valor: v, n: cls.get(v) })),
+  };
+}
 
 /** Ordenação da tabela: padrão = mais recentes primeiro (data da ordem). */
 export function ordenarOrdens(xs: OrdemEnriquecida[], p: Params): { lista: OrdemEnriquecida[]; ord?: string; desc: boolean } {

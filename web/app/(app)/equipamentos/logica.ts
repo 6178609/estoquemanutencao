@@ -16,6 +16,8 @@ export const SEM_CLASSE = "Sem classe";
 export const NAO_CLASSIFICADO = "(não classificado)";
 export const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
 export const POR_PAGINA = 50;
+export const V_ATIVOS = "Gestão de ativos", V_CADASTRO = "Cadastro de equipamentos", V_ANALISE = "Análise pelas ordens (IW38)";
+export const VISOES = [V_ATIVOS, V_CADASTRO, V_ANALISE];
 
 export type Params = Record<string, string | string[] | undefined>;
 
@@ -317,4 +319,29 @@ export function formInicial(tag: string, info: Record<string, unknown> | null | 
     garantia_ate: garantia, valor_reposicao: num(i.valor_reposicao),
     materiais: [...new Set((Array.isArray(i.materiais) ? i.materiais : []).map(String))],
   };
+}
+
+// ----------------------------------------------------------------------------
+// Lista do cadastro (visão "Cadastro de equipamentos")
+// ----------------------------------------------------------------------------
+export interface FiltroCadastro { q: string; crits: string[] }
+
+export function lerFiltroCadastro(p: Params): FiltroCadastro {
+  return { q: param(p, "cq"), crits: listaParam(p, "ccrit") };
+}
+
+/** Itens do cadastro em ordem de TAG, pela busca (TAG, nome, códigos e descrições dos componentes) e criticidade. */
+export function filtrarCadastro(cad: Record<string, unknown>, f: FiltroCadastro, descricao: (material: string) => string = () => ""):
+  [string, Record<string, unknown>][] {
+  const termos = normalizarBusca(f.q).split(/\s+/).filter(Boolean);
+  return Object.entries(cad)
+    .filter((e): e is [string, Record<string, unknown>] => !!e[1] && typeof e[1] === "object" && !Array.isArray(e[1]))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .filter(([k, v]) => {
+      if (f.crits.length && !f.crits.includes(String(v.criticidade ?? ""))) return false;
+      if (!termos.length) return true;
+      const mats = Array.isArray(v.materiais) ? v.materiais.map(String) : [];
+      const hay = normalizarBusca([k, String(v.nome ?? ""), ...mats, ...mats.map(descricao)].join(" "));
+      return termos.every((t) => hay.includes(t));
+    });
 }

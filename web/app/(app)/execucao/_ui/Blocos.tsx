@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { Info, TrendingDown, TrendingUp } from "lucide-react";
 
 import { SeloFarol } from "@/components/Indicador";
+import type { Cor } from "@/components/graficos";
 import type { Farol } from "@/lib/wcm/indicadores";
 
 /**
@@ -15,7 +16,7 @@ export function Tile({ rotulo, valor, detalhe, dica, variacao, farol }: {
   variacao?: { texto: string; melhorou: boolean | null; subiu: boolean } | null; farol?: Farol;
 }) {
   return (
-    <div className="flex flex-col justify-between rounded-cartao border border-borda bg-superficie p-4">
+    <div className="rounded-cartao border border-borda bg-superficie p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="inline-flex items-center gap-1 text-[13px] font-medium leading-snug text-texto-2" title={dica}>
           {rotulo}{dica && <Info className="size-3.5 shrink-0 text-texto-4" aria-label={dica} />}
@@ -111,4 +112,49 @@ export function Campos({ itens }: { itens: [string, React.ReactNode][] }) {
       ))}
     </dl>
   );
+}
+
+/** Legenda de cores (quadradinho + nome) para gráficos com 2+ séries ou partes. */
+export function LegendaCores({ itens }: { itens: [string, Cor][] }) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-texto-2">
+      {itens.map(([n, c]) => (
+        <span key={n} className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-[3px]" style={{ background: c === "neutro" ? "var(--texto-4)" : `var(--${c})` }} />{n}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Tabela simples do servidor (scorecards, pivôs): rola dentro do cartão no celular. */
+export function TabelaSimples({ colunas, linhas, minimo = 640, destaque }: {
+  colunas: { rotulo: string; direita?: boolean; dica?: string }[]; linhas: { celulas: React.ReactNode[]; estilos?: (React.CSSProperties | undefined)[] }[];
+  minimo?: number; destaque?: (i: number) => boolean;
+}) {
+  return (
+    <div className="max-h-[520px] overflow-auto rounded-lg border border-borda">
+      <table className="w-full whitespace-nowrap text-left text-[12.5px]" style={{ minWidth: minimo }}>
+        <thead className="sticky top-0 z-10 bg-superficie-2 text-[11.5px] text-texto-3">
+          <tr>{colunas.map((c, i) => <th key={i} title={c.dica} className={clsx("px-3 py-2 font-medium", c.direita && "text-right")}>{c.rotulo}</th>)}</tr>
+        </thead>
+        <tbody className="divide-y divide-borda">
+          {linhas.map((l, i) => (
+            <tr key={i} className={destaque?.(i) ? "bg-superficie-2 font-medium" : undefined}>
+              {l.celulas.map((v, j) => (
+                <td key={j} style={l.estilos?.[j]} className={clsx("px-3 py-1.5", colunas[j]?.direita && "num text-right tabular-nums")}>{v}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Fundo da célula de % pelo farol do resumo corporativo (≥ 90 verde, ≥ 70 amarelo, abaixo vermelho) — sempre com o número escrito. */
+export function fundoPct(v: number | null | undefined): React.CSSProperties | undefined {
+  if (v == null || Number.isNaN(v)) return undefined;
+  const c = v >= 90 ? "--st-bom" : v >= 70 ? "--st-atencao" : "--st-critico";
+  return { background: `color-mix(in srgb, var(${c}) 16%, transparent)` };
 }

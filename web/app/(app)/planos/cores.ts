@@ -2,17 +2,29 @@ import type { Cor } from "@/components/graficos";
 import * as planos from "@/lib/wcm/planos";
 
 /**
- * Situação da chamada → cor (é status: sempre junto do símbolo ✓ ● ! ○ – e do nome).
- * Concluída = bom, Atrasada = crítico, Em aberto (ordem gerada, no prazo) = atenção, Programada (futura) = azul,
- * Saltada/cancelada e sem status = cinza.
+ * Situação da chamada → cor. A cor é status (sempre junto do símbolo ✓ ● ! ○ – · e do nome):
+ * Concluída = bom, Atrasada = crítico, Em aberto (ordem gerada, ainda no prazo) = azul informativo,
+ * Programada (futura, ordem ainda não gerada) = vazada, Saltada/cancelada e sem status = cinza.
  */
 export const COR_SITUACAO: Record<planos.SituacaoChamada, Cor> = {
-  [planos.CONCLUIDA]: "st-bom", [planos.ABERTA]: "st-atencao", [planos.ATRASADA]: "st-critico",
-  [planos.PROGRAMADA]: "serie-1", [planos.SALTADA]: "neutro", [planos.SEM_STATUS]: "neutro",
+  [planos.CONCLUIDA]: "st-bom", [planos.ABERTA]: "serie-1", [planos.ATRASADA]: "st-critico",
+  [planos.PROGRAMADA]: "neutro", [planos.SALTADA]: "neutro", [planos.SEM_STATUS]: "neutro",
 };
 
 export const corCss = (c: Cor) => (c === "neutro" ? "var(--texto-4)" : `var(--${c})`);
 export const tinta = (c: Cor, pct = 16) => `color-mix(in srgb, ${corCss(c)} ${pct}%, transparent)`;
+
+/** Estilo da célula do calendário (fundo, borda, texto): o texto fica sempre na cor do texto, nunca na da série. */
+export function estiloCelula(s: planos.SituacaoChamada): { background: string; border: string; color: string } {
+  switch (s) {
+    case planos.CONCLUIDA: return { background: tinta("st-bom", 55), border: "transparent", color: "var(--texto)" };
+    case planos.ABERTA: return { background: tinta("serie-1", 50), border: "transparent", color: "var(--texto)" };
+    case planos.ATRASADA: return { background: tinta("st-critico", 62), border: "transparent", color: "var(--texto)" };
+    case planos.PROGRAMADA: return { background: "transparent", border: "var(--texto-4)", color: "var(--texto-2)" };
+    case planos.SALTADA: return { background: "var(--superficie-3)", border: "transparent", color: "var(--texto-3)" };
+    default: return { background: "var(--superficie-2)", border: "var(--borda)", color: "var(--texto-3)" };
+  }
+}
 
 export const EXPLICA: Record<planos.SituacaoChamada, string> = {
   [planos.CONCLUIDA]: "Chamada com data de conclusão, programação concluída na IP19 ou ordem concluída no IW38.",
