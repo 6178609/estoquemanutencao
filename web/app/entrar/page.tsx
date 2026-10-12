@@ -8,7 +8,7 @@ import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { codigoConfiguracao, precisaPrimeiroAdmin } from "@/lib/auth/usuarios";
-import { FormularioEntrada } from "./FormularioEntrada";
+import { AbasEntrada } from "./AbasEntrada";
 import { FormularioPrimeiroAdmin } from "./FormularioPrimeiroAdmin";
 
 export const metadata: Metadata = { title: "Entrar" };
@@ -48,14 +48,14 @@ export default async function Entrar() {
               <p className="text-[15.5px] leading-relaxed text-texto-3">
                 Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o seu Número Pessoal (NP) e a sua senha.
               </p>
-              <div className={`${primeiro ? "max-w-md" : "max-w-sm"} rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante`}>
+              <div className={`${demo ? "max-w-sm" : "max-w-md"} rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante`}>
                 {erroFonte && (
                   <p role="alert" className="mb-4 rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-3.5 py-2.5 text-sm text-perigo-500">
                     Não consegui ler o repositório de dados: {erroFonte} Confira DADOS_GH_REPO e DADOS_GH_TOKEN na Vercel.
                   </p>
                 )}
                 {primeiro ? <FormularioPrimeiroAdmin pedeCodigo={!!codigoConfiguracao()} />
-                  : <FormularioEntrada demo={demo} />}
+                  : <AbasEntrada demo={demo} />}
               </div>
             </div>
             <div className="hidden justify-center lg:flex"><Objeto tamanho={460} /></div>

@@ -1,8 +1,11 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { entrar, entrarDemo } from "@/lib/auth/sessao";
+import { solicitar } from "@/lib/auth/solicitacoes";
 import { criarPrimeiroAdmin } from "@/lib/auth/usuarios";
 
 export interface EstadoEntrada {
@@ -41,4 +44,29 @@ export async function acaoPrimeiroAdmin(_: EstadoPrimeiro, form: FormData): Prom
   const erro = await entrar(r.login, d.senha, true);
   if (erro) return { erro, nome: d.nome, login: d.login, funcao: d.funcao };
   redirect("/usuarios?primeiro=1");
+}
+
+export interface EstadoPedido {
+  erro: string;
+  ok: boolean;
+  nome: string;
+  login: string;
+  funcao: string;
+  motivo: string;
+}
+
+/** Pedido de acesso: fica pendente até um administrador aprovar em Usuários › Solicitações. */
+export async function acaoSolicitar(_: EstadoPedido, form: FormData): Promise<EstadoPedido> {
+  const campo = (k: string) => String(form.get(k) || "");
+  const d = { nome: campo("nome"), login: campo("login"), funcao: campo("funcao"), motivo: campo("motivo"),
+    senha: campo("senha"), senha2: campo("senha2") };
+  // limite por navegador (como a sessão do site atual): na fábrica todos saem pelo mesmo IP
+  const jar = await cookies();
+  let origem = jar.get("cm_nav")?.value || "";
+  if (!/^[\w-]{16,64}$/.test(origem)) {
+    origem = randomBytes(16).toString("base64url");
+    jar.set("cm_nav", origem, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 86400 });
+  }
+  const erro = await solicitar(d, origem);
+  return { erro, ok: !erro, nome: d.nome, login: d.login, funcao: d.funcao, motivo: d.motivo };
 }

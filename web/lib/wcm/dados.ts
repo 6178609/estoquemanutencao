@@ -53,6 +53,12 @@ export async function bases(): Promise<Bases> {
     cruas: { ip19, af, acoesAf }, hoje: h };
 }
 
+/** Só a lista da Gestão de HH (para conferir um pedido de acesso sem ler as outras bases). */
+export async function equipe(): Promise<Pessoa[]> {
+  if (!fonte()) return basesDemo(hoje()).equipe.dados || [];
+  return (await lerBase(DESTINO.equipe, (l) => prepararEquipe(l))).dados || [];
+}
+
 /** Os cadastros do app que os indicadores usam (metas, equipamentos, materiais, HH). */
 export async function cadastros() {
   const [metas, equipamentos, materiais, preferencias] = await Promise.all([

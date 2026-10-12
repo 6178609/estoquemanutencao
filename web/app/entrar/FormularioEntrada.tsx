@@ -61,7 +61,8 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
         </button>
       </form>
       <p className="text-center text-[12.5px] text-texto-3">
-        Sem acesso ou esqueceu a senha? Peça a um administrador do PCM.
+        {demo ? "Sem acesso ou esqueceu a senha? Peça a um administrador do PCM."
+          : "Ainda sem acesso? Use Solicitar acesso. Esqueceu a senha? Peça a um administrador do PCM."}
       </p>
     </div>
   );

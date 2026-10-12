@@ -1,14 +1,16 @@
-import { AlertTriangle, PartyPopper } from "lucide-react";
+import { AlertTriangle, Inbox, PartyPopper } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Cabecalho, Pagina, Selo } from "@/components/ui";
 import { FUNCOES, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { solicitacoes } from "@/lib/auth/solicitacoes";
 import { adminsAtivos, usuarios } from "@/lib/auth/usuarios";
+import { equipe } from "@/lib/wcm/dados";
 import { GRUPOS } from "@/lib/navegacao";
 import { validarLogin } from "@/lib/auth/senha";
-import { GestaoUsuarios, type Pessoa } from "./GestaoUsuarios";
+import { GestaoUsuarios, type PedidoAcesso, type Pessoa } from "./GestaoUsuarios";
 
 export const metadata: Metadata = { title: "Usuários" };
 export const dynamic = "force-dynamic";
@@ -26,13 +28,27 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
   const primeiro = (await props.searchParams).primeiro === "1";
   const us = await usuarios();
   const admins = adminsAtivos(us);
+  const quando = (s?: string) => {
+    if (!s) return "";
+    const d = new Date(s);
+    return isNaN(+d) ? s.slice(0, 16).replace("T", " ")
+      : new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(d);
+  };
   // para o navegador vai só o que a tela mostra — nunca o hash da senha nem as sessões
   const pessoas: Pessoa[] = Object.entries(us).sort(([a], [b]) => a.localeCompare(b)).map(([login, v]) => ({
     login, nome: v.nome || "", funcao: v.funcao || "", perfil: v.perfil || "leitor", ativo: v.ativo !== false,
     abas: Array.isArray(v.abas) ? (v.abas as unknown[]).map(String) : null, trocarSenha: !!v.trocar_senha,
-    ultimoAcesso: (v.ultimo_acesso || "").slice(0, 16).replace("T", " "),
+    ultimoAcesso: quando(v.ultimo_acesso),
     unicoAdmin: admins.includes(login) && admins.length === 1,
   }));
+  // pedidos de acesso: sem a senha (hash) — só o que o administrador precisa para decidir
+  const [peds, lista] = await Promise.all([solicitacoes(), equipe().catch(() => null)]);
+  const naEquipe = new Map((lista || []).map((p) => [p.np.replace(/^0+/, ""), [p.cargo, p.area].filter(Boolean).join(" · ") || "sem cargo"]));
+  const pedidos: PedidoAcesso[] = Object.entries(peds).map(([login, p]) => ({
+    login, nome: p.nome || "", funcao: p.funcao || "", motivo: p.motivo || "", criadoEm: quando(p.criado_em),
+    equipe: lista && lista.length ? naEquipe.get(login.replace(/^0+/, "")) ?? null : undefined,
+    status: p.status || "pendente", decididoPor: p.decidido_por || "", decididoEm: quando(p.decidido_em), motivoRecusa: p.motivo_recusa || "",
+  })).sort((a, b) => a.login.localeCompare(b.login));
   const semFuncao = pessoas.filter((p) => !(p.funcao in FUNCOES) && p.ativo).map((p) => p.login);
   const foraNp = pessoas.filter((p) => validarLogin(p.login)).map((p) => p.login);
   const abas = GRUPOS.flatMap((g) => g.abas.filter((a) => !PAGINAS_LIVRES.has(a.id)).map((a) => ({ id: a.id, titulo: `${g.titulo} › ${a.titulo}` })));
@@ -48,6 +64,12 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
     <Pagina>
       <Cabecalho titulo="Usuários," destaque="quem acessa e o que cada um pode fazer."
         subtitulo="Função define as abas; perfil define o que a pessoa pode alterar." />
+      {pedidos.some((p) => p.status === "pendente") && (
+        <div className="flex gap-3 rounded-cartao border border-alp-laranja/40 bg-alp-laranja/10 px-4 py-3 text-[14px] text-texto-2">
+          <Inbox className="mt-0.5 size-4 shrink-0 text-alp-laranja" />
+          <span><b>{pedidos.filter((p) => p.status === "pendente").length} pedido(s) de acesso aguardando</b> — veja em <b>Solicitações</b>, logo abaixo da lista.</span>
+        </div>
+      )}
       {primeiro && (
         <div className="flex gap-3 rounded-cartao border border-marca-500/30 bg-marca-500/10 px-4 py-3 text-[14px] text-texto-2">
           <PartyPopper className="mt-0.5 size-4 shrink-0 text-marca-600" />
@@ -89,7 +111,7 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
         </table>
       </div>
 
-      <GestaoUsuarios pessoas={pessoas} eu={eu.login} abas={abas} />
+      <GestaoUsuarios pessoas={pessoas} eu={eu.login} abas={abas} pedidos={pedidos} />
 
       <details className="rounded-cartao border border-borda bg-superficie">
         <summary className="cursor-pointer px-5 py-3.5 font-display text-[15px] font-medium">Quem vê cada aba</summary>
