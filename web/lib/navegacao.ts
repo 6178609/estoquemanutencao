@@ -11,7 +11,7 @@ export interface Aba {
 
 export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Visão geral", abas: [
-    { id: "painel", titulo: "Painel WCM", icone: "LayoutDashboard" },
+    { id: "painel", titulo: "Painel WCM", icone: "LayoutDashboard", rota: "/painel" },
     { id: "busca", titulo: "Buscar", icone: "Search" },
   ] },
   { titulo: "Confiabilidade", abas: [
