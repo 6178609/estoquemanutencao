@@ -57,11 +57,12 @@ function useLargura<T extends HTMLElement>(): [React.RefObject<T | null>, number
 }
 
 /** Escala "bonita" (0, 25, 50, 75, 100) que cobre o máximo. */
-function escala(max: number, min = 0, passos = 4): { ticks: number[]; topo: number; base: number } {
+function escala(max: number, min = 0, passos = 4, inteiro = false): { ticks: number[]; topo: number; base: number } {
   const span = Math.max(max - min, 1e-9);
   const bruto = span / passos;
   const mag = 10 ** Math.floor(Math.log10(bruto));
-  const passo = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((p) => p >= bruto) ?? 10 * mag;
+  let passo = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((p) => p >= bruto) ?? 10 * mag;
+  if (inteiro) passo = Math.max(1, Math.ceil(passo)); // contagens: nada de "0,5 ordem" (que virava 1, 1, 0, 0 no eixo)
   const base = Math.floor(min / passo) * passo;
   const topo = Math.ceil(max / passo) * passo || passo;
   const ticks: number[] = [];
@@ -171,7 +172,7 @@ export function Colunas({ rotulos, series, empilhar, meta, formato: fmtNome = "p
   const BASE = 22, TOPO = 16;
   const totais = rotulos.map((_, i) => empilhar ? series.reduce((s, x) => s + Math.max(0, x.valores[i] ?? 0), 0)
     : Math.max(0, ...series.map((x) => x.valores[i] ?? 0)));
-  const { ticks, topo } = escala(Math.max(...totais, meta ?? 0, 0));
+  const { ticks, topo } = escala(Math.max(...totais, meta ?? 0, 0), 0, 4, fmtNome === "inteiro" || fmtNome === "un");
   const ESQ = margemEixo(ticks.map(fmtV));
   const w = Math.max(largura - ESQ, 10), h = altura - BASE - TOPO;
   const banda = w / Math.max(rotulos.length, 1);
@@ -273,7 +274,10 @@ export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo 
   const ALT = 26, ESP = 30;
   const topo = max ?? Math.max(...itens.map((i) => i.valor), meta ?? 0, 1e-9);
   const rotW = Math.min(larguraRotulo, Math.max(90, largura * 0.38));
-  const w = Math.max(largura - rotW - 56, 10);
+  // espaço à direita para o valor escrito ao fim da barra (o maior deles), em vez de um fixo que cortava "R$ 69 mil"
+  const dir = Math.max(40, ...itens.map((i) => fmtV(i.valor).length * 6.6 + 12));
+  const w = Math.max(largura - rotW - dir, 10);
+  const cabe = Math.max(4, Math.floor((rotW - 10) / 7.2)); // caracteres que cabem no rótulo (dígitos e maiúsculas são largos)
   const altura = itens.length * ESP + 4;
   return (
     <div ref={ref} className="relative" onPointerLeave={() => setDica(null)}>
@@ -290,7 +294,8 @@ export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo 
                   linhas: it.partes?.length ? it.partes.map((p) => ({ nome: p.nome, valor: fmtV(p.valor), cor: p.cor, linha: false }))
                     : [{ nome: it.detalhe ?? "", valor: fmtV(it.valor), cor: it.cor ?? "serie-1", linha: false }] })}>
                 <text x={rotW - 8} y={y + hB / 2} dy="0.32em" textAnchor="end" className="fill-[var(--texto-2)] text-[12px]">
-                  {it.rotulo.length > rotW / 6.6 ? it.rotulo.slice(0, Math.floor(rotW / 6.6) - 1) + "…" : it.rotulo}
+                  {it.rotulo.length > cabe ? it.rotulo.slice(0, cabe - 1) + "…" : it.rotulo}
+                  {it.rotulo.length > cabe && <title>{it.rotulo}</title>}
                 </text>
                 {it.partes?.length ? it.partes.map((p, j) => {
                   const pw = (p.valor / topo) * w;
@@ -327,7 +332,7 @@ export function Linhas({ rotulos, series, meta, formato: fmtNome = "padrao", alt
   const id = useId();
   const BASE = 22, TOPO = 16;
   const todos = series.flatMap((s) => s.valores.filter((v): v is number => v != null));
-  const { ticks, topo, base } = escala(Math.max(...todos, meta ?? 0, 0), minimo ?? Math.min(0, ...todos));
+  const { ticks, topo, base } = escala(Math.max(...todos, meta ?? 0, 0), minimo ?? Math.min(0, ...todos), 4, fmtNome === "inteiro" || fmtNome === "un");
   const ESQ = margemEixo(ticks.map(fmtV));
   const finais = series.map((s) => [...s.valores].reverse().find((v) => v != null)).filter((v): v is number => v != null);
   const DIR = series.length <= 4 && finais.length ? Math.max(30, ...finais.map((v) => fmtV(v).length * 6.6 + 12)) : 12;

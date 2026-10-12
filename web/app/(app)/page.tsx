@@ -24,11 +24,9 @@ export default async function Inicio() {
   const revisar = itens.filter((i) => ["Bloqueado", "Cancelado", "Duplicado"].includes(i.cadastro)).length;
   const criticos = itens.filter((i) => i.situacao !== "OK" && i.usadoEm.includes("(Alta)"));
   const abas = GRUPOS.flatMap((g) => g.abas.map((a) => ({ ...a, grupo: g.titulo }))).filter((a) => podeVer(u, a.id));
-  const migradas = abas.filter((a) => a.rota);
   const primeiroNome = (u.nome || u.login).split(" ")[0];
   const data = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const hoje = data.charAt(0).toUpperCase() + data.slice(1);
-  const pct = abas.length ? Math.round((migradas.length / abas.length) * 100) : 0;
 
   return (
     <>
@@ -87,7 +85,6 @@ export default async function Inicio() {
         <section className="space-y-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <Titulo nivel={2} titulo="Suas abas," destaque="num lugar só." />
-            <span className="text-[13px] text-texto-3"><Selo cor="verde">● pronta</Selo> as demais chegam em breve</span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {abas.map((a) => {
@@ -97,7 +94,7 @@ export default async function Inicio() {
                     <Icone nome={a.icone} className="size-5 text-texto-2" strokeWidth={1.75} />
                   </span>
                   <span className="mt-3 block text-center text-[13px] leading-snug text-texto-2 group-hover:text-texto">
-                    {a.titulo}{a.rota && <span className="ml-1 inline-block size-1.5 -translate-y-0.5 rounded-full bg-marca-500" />}
+                    {a.titulo}
                   </span>
                 </>
               );
@@ -108,15 +105,7 @@ export default async function Inicio() {
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-cartao border border-borda bg-superficie-2 p-6">
-            <div className="font-display text-[15px] font-medium">Migração para o site novo</div>
-            <p className="mt-1 text-[13.5px] text-texto-3">{migradas.length} de {abas.length} das suas abas já estão aqui ({pct}%).</p>
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-superficie-3">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 3)}%`,
-                background: "linear-gradient(90deg, #e41824, #f07818, #fcb40c, #a8c024, #009c48, #009cd8, #006cb4)" }} />
-            </div>
-          </div>
+        <section>
           <div className="flex items-start gap-4 rounded-cartao border border-borda bg-superficie-2 p-6">
             <span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-borda bg-superficie text-alp-azul">
               <Database className="size-[17px]" strokeWidth={1.75} />

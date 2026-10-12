@@ -66,8 +66,7 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
                       ativo(it.href) ? "bg-superficie-3 font-medium text-texto" : "text-texto hover:bg-superficie-2")}>
                     {ativo(it.href) && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
                     <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
-                    {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span>
-                      <span className="size-1.5 rounded-full bg-marca-500" title="Já no site novo" /></>}
+                    {!recolhido && <span className="flex-1 truncate">{it.titulo}</span>}
                   </Link>
                 )}
               </li>
