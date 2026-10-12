@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { FUNCOES } from "@/lib/auth/acesso";
+import { ehAdmin, FUNCOES } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { aprovar, recusar } from "@/lib/auth/solicitacoes";
 import { criarUsuario, editarUsuario, excluirUsuario } from "@/lib/auth/usuarios";
@@ -16,7 +16,7 @@ export interface EstadoUsuario {
 
 async function admin() {
   const u = await exigir();
-  return u.perfil === "admin" && !u.demo && u.ativo !== false ? u : null;
+  return ehAdmin(u) && !u.demo && u.ativo !== false ? u : null;
 }
 
 const campo = (f: FormData, k: string) => String(f.get(k) || "");

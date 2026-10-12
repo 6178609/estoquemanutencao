@@ -1,5 +1,5 @@
 import { Shell, type ItemMenu } from "@/components/Shell";
-import { nomeFuncao, PAGINAS_PARCIAIS, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
+import { ehAdmin, nomeFuncao, PAGINAS_PARCIAIS, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { pendentes } from "@/lib/auth/solicitacoes";
 import { GRUPOS } from "@/lib/navegacao";
@@ -21,7 +21,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         return [{ id: a.id, titulo: parcial ? `${a.titulo} (${parcial})` : a.titulo, icone: a.icone, href: "", externo: true, parcial }];
       }),
   })).filter((g) => g.itens.length);
-  const admin = u.perfil === "admin" && !u.demo;
+  const admin = ehAdmin(u) && !u.demo;
   // pedidos de acesso aguardando: o administrador vê o número no menu
   const nPedidos = admin ? Object.keys(await pendentes().catch(() => ({}))).length : 0;
   grupos.push({ titulo: "Conta", itens: [

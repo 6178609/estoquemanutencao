@@ -41,7 +41,9 @@ ARQ_SOLICITACOES = "solicitacoes_acesso.json"   # pedidos de cadastro feitos na 
 MAX_PENDENTES = 30                               # proteção contra abuso do formulário público
 INTERVALO_SOLICITACAO_S = 600                    # um pedido a cada 10 min por navegador
 PERFIS = {"admin": "Administrador", "editor": "Editor", "leitor": "Leitor"}
-FUNCOES = {"lider": "Líder de manutenção", "analista": "Analista", "manutentor": "Manutentor"}
+FUNCOES = {"lider": "Líder de manutenção", "analista": "Analista", "manutentor": "Manutentor", "terceiro": "Terceiro"}
+# Terceiros: só o Estoque — nada de parte parcial, lista personalizada ou administração
+FUNCOES_SO_ESTOQUE = {"terceiro"}
 FUNCOES_ACESSO_TOTAL = {"lider", "analista"}
 # abas liberadas para todas as funções (o id é o nome do arquivo em paginas/, sem .py)
 PAGINAS_LIVRES = {"estoque"}
@@ -312,6 +314,8 @@ def aprovar(login: str, funcao: str, perfil: str, abas: list[str] | None, por: s
         return "Já existe um usuário com esse login."
     if funcao not in FUNCOES or perfil not in PERFIS:
         return "Escolha a função e o perfil."
+    if funcao in FUNCOES_SO_ESTOQUE and perfil == "admin":
+        return "Terceiro não pode ser administrador: escolha Leitor ou Editor."
     dados = {"nome": ped.get("nome", login), "perfil": perfil, "funcao": funcao, "ativo": True, "trocar_senha": False,
              "sal": ped["sal"], "senha_hash": ped["senha_hash"]}
     if abas is not None:
@@ -361,10 +365,15 @@ def todas_as_abas() -> list[str]:
     return [pid for _, pid, _ in navegacao.abas()]
 
 
+def so_estoque(u: dict | None) -> bool:
+    """Terceiro: só a aba Estoque, mesmo com lista de abas ou perfil administrador no cadastro."""
+    return bool(u) and u.get("funcao") in FUNCOES_SO_ESTOQUE
+
+
 def acesso_total(u: dict | None) -> bool:
     """Vê todas as abas: Líder de manutenção e Analista (ou quem recebeu todas na lista personalizada); conta sem
     função e sem lista, só se for administrador."""
-    if not u:
+    if not u or so_estoque(u):
         return False
     pers = abas_personalizadas(u)
     if pers is not None:
@@ -383,6 +392,8 @@ def ve_inteira(u: dict | None, pagina: str) -> bool:
     pid = id_pagina(pagina)
     if pid in PAGINAS_LIVRES:
         return True
+    if so_estoque(u):
+        return False
     pers = abas_personalizadas(u)
     return pid in pers if pers is not None else acesso_total(u)
 
@@ -392,6 +403,8 @@ def pode_ver(u: dict | None, pagina: str) -> bool:
     o servidor nem executa as outras, mesmo com o endereço digitado."""
     if not u:
         return False
+    if so_estoque(u):
+        return id_pagina(pagina) in PAGINAS_LIVRES
     return id_pagina(pagina) in PAGINAS_PARCIAIS or ve_inteira(u, pagina)
 
 
@@ -438,7 +451,8 @@ def paginas_conta(u: dict | None) -> list[str]:
     """url_path das páginas da conta que esta pessoa vê no menu (Configuração)."""
     if not login_exigido():
         return []
-    return ["conta", *(["usuarios"] if (u or {}).get("perfil") == "admin" else []), "sair"]
+    eh_admin = (u or {}).get("perfil") == "admin" and not so_estoque(u)
+    return ["conta", *(["usuarios"] if eh_admin else []), "sair"]
 
 
 def nome_funcao(u: dict | None) -> str:
@@ -677,7 +691,7 @@ def pagina_usuarios() -> None:
             funcao = c[2].selectbox("Função", list(FUNCOES), index=None, format_func=FUNCOES.get,
                                     placeholder="Escolha a função", key="nu_funcao",
                                     help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque e a "
-                                         "Gestão de ativos.")
+                                         "Gestão de ativos; Terceiro, só o Estoque.")
             perfil = c[3].selectbox("Perfil", list(PERFIS), index=2, format_func=PERFIS.get, key="nu_perfil")
             senha = st.text_input("Senha provisória", type="password", key="nu_senha",
                                   help="A pessoa vai ser obrigada a trocar no primeiro acesso.")
@@ -686,6 +700,7 @@ def pagina_usuarios() -> None:
             login = normalizar_login(login)
             erro = validar_login(login) or validar_senha(senha) or ("Informe o nome." if not nome.strip() else "") \
                 or ("Escolha a função." if funcao not in FUNCOES else "") \
+                or ("Terceiro não pode ser administrador: escolha Leitor ou Editor." if funcao in FUNCOES_SO_ESTOQUE and perfil == "admin" else "") \
                 or ("Esse usuário já existe." if login in us else "")
             if erro:
                 st.error(erro)
@@ -715,7 +730,7 @@ def pagina_usuarios() -> None:
             funcao = c[1].selectbox("Função", list(FUNCOES), format_func=FUNCOES.get, placeholder="Escolha a função",
                                     index=list(FUNCOES).index(d["funcao"]) if d.get("funcao") in FUNCOES else None,
                                     help="Líder de manutenção e Analista veem todas as abas; Manutentor, só o Estoque e a "
-                                         "Gestão de ativos.")
+                                         "Gestão de ativos; Terceiro, só o Estoque.")
             perfil = c[2].selectbox("Perfil", list(PERFIS), index=list(PERFIS).index(d.get("perfil", "leitor")),
                                     format_func=PERFIS.get, disabled=unico_admin)
             ativo = c[3].toggle("Ativo", d.get("ativo", True), disabled=unico_admin or alvo == eu["login"])
@@ -728,7 +743,8 @@ def pagina_usuarios() -> None:
         if ok:
             # conta antiga sem função pode ser desativada ou ter a senha redefinida sem escolher a função agora
             erro = (validar_senha(nova) if nova else "") \
-                or ("Escolha a função." if funcao not in FUNCOES and d.get("funcao") in FUNCOES else "")
+                or ("Escolha a função." if funcao not in FUNCOES and d.get("funcao") in FUNCOES else "") \
+                or ("Terceiro não pode ser administrador: escolha Leitor ou Editor." if funcao in FUNCOES_SO_ESTOQUE and (d.get("perfil") if unico_admin else perfil) == "admin" else "")
             depois = {**d, "funcao": funcao} if funcao in FUNCOES else dict(d)
             depois.pop("abas", None)
             if modo == ESCOLHER:

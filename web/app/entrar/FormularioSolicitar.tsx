@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { Campo, ENTRADA, Mensagem, Seletor } from "@/components/Campos";
 import { acaoSolicitar, type EstadoPedido } from "./acoes";
 
-const FUNCOES = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor" };
+const FUNCOES = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor", terceiro: "Terceiro" };
 
 export function FormularioSolicitar() {
   const [estado, enviar, enviando] = useActionState<EstadoPedido, FormData>(acaoSolicitar,

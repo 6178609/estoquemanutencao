@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Cabecalho, Pagina, Selo } from "@/components/ui";
-import { FUNCOES, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
+import { ehAdmin, FUNCOES, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { solicitacoes } from "@/lib/auth/solicitacoes";
 import { adminsAtivos, usuarios } from "@/lib/auth/usuarios";
@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 
 function descrever(u: Pessoa): string {
   if (Array.isArray(u.abas)) return `${u.abas.length + 1} aba(s) escolhida(s)`;
+  if (u.funcao === "terceiro") return "Só Estoque";
   if (u.funcao === "manutentor") return "Estoque + Gestão de ativos";
   if (u.funcao && u.funcao in FUNCOES) return "Todas";
   return u.perfil === "admin" ? "Todas" : "Estoque + Gestão de ativos";
@@ -24,7 +25,7 @@ function descrever(u: Pessoa): string {
 
 export default async function Usuarios(props: { searchParams: Promise<{ primeiro?: string }> }) {
   const eu = await exigir();
-  if (eu.perfil !== "admin" || eu.demo) redirect("/");
+  if (!ehAdmin(eu) || eu.demo) redirect("/");
   const primeiro = (await props.searchParams).primeiro === "1";
   const us = await usuarios();
   const admins = adminsAtivos(us);

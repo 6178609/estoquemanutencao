@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { acessoTotal, podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
+import { acessoTotal, ehAdmin, podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { TODAS } from "@/lib/navegacao";
 
@@ -25,6 +25,16 @@ describe("acesso por função (os casos de tests/test_acesso.py)", () => {
     expect(podeVer(pers, "painel")).toBe(false);
     expect(acessoTotal({ login: "t", funcao: "manutentor", abas: TODAS })).toBe(true);
     expect(podeVer(null, "estoque")).toBe(false);
+  });
+  it("terceiro só vê o Estoque — mesmo com lista de abas ou perfil administrador", () => {
+    for (const t of [{ login: "t", funcao: "terceiro", perfil: "leitor" }, { login: "t", funcao: "terceiro", perfil: "admin" },
+      { login: "t", funcao: "terceiro", abas: TODAS }]) {
+      expect(TODAS.filter((p) => podeVer(t, p))).toEqual(["estoque"]);
+      expect(TODAS.filter((p) => veInteira(t, p))).toEqual(["estoque"]);
+      expect(acessoTotal(t)).toBe(false);
+    }
+    expect(ehAdmin({ login: "t", funcao: "terceiro", perfil: "admin" })).toBe(false);
+    expect(ehAdmin({ login: "a", funcao: "lider", perfil: "admin" })).toBe(true);
   });
   it("perfil de edição", () => {
     expect(podeEditar({ login: "a", perfil: "editor" })).toBe(true);
