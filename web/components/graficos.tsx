@@ -273,7 +273,10 @@ export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo 
   const ALT = 26, ESP = 30;
   const topo = max ?? Math.max(...itens.map((i) => i.valor), meta ?? 0, 1e-9);
   const rotW = Math.min(larguraRotulo, Math.max(90, largura * 0.38));
-  const w = Math.max(largura - rotW - 56, 10);
+  // espaço à direita para o valor escrito ao fim da barra (o maior deles), em vez de um fixo que cortava "R$ 69 mil"
+  const dir = Math.max(40, ...itens.map((i) => fmtV(i.valor).length * 6.6 + 12));
+  const w = Math.max(largura - rotW - dir, 10);
+  const cabe = Math.max(4, Math.floor((rotW - 10) / 7.2)); // caracteres que cabem no rótulo (dígitos e maiúsculas são largos)
   const altura = itens.length * ESP + 4;
   return (
     <div ref={ref} className="relative" onPointerLeave={() => setDica(null)}>
@@ -290,7 +293,8 @@ export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo 
                   linhas: it.partes?.length ? it.partes.map((p) => ({ nome: p.nome, valor: fmtV(p.valor), cor: p.cor, linha: false }))
                     : [{ nome: it.detalhe ?? "", valor: fmtV(it.valor), cor: it.cor ?? "serie-1", linha: false }] })}>
                 <text x={rotW - 8} y={y + hB / 2} dy="0.32em" textAnchor="end" className="fill-[var(--texto-2)] text-[12px]">
-                  {it.rotulo.length > rotW / 6.6 ? it.rotulo.slice(0, Math.floor(rotW / 6.6) - 1) + "…" : it.rotulo}
+                  {it.rotulo.length > cabe ? it.rotulo.slice(0, cabe - 1) + "…" : it.rotulo}
+                  {it.rotulo.length > cabe && <title>{it.rotulo}</title>}
                 </text>
                 {it.partes?.length ? it.partes.map((p, j) => {
                   const pw = (p.valor / topo) * w;

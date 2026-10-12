@@ -86,7 +86,7 @@ export function PontoSituacao({ nome, cor }: { nome: string; cor?: Cor }) {
 }
 
 export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = [], cores = {}, arquivo, altura = 520, vazio = "Nada para mostrar.",
-  aoAbrir, abrirParam, contagem = "linhas", ordem, resumoPor, extra }: {
+  aoAbrir, abrirParam, contagem = "linhas", ordem, resumoPor, extra, buscaInicial = "" }: {
   colunas: Coluna[]; linhas: Linha[]; busca?: { campos: string[]; placeholder: string }; facetas?: Faceta[]; alternancias?: Alternancia[];
   cores?: Record<string, Cor>; arquivo?: string; altura?: number; vazio?: string;
   /** detalhe no navegador (só de outro componente de cliente) */
@@ -94,11 +94,13 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
   /** ou detalhe pelo endereço: ?<param>=<linha[campo]> */
   abrirParam?: { param: string; campo: string; ancora?: string };
   contagem?: string; ordem?: { campo: string; desc?: boolean }; resumoPor?: string; extra?: React.ReactNode;
+  /** texto inicial da busca (ex.: ?q= vindo da aba Buscar) */
+  buscaInicial?: string;
 }) {
   const router = useRouter();
   const rota = usePathname();
   const params = useSearchParams();
-  const [texto, setTexto] = useState("");
+  const [texto, setTexto] = useState(buscaInicial);
   const textoAdiado = useDeferredValue(texto);
   const [sel, setSel] = useState<Record<string, string[]>>({});
   const [liga, setLiga] = useState<Record<string, boolean>>(() => Object.fromEntries(alternancias.map((a) => [a.id, a.padrao])));

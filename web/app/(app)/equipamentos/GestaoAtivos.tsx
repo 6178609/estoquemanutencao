@@ -89,7 +89,7 @@ function Pareto({ t }: { t: ativos.LinhaAtivo[] }) {
             <Partes formato="R$" partes={[{ nome: `${p.length} maiores`, valor: topo, cor: "serie-1" }, { nome: "Demais ativos", valor: Math.max(0, total - topo), cor: "neutro" }]} />
           </div>
           <Barras formato="R$" larguraRotulo={230} max={(p[0]?.custo12Meses ?? 1) * 1.15}
-            itens={p.map((x) => ({ rotulo: `${x.codigo} · ${x.equipamento || "—"}`, valor: x.custo12Meses, detalhe: `${Math.round(x.pctAcumulado)}% acumulado` }))} />
+            itens={p.map((x) => ({ rotulo: x.equipamento || x.codigo, valor: x.custo12Meses, detalhe: `${x.codigo} · ${Math.round(x.pctAcumulado)}% acumulado` }))} />
         </div>
       )}
     </Grafico>

@@ -47,10 +47,16 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
 
   // filtros: período próprio (pode incluir semanas futuras); centro e tipo vêm da barra global
   const mesIni = hoje - (partes(hoje).dia - 1);
-  const [ini, fim] = periodo(params, "pde", "pate", [mesIni, fimDoMes(mesIni)]);
-  const datas = ch.map((x) => x.data).filter((d): d is number => d != null);
-  const minimo = datas.length ? Math.min(...datas) : null, maximo = datas.length ? Math.max(...datas) : null;
-  const busca = um(params, "pq"), selCtr = lista(params, "pctr"), selSit = lista(params, "psit"), selAtv = lista(params, "patv");
+  let minimo: number | null = null, maximo: number | null = null;
+  for (const x of ch) if (x.data != null) {
+    if (minimo == null || x.data < minimo) minimo = x.data;
+    if (maximo == null || x.data > maximo) maximo = x.data;
+  }
+  // vindo da Buscar (?q=… sem período): todas as datas do plano procurado
+  const padraoPer: [number, number] = um(params, "q") && !um(params, "pde") && !um(params, "pate") && minimo != null && maximo != null
+    ? [minimo, Math.max(maximo, hoje)] : [mesIni, fimDoMes(mesIni)];
+  const [ini, fim] = periodo(params, "pde", "pate", padraoPer);
+  const busca = um(params, "q"), selCtr = lista(params, "pctr"), selSit = lista(params, "psit"), selAtv = lista(params, "patv");
   const globais = planos.filtrarChamadas(ch, { inicio: ini, fim, centrosGlobais: c.centros, tiposGlobais: c.f.tipos });
   const doPeriodo = planos.noIntervalo(globais, ini, fim);
   const filtro = planos.filtrarChamadas(globais, { inicio: ini, fim, busca, centros: selCtr, situacoes: selSit, atividades: selAtv });
@@ -72,7 +78,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
     <Controles limpar={["plano"]} controles={[
       { tipo: "periodo", de: "pde", ate: "pate", valorDe: iso(ini), valorAte: iso(fim), rotulo: "Data planejada",
         atalhos: atalhos(hoje, ["Este mês", "Mês passado", "Próximo mês", "Próximos 90 dias", "Ano atual", "Tudo"], minimo, maximo) },
-      { tipo: "busca", chave: "pq", valor: busca, placeholder: "Nº do plano, descrição, equipamento…" },
+      { tipo: "busca", chave: "q", valor: busca, placeholder: "Nº do plano, descrição, equipamento…" },
       { tipo: "multi", chave: "pctr", rotulo: "Centro de trabalho", valor: selCtr, opcoes: contagem(doPeriodo.map((x) => x.centroTrabalho)) },
       { tipo: "multi", chave: "psit", rotulo: "Situação", valor: selSit,
         opcoes: planos.SITUACOES.map((s) => ({ valor: s, n: doPeriodo.filter((x) => x.situacao === s).length })) },

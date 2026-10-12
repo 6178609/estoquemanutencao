@@ -374,7 +374,8 @@ function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.A
   }
   const ord = [...afs].sort((a, b) => af.ORDEM_SITUACAO_AF[a.situacao] - af.ORDEM_SITUACAO_AF[b.situacao]
     || (b.diasDeAtraso ?? -1) - (a.diasDeAtraso ?? -1) || (b.dataFalha ?? -Infinity) - (a.dataFalha ?? -Infinity));
-  const selN = param(params, "af");
+  const q = param(params, "q").trim().slice(0, 100);
+  const selN = param(params, "af") || (q && afs.some((a) => a.numero === q) ? q : "");
   const sel = selN ? afs.find((a) => a.numero === selN) : undefined;
   const acs = sel ? af.acoesDaAf(acoes, sel.numero) : [];
   const nan = (v: number) => (Number.isNaN(v) ? null : v);
@@ -382,11 +383,12 @@ function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.A
     <>
       <Secao titulo="Análises de falha" sub="Atrasadas e em risco primeiro · clique numa AF para ver o detalhe e o plano de ação."
         acoes={<Opcoes param="base" rotulo="Data de referência" opcoes={BASES} atual={base} params={params} />}>
-        <Tabela colunas={COLS_AF} cores={COR_AF} contagem="AFs" resumoPor="situacao" arquivo="planos_de_af" altura={500}
+        <Tabela key={q} colunas={COLS_AF} cores={COR_AF} contagem="AFs" resumoPor="situacao" arquivo="planos_de_af" altura={500}
           busca={{ campos: ["numero", "os", "resumo", "equipamento", "sap", "causa", "componente"], placeholder: "nº da AF, resumo, equipamento ou causa…" }}
           facetas={[{ id: "situacao", rotulo: "Situação", ordem: [...af.SITUACOES_AF] }, { id: "area", rotulo: "Área" }, { id: "crit", rotulo: "Criticidade" },
             { id: "pilar", rotulo: "Pilar" }, { id: "supervisor", rotulo: "Supervisor" }]}
-          alternancias={[{ id: "per", rotulo: "Só no período", campo: "noPeriodo", padrao: true, dica: "Ligado: só AFs com a data de referência (escolhida ao lado) no período." }]}
+          alternancias={[{ id: "per", rotulo: "Só no período", campo: "noPeriodo", padrao: !q, dica: "Ligado: só AFs com a data de referência (escolhida ao lado) no período." }]}
+          buscaInicial={q}
           abrirParam={{ param: "af", campo: "numero", ancora: "af" }}
           linhas={ord.map((a) => {
             const d = a[campo];
