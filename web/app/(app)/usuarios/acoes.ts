@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { FUNCOES } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { aprovar, recusar } from "@/lib/auth/solicitacoes";
 import { criarUsuario, editarUsuario, excluirUsuario } from "@/lib/auth/usuarios";
 import { TODAS } from "@/lib/navegacao";
 
@@ -54,4 +55,26 @@ export async function acaoExcluirUsuario(_: EstadoUsuario, f: FormData): Promise
   if (erro) return { erro, ok: "", alvo };
   revalidatePath("/usuarios");
   return { erro: "", ok: `Usuário ${alvo} excluído.` };
+}
+
+export async function acaoAprovar(_: EstadoUsuario, f: FormData): Promise<EstadoUsuario> {
+  const eu = await admin();
+  if (!eu) return { erro: "Só administradores podem aprovar pedidos.", ok: "" };
+  const alvo = campo(f, "alvo");
+  const escolher = campo(f, "modo_abas") === "escolher";
+  const erro = await aprovar(alvo, campo(f, "funcao"), campo(f, "perfil"),
+    escolher ? f.getAll("abas").map(String).filter((a) => TODAS.includes(a)) : null, eu.login);
+  if (erro) return { erro, ok: "", alvo };
+  revalidatePath("/usuarios");
+  return { erro: "", ok: `Acesso de ${alvo} liberado. A pessoa já pode entrar com o NP e a senha que escolheu.`, alvo };
+}
+
+export async function acaoRecusar(_: EstadoUsuario, f: FormData): Promise<EstadoUsuario> {
+  const eu = await admin();
+  if (!eu) return { erro: "Só administradores podem recusar pedidos.", ok: "" };
+  const alvo = campo(f, "alvo");
+  const erro = await recusar(alvo, campo(f, "motivo"), eu.login);
+  if (erro) return { erro, ok: "", alvo };
+  revalidatePath("/usuarios");
+  return { erro: "", ok: `Pedido de ${alvo} recusado.`, alvo };
 }
