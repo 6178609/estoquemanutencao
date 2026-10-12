@@ -4,11 +4,22 @@
  */
 import { TODAS } from "../navegacao";
 
-export const FUNCOES: Record<string, string> = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor" };
+export const FUNCOES: Record<string, string> = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor", terceiro: "Terceiro" };
 export const PERFIS: Record<string, string> = { admin: "Administrador", editor: "Editor", leitor: "Leitor" };
 const FUNCOES_ACESSO_TOTAL = new Set(["lider", "analista"]);
 export const PAGINAS_LIVRES = new Set(["estoque"]);
 export const PAGINAS_PARCIAIS: Record<string, string> = { equipamentos: "Gestão de ativos" };
+/** Terceiros: só o Estoque — nada de parte parcial, lista personalizada ou administração. */
+export const FUNCOES_SO_ESTOQUE = new Set(["terceiro"]);
+
+export function soEstoque(u: Usuario | null): boolean {
+  return !!u?.funcao && FUNCOES_SO_ESTOQUE.has(u.funcao);
+}
+
+/** Administra o site (usuários): perfil administrador e não terceiro. */
+export function ehAdmin(u: Usuario | null): boolean {
+  return !!u && u.perfil === "admin" && !soEstoque(u);
+}
 
 export interface Usuario {
   login: string;
@@ -28,7 +39,7 @@ export function abasPersonalizadas(u: Usuario | null): Set<string> | null {
 }
 
 export function acessoTotal(u: Usuario | null): boolean {
-  if (!u) return false;
+  if (!u || soEstoque(u)) return false;
   const pers = abasPersonalizadas(u);
   if (pers) return TODAS.every((p) => pers.has(p) || PAGINAS_LIVRES.has(p));
   if (u.funcao && u.funcao in FUNCOES) return FUNCOES_ACESSO_TOTAL.has(u.funcao);
@@ -39,12 +50,14 @@ export function veInteira(u: Usuario | null, pagina: string): boolean {
   if (!u) return false;
   const pid = idPagina(pagina);
   if (PAGINAS_LIVRES.has(pid)) return true;
+  if (soEstoque(u)) return false;
   const pers = abasPersonalizadas(u);
   return pers ? pers.has(pid) : acessoTotal(u);
 }
 
 export function podeVer(u: Usuario | null, pagina: string): boolean {
   if (!u) return false;
+  if (soEstoque(u)) return PAGINAS_LIVRES.has(idPagina(pagina));
   return idPagina(pagina) in PAGINAS_PARCIAIS || veInteira(u, pagina);
 }
 

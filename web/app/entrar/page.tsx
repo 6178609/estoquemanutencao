@@ -18,7 +18,7 @@ const DESTAQUES = [
   { icone: Gauge, tom: "verde" as const, titulo: "Indicadores WCM", texto: "MTBF, MTTR, backlog e aderência num só lugar, sempre do export mais novo do SAP." },
   { icone: Boxes, tom: "azul" as const, titulo: "Estoque e materiais", texto: "O almoxarifado com a Descr Completa do Sysmat de cada item, sem limite de busca." },
   { icone: Factory, tom: "laranja" as const, titulo: "Gestão de ativos", texto: "Criticidade, saúde e ciclo de vida dos equipamentos da fábrica." },
-  { icone: ShieldCheck, tom: "vermelho" as const, titulo: "Acesso por função", texto: "Líder, analista e manutentor: cada um vê só o que a função libera." },
+  { icone: ShieldCheck, tom: "vermelho" as const, titulo: "Acesso por função", texto: "Líder, analista, manutentor e terceiros: cada um vê só o que a função libera." },
 ];
 
 export default async function Entrar() {

@@ -20,7 +20,7 @@ export interface PedidoAcesso {
   status: string; decididoPor: string; decididoEm: string; motivoRecusa: string;
 }
 
-const FUNCOES = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor" };
+const FUNCOES = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor", terceiro: "Terceiro" };
 const PERFIS = { admin: "Administrador", editor: "Editor", leitor: "Leitor" };
 const VAZIO: EstadoUsuario = { erro: "", ok: "" };
 
@@ -37,7 +37,7 @@ function NovoUsuario() {
         <Campo rotulo="Nome" name="nome" required />
         <Campo rotulo="Número Pessoal (NP)" name="login" required inputMode="numeric" placeholder="Ex.: 6178609" />
         <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" required
-          dica="Líder e Analista veem todas as abas; Manutentor, Estoque e Gestão de ativos." />
+          dica="Líder e Analista veem todas as abas; Manutentor, Estoque e Gestão de ativos; Terceiro, só o Estoque." />
         <Seletor rotulo="Perfil" name="perfil" opcoes={PERFIS} defaultValue="leitor"
           dica="Editor altera cadastros; Administrador também gerencia usuários." />
       </div>
@@ -72,7 +72,7 @@ function EscolhaAbas({ abas, marcadas, escolher, setEscolher }: {
               {a.titulo}
             </label>
           ))}
-          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque é sempre liberado; a Gestão de ativos também, mesmo sem marcar Equipamentos.</p>
+          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque é sempre liberado; a Gestão de ativos também, mesmo sem marcar Equipamentos. Para Terceiro vale sempre só o Estoque.</p>
         </div>
       )}
     </fieldset>

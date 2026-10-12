@@ -2,7 +2,7 @@ import "server-only";
 
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
-import { acessoTotal, FUNCOES, PERFIS, type Usuario } from "./acesso";
+import { acessoTotal, ehAdmin, FUNCOES, FUNCOES_SO_ESTOQUE, PERFIS, type Usuario } from "./acesso";
 import { confere, gerarHash, normalizarLogin, validarLogin, validarSenha } from "./senha";
 
 /**
@@ -32,7 +32,7 @@ function salvar(login: string, dados: Registro | null, por: string) {
 }
 
 export function adminsAtivos(us: Record<string, Registro>): string[] {
-  return Object.keys(us).filter((k) => us[k].perfil === "admin" && us[k].ativo !== false);
+  return Object.keys(us).filter((k) => ehAdmin({ login: k, ...us[k] }) && us[k].ativo !== false);
 }
 
 // ----------------------------------------------------------------------------
@@ -87,6 +87,7 @@ export async function criarUsuario(por: string, d: DadosNovo): Promise<string> {
   const us = await usuarios();
   const erro = validarLogin(login) || validarSenha(d.senha) || (!d.nome.trim() ? "Informe o nome." : "")
     || (!(d.funcao in FUNCOES) ? "Escolha a função." : "") || (!((d.perfil || "") in PERFIS) ? "Escolha o perfil." : "")
+    || (FUNCOES_SO_ESTOQUE.has(d.funcao) && d.perfil === "admin" ? "Terceiro não pode ser administrador: escolha Leitor ou Editor." : "")
     || (login in us ? "Esse usuário já existe." : "");
   if (erro) return erro;
   await salvar(login, { nome: d.nome.trim(), perfil: d.perfil, funcao: d.funcao, ativo: true, trocar_senha: true,
@@ -110,7 +111,8 @@ export async function editarUsuario(eu: Usuario, alvo: string, e: Edicao): Promi
     ...(e.abas ? { abas: e.abas } : {}) };
   let erro = (e.novaSenha ? validarSenha(e.novaSenha) : "")
     || (!(e.funcao in FUNCOES) && (d.funcao || "") in FUNCOES ? "Escolha a função." : "")
-    || (!(e.perfil in PERFIS) ? "Escolha o perfil." : "");
+    || (!(e.perfil in PERFIS) ? "Escolha o perfil." : "")
+    || (FUNCOES_SO_ESTOQUE.has(depois.funcao || "") && (unicoAdmin ? d.perfil : e.perfil) === "admin" ? "Terceiro não pode ser administrador: escolha Leitor ou Editor." : "");
   if (!erro && novoLogin !== alvo) erro = validarLogin(novoLogin) || (novoLogin in us ? "Já existe um usuário com esse NP." : "");
   if (!erro && alvo === eu.login && acessoTotal({ login: alvo, ...d }) && !acessoTotal(depois))
     erro = "Você não pode tirar de si mesmo o acesso às abas (peça a outro administrador).";

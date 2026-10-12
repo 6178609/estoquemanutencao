@@ -30,6 +30,15 @@ def test_regras_por_funcao():
     assert not auth.pode_ver(None, "estoque") and not auth.pode_ver({}, "estoque")
 
 
+def test_terceiro_so_ve_o_estoque():
+    for t in ({"funcao": "terceiro", "perfil": "leitor"}, {"funcao": "terceiro", "perfil": "admin"},
+              {"funcao": "terceiro", "abas": list(TODAS)}):
+        assert [p for p in TODAS if auth.pode_ver(t, p)] == ["estoque"]
+        assert [p for p in TODAS if auth.ve_inteira(t, p)] == ["estoque"]
+        assert not auth.acesso_total(t)
+    assert "usuarios" not in auth.paginas_conta({"funcao": "terceiro", "perfil": "admin"}) or not auth.login_exigido()
+
+
 def test_toda_pagina_esta_na_lista_de_abas():
     """Uma tela nova fora de navegacao.GRUPOS escaparia do controle de acesso."""
     arquivos = sorted(p.stem for p in (RAIZ / "paginas").glob("*.py"))
