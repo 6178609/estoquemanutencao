@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, CircleAlert, CircleCheck, Info } from "lucide-react";
+import { Bot, CircleAlert, CircleCheck, Download, FileCode2, Info } from "lucide-react";
 import type { Metadata } from "next";
 
 import { Aviso, PaginaWcm, Secao } from "@/components/PaginaWcm";
@@ -194,6 +194,7 @@ export default async function Programacao(props: { searchParams: Promise<Params>
               )}
               {est.length > md.MAX_ORDENS_LOTE && <Aviso>Mais de {md.MAX_ORDENS_LOTE} ordens previstas: o robô para nesse limite. Rode por partes (menos dias por vez).</Aviso>}
               <FormExecutar de={iso(xIni)} ate={iso(xFim)} atrasadas={atrasadas} consultas={cons.length} bloqueio={bloqueio} />
+              <RodarNoPc de={iso(xIni)} ate={iso(xFim)} atrasadas={atrasadas} pode={pode} />
             </>
           )}
         </Cartao>
@@ -217,6 +218,34 @@ export default async function Programacao(props: { searchParams: Promise<Params>
         </GavetaUrl>
       )}
     </PaginaWcm>
+  );
+}
+
+/** O mesmo pedido como script VBS, para rodar direto no PC com o SAP aberto (sem esperar o sincronizador). */
+function RodarNoPc({ de, ate, atrasadas, pode }: { de: string; ate: string; atrasadas: boolean; pode: boolean }) {
+  const href = (teste: boolean) => `/api/programacao/vbs?${new URLSearchParams({ de, ate, ...(atrasadas ? { atrasadas: "1" } : {}), ...(teste ? { teste: "1" } : {}) })}`;
+  const botao = "inline-flex items-center gap-2 rounded-lg border border-borda px-3 py-2 text-[13.5px] font-medium text-texto-2 transition hover:bg-superficie-2 hover:text-texto";
+  return (
+    <div className="space-y-3 border-t border-borda pt-4">
+      <div className="flex items-center gap-2 font-display text-[15px] font-medium"><FileCode2 className="size-4" />Ou rode direto no PC com o SAP (script VBS)</div>
+      <p className="max-w-3xl text-[13px] text-texto-3">
+        O mesmo pedido num arquivo .vbs, no estilo dos scripts da equipe: para cada dia, a IW38 traz as ordens das máquinas pelo
+        campo de ordenação e a IW32 recebe InícioBase e Fim-base = o dia; grava e confere na IW33. Não precisa do sincronizador.
+      </p>
+      {pode ? (
+        <div className="flex flex-wrap gap-2">
+          <a className={botao} href={href(true)} download><Download className="size-4" />Baixar VBS de teste (não grava)</a>
+          <a className={botao} href={href(false)} download><Download className="size-4" />Baixar VBS que grava no SAP</a>
+        </div>
+      ) : <p className="text-[13px] text-texto-3">Só administrador ou editor pode gerar o script.</p>}
+      <ol className="list-decimal space-y-1 pl-5 text-[12.5px] text-texto-3">
+        <li>Salve o .vbs numa pasta (os registros ficam ao lado dele) e deixe o SAP aberto e logado, na tela inicial.</li>
+        <li>Rode primeiro o de <b>teste</b>: ele troca as datas na tela e sai sem gravar. Confira o SAP_IW32_DATAS_log.txt.</li>
+        <li>Depois rode o que <b>grava</b>. As ordens feitas vão para SAP_IW32_DATAS_feitos.csv (com as datas antigas) e não se repetem;
+          o que não deu certo vai para SAP_IW32_DATAS_pendentes.csv com o motivo.</li>
+        <li>No SAP: Opções › Acessibilidade e scripting › Scripting › Habilitar scripting (e desmarque os avisos de script, se quiser).</li>
+      </ol>
+    </div>
   );
 }
 
