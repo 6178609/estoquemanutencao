@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { Grafico, Linhas, MapaDeCalor } from "@/components/graficos";
+import { Grafico, Linhas } from "@/components/graficos";
 import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho, Kpi } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
@@ -75,8 +75,6 @@ export default async function Semanal(props: { searchParams: Promise<Params> }) 
   const rotulo = sem.rotuloSemana(seg, hoje);
 
   const top = carga.slice(0, 15);
-  const quadro = sem.porDia(prog.filter((p) => top.some((t) => t.centroTrabalho === p.centroTrabalho)));
-  const ordemQ = top.map((t) => t.centroTrabalho).filter((x) => quadro.some((q) => q.centroTrabalho === x));
   const maxBarra = Math.max(1, ...top.map((t) => Math.max(t.hhProgramadas, t.capacidade ?? 0)));
 
   return moldura(
@@ -104,7 +102,7 @@ export default async function Semanal(props: { searchParams: Promise<Params> }) 
         <Aviso tom="azul">Nenhuma operação programada em {rotulo.split(" · ").slice(1).join(" · ")} no recorte.</Aviso>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <div className="grid gap-4">
             <Grafico titulo="Carga × capacidade por centro de trabalho" subtitulo="Barra = HH programadas, traço = capacidade · 15 centros com mais HH"
               dica="Vermelho: carga acima de 100% da capacidade; amarelo: de 85% a 100%; cinza: centro sem capacidade cadastrada (configure em Metas e parâmetros)."
               legenda={<div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-texto-2">
@@ -129,11 +127,6 @@ export default async function Semanal(props: { searchParams: Promise<Params> }) 
                   );
                 })}
               </ul>
-            </Grafico>
-            <Grafico titulo="Quadro da semana" subtitulo="HH programadas por dia e centro · mais escuro = mais horas"
-              tabela={{ colunas: ["Centro", ...sem.DIAS], linhas: ordemQ.map((x) => { const q = quadro.find((y) => y.centroTrabalho === x)!; return [x, ...sem.DIAS.map((dd) => n1(q[dd]))]; }) }}>
-              <MapaDeCalor linhas={ordemQ} colunas={[...sem.DIAS]} formato="h" larguraRotulo={120}
-                valores={ordemQ.map((x) => { const q = quadro.find((y) => y.centroTrabalho === x)!; return sem.DIAS.map((dd) => (q[dd] >= 0.05 ? Math.round(q[dd] * 10) / 10 : null)); })} />
             </Grafico>
           </div>
 

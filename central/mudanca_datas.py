@@ -1,4 +1,5 @@
-"""Programação do mês (previsão manual) e mudança de datas no SAP pela IW38.
+"""Mudança de datas no SAP pela IW38 (a tela "Programação do mês" foi retirada; o Calendário de ordens ainda usa
+as datas alteradas pelos lotes já executados).
 
 Pandas puro (testado em tests/test_mudanca_datas.py). Fluxo:
 

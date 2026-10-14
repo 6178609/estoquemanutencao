@@ -4,6 +4,7 @@
  * - `programacao_maquinas.json`: {"AAAA-MM-DD": {"campos": [...]}} — campos de ordenação das máquinas que param;
  * - `mudancas_datas.json`: os lotes (pedidos) que o sincronizador do PC com o SAP executa (status "solicitada");
  * - `robo_pc.json`: sinal de vida do sincronizador de cada PC.
+ * A tela "Programação do mês" foi retirada; o Calendário de ordens ainda usa datasAlteradas e nomesDeAtivos.
  * Funções puras (testadas em testes/programacao.test.ts).
  */
 import { dia, partes, type Dia } from "@/lib/wcm/util";

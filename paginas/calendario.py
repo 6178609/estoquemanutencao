@@ -27,7 +27,7 @@ def _agenda(chave: str, areas: tuple, centros: tuple, tipos: tuple, ajustes: tup
                       pd.Timestamp(hoje_local()))
 
 
-# mudanças de data feitas pelo robô (Programação do mês) que o IW38 exportado ainda não traz
+# mudanças de data já feitas pelo robô do SAP que o IW38 exportado ainda não traz
 ajustes = md.datas_alteradas(bases.ler_cadastro(md.ARQ_LOTES), bases.iw38().atualizado)
 ag = _agenda(contexto._chave(), tuple(fg.areas), tuple(fg.centros), tuple(fg.tipos), tuple(sorted(ajustes.items())))
 hoje = hoje_local()
@@ -112,8 +112,6 @@ st.caption("Passe o mouse num cartão para ver a ordem, o texto e a situação. 
            "quem apontou na IW47; ordens sem apontamento ficam em \"Sem executante\" com o centro de trabalho."
            + (f" ↻ = data alterada pelo robô do SAP ({len(ajustes)} ordem(ns)), ainda não no IW38 exportado."
               if ajustes else ""))
-ui.link_pagina("paginas/programacao.py", label="Programação do mês (previsão manual e mudança de datas no SAP)",
-               icon=":material/edit_calendar:")
 
 # ----------------------------------------------------------------------------
 # Tabela
