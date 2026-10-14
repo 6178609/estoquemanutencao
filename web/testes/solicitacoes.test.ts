@@ -84,5 +84,5 @@ describe("pedido de acesso (mesmas regras de central/auth.py)", () => {
   it("limite de 30 pedidos pendentes", async () => {
     for (let i = 0; i < 30; i++) expect(await solicitar({ ...pedido, login: String(2000000 + i) }, nova())).toBe("");
     expect(await solicitar({ ...pedido, login: "3000000" }, nova())).toMatch(/muitos pedidos/);
-  });
+  }, 30_000); // 30 senhas com PBKDF2 de 260 mil iterações: passa de 5 s em máquina lenta
 });

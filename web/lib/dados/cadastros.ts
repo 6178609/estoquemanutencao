@@ -14,6 +14,8 @@ import { lerJsonDemo, gravarJsonDemo } from "./demo";
 
 type Item = Record<string, unknown>;
 export type Cadastro = Record<string, Item>;
+/** Função aplicada ao item relido na hora da gravação: devolve o item inteiro, null para remover ou undefined para não mexer. */
+export type Alteracao = (atual: Item | undefined) => Item | null | undefined;
 
 const CAMPOS_DE_EDICAO = new Set(["atualizado_em", "atualizado_por"]);
 const g = globalThis as unknown as { __cmCadastros?: Map<string, { versao: string; dados: Cadastro }>; __cmBackups?: Set<string> };
@@ -57,10 +59,12 @@ function hojeLocal(): string {
 /**
  * Atualiza só os itens informados. `null` remove o item. mesclar=true muda só os campos informados (campo null
  * é apagado) e remove o item que fica sem nenhum campo — o mínimo de um material não apaga a foto dele.
+ * Uma função no lugar do item é calculada sobre o item relido a cada tentativa (edição atômica: nada se perde
+ * quando duas pessoas mexem no mesmo item ao mesmo tempo).
  */
 export async function gravarCadastroLote(
   nome: string,
-  itens: Record<string, Item | null>,
+  itens: Record<string, Item | null | Alteracao>,
   usuario: string,
   mesclar = false,
 ): Promise<void> {
@@ -84,8 +88,13 @@ export async function gravarCadastroLote(
     }
     const agora = new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
     for (const [k, valor] of Object.entries(itens)) {
-      let dados = valor;
-      if (dados && mesclar) {
+      let dados: Item | null | undefined;
+      if (typeof valor === "function") {
+        dados = valor(atual[k] ? { ...atual[k] } : undefined);
+        if (dados === undefined) continue;
+        if (dados) dados = Object.fromEntries(Object.entries(dados).filter(([c, v]) => v !== null && v !== undefined && !CAMPOS_DE_EDICAO.has(c)));
+      } else dados = valor;
+      if (dados && mesclar && typeof valor !== "function") {
         const junto: Item = {};
         for (const [c, v] of Object.entries({ ...(atual[k] || {}), ...dados }))
           if (v !== null && v !== undefined && !CAMPOS_DE_EDICAO.has(c)) junto[c] = v;

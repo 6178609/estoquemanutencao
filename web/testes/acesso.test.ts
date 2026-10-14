@@ -26,14 +26,18 @@ describe("acesso por função (os casos de tests/test_acesso.py)", () => {
     expect(acessoTotal({ login: "t", funcao: "manutentor", abas: TODAS })).toBe(true);
     expect(podeVer(null, "estoque")).toBe(false);
   });
-  it("terceiro só vê o Estoque — mesmo com lista de abas ou perfil administrador", () => {
+  it("terceiro só vê o Estoque e a Gestão de MRO — mesmo com lista de abas ou perfil administrador", () => {
     for (const t of [{ login: "t", funcao: "terceiro", perfil: "leitor" }, { login: "t", funcao: "terceiro", perfil: "admin" },
       { login: "t", funcao: "terceiro", abas: TODAS }]) {
-      expect(TODAS.filter((p) => podeVer(t, p))).toEqual(["estoque"]);
-      expect(TODAS.filter((p) => veInteira(t, p))).toEqual(["estoque"]);
+      expect(TODAS.filter((p) => podeVer(t, p))).toEqual(["estoque", "mro"]);
+      expect(TODAS.filter((p) => veInteira(t, p))).toEqual(["estoque", "mro"]);
       expect(acessoTotal(t)).toBe(false);
     }
     expect(ehAdmin({ login: "t", funcao: "terceiro", perfil: "admin" })).toBe(false);
+    // aba nova: líder e analista veem; manutentor só quando o administrador libera
+    expect(podeVer({ login: "m", funcao: "manutentor" }, "mro")).toBe(false);
+    expect(podeVer({ login: "m", funcao: "manutentor", abas: ["mro"] }, "mro")).toBe(true);
+    expect(podeVer({ login: "l", funcao: "lider" }, "mro") && podeVer({ login: "a", funcao: "analista" }, "mro")).toBe(true);
     expect(ehAdmin({ login: "a", funcao: "lider", perfil: "admin" })).toBe(true);
   });
   it("perfil de edição", () => {

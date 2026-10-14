@@ -44,6 +44,8 @@ PERFIS = {"admin": "Administrador", "editor": "Editor", "leitor": "Leitor"}
 FUNCOES = {"lider": "Líder de manutenção", "analista": "Analista", "manutentor": "Manutentor", "terceiro": "Terceiro"}
 # Terceiros: só o Estoque — nada de parte parcial, lista personalizada ou administração
 FUNCOES_SO_ESTOQUE = {"terceiro"}
+# as únicas abas que o Terceiro vê (só consulta fora do Estoque)
+PAGINAS_TERCEIRO = {"estoque", "mro"}
 FUNCOES_ACESSO_TOTAL = {"lider", "analista"}
 # abas liberadas para todas as funções (o id é o nome do arquivo em paginas/, sem .py)
 PAGINAS_LIVRES = {"estoque"}
@@ -366,7 +368,8 @@ def todas_as_abas() -> list[str]:
 
 
 def so_estoque(u: dict | None) -> bool:
-    """Terceiro: só a aba Estoque, mesmo com lista de abas ou perfil administrador no cadastro."""
+    """Terceiro: só as abas de PAGINAS_TERCEIRO (Estoque e Gestão de MRO), mesmo com lista de abas ou perfil
+    administrador no cadastro."""
     return bool(u) and u.get("funcao") in FUNCOES_SO_ESTOQUE
 
 
@@ -393,7 +396,7 @@ def ve_inteira(u: dict | None, pagina: str) -> bool:
     if pid in PAGINAS_LIVRES:
         return True
     if so_estoque(u):
-        return False
+        return pid in PAGINAS_TERCEIRO
     pers = abas_personalizadas(u)
     return pid in pers if pers is not None else acesso_total(u)
 
@@ -404,7 +407,7 @@ def pode_ver(u: dict | None, pagina: str) -> bool:
     if not u:
         return False
     if so_estoque(u):
-        return id_pagina(pagina) in PAGINAS_LIVRES
+        return id_pagina(pagina) in PAGINAS_TERCEIRO
     return id_pagina(pagina) in PAGINAS_PARCIAIS or ve_inteira(u, pagina)
 
 
@@ -622,7 +625,12 @@ def pagina_minha_conta() -> None:
     c[3].markdown(f"**Perfil**  \n{PERFIS.get(u.get('perfil'), u.get('perfil'))}")
     if not acesso_total(u):
         pers = abas_personalizadas(u)
-        if pers is not None:
+        if so_estoque(u):
+            rot = _rotulos_abas()
+            vistas = ["Estoque", *(rot[p] for p in rot if p in PAGINAS_TERCEIRO)]
+            st.info("Você vê as abas: " + " · ".join(f"**{v}**" for v in vistas)
+                    + ". Para mudar, peça a um administrador.", icon=":material/lock:")
+        elif pers is not None:
             rot = _rotulos_abas()
             vistas = ["Estoque", *(rot[p] for p in rot if p in pers),
                       *(f"{t} (Equipamentos)" for p, t in PAGINAS_PARCIAIS.items() if p not in pers)]

@@ -34,6 +34,7 @@ GRUPOS: dict[str, list[tuple[str, str, str]]] = {
     "Custos e suprimentos": [
         ("custos", "Custos", ":material/payments:"),
         ("estoque", "Estoque", ":material/inventory_2:"),
+        ("mro", "Gestão de MRO", ":material/build:"),
         ("requisicoes", "Requisições", ":material/request_quote:"),
     ],
     "Configuração": [

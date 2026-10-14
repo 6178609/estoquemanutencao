@@ -1,6 +1,8 @@
 import "server-only";
 
 import { estoque as lerEstoque } from "@/lib/dados/bases";
+import { lerCadastro } from "@/lib/dados/cadastros";
+import { normalizarBusca } from "@/lib/dados/texto";
 import * as ativos from "@/lib/wcm/ativos";
 import { dados, type Contexto } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
@@ -52,4 +54,24 @@ export function materiaisDe(info: Record<string, unknown>): string[] {
 /** Peças vinculadas a um equipamento com a situação no estoque. */
 export function pecasDe(c: Contexto, tag: string, est: MapaEstoque | null): SituacaoPeca[] {
   return materiaisDe(infoCad(c, tag)).map((m) => situacaoPeca(m, est, c.cad.materiais));
+}
+
+const MAX_CANDIDATOS = 60;
+
+/** Busca na base de material (MB52) por código ou descrição: até 60 itens com a situação no estoque (sem checar acesso). */
+export async function procurarMateriais(q: string): Promise<{ itens: SituacaoPeca[]; total: number; semBase: boolean }> {
+  const [est, cadMat] = await Promise.all([mapaEstoque(), lerCadastro("cadastro_materiais.json")]);
+  if (!est) return { itens: [], total: 0, semBase: true };
+  const termos = normalizarBusca(String(q ?? "").slice(0, 120)).split(/\s+/).filter(Boolean);
+  const achados: string[] = [];
+  let total = 0;
+  for (const [cod, x] of est) {
+    if (termos.length) {
+      const hay = normalizarBusca(`${cod} ${x.descricao}`);
+      if (!termos.every((t) => hay.includes(t))) continue;
+    }
+    total++;
+    if (achados.length < MAX_CANDIDATOS) achados.push(cod);
+  }
+  return { itens: achados.map((c) => situacaoPeca(c, est, cadMat)), total, semBase: false };
 }

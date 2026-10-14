@@ -5,12 +5,11 @@ import { revalidatePath } from "next/cache";
 import { veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
-import { normalizarBusca } from "@/lib/dados/texto";
 import { bases } from "@/lib/wcm/dados";
 import { partes } from "@/lib/wcm/util";
 
-import { mapaEstoque } from "./dados";
-import { situacaoPeca, validarCadastro, type FormCadastro, type SituacaoPeca } from "./logica";
+import { procurarMateriais } from "./dados";
+import { validarCadastro, type FormCadastro, type SituacaoPeca } from "./logica";
 
 /**
  * Escrita do cadastro de equipamentos — o MESMO `cadastro_equipamentos.json` do app Streamlit, com as mesmas chaves
@@ -18,7 +17,6 @@ import { situacaoPeca, validarCadastro, type FormCadastro, type SituacaoPeca } f
  * vida_util, garantia_ate, valor_reposicao). Só editor/administrador que vê a aba inteira.
  */
 const ARQ = "cadastro_equipamentos.json";
-const MAX_CANDIDATOS = 60;
 
 async function quemEdita() {
   const u = await autorizar("equipamentos", true);
@@ -42,6 +40,7 @@ export async function salvarEquipamento(form: Partial<FormCadastro>, editando: s
     return { erro: (e as Error).message };
   }
   revalidatePath("/equipamentos");
+  revalidatePath("/mro");
   return { ok: true, tag: v.tag };
 }
 
@@ -55,26 +54,14 @@ export async function removerEquipamento(tag: string): Promise<{ erro: string } 
     return { erro: (e as Error).message };
   }
   revalidatePath("/equipamentos");
+  revalidatePath("/mro");
   return { ok: true };
 }
 
 /** Busca na base de material (MB52) para vincular componentes: até 60 itens. */
 export async function buscarMateriais(q: string): Promise<{ itens: SituacaoPeca[]; total: number; semBase: boolean }> {
   if (!(await quemEdita())) return { itens: [], total: 0, semBase: false };
-  const [est, cadMat] = await Promise.all([mapaEstoque(), lerCadastro("cadastro_materiais.json")]);
-  if (!est) return { itens: [], total: 0, semBase: true };
-  const termos = normalizarBusca(String(q ?? "").slice(0, 120)).split(/\s+/).filter(Boolean);
-  const achados: string[] = [];
-  let total = 0;
-  for (const [cod, x] of est) {
-    if (termos.length) {
-      const hay = normalizarBusca(`${cod} ${x.descricao}`);
-      if (!termos.every((t) => hay.includes(t))) continue;
-    }
-    total++;
-    if (achados.length < MAX_CANDIDATOS) achados.push(cod);
-  }
-  return { itens: achados.map((c) => situacaoPeca(c, est, cadMat)), total, semBase: false };
+  return procurarMateriais(q);
 }
 
 /** Nome, código ABC e situação do equipamento no SAP (IH08, depois IW38) — sugestão ao digitar a TAG. */

@@ -30,11 +30,11 @@ def test_regras_por_funcao():
     assert not auth.pode_ver(None, "estoque") and not auth.pode_ver({}, "estoque")
 
 
-def test_terceiro_so_ve_o_estoque():
+def test_terceiro_so_ve_estoque_e_mro():
     for t in ({"funcao": "terceiro", "perfil": "leitor"}, {"funcao": "terceiro", "perfil": "admin"},
               {"funcao": "terceiro", "abas": list(TODAS)}):
-        assert [p for p in TODAS if auth.pode_ver(t, p)] == ["estoque"]
-        assert [p for p in TODAS if auth.ve_inteira(t, p)] == ["estoque"]
+        assert [p for p in TODAS if auth.pode_ver(t, p)] == ["estoque", "mro"]
+        assert [p for p in TODAS if auth.ve_inteira(t, p)] == ["estoque", "mro"]
         assert not auth.acesso_total(t)
     assert "usuarios" not in auth.paginas_conta({"funcao": "terceiro", "perfil": "admin"}) or not auth.login_exigido()
 
@@ -52,6 +52,9 @@ def test_navegacao_por_funcao():
     assert so_estoque == {"Confiabilidade": [("equipamentos", "Equipamentos", ":material/precision_manufacturing:")],
                           "Custos e suprimentos": [("estoque", "Estoque", ":material/inventory_2:")]}
     assert navegacao.inicial(so_estoque, livres) == "estoque"                    # continua entrando pelo Estoque
+    assert not auth.pode_ver({"funcao": "manutentor"}, "mro")                     # aba nova: bloqueada até o adm liberar
+    assert auth.pode_ver({"funcao": "manutentor", "abas": ["mro"]}, "mro")
+    assert auth.pode_ver({"funcao": "lider"}, "mro") and auth.pode_ver({"funcao": "analista"}, "mro")
     com_ordens = navegacao.visiveis(lambda pid: auth.pode_ver({"funcao": "manutentor", "abas": ["ordens"]}, pid))
     assert navegacao.inicial(com_ordens, livres) == "ordens"                     # a aba própria vem antes das livres
     tudo = navegacao.visiveis(lambda pid: auth.pode_ver({"funcao": "analista"}, pid))
@@ -189,7 +192,7 @@ def test_quem_perde_a_funcao_com_a_tela_aberta_nao_grava(monkeypatch):
     atual = {**atual, "perfil": "leitor"}                             # e o perfil de edição
     assert not auth.ainda_pode("estoque", editar=True) and auth.ainda_pode("estoque")
     atual = {**atual, "funcao": "terceiro", "perfil": "editor"}
-    assert not auth.ainda_pode("equipamentos") and auth.ainda_pode("estoque", editar=True)
+    assert not auth.ainda_pode("equipamentos") and auth.ainda_pode("estoque", editar=True) and auth.ainda_pode("mro")
 
 
 def test_regras_de_edicao_da_propria_funcao():

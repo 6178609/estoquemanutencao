@@ -20,6 +20,11 @@
   e-mails ou nomes de pessoas. Testes usam só dados fictícios.
 - Nunca pedir credenciais, tokens ou chaves no chat; se aparecerem, não repetir e orientar a revogar.
 
+## Acesso às abas novas
+- Toda aba nova entra liberada **100% para Líder e Analista** e **bloqueada para as demais funções** até o administrador
+  liberar (lista de abas do usuário em Usuários). Regra única em `web/lib/auth/acesso.ts` e `central/auth.py`.
+- Terceiros veem só `PAGINAS_TERCEIRO` (hoje: Estoque e Gestão de MRO), só consulta fora do Estoque.
+
 ## Skills do projeto (`.claude/skills/`)
 - `prompt-master` (MIT, v1.8.2): escreve e corrige prompts para outras IAs (ChatGPT, Claude, Cursor,
   Midjourney…). Só entra quando o pedido é escrever/ajustar um prompt.

@@ -81,13 +81,17 @@ export function lerJsonDemo(nome: string) {
   return structuredClone(cadastrosDemo.get(nome) || {});
 }
 
-export function gravarJsonDemo(nome: string, itens: Record<string, Record<string, unknown> | null>, usuario: string,
-  mesclar: boolean) {
+export function gravarJsonDemo(nome: string, itens: Record<string, Record<string, unknown> | null |
+  ((atual: Record<string, unknown> | undefined) => Record<string, unknown> | null | undefined)>, usuario: string, mesclar: boolean) {
   const atual = cadastrosDemo.get(nome) || {};
   const agora = new Date().toISOString();
   for (const [k, v] of Object.entries(itens)) {
-    let dados = v;
-    if (dados && mesclar) {
+    let dados: Record<string, unknown> | null | undefined;
+    if (typeof v === "function") {
+      dados = v(atual[k] ? { ...atual[k] } : undefined);
+      if (dados === undefined) continue;
+    } else dados = v;
+    if (dados && mesclar && typeof v !== "function") {
       const junto = Object.fromEntries(Object.entries({ ...(atual[k] || {}), ...dados })
         .filter(([c, x]) => x !== null && x !== undefined && c !== "atualizado_em" && c !== "atualizado_por"));
       dados = Object.keys(junto).length ? junto : null;

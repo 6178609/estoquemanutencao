@@ -2,7 +2,7 @@ import { Lock, MonitorSmartphone } from "lucide-react";
 import type { Metadata } from "next";
 
 import { BOTAO_SECUNDARIO, Cabecalho, Cartao, IconeQuadro, Pagina } from "@/components/ui";
-import { abasPersonalizadas, acessoTotal, nomeFuncao, PAGINAS_PARCIAIS, PERFIS } from "@/lib/auth/acesso";
+import { abasPersonalizadas, acessoTotal, nomeFuncao, PAGINAS_PARCIAIS, PAGINAS_TERCEIRO, PERFIS, soEstoque } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { usuarios } from "@/lib/auth/usuarios";
 import { GRUPOS } from "@/lib/navegacao";
@@ -19,7 +19,7 @@ export default async function MinhaConta() {
   const aparelhos = (reg?.sessoes || []).filter((s) => (s.ate || "") > agora).length;
   const pers = abasPersonalizadas(u);
   const titulos = Object.fromEntries(GRUPOS.flatMap((g) => g.abas.map((a) => [a.id, a.titulo])));
-  const vistas = acessoTotal(u) ? null : ["Estoque", ...(pers ? [...pers].filter((p) => p !== "estoque" && titulos[p]).map((p) => titulos[p]) : []),
+  const vistas = acessoTotal(u) ? null : soEstoque(u) ? [...PAGINAS_TERCEIRO].map((p) => titulos[p]).filter(Boolean) : ["Estoque", ...(pers ? [...pers].filter((p) => p !== "estoque" && titulos[p]).map((p) => titulos[p]) : []),
     ...Object.entries(PAGINAS_PARCIAIS).filter(([p]) => !pers?.has(p)).map(([, t]) => `${t} (Equipamentos)`)];
   const dados = [["Nome", u.nome || "—"], ["Usuário (NP)", u.login], ["Função", nomeFuncao(u)], ["Perfil", PERFIS[u.perfil || ""] || "Leitor"]];
 

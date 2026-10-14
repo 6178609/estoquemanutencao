@@ -43,6 +43,22 @@ describe("gravação de cadastros (igual a gravar_cadastro_lote)", () => {
     await gravarCadastroLote("cadastro_materiais.json", { "111": { minimo: null, foto: null } }, "Ana", true);
     expect((await lerCadastro("cadastro_materiais.json"))["111"]).toBeUndefined(); // sem campos: sai
   });
+  it("função no lugar do item: calculada sobre o item relido (edição atômica)", async () => {
+    const { f, arquivos } = fonteFalsa({ "111": { pecas: ["A"] } }, true);
+    _definirFonte(f);
+    const vistos: unknown[] = [];
+    await gravarCadastroLote("cadastro_materiais.json", {
+      "111": (atual) => { vistos.push(atual); return { ...atual, pecas: [...((atual?.pecas as string[]) ?? []), "B"] }; },
+      "333": () => undefined, // nada a gravar
+    }, "Ana");
+    const j = JSON.parse(new TextDecoder().decode(arquivos.get("app/cadastro_materiais.json")!.bytes));
+    expect(j["111"]).toMatchObject({ pecas: ["A", "B"], atualizado_por: "Ana" });
+    expect(j["222"]).toEqual({ foto: "fotos/222.jpg" }); // a gravação do outro, no meio, não se perdeu
+    expect("333" in j).toBe(false);
+    expect(vistos.length).toBe(2); // relida e recalculada depois do conflito
+    await gravarCadastroLote("cadastro_materiais.json", { "111": () => null }, "Ana");
+    expect((await lerCadastro("cadastro_materiais.json"))["111"]).toBeUndefined();
+  });
   it("cadastro ilegível nunca é sobrescrito", async () => {
     const { f, arquivos } = fonteFalsa({});
     arquivos.set("app/cadastro_materiais.json", { bytes: new TextEncoder().encode("{quebrado"), versao: "x" });
