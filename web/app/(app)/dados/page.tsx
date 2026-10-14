@@ -19,7 +19,8 @@ export default async function FontesDeDados() {
   const u = await exigir("dados");
   const f = fonte();
   const [man, versoes]: [Record<string, InfoBase>, Map<string, string>] = f
-    ? await Promise.all([manifesto(), f.versoes()]) : [{}, new Map<string, string>()];
+    ? await f.versoes(true).then(async (v) => [await manifesto(), v] as [Record<string, InfoBase>, Map<string, string>])
+    : [{}, new Map<string, string>()];
   const agora = Date.now();
   const bases = TIPOS.map((tipo) => {
     const caminho = DESTINO[tipo];
