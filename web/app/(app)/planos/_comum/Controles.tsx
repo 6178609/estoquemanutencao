@@ -8,7 +8,7 @@ import { useEffect, useState, useTransition } from "react";
 import { MultiEscolha } from "@/components/Filtros";
 
 /**
- * Filtros próprios de uma aba (os das abas de programação: Planos, Calendário, Semanal e Programação do mês), no
+ * Filtros próprios de uma aba (os das abas de programação: Planos, Calendário e Semanal), no
  * endereço — com nomes que não colidem com a barra global (?ini/?fim/?area/…): mudar um deles recalcula a página no
  * servidor mantendo o desenho anterior esmaecido, como a barra global. Tudo serializável (vem do servidor).
  */

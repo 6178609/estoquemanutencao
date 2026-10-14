@@ -1,7 +1,5 @@
 import clsx from "clsx";
-import { CalendarClock } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { Colunas, Grafico, Partes } from "@/components/graficos";
 import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
@@ -18,7 +16,8 @@ import { dataBr, partes, SETORES, setorDoCentro } from "@/lib/wcm/util";
 import { Controles } from "../planos/_comum/Controles";
 import { atalhos, contagem, fimDoMes, iso, lista, periodo, um, type Params } from "../planos/_comum/params";
 import { TabelaLonga } from "../planos/_comum/TabelaLonga";
-import { ARQ_LOTES, datasAlteradas } from "../programacao/logica";
+import { camposDeOrdenacao } from "@/lib/wcm/camposOrdenacao";
+import { ARQ_LOTES, datasAlteradas, nomesDeAtivos } from "@/lib/wcm/programacao";
 
 export const metadata: Metadata = { title: "Calendário de ordens" };
 export const dynamic = "force-dynamic";
@@ -34,7 +33,7 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   const c = await contexto(params);
   const b = barra(c);
   const cab = <Cabecalho titulo="Calendário de ordens," destaque="o que está alocado em cada dia."
-    sobre="Programação · IW38" subtitulo="As ordens em cada dia (data-base de início do IW38), por turno, com quem apontou (IW47) e a duração planejada (IW38OP)." />;
+    sobre="Programação · IW38" subtitulo="Os ativos com ordem em cada dia (data-base de início do IW38): o campo de ordenação e o equipamento principal; abra o ativo para ver as ordens." />;
   const moldura = (filhos: React.ReactNode) => (
     <PaginaWcm barra={{ ...b, recorte: "Área, centro e tipo valem aqui; o período é o da página" }} periodo={false}>{filhos}</PaginaWcm>
   );
@@ -46,7 +45,7 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   const [ini, fim] = periodo(params, "cde", "cate", [mesIni, fimDoMes(mesIni)]);
   const iniJanela = cal.inicioSemana(ini), fimJanela = cal.inicioSemana(fim) + 6;
 
-  // mudanças de data feitas pelo robô (Programação do mês) que o IW38 exportado ainda não traz
+  // mudanças de data já feitas pelo robô do SAP que o IW38 exportado ainda não traz
   let ajustes: Record<string, [string, string]> = {};
   try { ajustes = datasAlteradas(await lerCadastro(ARQ_LOTES), c.b.ordens.atualizado); } catch { ajustes = {}; }
 
@@ -58,26 +57,42 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   const naJanela = ajustadas.filter((o) => o.data != null && o.data >= iniJanela && o.data <= fimJanela);
   const ag = cal.agenda(naJanela, c.b.operacoes.dados, c.b.confirmacoes.dados, c.b.equipe.dados, hoje);
 
+  // cada dia mostra os ATIVOS: campo de ordenação do IW38 (sem ele, o equipamento) + o equipamento principal
+  const campoDe = await camposDeOrdenacao(ordensBase);
+  const nomes = nomesDeAtivos(ordensBase.map((o) => ({ equipamento: o.equipamento, campo: campoDe.get(o.ordem) ?? "", objeto: o.objeto })),
+    (c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
+  const ativoDe = new Map(ordensBase.map((o) => {
+    const campo = (campoDe.get(o.ordem) ?? "").trim().toUpperCase(), equip = (o.equipamento || "").trim().toUpperCase();
+    const chave = campo || equip;
+    return [o.ordem, { chave: chave || "Sem ativo", campo: !!campo, nome: (chave && nomes[chave]) || o.objeto || "" }];
+  }));
   // filtros da página
   const busca = um(params, "cq");
   const selSit = params.csit !== undefined ? lista(params, "csit") : PADRAO_SIT;
   const selNat = lista(params, "cnat"), selTur = lista(params, "ctur"), selLoc = lista(params, "cloc");
   const selSet = lista(params, "cset"), selCt = lista(params, "cct");
   const centrosCal = [...new Set(ag.map((l) => l.centroTrabalho).filter(Boolean))].sort();
-  const vis = cal.filtrarAgenda(ag, { busca, situacoes: selSit, naturezas: selNat, turnos: selTur, localizacoes: selLoc,
-    centros: selCt, setores: selSet });
+  const filtroPag = { situacoes: selSit, naturezas: selNat, turnos: selTur, localizacoes: selLoc, centros: selCt, setores: selSet };
+  // a busca acha também o campo de ordenação e o nome do equipamento principal (o destaque de cada dia)
+  const termo = busca.trim().toUpperCase();
+  const doAtivo = (o: string) => { const a = ativoDe.get(o); return !!a && (a.chave.includes(termo) || a.nome.toUpperCase().includes(termo)); };
+  const semBusca = cal.filtrarAgenda(ag, { busca: "", ...filtroPag });
+  const porTexto = termo ? new Set(cal.filtrarAgenda(ag, { busca, ...filtroPag })) : null;
+  const vis = porTexto ? semBusca.filter((l) => porTexto.has(l) || doAtivo(l.ordem)) : semBusca;
   const noPeriodo = vis.filter((l) => l.dia >= ini && l.dia <= fim);
   const r = cal.resumoAgenda(noPeriodo);
   const fimGrade = Math.min(fim, ini + cal.MAX_DIAS_GRADE - 1);
   const dias = cal.diasDoCalendario(vis, ini, fimGrade, hoje, null, fimGrade - ini < 14 ? 12 : 4);
   const semanas = Array.from({ length: dias.length / 7 }, (_, i) => dias.slice(i * 7, i * 7 + 7));
 
+  const ativosDia = ativosPorDia(vis, ativoDe, fimGrade - ini < 14 ? 10 : 5);
+
   const controles = (
     <div className="space-y-2">
       <Controles controles={[
         { tipo: "periodo", de: "cde", ate: "cate", valorDe: iso(ini), valorAte: iso(fim), rotulo: "Período",
           atalhos: atalhos(hoje, ["Este mês", "Mês passado", "Próximo mês", "Esta semana", "Próxima semana", "Semana passada"]) },
-        { tipo: "busca", chave: "cq", valor: busca, placeholder: "Ordem, equipamento, texto, pessoa, centro…" },
+        { tipo: "busca", chave: "cq", valor: busca, placeholder: "Campo de ordenação, ativo, ordem, texto, pessoa…" },
       ]} />
       <Controles controles={[
         { tipo: "multi", chave: "csit", rotulo: "Situação", valor: selSit, opcoes: cal.SITUACOES.map((s) => ({ valor: s, n: ag.filter((l) => l.situacao === s).length })) },
@@ -132,15 +147,13 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
       </div>
 
       <Secao titulo={descrever(ini, fim)} destaque="· dia a dia"
-        sub={'Passe o mouse num cartão para ver a ordem, o texto e a situação. O turno vem da turma (Gestão de HH) de quem apontou na IW47; ordens sem apontamento ficam em "Sem executante" com o centro de trabalho.'}
-        acoes={<Link href="/programacao" className="inline-flex items-center gap-1.5 rounded-lg border border-borda px-3 py-2 text-[13px] text-texto-2 hover:bg-superficie-2 hover:text-texto"><CalendarClock className="size-4" />Programação do mês</Link>}>
+        sub="Uma linha por ativo no dia: o campo de ordenação (ou o equipamento, quando a ordem não tem campo) e o nome do equipamento principal, com quantas ordens ele tem. Clique no ativo para ver as ordens; a lista completa está abaixo.">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-texto-2">
-          <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded-[3px] border" style={{ background: FUNDO[NAT_PLANO], borderColor: "var(--borda)" }} />Plano de manutenção</span>
-          <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded-[3px] border" style={{ background: FUNDO[NAT_BACKLOG], borderColor: "var(--borda)" }} />Backlog</span>
+          <span className="text-texto-3">Faixa à esquerda = a pior situação das ordens do ativo no dia:</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded-full" style={{ background: "var(--st-bom)" }} />Concluída</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded-full" style={{ background: "var(--st-critico)" }} />Atrasada</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded-full" style={{ background: "var(--borda-forte)" }} />Programada</span>
-          <span className="inline-flex items-center gap-1.5"><span className="line-through">Cancelada</span></span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded-full" style={{ background: "var(--texto-4)" }} />Cancelada</span>
           {nAjust > 0 && <span>↻ = data alterada pelo robô do SAP ({nAjust} ordem(ns)), ainda não no IW38 exportado</span>}
         </div>
         {fimGrade < fim && <Aviso tom="azul">Período longo: o calendário mostra as 9 primeiras semanas (até {dataBr(fimGrade)}). Os números acima e a lista abaixo valem para o período inteiro.</Aviso>}
@@ -151,7 +164,7 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
             </div>
             {semanas.map((s, i) => (
               <div key={i} className="grid grid-cols-7 border-b border-borda last:border-b-0">
-                {s.map((d) => <CelulaDia key={d.dia} d={d} />)}
+                {s.map((d) => <CelulaDia key={d.dia} d={d} ativos={ativosDia.get(d.dia) ?? null} />)}
               </div>
             ))}
           </div>
@@ -212,47 +225,77 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   );
 }
 
-const FUNDO: Record<string, string> = {
-  [NAT_PLANO]: "color-mix(in srgb, var(--serie-1) 11%, var(--superficie))",
-  [NAT_BACKLOG]: "color-mix(in srgb, var(--serie-2) 13%, var(--superficie))",
-};
-const BORDA: Record<string, string> = { concluida: "var(--st-bom)", atrasada: "var(--st-critico)", cancelada: "var(--texto-4)", "": "var(--borda-forte)" };
+// pior situação primeiro: é ela que pinta a faixa do ativo
+const PESO: Record<string, number> = { [cal.ATRASADA]: 0, [cal.PROGRAMADA]: 1, [cal.CONCLUIDA]: 2, [cal.CANCELADA]: 3 };
+const COR_SIT: Record<string, string> = { [cal.ATRASADA]: "var(--st-critico)", [cal.PROGRAMADA]: "var(--borda-forte)",
+  [cal.CONCLUIDA]: "var(--st-bom)", [cal.CANCELADA]: "var(--texto-4)" };
 
-function Cartao({ k }: { k: cal.Cartao }) {
+interface OrdemDoAtivo { ordem: string; titulo: string; situacao: string; natureza: string; ajustada: boolean }
+interface AtivoDoDia { chave: string; campo: boolean; nome: string; situacao: string; ordens: OrdemDoAtivo[] }
+interface DiaAtivos { visiveis: AtivoDoDia[]; escondidos: AtivoDoDia[] }
+
+/** Ordens distintas de cada dia agrupadas por ativo (campo de ordenação ou equipamento), o ativo com mais ordens primeiro. */
+function ativosPorDia(ag: cal.ItemAgenda[], ativoDe: Map<string, { chave: string; campo: boolean; nome: string }>, max: number): Map<number, DiaAtivos> {
+  const porDia = new Map<number, Map<string, AtivoDoDia>>();
+  const vistas = new Set<string>();
+  for (const l of ag) {
+    const k = `${l.dia}|${l.ordem}`;
+    if (vistas.has(k)) continue; // a agenda repete a ordem em cada turno que apontou
+    vistas.add(k);
+    const a = ativoDe.get(l.ordem) ?? { chave: "Sem ativo", campo: false, nome: "" };
+    const dia = porDia.get(l.dia) ?? porDia.set(l.dia, new Map()).get(l.dia)!;
+    const at = dia.get(a.chave) ?? dia.set(a.chave, { ...a, situacao: l.situacao, ordens: [] }).get(a.chave)!;
+    at.ordens.push({ ordem: l.ordem, titulo: l.titulo, situacao: l.situacao, natureza: l.natureza, ajustada: l.ajustada });
+    if ((PESO[l.situacao] ?? 9) < (PESO[at.situacao] ?? 9)) at.situacao = l.situacao;
+  }
+  const out = new Map<number, DiaAtivos>();
+  for (const [d, m] of porDia) {
+    const lista = [...m.values()].sort((x, y) => y.ordens.length - x.ordens.length || x.chave.localeCompare(y.chave, "pt-BR", { numeric: true }));
+    for (const x of lista) x.ordens.sort((p, q) => (PESO[p.situacao] ?? 9) - (PESO[q.situacao] ?? 9) || p.ordem.localeCompare(q.ordem));
+    out.set(d, { visiveis: lista.slice(0, max), escondidos: lista.slice(max) });
+  }
+  return out;
+}
+
+function LinhaAtivo({ a }: { a: AtivoDoDia }) {
   return (
-    <div title={k.dica} className={clsx("rounded-md border border-borda py-1 pl-2 pr-1.5 text-[11.5px] leading-tight", k.borda === "cancelada" && "opacity-60")}
-      style={{ background: k.fundo === "backlog" ? FUNDO[NAT_BACKLOG] : FUNDO[NAT_PLANO], borderLeft: `3px solid ${BORDA[k.borda]}` }}>
-      <div className={clsx("truncate font-medium", k.borda === "cancelada" && "line-through")}>{k.titulo}</div>
-      <div className="truncate text-[10.5px] text-texto-3">{k.item.ordem}{k.quem ? ` · ${k.quem}` : ""}</div>
-    </div>
+    <details className="group rounded-md border border-borda bg-superficie text-[11.5px] leading-tight"
+      style={{ borderLeft: `3px solid ${COR_SIT[a.situacao] ?? "var(--borda-forte)"}` }}>
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 pl-1.5 pr-1 [&::-webkit-details-marker]:hidden"
+        title={`${a.chave}${a.nome ? " · " + a.nome : ""} — ${a.ordens.length} ordem(ns)`}>
+        <span className="min-w-0 flex-1">
+          <span className={clsx("block truncate font-mono font-semibold", !a.campo && "text-texto-2")}>{a.chave}</span>
+          {a.nome && <span className="block truncate text-[10.5px] text-texto-3">{a.nome}</span>}
+        </span>
+        <span className="num shrink-0 rounded-full bg-superficie-3 px-1.5 text-[10.5px] font-medium text-texto-2">{a.ordens.length}</span>
+      </summary>
+      <ul className="space-y-0.5 border-t border-borda px-1.5 py-1 text-[10.5px]">
+        {a.ordens.map((o) => (
+          <li key={o.ordem} className={clsx("truncate", o.situacao === cal.CANCELADA && "line-through opacity-60")} title={`${o.ordem} · ${o.titulo} · ${o.situacao}`}>
+            <span className="inline-block size-1.5 -translate-y-px rounded-full" style={{ background: COR_SIT[o.situacao] }} />{" "}
+            <span className="num font-medium">{o.ordem}</span>{o.ajustada ? " ↻" : ""} <span className="text-texto-3">{o.titulo}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
-function Turno({ t, escondidos }: { t: cal.TurnoDoDia; escondidos?: boolean }) {
-  const cartoes = escondidos ? t.escondidos : t.visiveis;
-  if (!cartoes.length) return null;
-  return (
-    <div className="space-y-1">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.05em] text-texto-3">{t.turno}</div>
-      {cartoes.map((k) => <Cartao key={`${k.item.ordem}-${k.item.turno}`} k={k} />)}
-    </div>
-  );
-}
-
-function CelulaDia({ d }: { d: cal.DiaDoCalendario }) {
+function CelulaDia({ d, ativos }: { d: cal.DiaDoCalendario; ativos: DiaAtivos | null }) {
   if (d.vazio) return <div className="min-h-[120px] border-r border-borda bg-superficie-2/50 last:border-r-0" />;
+  const n = ativos ? ativos.visiveis.length + ativos.escondidos.length : 0;
   return (
-    <div className={clsx("min-h-[120px] min-w-0 space-y-1.5 border-r border-borda p-1.5 last:border-r-0", d.fora && "opacity-50",
+    <div className={clsx("min-h-[120px] min-w-0 space-y-1 border-r border-borda p-1.5 last:border-r-0", d.fora && "opacity-50",
       d.hoje && "ring-2 ring-inset ring-[var(--serie-1)]")}>
       <div className="flex items-baseline justify-between gap-1 px-0.5">
         <span className="num font-display text-[15px] font-semibold">{d.numero}{(d.numero === 1 || d.hoje) && <span className="ml-1 text-[10px] font-medium text-texto-3">{d.mes}</span>}</span>
-        <span className="truncate text-[10.5px] text-texto-3">{d.total || "Sem programação"}</span>
+        <span className="truncate text-[10.5px] text-texto-3">{n ? `${n} ativo(s) · ${d.ordens} ordem(ns)` : "Sem programação"}</span>
       </div>
-      {d.turnos.map((t) => <Turno key={t.turno} t={t} />)}
-      {d.escondidos > 0 && (
-        <details className="group">
-          <summary className="cursor-pointer list-none rounded-md px-1 py-0.5 text-[11px] font-medium text-texto-2 hover:bg-superficie-2">+{d.escondidos} ordem(ns)</summary>
-          <div className="mt-1 space-y-1.5">{d.turnos.map((t) => <Turno key={t.turno} t={t} escondidos />)}</div>
+      {ativos?.visiveis.map((a) => <LinhaAtivo key={a.chave} a={a} />)}
+      {!!ativos?.escondidos.length && (
+        <details>
+          <summary className="cursor-pointer list-none rounded-md px-1 py-0.5 text-[11px] font-medium text-texto-2 hover:bg-superficie-2">+{ativos.escondidos.length} ativo(s)</summary>
+          <div className="mt-1 space-y-1">{ativos.escondidos.map((a) => <LinhaAtivo key={a.chave} a={a} />)}</div>
         </details>
       )}
     </div>

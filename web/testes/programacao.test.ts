@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import * as md from "@/app/(app)/programacao/logica";
+import * as md from "@/lib/wcm/programacao";
 import * as cal from "@/lib/wcm/calendario";
 import { dia } from "@/lib/wcm/util";
 

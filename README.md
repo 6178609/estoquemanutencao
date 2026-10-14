@@ -207,15 +207,15 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.
 - **Programação semanal** — a semana escolhida (de quinta em diante já abre na próxima): carga (HH das operações
   programadas) × capacidade por centro de trabalho (configurada; senão técnicos da Gestão de HH × jornada; senão a
-  média apontada), quadro por dia, % de ordens liberadas, lista para a reunião de programação (Excel), operações
+  média apontada), % de ordens liberadas, lista para a reunião de programação (Excel), operações
   atrasadas que cabem na folga (ordem liberada e equipamento de maior risco primeiro) e a **aderência à programação**
   das semanas anteriores (concluído dentro da própria semana, em operações e em HH; meta SMRP ≥ 90%).
-- **Calendário de ordens** — período "entre" (de/até, com atalhos de semana e mês) com as ordens do IW38 em cada dia da data-base de
-  início, separadas por turno (turma de quem apontou na IW47), com equipamento, pessoas e duração planejada (IW38OP);
-  filtros de localização (valores da coluna do IW38) e centro de trabalho; azul = plano de manutenção,
-  amarelo = backlog, borda verde/vermelha = concluída/atrasada; ↻ = data alterada pelo robô (Programação do mês).
-- **Programação do mês** — previsão manual das paradas por campo de ordenação e mudança de datas no SAP (abaixo).
-- **Planos** — calendário semanal de cada plano a partir da **IP19**, aderência e carga semanal.
+- **Calendário de ordens** — o único calendário do site: período "entre" (de/até, com atalhos de semana e mês) com
+  as ordens do IW38 em cada dia da data-base de início. Cada dia mostra **uma linha por ativo**: o campo de ordenação
+  (ou o equipamento, quando a ordem não tem campo) e o equipamento principal, com o número de ordens; a faixa à
+  esquerda é a pior situação (atrasada, programada, concluída, cancelada) e o ativo abre a lista das ordens. Filtros de
+  situação, turno, setor, centro e localização; a busca acha também o campo de ordenação e o nome do ativo.
+- **Planos** — as chamadas de cada plano semana a semana (tabela) a partir da **IP19**, aderência e carga semanal.
 - **Gerenciador de HH** (Planejamento) — disponibilidade de cada pessoa da planilha de Gestão de HH: jornada
   semanal, % disponível para manutenção, se conta na capacidade, observação e ausências com período (férias,
   afastamento, treinamento, folga, licença…). Alimenta a utilização da mão de obra, a capacidade do backlog e a
@@ -326,41 +326,12 @@ o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior
   SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
   o ID.
 
-### Programação do mês e mudança de datas no SAP
+### Mudança de datas no SAP
 
-A aba **Programação do mês** (Planejamento) é um calendário à parte do Calendário de ordens (IW38), 100% manual,
-para a previsão do mês: em cada dia digite os **campos de ordenação** das máquinas que vão parar (separados por
-vírgula ou espaço) e tecle Enter — o nome do ativo aparece na hora (IH08; sem cadastro, o objeto técnico das
-ordens do IW38) e a programação fica salva para todos.
-
-- **Mudar as datas no SAP** (editor/administrador, com confirmação): para cada dia, o robô abre a **IW38**, usa a
-  **seta à direita** (seleção múltipla) do *Campo de ordenação* com os campos do dia, filtra o período das ordens
-  e executa. Em cada ordem da lista, **InícioBase e Fim-base recebem a data do dia**; o robô grava (tela de
-  modificar ordem, a mesma que a IW38 abre) e reabre na IW33 para conferir.
-- **Quais ordens:** as abertas/em processamento da máquina com data no mês até a parada; quando a máquina para mais
-  de uma vez no mês, cada parada leva as ordens desde a anterior e a última leva até o fim do mês. Opcional: trazer
-  também as atrasadas de meses anteriores. Antes de rodar, o site mostra a previsão pelo IW38 exportado.
-- **Só simular:** o robô faz a IW38 e abre as ordens sem gravar — use na primeira vez. Limite de 300 ordens por lote.
-- **Onde roda:** com o site no PC do SAP, o robô começa na hora; com o site na nuvem, o sincronizador desse PC
-  (com o robô configurado) executa em até 1 minuto e manda o andamento ("12 de 40 ordens") para o site.
-- **Janela própria:** o robô abre uma janela (sessão) nova do SAP só para ele e a fecha no fim — a tela em que a
-  pessoa está trabalhando não é tocada. Se outra execução do robô (ex.: export das 06:30) estiver rodando, o pedido
-  espera até 20 min em vez de ser ignorado. Qualquer falha termina com o motivo no histórico (o lote nunca fica
-  parado em "em execução"); lote que ficou pela metade porque o PC desligou volta como "interrompido".
-- **Situação do robô:** o sincronizador avisa o site a cada 20 min que o PC está ligado, com a versão do código e se
-  o robô está configurado (`app/robo_pc.json` no repositório de dados). A aba mostra "pronto", "sem sinal",
-  "código antigo" ou "robô não configurado", com o passo a passo para resolver.
-- **Testar o robô:** confere no SAP, sem gravar nada, cada passo — conexão, IW38, *Campo de ordenação* e seta à
-  direita, janela de seleção múltipla, caixas de status, período — e, opcionalmente, faz uma busca de verdade na
-  IW38 com um campo de ordenação e lê as datas de uma ordem na IW33. O resultado mostra o passo que falhou e a lista
-  dos campos da tela de seleção (para ajustar os IDs sem gravar script).
-- **Calendário principal:** as datas gravadas pelo robô aparecem na hora no Calendário de ordens (marcadas com ↻)
-  até o próximo export do IW38 trazê-las.
-- **Histórico:** resultado de cada ordem (data antiga, nova e mensagem do SAP), download, **desfazer** e cancelar.
-- IDs em `[mudanca_datas]` de `automacao/transacoes.toml`: o *Campo de ordenação* é achado pelo texto da tela e os
-  campos de data pelo nome técnico (`CAUFVD-GSTRP`/`GLTRP`); se o seu SAP for diferente (o **Testar o robô** mostra
-  os IDs da tela), cole os IDs numa seção `[mudanca_datas]` do `automacao/robo_local.toml` deste PC — o
-  `transacoes.toml` é trocado nas atualizações (a versão anterior fica em `transacoes.toml.anterior`).
+A tela **Programação do mês** (calendário manual por campo de ordenação, pedido ao robô e script VBS) foi retirada:
+o **Calendário de ordens** (IW38) é o calendário único do site. O robô (`automacao/robo_sap.py`) e o sincronizador
+continuam lendo `mudancas_datas.json`, mas nenhuma tela cria pedidos novos; as datas já alteradas por lotes antigos
+aparecem no calendário com ↻ até o próximo export do IW38.
 
 ## Configuração
 

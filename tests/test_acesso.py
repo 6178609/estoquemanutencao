@@ -178,16 +178,18 @@ def test_manutentor_pelo_endereco_de_aba_proibida(app, monkeypatch):
     assert _titulo(at).startswith("Estoque") and not nao_achou
 
 
-def test_quem_perde_a_funcao_com_a_tela_aberta_nao_grava(app, tmp_path):
-    at = app("leo", "paginas/programacao.py")
-    assert _titulo(at).startswith("Programação")
-    caixa = next(t for t in at.text_input if t.key and t.key.startswith("pm_2"))
-    us = {**USUARIOS, "leo": {**USUARIOS["leo"], "funcao": "manutentor"}}  # o administrador rebaixa o Leo agora
-    (tmp_path / "app" / auth.ARQ_USUARIOS).write_text(json.dumps(us), encoding="utf-8")
-    bases.recarregar()
-    caixa.input("MAQ-123").run()
-    assert _titulo(at).startswith("Estoque")
-    assert not list((tmp_path / "app").glob("programacao*"))                # nada foi gravado na aba proibida
+def test_quem_perde_a_funcao_com_a_tela_aberta_nao_grava(monkeypatch):
+    # ainda_pode relê o cadastro na hora de gravar (Gerenciador de HH, cadastro do Estoque): quem foi rebaixado com a
+    # tela aberta não grava mais, mesmo que a página já esteja montada
+    atual = {"login": "leo", **USUARIOS["leo"]}
+    monkeypatch.setattr(auth, "usuario_atual", lambda: atual)
+    assert auth.ainda_pode("gestao_hh", editar=True) and auth.ainda_pode("estoque", editar=True)
+    atual = {**atual, "funcao": "manutentor"}                         # o administrador tira a função do Leo agora
+    assert not auth.ainda_pode("gestao_hh", editar=True) and auth.ainda_pode("estoque", editar=True)
+    atual = {**atual, "perfil": "leitor"}                             # e o perfil de edição
+    assert not auth.ainda_pode("estoque", editar=True) and auth.ainda_pode("estoque")
+    atual = {**atual, "funcao": "terceiro", "perfil": "editor"}
+    assert not auth.ainda_pode("equipamentos") and auth.ainda_pode("estoque", editar=True)
 
 
 def test_regras_de_edicao_da_propria_funcao():

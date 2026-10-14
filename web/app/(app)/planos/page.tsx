@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import { Colunas, Grafico, Partes } from "@/components/graficos";
-import { AbasVisao, Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
+import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho, Kpi } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto, dataHora, inteiro } from "@/lib/formato";
@@ -16,13 +16,11 @@ import { GavetaUrl } from "./_comum/GavetaUrl";
 import { atalhos, contagem, fimDoMes, hrefCom, iso, lista, periodo, um, type Params } from "./_comum/params";
 import { TabelaLonga, type Celula } from "./_comum/TabelaLonga";
 import { COR_SITUACAO, EXPLICA, estiloCelula } from "./cores";
-import { GradePlanos, type LinhaGrade } from "./GradePlanos";
 
 export const metadata: Metadata = { title: "Planos de manutenção" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const VISOES = ["Calendário semanal", "Tabela por semana"];
 const MAX_LINHAS = 3000;
 const p2 = (n: number) => String(n).padStart(2, "0");
 const pct = (a: planos.Aderencia) => (a.taxa == null ? "—" : `${Math.round(a.taxa * 100)}%`);
@@ -32,7 +30,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
   const params = await props.searchParams;
   const c = await contexto(params);
   const b = barra(c);
-  const cab = <Cabecalho titulo="Planos de manutenção," destaque="o calendário semanal de cada plano."
+  const cab = <Cabecalho titulo="Planos de manutenção," destaque="as chamadas de cada plano, semana a semana."
     sobre="Programação · IP19" subtitulo="As chamadas dos planos (IP19) semana a semana entre as datas escolhidas, cruzadas com as ordens do IW38 para saber o que foi executado." />;
   const moldura = (filhos: React.ReactNode) => (
     <PaginaWcm barra={{ ...b, recorte: "Centro de trabalho e tipo de ordem valem aqui; o período é o da página" }} periodo={false}>{filhos}</PaginaWcm>
@@ -64,13 +62,10 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
   const noPeriodo = planos.noIntervalo(filtro, ini, fim);
   const r = planos.resumoPeriodo(noPeriodo, hoje);
 
-  const visao = VISOES.includes(um(params, "visao")) ? um(params, "visao") : VISOES[0];
   const cal = planos.montarCalendario(filtro, ini, fim);
   const linhas = planos.atrasadosPrimeiro(cal.linhas);
   const semanaHoje = planos.colunaDaSemana(hoje, ini, fim);
-  const iAtual = semanaHoje ? cal.semanas.indexOf(semanaHoje) : -1;
   const periodos = cal.segundas.map((s) => `${dataBr(s).slice(0, 5)} a ${dataBr(s + 6)}`);
-  const marcas = planos.marcasDosMeses(cal.segundas);
   const hrefBase = hrefCom(params, { plano: null });
   const cortadas = linhas.length > MAX_LINHAS;
   const visiveis = linhas.slice(0, MAX_LINHAS);
@@ -135,18 +130,12 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
           dica="Custo real (IW38) das ordens geradas pelas chamadas do período." />
       </div>
 
-      <Secao titulo={`Calendário de ${descrever(ini, fim)}`} destaque={`· ${inteiro(linhas.length)} planos`}
+      <Secao titulo={`Planos de ${descrever(ini, fim)}`} destaque={`· ${inteiro(linhas.length)} planos`}
         sub="Uma linha por plano, uma coluna por semana (S01 = 1ª semana ISO do ano). A cor mostra a pior situação da semana; o número, quantas chamadas caíram nela. Planos com atraso primeiro. Ciclo com * = estimado pelo intervalo entre as chamadas.">
-        <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {legenda}
-        {cortadas && <Aviso>Muitos planos no filtro: a grade mostra os {inteiro(MAX_LINHAS)} primeiros (atrasados primeiro). Use a busca ou os filtros para ver o resto.</Aviso>}
+        {cortadas && <Aviso>Muitos planos no filtro: a tabela mostra os {inteiro(MAX_LINHAS)} primeiros (atrasados primeiro). Use a busca ou os filtros para ver o resto.</Aviso>}
         {!linhas.length ? <p className="rounded-cartao border border-borda bg-superficie p-6 text-[14px] text-texto-3">Nenhum plano com chamada nesse período e filtro.</p>
-          : visao === VISOES[0] ? (
-            <GradePlanos semanas={cal.semanas} periodos={periodos} atual={iAtual >= 0 ? iAtual : null} hrefBase={hrefBase} selecionado={chavePlano || undefined}
-              meses={Object.entries(marcas).map(([s, m]) => [cal.semanas.indexOf(s), m] as [number, string])}
-              csv={`calendario_planos_${iso(ini).replaceAll("-", "")}_${iso(fim).replaceAll("-", "")}`}
-              linhas={linhasGrade(visiveis, filtro, cal.semanas, ini, fim)} />
-          ) : (
+          : (
             <TabelaLonga altura={620} csv={`calendario_planos_${iso(ini).replaceAll("-", "")}_${iso(fim).replaceAll("-", "")}`}
               colunas={[{ titulo: "Plano", largura: 110, fixa: true }, { titulo: "Descrição", largura: 240 }, { titulo: "Atras.", largura: 64, num: true, dica: "Chamadas atrasadas no período" },
                 ...cal.semanas.map((s, j) => ({ titulo: s === semanaHoje ? `${s}•` : s, largura: s.includes("/") ? 56 : 44, centro: true, dica: `Semana de ${periodos[j]}` })),
@@ -179,19 +168,6 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
       )}
     </>,
   );
-}
-
-/** Linhas do calendário → células compactas para o navegador (com as datas e ordens da dica). */
-function linhasGrade(ls: planos.LinhaCalendario[], ch: planos.ChamadaClassificada[], semanas: string[], ini: number, fim: number): LinhaGrade[] {
-  const desc = Object.fromEntries(ls.map((l) => [l.plano, l.descricao]));
-  const idx = new Map(semanas.map((s, j) => [s, j]));
-  const porPlano = new Map<string, LinhaGrade["c"]>();
-  for (const x of planos.celulas(ch, ini, fim, ls.map((l) => l.plano), desc)) {
-    const c = porPlano.get(x.chave) ?? porPlano.set(x.chave, []).get(x.chave)!;
-    c.push([idx.get(x.semana)!, planos.SITUACOES.indexOf(x.situacao), x.chamadas, x.datas, x.ordens]);
-  }
-  return ls.map((l) => ({ k: l.plano, d: l.descricao, a: l.atrasadas, e: l.equipamento, ct: l.centro, ci: l.ciclo, n: l.chamadas,
-    c: porPlano.get(l.plano) ?? [] }));
 }
 
 function DetalhePlano({ det, hoje, temIw38 }: { det: planos.DetalhePlano; hoje: number; temIw38: boolean }) {
