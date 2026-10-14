@@ -13,6 +13,7 @@ GRUPOS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "Confiabilidade": [
         ("confiabilidade", "Quebras, MTBF e MTTR", ":material/health_and_safety:"),
+        ("confiabilidade_tipos", "MTBF e MTTR por tipo de ordem", ":material/timer:"),
         ("saude", "Saúde dos ativos", ":material/monitor_heart:"),
         ("preditiva", "Preditiva (SEMEQ)", ":material/sensors:"),
         ("equipamentos", "Equipamentos", ":material/precision_manufacturing:"),

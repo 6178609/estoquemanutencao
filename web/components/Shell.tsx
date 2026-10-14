@@ -41,7 +41,8 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
   // sem pré-carregar as ~20 abas ao abrir a página (cada uma é uma chamada ao servidor): só ao passar o mouse/focar
   const router = useRouter();
   const preparar = (href: string) => () => router.prefetch(href);
-  const ativo = (href: string) => (href === "/" ? rota === "/" : rota.startsWith(href));
+  // a própria rota ou uma subpágina dela ("/confiabilidade" não acende em "/confiabilidade_tipos")
+  const ativo = (href: string) => (href === "/" ? rota === "/" : rota === href || rota.startsWith(`${href}/`));
   return (
     <nav className="space-y-5">
       <Link prefetch={false} href="/" onClick={aoNavegar}
