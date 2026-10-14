@@ -24,6 +24,12 @@
 - `prompt-master` (MIT, v1.8.2): escreve e corrige prompts para outras IAs (ChatGPT, Claude, Cursor,
   Midjourney…). Só entra quando o pedido é escrever/ajustar um prompt.
 
+## Informativos (padrão a partir de agora)
+- Texto do informativo (comunicado, boletim, status da manutenção): skill `internal-comms`.
+- Visual (cartaz/informativo de mural, PNG ou PDF): `canvas-design` com tema da `theme-factory`.
+- Formato pedido pelo usuário: `docx` (Word), `pdf`, `pptx` (slides) ou `docs` (documento compartilhável).
+- Dados do informativo só de fontes reais do site (painel, indicadores); nada da empresa vai para o repositório.
+
 ## Estrutura
 - `web/`: site novo (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer.
 - `central/`, `paginas/`, `streamlit_app.py`: site antigo (Streamlit), mesmo cadastro de usuários e dados.
