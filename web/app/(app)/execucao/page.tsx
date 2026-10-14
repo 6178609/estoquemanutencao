@@ -5,6 +5,7 @@ import { Barras, Colunas, Grafico, Linhas, Partes } from "@/components/graficos"
 import { AbasVisao, Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import * as ex from "@/lib/wcm/execucao";
 import { descrever } from "@/lib/wcm/filtros";
@@ -16,6 +17,7 @@ import { horas, int, num, pct } from "./_ui/fmt";
 import { param } from "./_ui/memo";
 import { Tabela, type Coluna } from "./_ui/Tabela";
 import { semanasGrafico, topPessoas } from "./calculos";
+import type { CampoFn } from "@/app/(app)/ordens/dados";
 import { execucaoDoRecorte } from "./dados";
 
 export const metadata: Metadata = { title: "Execução das atividades" };
@@ -37,6 +39,7 @@ export default async function Execucao(props: { searchParams: Promise<Record<str
 
   const { ini, fim } = c.f, hoje = c.b.hoje;
   const { ops, ap, ordens } = execucaoDoRecorte(c);
+  const campoEq = await campoDoEquipamento(c);
   const r = ex.indicadores(ops, ordens, ap, ini, fim, hoje);
   const [aIni, aFim] = ex.periodoAnterior(ini, fim);
   const ra = ex.indicadores(ops, ordens, ap, aIni, aFim, hoje);
@@ -80,9 +83,9 @@ export default async function Execucao(props: { searchParams: Promise<Record<str
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {visao === "Visão geral" && <VisaoGeral ops={ops} ini={ini} fim={fim} hoje={hoje} params={params} />}
         {visao === "Quem fez o quê" && (temIw47
-          ? <QuemFez ap={ap} ops={ops} equipe={c.b.equipe.dados} ini={ini} fim={fim} sel={param(params, "pessoa")} />
+          ? <QuemFez ap={ap} ops={ops} equipe={c.b.equipe.dados} ini={ini} fim={fim} sel={param(params, "pessoa")} campoEq={campoEq} />
           : <Aviso>Envie o export da <b>IW47</b> (apontamentos) em <Link href="/dados" className="font-medium underline">Fontes de dados</Link> para ver quem executou cada atividade.</Aviso>)}
-        {visao === "Atividades" && <Atividades ops={ops} ini={ini} fim={fim} />}
+        {visao === "Atividades" && <Atividades ops={ops} ini={ini} fim={fim} campoEq={campoEq} />}
       </Secao>
     </PaginaWcm>
   );
@@ -153,13 +156,13 @@ const COLS_PESSOAS: Coluna[] = [
 const COLS_DA_PESSOA: Coluna[] = [
   { id: "data", rotulo: "Data", tipo: "data" }, { id: "ordem", rotulo: "Ordem", tipo: "codigo" }, { id: "op", rotulo: "Operação", tipo: "codigo", largura: 80 },
   { id: "texto", rotulo: "Atividade", largura: 260 }, { id: "objeto", rotulo: "Objeto técnico", largura: 200 },
-  { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" }, { id: "natureza", rotulo: "Natureza", largura: 120 },
+  { id: "campoOrdenacao", rotulo: "Campo de ordenação", largura: 150 }, { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" }, { id: "natureza", rotulo: "Natureza", largura: 120 },
   { id: "centro", rotulo: "Centro de trabalho", tipo: "codigo", largura: 130 }, { id: "horas", rotulo: "Horas", tipo: "h" },
   { id: "situacao", rotulo: "Situação da atividade", tipo: "situacao" },
 ];
 
-function QuemFez({ ap, ops, equipe, ini, fim, sel }: { ap: ex.Apontamento[]; ops: ex.Atividade[];
-  equipe: import("@/lib/wcm/preparo").Pessoa[] | null; ini: number; fim: number; sel: string }) {
+function QuemFez({ ap, ops, equipe, ini, fim, sel, campoEq }: { ap: ex.Apontamento[]; ops: ex.Atividade[];
+  equipe: import("@/lib/wcm/preparo").Pessoa[] | null; ini: number; fim: number; sel: string; campoEq: CampoFn }) {
   const pes = ex.porPessoa(ap, ops, equipe, ini, fim);
   if (!pes.length) return <p className="text-[14px] text-texto-3">Nenhum apontamento na IW47 no período.</p>;
   const top = topPessoas(pes, 15);
@@ -188,7 +191,8 @@ function QuemFez({ ap, ops, equipe, ini, fim, sel }: { ap: ex.Apontamento[]; ops
           <Tabela colunas={COLS_DA_PESSOA} cores={COR_ATIVIDADE} arquivo={`apontamentos_${p.np}`} contagem="apontamentos" altura={380}
             busca={{ campos: ["ordem", "texto", "objeto", "equipamento"], placeholder: "Buscar ordem, atividade, equipamento…" }}
             linhas={dela.map((a) => ({ data: a.data, ordem: a.ordem, op: a.operacao, texto: a.textoOperacao ?? a.texto, objeto: a.objeto,
-              equipamento: a.equipamento, natureza: a.natureza, centro: a.centroTrabalho, horas: a.horas, situacao: a.situacao }))} />
+              campoOrdenacao: campoEq(a.equipamento || a.objeto), equipamento: a.equipamento, natureza: a.natureza, centro: a.centroTrabalho,
+              horas: a.horas, situacao: a.situacao }))} />
         </Quadro>
       )}
     </div>
@@ -198,7 +202,8 @@ function QuemFez({ ap, ops, equipe, ini, fim, sel }: { ap: ex.Apontamento[]; ops
 const COLS_ATIV: Coluna[] = [
   { id: "inicio", rotulo: "Programada", tipo: "data" }, { id: "ordem", rotulo: "Ordem", tipo: "codigo" },
   { id: "op", rotulo: "Operação", tipo: "codigo", largura: 80 }, { id: "texto", rotulo: "Atividade", largura: 280 },
-  { id: "objeto", rotulo: "Objeto técnico", largura: 200 }, { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" },
+  { id: "objeto", rotulo: "Objeto técnico", largura: 200 }, { id: "campoOrdenacao", rotulo: "Campo de ordenação", largura: 150 },
+  { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" },
   { id: "setor", rotulo: "Setor", largura: 120 }, { id: "centro", rotulo: "Centro de trabalho", tipo: "codigo", largura: 130 },
   { id: "natureza", rotulo: "Natureza", largura: 120 }, { id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 200 },
   { id: "status", rotulo: "Status SAP", tipo: "codigo", largura: 150 }, { id: "quem", rotulo: "Executado por", largura: 200 },
@@ -206,7 +211,7 @@ const COLS_ATIV: Coluna[] = [
   { id: "fimReal", rotulo: "Fim real", tipo: "data" }, { id: "dias", rotulo: "Dias após a programação", tipo: "num", largura: 110 },
 ];
 
-function Atividades({ ops, ini, fim }: { ops: ex.Atividade[]; ini: number; fim: number }) {
+function Atividades({ ops, ini, fim, campoEq }: { ops: ex.Atividade[]; ini: number; fim: number; campoEq: CampoFn }) {
   const per = ex.filtrarAtividades(ops, ini, fim);
   const vis = per.slice(0, MAX_LINHAS);
   return (
@@ -217,7 +222,7 @@ function Atividades({ ops, ini, fim }: { ops: ex.Atividade[]; ini: number; fim: 
         facetas={[{ id: "situacao", rotulo: "Situação", ordem: [...ex.SITUACOES] }, { id: "quem", rotulo: "Executado por", lista: true },
           { id: "centro", rotulo: "Centro" }]}
         linhas={vis.map((o) => ({ inicio: o.inicio, ordem: o.ordem, op: o.operacao, texto: o.textoOperacao, objeto: o.objeto,
-          equipamento: o.equipamento, setor: o.setor, centro: o.centroTrabalho, natureza: o.natureza, situacao: o.situacao,
+          campoOrdenacao: campoEq(o.equipamento || o.objeto), equipamento: o.equipamento, setor: o.setor, centro: o.centroTrabalho, natureza: o.natureza, situacao: o.situacao,
           status: o.statusSap, quem: o.executadoPor, hh: o.horas, hhReal: o.hhReal, fimReal: o.fimReal, dias: o.diasAposProgramacao }))} />
     </Quadro>
   );

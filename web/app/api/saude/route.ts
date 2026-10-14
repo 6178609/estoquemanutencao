@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { saudeAtivos } from "@/app/(app)/saude/calculo";
 import { csvFila, filtrarFila, lerFiltroFila } from "@/app/(app)/saude/fila";
 import { autorizar } from "@/lib/auth/sessao";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { contexto } from "@/lib/wcm/contexto";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   const c = await contexto(params);
   if (!c.b.ordens.dados) return NextResponse.json({ erro: "Sem a base IW38." }, { status: 404 });
   const vis = filtrarFila(await saudeAtivos(c), lerFiltroFila(params));
-  return new NextResponse(csvFila(vis), {
+  return new NextResponse(csvFila(vis, await campoDoEquipamento(c)), {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="saude_dos_ativos.csv"', "Cache-Control": "no-store" },
   });
 }

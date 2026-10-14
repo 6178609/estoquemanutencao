@@ -9,12 +9,26 @@ import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
 import { resumoCatalogo } from "@/lib/dados/catalogoBusca";
 import { dataHora, idade } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
+import { contexto } from "@/lib/wcm/contexto";
+import type { ItemAlmox } from "@/lib/dados/materiais";
 import { Almoxarifado } from "./Almoxarifado";
 import { Catalogo } from "./Catalogo";
 
 export const metadata: Metadata = { title: "Estoque" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/** "TAG (criticidade)" → "CAMPO · TAG (criticidade)" quando o equipamento tem campo de ordenação no IW38. */
+function comCampo(itens: ItemAlmox[], campoEq: (codigo: string) => string): ItemAlmox[] {
+  return itens.map((i) => i.usadoEm ? {
+    ...i,
+    usadoEm: i.usadoEm.split(", ").map((uso) => {
+      const campo = campoEq(uso.replace(/ \([^()]*\)$/, ""));
+      return campo ? `${campo} · ${uso}` : uso;
+    }).join(", "),
+  } : i);
+}
 
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
@@ -32,6 +46,8 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
     { id: "cadastrado", titulo: "Material cadastrado", icone: BookOpen, href: "/estoque?aba=cadastrado" },
   ];
   const almox = aba === "almox" ? await almoxarifado() : null;
+  // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material
+  const itensAlmox = almox ? comCampo(almox.itens, await campoDoEquipamento(await contexto({}))) : [];
   const resumo = aba === "cadastrado" ? await resumoCatalogo() : null;
   const base = almox?.estoque;
 
@@ -56,7 +72,7 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
               <Link href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
-          <Almoxarifado itens={almox.itens} edita={podeEditar(u)} />
+          <Almoxarifado itens={itensAlmox} edita={podeEditar(u)} />
         </>
       )}
       {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} /> : (

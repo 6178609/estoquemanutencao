@@ -8,6 +8,7 @@ import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto, dataHora, inteiro } from "@/lib/formato";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import * as planos from "@/lib/wcm/planos";
 import { dataBr, partes } from "@/lib/wcm/util";
 
@@ -37,6 +38,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
   );
   const ch = c.chamadas;
   if (!ch) return moldura(<>{cab}<SemDados base="IP19 (planos de manutenção)" /></>);
+  const campoEq = await campoDoEquipamento(c);
 
   const hoje = c.b.hoje;
   const temIp19 = !!c.b.cruas.ip19.dados?.length;
@@ -139,7 +141,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
             <TabelaLonga altura={620} csv={`calendario_planos_${iso(ini).replaceAll("-", "")}_${iso(fim).replaceAll("-", "")}`}
               colunas={[{ titulo: "Plano", largura: 110, fixa: true }, { titulo: "Descrição", largura: 240 }, { titulo: "Atras.", largura: 64, num: true, dica: "Chamadas atrasadas no período" },
                 ...cal.semanas.map((s, j) => ({ titulo: s === semanaHoje ? `${s}•` : s, largura: s.includes("/") ? 56 : 44, centro: true, dica: `Semana de ${periodos[j]}` })),
-                { titulo: "Equipamento", largura: 200 }, { titulo: "Centro", largura: 100 }, { titulo: "Ciclo", largura: 100 }, { titulo: "Chamadas", largura: 84, num: true }]}
+                { titulo: "Campo de ordenação", largura: 150 }, { titulo: "Equipamento", largura: 200 }, { titulo: "Centro", largura: 100 }, { titulo: "Ciclo", largura: 100 }, { titulo: "Chamadas", largura: 84, num: true }]}
               links={visiveis.map((l) => `${hrefBase}${hrefBase === "?" ? "" : "&"}plano=${encodeURIComponent(l.plano)}`)}
               linhas={visiveis.map((l): Celula[] => [l.plano, l.descricao, l.atrasadas,
                 ...cal.semanas.map((s): Celula => {
@@ -147,7 +149,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
                   if (!sit) return "";
                   const e = estiloCelula(sit);
                   return { t: l.texto[s], fundo: e.background, cor: e.color, dica: sit };
-                }), l.equipamento, l.centro, l.ciclo, l.chamadas])} />
+                }), campoEq(l.equipamento), l.equipamento, l.centro, l.ciclo, l.chamadas])} />
           )}
       </Secao>
 
@@ -163,14 +165,14 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
 
       {chavePlano && det && (
         <GavetaUrl parametro="plano" titulo={`Plano ${chavePlano}`} subtitulo={descPlano}>
-          <DetalhePlano det={det} hoje={hoje} temIw38={temIw38} />
+          <DetalhePlano det={det} hoje={hoje} temIw38={temIw38} campoEq={campoEq} />
         </GavetaUrl>
       )}
     </>,
   );
 }
 
-function DetalhePlano({ det, hoje, temIw38 }: { det: planos.DetalhePlano; hoje: number; temIw38: boolean }) {
+function DetalhePlano({ det, hoje, temIw38, campoEq }: { det: planos.DetalhePlano; hoje: number; temIw38: boolean; campoEq: (codigo: string) => string }) {
   const d = det.chamadas;
   if (!d.length) return <p className="text-[14px] text-texto-3">Nenhuma chamada deste plano no filtro atual.</p>;
   const tem = (f: (x: planos.ChamadaClassificada) => unknown) => d.some((x) => { const v = f(x); return v != null && v !== "" && v !== 0; });
@@ -183,7 +185,8 @@ function DetalhePlano({ det, hoje, temIw38 }: { det: planos.DetalhePlano; hoje: 
     ["Ordem", (x) => x.ordem, 100], ["Situação IW38", (x) => x.situacaoIw38, 120],
     ["Custo real", (x) => (temIw38 ? brl(x.custoReal) : ""), 110], ["Tipo de programação", (x) => x.tipoProgramacao, 200],
     ["Atividade", (x) => x.atividade, 110], ["Pacote", (x) => x.pacote, 90], ["Operações", (x) => x.operacoes, 90],
-    ["Horas", (x) => (x.horas ? Math.round(x.horas * 10) / 10 : ""), 70], ["Objeto técnico", (x) => x.objeto, 200],
+    ["Horas", (x) => (x.horas ? Math.round(x.horas * 10) / 10 : ""), 70], ["Campo de ordenação", (x) => campoEq(x.objeto || x.equipamento), 150],
+    ["Objeto técnico", (x) => x.objeto, 200],
     ["Centro de trabalho", (x) => x.centroTrabalho, 120],
   ];
   const usadas = cols.filter(([, f], i) => i < 5 || tem(f));

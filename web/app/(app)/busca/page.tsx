@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Tabela } from "@/components/graficos";
 import { Cabecalho, Selo } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { estoque as lerEstoque } from "@/lib/dados/bases";
 import { brl, inteiro } from "@/lib/formato";
 import * as busca from "@/lib/wcm/busca";
@@ -34,6 +35,11 @@ const CELULAR: Record<busca.Categoria, string[]> = {
   Materiais: ["material", "descricao", "estoque"], Planos: ["plano", "texto", "data"], "Análises de falha": ["numero", "resumo", "situacao"],
 };
 const ROTULO_FIM: Record<string, string> = { fim: "Prazo" };
+/** Coluna do equipamento em cada categoria: a coluna "Campo de ordenação" (do equipamento) entra logo antes dela. */
+const COL_EQUIP: Partial<Record<busca.Categoria, string>> = { Ordens: "equipChave", Notas: "equipChave", Equipamentos: "equipamento",
+  Planos: "equipamento", "Análises de falha": "equipamento" };
+/** Código do equipamento de uma linha de resultado (a chave de ordens e notas; o equipamento nas demais). */
+const codigoDe = (l: Linha) => txt(l.equipChave || l.equipamento || l.objeto);
 
 function Moldura({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-[1320px] space-y-8 px-4 py-8 sm:px-8">{children}</div>;
@@ -56,6 +62,7 @@ export default async function Buscar(props: { searchParams: Promise<Params> }) {
   const valido = busca.normalizar(termo).replace(/ /g, "").length >= 2;
   const c = valido ? await contexto({}) : null;
   const res = c ? await buscar(c, termo) : null;
+  const campoEq = c ? await campoDoEquipamento(c) : null;
   const total = res ? busca.totalDeResultados(res) : 0;
   const com = res ? busca.CATEGORIAS.filter((k) => res[k].length) : [];
   const cat = (com.includes(um(params.cat) as busca.Categoria) ? um(params.cat) : com[0]) as busca.Categoria | undefined;
@@ -74,7 +81,7 @@ export default async function Buscar(props: { searchParams: Promise<Params> }) {
           <p className="text-[14px] text-texto-2">Nada encontrado para <b className="font-medium">{termo}</b>.</p>
         </div>
       )}
-      {res && cat && c && (
+      {res && cat && c && campoEq && (
         <div className="space-y-4">
           <p className="text-[13px] text-texto-3"><b className="num font-medium text-texto">{inteiro(total)}</b> resultado(s) — até {busca.LIMITE} por tipo</p>
           <nav className="flex flex-wrap gap-1" aria-label="Tipos de resultado">
@@ -85,20 +92,25 @@ export default async function Buscar(props: { searchParams: Promise<Params> }) {
               </Link>
             ))}
           </nav>
-          <Resultados cat={cat} res={res} params={params} />
+          <Resultados cat={cat} res={res} params={params} campoEq={campoEq} />
           <p className="text-[12px] text-texto-3">Clique numa linha para ver os detalhes.</p>
-          {um(params.sel) !== "" && <Detalhe c={c} cat={cat} linha={(res[cat] as unknown as Linha[])[Number(um(params.sel))]} />}
+          {um(params.sel) !== "" && <Detalhe c={c} cat={cat} linha={(res[cat] as unknown as Linha[])[Number(um(params.sel))]} campoEq={campoEq} />}
         </div>
       )}
     </Moldura>
   );
 }
 
-function Resultados({ cat, res, params }: { cat: busca.Categoria; res: busca.ResultadoBusca; params: Params }) {
-  const linhas = res[cat] as unknown as Linha[];
-  const colunas: Coluna[] = (busca.COLUNAS[cat] as [string, string][])
-    .filter(([k]) => k !== "campoOrdenacao" || linhas.some((l) => l[k]))
-    .map(([k, r]) => ({ chave: k, rotulo: ROTULO_FIM[k] ?? r, tipo: TIPO[k], celular: CELULAR[cat].includes(k) }));
+function Resultados({ cat, res, params, campoEq }: { cat: busca.Categoria; res: busca.ResultadoBusca; params: Params;
+  campoEq: (codigo: string | null | undefined) => string }) {
+  // o campo de ordenação do próprio IW38 (da ordem) sai: a coluna mostra o do equipamento, antes da coluna dele
+  const colunas: Coluna[] = [];
+  for (const [k, r] of busca.COLUNAS[cat] as [string, string][]) {
+    if (k === "campoOrdenacao") continue;
+    if (k === COL_EQUIP[cat]) colunas.push({ chave: "campoEquip", rotulo: "Campo de ordenação" });
+    colunas.push({ chave: k, rotulo: ROTULO_FIM[k] ?? r, tipo: TIPO[k], celular: CELULAR[cat].includes(k) });
+  }
+  const linhas: Linha[] = (res[cat] as unknown as Linha[]).map((l) => ({ ...l, campoEquip: COL_EQUIP[cat] ? campoEq(codigoDe(l)) : "" }));
   const indice = new Map(linhas.map((l, i) => [l, i]));
   const sel = um(params.sel);
   return (
@@ -125,9 +137,11 @@ const ficha = (cod: string) => `/equipamentos?eq=${encodeURIComponent(cod)}`;
 const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const txt = (v: unknown) => (v == null ? "" : String(v));
 
-async function Detalhe({ c, cat, linha }: { c: Contexto; cat: busca.Categoria; linha: Linha | undefined }) {
+async function Detalhe({ c, cat, linha, campoEq }: { c: Contexto; cat: busca.Categoria; linha: Linha | undefined;
+  campoEq: (codigo: string | null | undefined) => string }) {
   if (!linha) return null;
   const fechar = ["sel"];
+  const campo = campoEq(codigoDe(linha));
   if (cat === "Ordens") {
     const o = (c.b.ordens.dados ?? []).find((x) => x.ordem === linha.ordem);
     if (!o) return null;
@@ -141,6 +155,7 @@ async function Detalhe({ c, cat, linha }: { c: Contexto; cat: busca.Categoria; l
           <Info rotulo="Custo real">{brl(o.custoReal)}</Info>
           <Info rotulo="Data-base">{dataBr(o.inicio) || "—"}</Info>
           <Info rotulo="Prazo (fim-base)">{dataBr(o.fim) || "—"}</Info>
+          <Info rotulo="Campo de ordenação">{campo || "—"}</Info>
         </div>
         <p className="text-[13px] text-texto-2">Equipamento <b className="font-medium">{o.equipChave || "—"}</b> {o.objeto} · centro {o.centroTrabalho || "—"} · {o.natureza} · status <code>{o.statusSistema || "—"}</code></p>
         {ops.length > 0 && <Tabela colunas={["Operação", "Texto", "Centro", "HH", "Pessoas", "Programada", "Fim real", "Status"]}
@@ -161,6 +176,7 @@ async function Detalhe({ c, cat, linha }: { c: Contexto; cat: busca.Categoria; l
         <div className="grid grid-cols-2 gap-3">
           <Info rotulo="Criticidade">{txt(linha.criticidade) || (linha.codigoAbc ? `ABC ${linha.codigoAbc}` : "—")}</Info>
           <Info rotulo="Localização">{txt(linha.localizacao) || "—"}</Info>
+          <Info rotulo="Campo de ordenação">{campo || "—"}</Info>
         </div>
         {s ? (
           <div className="grid grid-cols-2 gap-3">
@@ -192,6 +208,7 @@ async function Detalhe({ c, cat, linha }: { c: Contexto; cat: busca.Categoria; l
         <div className="grid grid-cols-2 gap-3">
           <Info rotulo="Data">{dataBr(linha.data as number | null) || "—"}</Info>
           <Info rotulo="Ordem">{txt(linha.ordem) || "sem ordem"}{linha.quebra ? <Selo cor="laranja" className="ml-2">quebra</Selo> : null}</Info>
+          <Info rotulo="Campo de ordenação">{campo || "—"}</Info>
         </div>
         <p className="text-[13px] text-texto-2">Equipamento {eq || "—"} {txt(linha.objeto)} · centro {txt(linha.centroTrabalho) || "—"}</p>
         <div className="flex flex-wrap gap-4">
@@ -209,6 +226,7 @@ async function Detalhe({ c, cat, linha }: { c: Contexto; cat: busca.Categoria; l
           <Info rotulo="Situação">{txt(linha.situacao) || "—"}</Info>
           <Info rotulo="Ordem">{txt(linha.ordem) || "—"}</Info>
           <Info rotulo="Equipamento">{txt(linha.equipamento) || "—"}</Info>
+          <Info rotulo="Campo de ordenação">{campo || "—"}</Info>
         </div>
         <Ir href={`/planos?q=${encodeURIComponent(txt(linha.plano))}`}>Abrir em Planos</Ir>
       </GavetaUrl>
@@ -221,6 +239,7 @@ async function Detalhe({ c, cat, linha }: { c: Contexto; cat: busca.Categoria; l
         <Info rotulo="Data da falha">{dataBr(linha.dataFalha as number | null) || "—"}</Info>
         <Info rotulo="Criticidade">{txt(linha.criticidade) || "—"}</Info>
         <Info rotulo="OS corretiva">{txt(linha.osCorretiva) || "—"}</Info>
+        <Info rotulo="Campo de ordenação">{campo || "—"}</Info>
       </div>
       <p className="text-[13px] text-texto-2">Causa raiz: {txt(linha.causaRaiz) || "—"}</p>
       <Ir href={`/af_planos?q=${encodeURIComponent(txt(linha.numero))}`}>Abrir em Planos de AF</Ir>

@@ -6,6 +6,7 @@ import { PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados, resultados, serieMensal } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { inicioDoMes, somarMeses } from "@/lib/wcm/util";
@@ -23,13 +24,14 @@ const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const pct = (a: number, b: number) => (b ? `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format((a / b) * 100)}%` : "—");
 
 const COL_EQ: Coluna[] = [
-  { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true }, { rotulo: "Custo", formato: "R$" },
+  { rotulo: "Campo de ordenação" }, { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true }, { rotulo: "Custo", formato: "R$" },
   { rotulo: "Ordens", formato: "inteiro" }, { rotulo: "Backlog", formato: "inteiro", dica: "Ordens sem plano de manutenção" },
   { rotulo: "Custo médio por ordem", formato: "R$" }, { rotulo: "% acumulado", formato: "%" },
 ];
 const COL_ORD: Coluna[] = [
   { rotulo: "Ordem", formato: "codigo" }, { rotulo: "Tipo" }, { rotulo: "Natureza" }, { rotulo: "Texto", largo: true },
-  { rotulo: "Equipamento", formato: "codigo" }, { rotulo: "Custo real", formato: "R$" }, { rotulo: "Data", formato: "data" }, { rotulo: "Situação" },
+  { rotulo: "Campo de ordenação" }, { rotulo: "Equipamento", formato: "codigo" }, { rotulo: "Custo real", formato: "R$" }, { rotulo: "Data", formato: "data" },
+  { rotulo: "Situação" },
 ];
 
 export default async function Custos(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -40,7 +42,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
     subtitulo="Custo real das ordens (IW38) por mês, classe de manutenção, tipo, área, centro de trabalho e equipamento. Ordens canceladas não entram." />;
   if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW38 (ordens)" /></PaginaWcm>;
 
-  const [[atual, anterior], serie, d] = await Promise.all([resultados(c), serieMensal(c), dados(c)]);
+  const [[atual, anterior], serie, d, campoEq] = await Promise.all([resultados(c), serieMensal(c), dados(c), campoDoEquipamento(c)]);
   const metas = c.cad.metas;
   const { ini, fim } = c.f;
   const o = ordensDoPeriodo(d.ordens, ini, fim, c.tipos);
@@ -109,10 +111,12 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
           </Grafico>
           <Grafico titulo="Pareto de custo por equipamento" subtitulo="Os 12 que mais custaram · laranja = os que somam 80% do gasto"
             legenda={<Legenda series={[{ nome: "Somam 80% do gasto", cor: "serie-2" }, { nome: "Demais", cor: "neutro" }]} />}
-            tabela={{ colunas: ["Código", "Equipamento", "Custo", "% acumulado"], linhas: topEq.map((x) => [x.codigo, x.nome, brl(x.custo), `${x.acumulado.toFixed(1).replace(".", ",")}%`]) }}>
+            tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Custo", "% acumulado"],
+              linhas: topEq.map((x) => [campoEq(x.codigo), x.codigo, x.nome, brl(x.custo), `${x.acumulado.toFixed(1).replace(".", ",")}%`]) }}>
             {topEq.length ? (
               <>
-                <Barras formato="R$" larguraRotulo={260} max={(topEq[0]?.custo ?? 1) * 1.18} itens={topEq.map((x) => ({ rotulo: `${x.codigo} · ${x.nome.slice(0, 28)}`, valor: x.custo,
+                <Barras formato="R$" larguraRotulo={260} max={(topEq[0]?.custo ?? 1) * 1.18} itens={topEq.map((x) => ({
+                  rotulo: `${campoEq(x.codigo) ? `${campoEq(x.codigo)} · ` : ""}${x.codigo} · ${x.nome.slice(0, 28)}`, valor: x.custo,
                   cor: (x.vital ? "serie-2" : "neutro") as Cor, detalhe: `${x.acumulado.toFixed(0)}% acumulado` }))} />
                 <p className="mt-3 text-[13px] text-texto-2"><b className="num font-medium text-texto">{n0.format(eq.n80)}</b> de {n0.format(eq.linhas.length)} equipamentos
                   com custo respondem por 80% do gasto com equipamento.</p>
@@ -127,14 +131,14 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
             <div className="font-display text-[15px] font-medium">Por equipamento</div>
             <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">200 maiores · clique numa linha para abrir a ficha do equipamento</div>
-            <TabelaFicha colunas={COL_EQ} limite={200} baixar="custo_por_equipamento" busca="Buscar equipamento…"
-              linhas={eq.linhas.slice(0, 200).map((x) => [x.codigo, x.nome, x.custo, x.ordens, x.backlog, x.medio, x.acumulado])} />
+            <TabelaFicha colunas={COL_EQ} limite={200} baixar="custo_por_equipamento" busca="Buscar equipamento…" colunaCodigo={1} colunaNome={2}
+              linhas={eq.linhas.slice(0, 200).map((x) => [campoEq(x.codigo), x.codigo, x.nome, x.custo, x.ordens, x.backlog, x.medio, x.acumulado])} />
           </div>
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
             <div className="font-display text-[15px] font-medium">Por ordem</div>
             <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">200 ordens mais caras do período</div>
             <TabelaDados colunas={COL_ORD} limite={200} baixar="ordens_mais_caras" busca="Buscar ordem, texto, equipamento…"
-              linhas={topOrd.map((x) => [x.ordem, x.tipoNome, x.natureza, x.texto, x.equipChave, x.custoReal, x.data, x.situacao])} />
+              linhas={topOrd.map((x) => [x.ordem, x.tipoNome, x.natureza, x.texto, campoEq(x.equipChave), x.equipChave, x.custoReal, x.data, x.situacao])} />
           </div>
         </div>
       </Secao>

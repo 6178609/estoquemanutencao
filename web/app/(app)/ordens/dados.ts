@@ -47,6 +47,7 @@ export const COLUNAS: Coluna[] = [
   { chave: "tipoNome", rotulo: "Tipo" },
   { chave: "classe", rotulo: "Classe", dica: "Classe WCM do tipo de ordem (Metas e parâmetros › Tipos de ordem)" },
   { chave: "texto", rotulo: "Texto", tipo: "longo", celular: true },
+  { chave: "campoOrdenacao", rotulo: "Campo de ordenação" },
   { chave: "equipamento", rotulo: "Equipamento", tipo: "codigo" },
   { chave: "objeto", rotulo: "Objeto técnico" },
   { chave: "situacao", rotulo: "Situação", celular: true },
@@ -79,7 +80,7 @@ export const COLUNAS: Coluna[] = [
   { chave: "duracao", rotulo: "Duração (dias)", tipo: "int" },
   { chave: "pessoasApontaram", rotulo: "Pessoas que apontaram", tipo: "int" },
 ];
-export const ESSENCIAIS = COLUNAS.slice(0, 19).map((c) => c.chave);
+export const ESSENCIAIS = COLUNAS.slice(0, 20).map((c) => c.chave);
 export const POR_CHAVE = Object.fromEntries(COLUNAS.map((c) => [c.chave, c]));
 
 export function colunasEscolhidas(p: Params): { colunas: Coluna[]; escolhidas: boolean } {
@@ -89,6 +90,11 @@ export function colunasEscolhidas(p: Params): { colunas: Coluna[]; escolhidas: b
 }
 
 export const linha = (o: OrdemEnriquecida): Linha => o as unknown as Linha;
+
+/** Campo de ordenação do equipamento de cada ordem (o geral do equipamento, não o da ordem). */
+export type CampoFn = (codigo: string | null | undefined) => string;
+export const comCampo = (xs: OrdemEnriquecida[], campoEq: CampoFn): (OrdemEnriquecida & { campoOrdenacao: string })[] =>
+  xs.map((o) => ({ ...o, campoOrdenacao: campoEq(o.equipChave) }));
 
 /** Ordens do recorte global no período (a base da página) e as que passam nos filtros da página. */
 export function ordensDaPagina(c: Contexto, p: Params): { base: OrdemEnriquecida[]; filtradas: OrdemEnriquecida[]; filtro: FiltroOrdens } {

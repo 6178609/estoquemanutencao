@@ -6,6 +6,7 @@ import { AbasVisao, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados, resultados, serieMensal } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { dataBr } from "@/lib/wcm/util";
@@ -27,7 +28,7 @@ const VISOES = ["Visão geral", "Por equipamento", "Reincidências"];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 const COLUNAS_REINC: Coluna[] = [
-  { rotulo: "Data", formato: "data" }, { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true },
+  { rotulo: "Data", formato: "data" }, { rotulo: "Campo de ordenação" }, { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true },
   { rotulo: "Dias desde a anterior", formato: "inteiro" }, { rotulo: "Descrição", largo: true }, { rotulo: "Nota", formato: "codigo" },
   { rotulo: "Ordem", formato: "codigo" }, { rotulo: "Centro de trabalho" },
 ];
@@ -41,7 +42,7 @@ export default async function Confiabilidade(props: { searchParams: Promise<Reco
   if (!c.b.notas.dados) return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW28 (notas)" /></PaginaWcm>;
   if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW38 (ordens)" /></PaginaWcm>;
 
-  const [[atual, anterior], serie, d] = await Promise.all([resultados(c), serieMensal(c), dados(c)]);
+  const [[atual, anterior], serie, d, campoEq] = await Promise.all([resultados(c), serieMensal(c), dados(c), campoDoEquipamento(c)]);
   const metas = c.cad.metas;
   const visao = VISOES.includes(String(params.visao)) ? String(params.visao) : VISOES[0];
   const { ini, fim } = c.f;
@@ -74,9 +75,9 @@ export default async function Confiabilidade(props: { searchParams: Promise<Reco
       {cabeca}
       <Secao titulo="Análise" destaque="das quebras do período">
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
-        {visao === "Visão geral" ? <VisaoGeral c={c} q={q} qAll={qAll} serie={serie} params={params} />
-          : visao === "Por equipamento" ? <PorEquipamento c={c} d={d} q={q} dias={dias} />
-            : <Reincidencias q={q} />}
+        {visao === "Visão geral" ? <VisaoGeral c={c} q={q} qAll={qAll} serie={serie} params={params} campoEq={campoEq} />
+          : visao === "Por equipamento" ? <PorEquipamento c={c} d={d} q={q} dias={dias} campoEq={campoEq} />
+            : <Reincidencias q={q} campoEq={campoEq} />}
       </Secao>
     </PaginaWcm>
   );
@@ -84,8 +85,10 @@ export default async function Confiabilidade(props: { searchParams: Promise<Reco
 
 type Ctx = Awaited<ReturnType<typeof contexto>>;
 
-function VisaoGeral({ c, q, qAll, serie, params }: { c: Ctx; q: ind.Quebra[]; qAll: ind.Quebra[];
-  serie: { mes: number; valores: ind.Resultado }[]; params: Record<string, string | string[] | undefined> }) {
+type CampoEq = (codigo: string | null | undefined) => string;
+
+function VisaoGeral({ c, q, qAll, serie, params, campoEq }: { c: Ctx; q: ind.Quebra[]; qAll: ind.Quebra[];
+  serie: { mes: number; valores: ind.Resultado }[]; params: Record<string, string | string[] | undefined>; campoEq: CampoEq }) {
   const metas = c.cad.metas;
   const rotMes = serie.map((s, i) => ind.mesTxt(s.mes) + (i === serie.length - 1 && c.f.fim >= c.b.hoje ? "*" : ""));
   const kQ = ind.POR_ID.quebras, kR = ind.POR_ID.mttr, kB = ind.POR_ID.mtbf;
@@ -100,7 +103,9 @@ function VisaoGeral({ c, q, qAll, serie, params }: { c: Ctx; q: ind.Quebra[]; qA
   const nomes = new Map<string, string>();
   for (const x of base) if (!nomes.has(x.equipChave)) nomes.set(x.equipChave, x.objeto);
   const par = pareto(somarPor(base, (x) => x[campo]));
-  const rot = (i: string) => (nomeDim === "Equipamento" ? `${i} · ${(nomes.get(i) ?? "").slice(0, 28)}` : i);
+  const eqDim = nomeDim === "Equipamento";
+  const rot = (i: string) => (eqDim ? `${i} · ${(nomes.get(i) ?? "").slice(0, 28)}` : i);
+  const rotGrafico = (i: string) => (eqDim && campoEq(i) ? `${campoEq(i)} · ${rot(i)}` : rot(i));
   const topo = par.itens.slice(0, 15);
 
   // matriz e dia da semana
@@ -132,11 +137,12 @@ function VisaoGeral({ c, q, qAll, serie, params }: { c: Ctx; q: ind.Quebra[]; qA
       <Grafico titulo="Pareto das quebras" subtitulo="Os poucos itens que concentram a maior parte das falhas (80/20)"
         acoes={<LinksParam chave="dim" opcoes={Object.keys(DIMENSOES)} atual={nomeDim} params={params} />}
         legenda={<Legenda series={[{ nome: "Concentram 80% das quebras", cor: "serie-2" }, { nome: "Demais", cor: "neutro" }]} />}
-        tabela={{ colunas: [nomeDim, "Quebras", "%", "% acumulado"], linhas: par.itens.slice(0, 25).map((x) => [rot(x.item), x.valor, `${x.pct.toFixed(1).replace(".", ",")}%`, `${x.acumulado.toFixed(1).replace(".", ",")}%`]) }}>
+        tabela={{ colunas: [...(eqDim ? ["Campo de ordenação"] : []), nomeDim, "Quebras", "%", "% acumulado"],
+          linhas: par.itens.slice(0, 25).map((x) => [...(eqDim ? [campoEq(x.item)] : []), rot(x.item), x.valor, `${x.pct.toFixed(1).replace(".", ",")}%`, `${x.acumulado.toFixed(1).replace(".", ",")}%`]) }}>
         {topo.length ? (
           <>
             <Barras larguraRotulo={nomeDim === "Equipamento" || nomeDim === "Local de instalação" ? 280 : 200} formato="inteiro"
-              itens={topo.map((x) => ({ rotulo: rot(x.item), valor: x.valor, cor: (x.vital ? "serie-2" : "neutro") as Cor,
+              itens={topo.map((x) => ({ rotulo: rotGrafico(x.item), valor: x.valor, cor: (x.vital ? "serie-2" : "neutro") as Cor,
                 detalhe: `quebras · ${x.acumulado.toFixed(0)}% acumulado` }))} />
             <p className="mt-3 text-[13px] text-texto-2">
               <b className="num font-medium text-texto">{n0.format(par.n80)}</b> {nomeDim.toLowerCase()}(s) concentram 80% das {n0.format(par.total)} quebras
@@ -163,12 +169,13 @@ function VisaoGeral({ c, q, qAll, serie, params }: { c: Ctx; q: ind.Quebra[]; qA
   );
 }
 
-function PorEquipamento({ c, d, q, dias }: { c: Ctx; d: ind.Dados; q: ind.Quebra[]; dias: number }) {
+function PorEquipamento({ c, d, q, dias, campoEq }: { c: Ctx; d: ind.Dados; q: ind.Quebra[]; dias: number; campoEq: CampoEq }) {
   const ordensPer = d.ordens.filter((o) => o.data != null && o.data >= c.f.ini && o.data <= c.f.fim);
   const abc = new Map((c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.codigoAbc]));
   const tab = porEquipamento(q.filter((x) => x.equipChave), ordensPer, dias, c.cad.equipamentos, abc);
-  const linhas = tab.map((t) => [t.codigo, t.nome, t.criticidade, t.abc, t.area, t.quebras, t.reincidencias, t.mtbf, t.mttr, t.reparo,
-    t.ordens, t.custo, t.ultima, t.local]);
+  // ordem das colunas = COLUNAS_EQUIP (Equipamentos.tsx)
+  const linhas = tab.map((t) => [campoEq(t.codigo), t.codigo, t.nome, t.criticidade, t.abc, t.area, t.quebras, t.reincidencias, t.mtbf, t.mttr,
+    t.reparo, t.ordens, t.custo, t.ultima, t.local]);
   const bad = tab.slice(0, 10);
   const custo = tab.reduce((s, t) => s + t.custo, 0);
   return (
@@ -181,8 +188,8 @@ function PorEquipamento({ c, d, q, dias }: { c: Ctx; d: ind.Dados; q: ind.Quebra
       ]} />
       <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · primeira quebra × reincidente (≤ 30 dias)"
         legenda={<Legenda series={[{ nome: "Primeira", cor: "serie-1" }, { nome: "Reincidente", cor: "serie-2" }]} />}
-        tabela={{ colunas: ["Código", "Equipamento", "Quebras", "Reincidências", "MTTR (h)"], linhas: bad.map((t) => [t.codigo, t.nome, t.quebras, t.reincidencias, t.mttr == null ? "—" : t.mttr.toFixed(1).replace(".", ",")]) }}>
-        <Barras larguraRotulo={280} formato="inteiro" itens={bad.map((t) => ({ rotulo: `${t.codigo} · ${t.nome.slice(0, 30)}`, valor: t.quebras,
+        tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Quebras", "Reincidências", "MTTR (h)"], linhas: bad.map((t) => [campoEq(t.codigo), t.codigo, t.nome, t.quebras, t.reincidencias, t.mttr == null ? "—" : t.mttr.toFixed(1).replace(".", ",")]) }}>
+        <Barras larguraRotulo={280} formato="inteiro" itens={bad.map((t) => ({ rotulo: `${campoEq(t.codigo) ? `${campoEq(t.codigo)} · ` : ""}${t.codigo} · ${t.nome.slice(0, 30)}`, valor: t.quebras,
           partes: [{ nome: "Primeira", valor: t.quebras - t.reincidencias, cor: "serie-1" as Cor }, { nome: "Reincidente", valor: t.reincidencias, cor: "serie-2" as Cor }] }))} />
       </Grafico>
       <div className="rounded-cartao border border-borda bg-superficie p-5">
@@ -194,7 +201,7 @@ function PorEquipamento({ c, d, q, dias }: { c: Ctx; d: ind.Dados; q: ind.Quebra
   );
 }
 
-function Reincidencias({ q }: { q: ind.Quebra[] }) {
+function Reincidencias({ q, campoEq }: { q: ind.Quebra[]; campoEq: CampoEq }) {
   const rc = q.filter((x) => x.reincidente).sort((a, b) => b.data! - a.data!);
   const eqs = new Set(rc.map((x) => x.equipChave));
   const porEq = new Map<string, { nome: string; n: number }>();
@@ -213,8 +220,8 @@ function Reincidencias({ q }: { q: ind.Quebra[] }) {
       ]} />
       <div className="grid gap-4 lg:grid-cols-[1fr_1.6fr]">
         <Grafico titulo="Onde mais reincide" subtitulo="Reincidências por equipamento"
-          tabela={{ colunas: ["Código", "Equipamento", "Reincidências"], linhas: top.map(([k, v]) => [k, v.nome, v.n]) }}>
-          {top.length ? <Barras larguraRotulo={220} formato="inteiro" itens={top.map(([k, v]) => ({ rotulo: `${k} · ${v.nome.slice(0, 24)}`, valor: v.n, cor: "serie-2" as Cor }))} />
+          tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Reincidências"], linhas: top.map(([k, v]) => [campoEq(k), k, v.nome, v.n]) }}>
+          {top.length ? <Barras larguraRotulo={220} formato="inteiro" itens={top.map(([k, v]) => ({ rotulo: `${campoEq(k) ? `${campoEq(k)} · ` : ""}${k} · ${v.nome.slice(0, 24)}`, valor: v.n, cor: "serie-2" as Cor }))} />
             : <p className="text-[13px] text-texto-3">Nenhuma reincidência no período.</p>}
         </Grafico>
         <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
@@ -223,7 +230,7 @@ function Reincidencias({ q }: { q: ind.Quebra[] }) {
           </div>
           <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">Quebra no mesmo equipamento em até 30 dias da anterior — reparo que não eliminou a causa: candidata a análise de falha.</div>
           <TabelaDados colunas={COLUNAS_REINC} limite={300} baixar="reincidencias" busca="Buscar: código, equipamento, descrição…"
-            linhas={rc.map((x) => [x.data, x.equipChave, x.objeto, x.diasDesdeAnterior, x.descricao, x.nota, x.ordem, x.centroTrabalho])} />
+            linhas={rc.map((x) => [x.data, campoEq(x.equipChave), x.equipChave, x.objeto, x.diasDesdeAnterior, x.descricao, x.nota, x.ordem, x.centroTrabalho])} />
         </div>
       </div>
     </div>

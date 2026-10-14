@@ -7,6 +7,7 @@ import { SemDados } from "@/components/PaginaWcm";
 import { Selo } from "@/components/ui";
 import { brl } from "@/lib/formato";
 import * as ativos from "@/lib/wcm/ativos";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { dados, type Contexto } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -18,7 +19,7 @@ import { Cartao, GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT } from "./_
 import { FiltrosUrl } from "./_ui/FiltrosUrl";
 import { hrefCom, type Params } from "./_ui/url";
 import { infoCad, mapaEstoque, pecasDe, type MapaEstoque } from "./dados";
-import { agregarAnalise, CRITICIDADES, filtrarAnalise, intervaloMedio, lerFiltroAnalise, NAO_CLASSIFICADO, paginar, param, V_CADASTRO } from "./logica";
+import { agregarAnalise, CRITICIDADES, filtrarAnalise, intervaloMedio, lerFiltroAnalise, NAO_CLASSIFICADO, paginar, param, ROTULO_CAMPO, V_CADASTRO } from "./logica";
 import { SeloPeca } from "./SeloPeca";
 
 /** Visão "Análise pelas ordens (IW38)": uma linha por equipamento no recorte e a ficha do equipamento. */
@@ -28,19 +29,19 @@ const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
 export async function Analise({ c, params, cadastra }: { c: Contexto; params: Params; cadastra: boolean }) {
   if (!c.b.ordens.dados) return <SemDados base="IW38 (ordens)" />;
-  const [d, est] = await Promise.all([dados(c), mapaEstoque()]);
+  const [d, est, campoEq] = await Promise.all([dados(c), mapaEstoque(), campoDoEquipamento(c)]);
   const sel = param(params, "eq").toUpperCase();
   const tab = agregarAnalise(d.ordens, c.f.ini, c.f.fim, {
     cadEq: c.cad.equipamentos, equip: c.b.equipamentos.dados, notas: c.b.notas.dados, pecas: (k) => pecasDe(c, k, est), extra: sel || undefined,
   });
   const f = lerFiltroAnalise(params);
-  const vis = filtrarAnalise(tab, f);
+  const vis = filtrarAnalise(tab, f, campoEq);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
   const temNotas = !!c.b.notas.dados;
   const temIh08 = !!c.b.equipamentos.dados;
   const periodo = descrever(c.f.ini, c.f.fim);
   const cols = [
-    { rotulo: "Código" }, { rotulo: "Nome", larga: true }, { rotulo: "Criticidade" }, { rotulo: "ABC" }, { rotulo: "Categoria" }, { rotulo: "Local" },
+    { rotulo: ROTULO_CAMPO }, { rotulo: "Código" }, { rotulo: "Nome", larga: true }, { rotulo: "Criticidade" }, { rotulo: "ABC" }, { rotulo: "Categoria" }, { rotulo: "Local" },
     { rotulo: "Centro" }, { rotulo: "Ordens no período", dir: true }, { rotulo: "Backlog", dir: true, dica: "Ordens sem plano de manutenção no período" },
     { rotulo: "Custo no período", dir: true }, { rotulo: "Pendentes", dir: true, dica: "Ordens abertas, liberadas ou encerradas sem confirmação (todas as datas)" },
     ...(temNotas ? [{ rotulo: "Notas", dir: true }, { rotulo: "Notas sem ordem", dir: true }, { rotulo: "Quebras", dir: true }] : []),
@@ -68,7 +69,7 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
         <TabelaT colunas={cols} vazio="Nenhum equipamento com estes filtros."
           linhas={pg.itens.map((x) => ({
             chave: x.codigo, ativa: x.codigo === sel, href: hrefCom(params, { eq: x.codigo }, "ficha"),
-            celulas: [x.codigo, x.nome || "—", x.criticidade || <span className="text-texto-3">—</span>, x.abc || "—", x.categoria || "—", x.local || "—", x.centro || "—",
+            celulas: [campoEq(x.codigo) || "—", x.codigo, x.nome || "—", x.criticidade || <span className="text-texto-3">—</span>, x.abc || "—", x.categoria || "—", x.local || "—", x.centro || "—",
               x.ordens, x.backlog, brl(x.custo), x.pendentes, ...(temNotas ? [x.notas ?? 0, x.notasSemOrdem ?? 0, x.quebras ?? 0] : []),
               dataBr(x.ultima), x.pecas, x.pecasEmFalta],
           }))} />
@@ -90,14 +91,14 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
           <button className="inline-flex h-11 items-center rounded-xl border border-borda bg-superficie px-4 text-[14px] font-medium transition hover:bg-superficie-2">Abrir ficha</button>
         </Form>
         {sel && (tab.some((x) => x.codigo === sel) || c.b.ordens.dados.some((o) => o.equipChave === sel))
-          ? <Ficha c={c} sel={sel} nome={tab.find((x) => x.codigo === sel)?.nome ?? ""} est={est} cadastra={cadastra} />
+          ? <Ficha c={c} sel={sel} nome={tab.find((x) => x.codigo === sel)?.nome ?? ""} campo={campoEq(sel)} est={est} cadastra={cadastra} />
           : sel ? <p className="text-[13px] text-texto-3">Equipamento <b>{sel}</b> não encontrado nas ordens, no IH08 nem no cadastro do site.</p> : null}
       </div>
     </div>
   );
 }
 
-async function Ficha({ c, sel, nome, est, cadastra }: { c: Contexto; sel: string; nome: string; est: MapaEstoque | null; cadastra: boolean }) {
+async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel: string; nome: string; campo: string; est: MapaEstoque | null; cadastra: boolean }) {
   const hist = (c.b.ordens.dados ?? []).filter((o) => o.equipChave === sel).sort((a, b) => (b.data ?? -Infinity) - (a.data ?? -Infinity));
   const info = infoCad(c, sel);
   const temCad = sel in c.cad.equipamentos;
@@ -127,7 +128,7 @@ async function Ficha({ c, sel, nome, est, cadastra }: { c: Contexto; sel: string
 
   return (
     <div className="space-y-4">
-      <h3 className="font-display text-[22px] font-medium tracking-[-0.02em]">{nome || String(info.nome ?? "") || eqSap?.denominacao || "—"} <span className="tom2">· {sel}</span></h3>
+      <h3 className="font-display text-[22px] font-medium tracking-[-0.02em]">{campo ? `${campo} · ` : ""}{nome || String(info.nome ?? "") || eqSap?.denominacao || "—"} <span className="tom2">· {sel}</span></h3>
       <GradeNumeros colunas={5}>
         <Numero rotulo="Ordens (todas as datas)" valor={inteiroBr(hist.length)} />
         <Numero rotulo="Custo total" valor={brl(custoTotal)} dica="Custo real de todas as ordens do equipamento no IW38." />
@@ -175,6 +176,7 @@ async function Ficha({ c, sel, nome, est, cadastra }: { c: Contexto; sel: string
             <div className="space-y-3 text-[13px]">
               <div className="flex flex-wrap gap-1.5"><Selo cor="azul">{String(info.categoria || "—")}</Selo><Selo cor={SELO_CRIT[String(info.criticidade)] ?? "cinza"}>{String(info.criticidade || "—")}</Selo>
                 {!!info.situacao && <Selo cor="ciano">{String(info.situacao)}</Selo>}</div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1"><dt className="text-[12px] text-texto-3">{ROTULO_CAMPO}</dt><dd className="font-medium">{campo || "—"}</dd></dl>
               {!!info.observacoes && <blockquote className="border-l-2 border-borda-forte pl-3 text-texto-2">{String(info.observacoes)}</blockquote>}
               <div className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-texto-3">Componentes vinculados</div>
               {!pecas.length ? <p className="text-texto-3">Nenhum componente vinculado.</p> : (

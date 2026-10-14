@@ -6,6 +6,7 @@ import { PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { inteiro } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, resultados, serieMensal } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -16,7 +17,7 @@ import { Numeros } from "../ordens/_comum/Numeros";
 import { TabelaDados } from "../ordens/_comum/TabelaDados";
 import { eixoTempo } from "../ordens/_comum/tempo";
 import { faixaDe, paginar, type Params } from "../ordens/_comum/url";
-import { COLUNAS, FAIXAS_IDADE, linha, notasDaPagina, ordenarNotas } from "./dados";
+import { COLUNAS, FAIXAS_IDADE, type CampoFn, comCampo, linha, notasDaPagina, ordenarNotas } from "./dados";
 
 export const metadata: Metadata = { title: "Notas" };
 export const dynamic = "force-dynamic";
@@ -33,7 +34,8 @@ export default async function Notas(props: { searchParams: Promise<Params> }) {
   const temOrdens = !!c.b.ordens.dados;
   const [[atual, anterior], serie] = temOrdens ? await Promise.all([resultados(c), serieMensal(c)]) : [[{}, {}], []] as const;
   const { base, filtradas } = notasDaPagina(c, params);
-  const { lista, ord, desc } = ordenarNotas(filtradas, params);
+  const campoEq = await campoDoEquipamento(c);
+  const { lista, ord, desc } = ordenarNotas(comCampo(filtradas, campoEq), params);
   const { itens, pagina, paginas } = paginar(lista, params.pag);
 
   const contar = (f: (n: Nota) => string) => {
@@ -75,7 +77,7 @@ export default async function Notas(props: { searchParams: Promise<Params> }) {
           { rotulo: "Em equipamento classe A", valor: inteiro(classeA), detalhe: `${pct(classeA, filtradas.length)} das notas`, dica: "Código ABC = A no IW28" },
         ]} />
 
-        {filtradas.length > 0 && <Graficos xs={filtradas} ini={c.f.ini} fim={c.f.fim} />}
+        {filtradas.length > 0 && <Graficos xs={filtradas} ini={c.f.ini} fim={c.f.fim} campoEq={campoEq} />}
 
         <TabelaDados colunas={COLUNAS} linhas={itens.map(linha)} params={params} ord={ord} desc={desc} pagina={pagina} paginas={paginas}
           total={lista.length} rotulo="notas" vazio="Nenhuma nota no filtro." />
@@ -87,7 +89,7 @@ export default async function Notas(props: { searchParams: Promise<Params> }) {
 
 const CORES: Cor[] = ["serie-1", "serie-2", "serie-3", "serie-4"];
 
-function Graficos({ xs, ini, fim }: { xs: Nota[]; ini: number; fim: number }) {
+function Graficos({ xs, ini, fim, campoEq }: { xs: Nota[]; ini: number; fim: number; campoEq: CampoFn }) {
   // por tempo, por tipo de nota (os 3 mais frequentes + "Outros")
   const eixo = eixoTempo(ini, fim);
   const freq = new Map<string, number>();
@@ -128,8 +130,8 @@ function Graficos({ xs, ini, fim }: { xs: Nota[]; ini: number; fim: number }) {
       </Grafico>
       <Grafico className="min-w-0" titulo="Equipamentos com mais notas" subtitulo="Reincidência · laranja = quebras"
         legenda={<Legenda series={[{ nome: "Outras notas", cor: "serie-1" }, { nome: "Quebras", cor: "serie-2" }]} />}
-        tabela={{ colunas: ["Equipamento", "Código", "Notas", "Quebras"], linhas: top.map(([k, v]) => [v.nome, k, v.notas, v.quebras]) }}>
-        {top.length ? <Barras larguraRotulo={190} formato="inteiro" itens={top.map(([k, v]) => ({ rotulo: v.nome, valor: v.notas, detalhe: k,
+        tabela={{ colunas: ["Equipamento", "Campo de ordenação", "Código", "Notas", "Quebras"], linhas: top.map(([k, v]) => [v.nome, campoEq(k), k, v.notas, v.quebras]) }}>
+        {top.length ? <Barras larguraRotulo={190} formato="inteiro" itens={top.map(([k, v]) => ({ rotulo: v.nome, valor: v.notas, detalhe: `${campoEq(k) ? campoEq(k) + " · " : ""}${k}`,
           partes: [{ nome: "Outras notas", valor: v.notas - v.quebras, cor: "serie-1" }, { nome: "Quebras", valor: v.quebras, cor: "serie-2" }] }))} />
           : <p className="text-[13px] text-texto-3">Notas sem equipamento informado.</p>}
       </Grafico>

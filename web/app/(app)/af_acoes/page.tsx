@@ -8,6 +8,7 @@ import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import * as af from "@/lib/wcm/af";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -23,6 +24,7 @@ export const metadata: Metadata = { title: "Ações de AF" };
 export const dynamic = "force-dynamic";
 
 type Params = Record<string, string | string[] | undefined>;
+type CampoEq = (codigo: string | null | undefined) => string;
 const SEM_NOME = "(sem nome)";
 const FAIXAS = ["0–7", "8–30", "31–90", "> 90"];
 const COR_FAIXA: Cor[] = ["st-atencao", "st-serio", "st-critico", "st-critico"];
@@ -49,6 +51,7 @@ export default async function AcoesAf(props: { searchParams: Promise<Params> }) 
   const iniS = Math.max(ini, inicioDoMes(somarMeses(inicioDoMes(fim), -11)));
   const serie = af.mensal(afs, acoes, iniS, fim, hoje).map(({ mes, ...v }) => ({ mes, valores: v as unknown as ind.Resultado }));
   const vivas = acoes.filter((a) => a.situacao !== af.AC_CANCELADA);
+  const campoEq = await campoDoEquipamento(c);
   const abertas = vivas.filter((a) => af.AC_ABERTAS.includes(a.situacao));
   const kpi = (id: string) => <CartaoKpi kpi={ind.POR_ID[id]} valor={(r as unknown as ind.Resultado)[id]} anterior={(ra as unknown as ind.Resultado)[id]}
     metas={c.cad.metas} serie={serie.map((s) => s.valores[id] ?? null)} link={false} />;
@@ -70,7 +73,7 @@ export default async function AcoesAf(props: { searchParams: Promise<Params> }) 
         </div>
       </Secao>
 
-      <Fila acoes={acoes} hoje={hoje} />
+      <Fila acoes={acoes} hoje={hoje} campoEq={campoEq} />
       <Scorecard vivas={vivas} ini={ini} fim={fim} hoje={hoje} params={params} />
       <TiposWcm vivas={vivas} ini={ini} fim={fim} />
       <Evolucao vivas={vivas} ini={ini} fim={fim} hoje={hoje} params={params} />
@@ -80,13 +83,13 @@ export default async function AcoesAf(props: { searchParams: Promise<Params> }) 
         <SituacaoPeriodo acoes={acoes} ini={ini} fim={fim} />
       </div>
 
-      <Todas acoes={acoes} afs={afs} ini={ini} fim={fim} params={params} />
+      <Todas acoes={acoes} afs={afs} ini={ini} fim={fim} params={params} campoEq={campoEq} />
     </>,
   );
 }
 
 // ----------------------------------------------------------------------------
-function Fila({ acoes, hoje }: { acoes: af.AcaoAf[]; hoje: Dia }) {
+function Fila({ acoes, hoje, campoEq }: { acoes: af.AcaoAf[]; hoje: Dia; campoEq: CampoEq }) {
   const fila = af.filaDeAcoes(acoes, hoje);
   const nAtr = fila.filter((a) => a.situacao === af.AC_ATRASADA).length;
   const resp = new Set(fila.map((a) => a.responsavel).filter(Boolean)).size;
@@ -100,10 +103,11 @@ function Fila({ acoes, hoje }: { acoes: af.AcaoAf[]; hoje: Dia }) {
           colunas={[{ id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 170 }, { id: "atraso", rotulo: "Dias de atraso", tipo: "barra", corBarra: "st-critico", largura: 140 },
             { id: "vence", rotulo: "Vence em (dias)", tipo: "num", largura: 110 }, { id: "limite", rotulo: "Data limite", tipo: "data" },
             { id: "responsavel", rotulo: "Responsável", largura: 170 }, { id: "supervisor", rotulo: "Supervisor", largura: 170 }, { id: "af", rotulo: "Nº AF", tipo: "codigo", largura: 100 },
-            { id: "n", rotulo: "Nº ação", tipo: "codigo", largura: 80 }, { id: "equipamento", rotulo: "Equipamento", largura: 190 }, { id: "acao", rotulo: "Ação", largura: 320 },
+            { id: "n", rotulo: "Nº ação", tipo: "codigo", largura: 80 }, { id: "campoOrdenacao", rotulo: "Campo de ordenação", largura: 150 },
+            { id: "equipamento", rotulo: "Equipamento", largura: 190 }, { id: "acao", rotulo: "Ação", largura: 320 },
             { id: "crit", rotulo: "Criticidade", largura: 90 }]}
           linhas={fila.map((a) => ({ id: a.id, situacao: a.situacao, atraso: a.diasDeAtraso || null, vence: a.venceEmDias, limite: a.dataLimite,
-            responsavel: a.responsavel || SEM_NOME, supervisor: a.supervisor || SEM_NOME, af: a.numeroAf, n: a.numeroAcao, equipamento: a.equipamento,
+            responsavel: a.responsavel || SEM_NOME, supervisor: a.supervisor || SEM_NOME, af: a.numeroAf, n: a.numeroAcao, campoOrdenacao: campoEq(a.codigoSap), equipamento: a.equipamento,
             acao: a.acao, crit: a.criticidade }))} />
       )}
     </Secao>
@@ -260,13 +264,13 @@ const COLS: Coluna[] = [
   { id: "tipo", rotulo: "Tipo da ação", largura: 170 }, { id: "responsavel", rotulo: "Responsável", largura: 170 }, { id: "supervisor", rotulo: "Supervisor", largura: 170 },
   { id: "ini", rotulo: "Data de início", tipo: "data", largura: 110 }, { id: "limite", rotulo: "Data limite", tipo: "data" }, { id: "feita", rotulo: "Data realizada", tipo: "data", largura: 110 },
   { id: "atraso", rotulo: "Dias de atraso", tipo: "num", largura: 100 }, { id: "concluir", rotulo: "Dias para concluir", tipo: "num", largura: 110 },
-  { id: "equipamento", rotulo: "Equipamento", largura: 190 }, { id: "sap", rotulo: "Código SAP", tipo: "codigo" }, { id: "area", rotulo: "Área", largura: 120 },
+  { id: "campoOrdenacao", rotulo: "Campo de ordenação", largura: 150 }, { id: "equipamento", rotulo: "Equipamento", largura: 190 }, { id: "sap", rotulo: "Código SAP", tipo: "codigo" }, { id: "area", rotulo: "Área", largura: 120 },
   { id: "especialidade", rotulo: "Especialidade", largura: 130 }, { id: "crit", rotulo: "Criticidade", largura: 90 }, { id: "pilar", rotulo: "Pilar", largura: 70 },
   { id: "status", rotulo: "Status", largura: 70 }, { id: "os", rotulo: "OS de correção", tipo: "codigo", largura: 120 }, { id: "link", rotulo: "Link", tipo: "link", largura: 70 },
   { id: "obs", rotulo: "Observações", largura: 240 },
 ];
 
-function Todas({ acoes, afs, ini, fim, params }: { acoes: af.AcaoAf[]; afs: af.Af[]; ini: Dia; fim: Dia; params: Params }) {
+function Todas({ acoes, afs, ini, fim, params, campoEq }: { acoes: af.AcaoAf[]; afs: af.Af[]; ini: Dia; fim: Dia; params: Params; campoEq: CampoEq }) {
   const base = (["limite", "inicio", "realizada"].includes(param(params, "base")) ? param(params, "base") : "limite") as keyof typeof CAMPO_BASE;
   const campo = CAMPO_BASE[base];
   const ord = [...acoes].sort((a, b) => (b.dataLimite ?? -Infinity) - (a.dataLimite ?? -Infinity) || a.numeroAf.localeCompare(b.numeroAf, "pt-BR", { numeric: true })
@@ -293,7 +297,7 @@ function Todas({ acoes, afs, ini, fim, params }: { acoes: af.AcaoAf[]; afs: af.A
           linhas={visiveis.map((a) => {
             return { id: a.id, situacao: a.situacao, af: a.numeroAf, n: a.numeroAcao, acao: a.acao, tipo: a.tipoDaAcao, tipoF: a.tipoDaAcao || af.SEM_TIPO,
               responsavel: a.responsavel, supervisor: a.supervisor, ini: a.dataInicio, limite: a.dataLimite, feita: a.dataRealizada, atraso: a.diasDeAtraso,
-              concluir: a.diasParaConcluir, equipamento: a.equipamento, sap: a.codigoSap, area: a.area, especialidade: a.especialidade, crit: a.criticidade,
+              concluir: a.diasParaConcluir, campoOrdenacao: campoEq(a.codigoSap), equipamento: a.equipamento, sap: a.codigoSap, area: a.area, especialidade: a.especialidade, crit: a.criticidade,
               pilar: a.pilar, status: a.status, os: a.osCorrecao, link: a.link, obs: a.observacoes };
           })} />
       </Secao>
@@ -307,7 +311,7 @@ function Todas({ acoes, afs, ini, fim, params }: { acoes: af.AcaoAf[]; afs: af.A
                 {(sel.diasDeAtraso ?? 0) > 0 && <span className="text-texto-2">{int(sel.diasDeAtraso)} dias de atraso</span>}
               </div>
               <Campos itens={[["Tipo da ação", sel.tipoDaAcao], ["Responsável", sel.responsavel], ["Supervisor", sel.supervisor], ["Data de início", dataBr(sel.dataInicio)],
-                ["Data limite", dataBr(sel.dataLimite)], ["Data realizada", dataBr(sel.dataRealizada)], ["Equipamento", [sel.codigoSap, sel.equipamento].filter(Boolean).join(" · ")],
+                ["Data limite", dataBr(sel.dataLimite)], ["Data realizada", dataBr(sel.dataRealizada)], ["Campo de ordenação", campoEq(sel.codigoSap) || "—"], ["Equipamento", [sel.codigoSap, sel.equipamento].filter(Boolean).join(" · ")],
                 ["Área", sel.area || sel.areaFalha], ["Especialidade", sel.especialidade], ["OS de correção", sel.osCorrecao], ["Status no gerenciador", sel.status],
                 ["Observações", sel.observacoes], ...(sel.link && !/^https?:\/\//i.test(sel.link) ? [["Link", sel.link] as [string, string]] : [])]} />
             </Quadro>
@@ -322,7 +326,7 @@ function Todas({ acoes, afs, ini, fim, params }: { acoes: af.AcaoAf[]; afs: af.A
                 <>
                   <div className="mb-4 text-[13px]"><PontoSituacao nome={orig.situacao} cor={COR_AF[orig.situacao]} /></div>
                   <Campos itens={[["Resumo", orig.resumo], ["Causa raiz", orig.causaRaiz], ["Criticidade", orig.criticidade], ["Pilar", af.PILARES[orig.pilar] ?? orig.pilar],
-                    ["Equipamento", [orig.codigoSap, orig.equipamento].filter(Boolean).join(" · ")], ["Data da falha", dataBr(orig.dataFalha)],
+                    ["Campo de ordenação", campoEq(orig.codigoSap) || "—"], ["Equipamento", [orig.codigoSap, orig.equipamento].filter(Boolean).join(" · ")], ["Data da falha", dataBr(orig.dataFalha)],
                     ["Data limite da análise", dataBr(orig.dataLimite)], ["Supervisor", orig.supervisor]]} />
                   {/^https?:\/\//i.test(orig.link) && <a href={orig.link} target="_blank" rel="noreferrer noopener" className="mt-4 inline-flex items-center gap-1 text-[13px] text-texto-2 hover:text-texto">Abrir análise (documento) <ExternalLink className="size-3.5" /></a>}
                 </>

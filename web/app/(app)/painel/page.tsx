@@ -8,6 +8,7 @@ import { AbasVisao, Aviso, PaginaWcm, Secao, SemDados } from "@/components/Pagin
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados, porDimensao, resultados, serieMensal } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -181,6 +182,7 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
   }
   // Pontos de atenção
   const d = await dados(c);
+  const campoEq = await campoDoEquipamento(c);
   const q = ind.quebras(d).filter((x) => x.data! >= c.f.ini && x.data! <= c.f.fim && x.equipChave);
   const porEq = new Map<string, { nome: string; quebras: number; reinc: number }>();
   for (const x of q) { const e = porEq.get(x.equipChave) ?? { nome: x.objeto || x.equipChave, quebras: 0, reinc: 0 }; e.quebras++; if (x.reincidente) e.reinc++; porEq.set(x.equipChave, e); }
@@ -192,8 +194,9 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
     <div className="grid gap-4 lg:grid-cols-2">
       <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · laranja = reincidentes (≤ 30 dias)"
         legenda={<span className="text-[12px] text-texto-3" />}
-        tabela={{ colunas: ["Equipamento", "Quebras", "Reincidentes"], linhas: bad.map(([k, v]) => [`${v.nome} (${k})`, v.quebras, v.reinc]) }}>
-        {bad.length ? <Barras itens={bad.map(([k, v]) => ({ rotulo: v.nome, valor: v.quebras, detalhe: k,
+        tabela={{ colunas: ["Campo de ordenação", "Equipamento", "Quebras", "Reincidentes"],
+          linhas: bad.map(([k, v]) => [campoEq(k), `${v.nome} (${campoEq(k) ? `${campoEq(k)} · ` : ""}${k})`, v.quebras, v.reinc]) }}>
+        {bad.length ? <Barras itens={bad.map(([k, v]) => ({ rotulo: v.nome, valor: v.quebras, detalhe: `${campoEq(k) ? `${campoEq(k)} · ` : ""}${k}`,
           partes: [{ nome: "Primeira", valor: v.quebras - v.reinc, cor: "serie-1" }, { nome: "Reincidente", valor: v.reinc, cor: "serie-2" }] }))} larguraRotulo={200} />
           : <p className="text-[13px] text-texto-3">Nenhuma quebra no período.</p>}
       </Grafico>
@@ -202,7 +205,8 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
           : <p className="text-[13px] text-texto-3">Sem ordens em aberto.</p>}
       </Grafico>
       <Grafico titulo="Peças de equipamentos críticos em falta" subtitulo="Cadastre as peças em Equipamentos">
-        {pc.length ? <Tabela colunas={["Material", "Descrição", "Estoque", "Mínimo", "Equipamentos"]} linhas={pc.map((p) => [p.material, p.descricao, p.estoque, p.minimo ?? "—", p.equipamentos])} />
+        {pc.length ? <Tabela colunas={["Material", "Descrição", "Estoque", "Mínimo", "Equipamentos"]} linhas={pc.map((p) => [p.material, p.descricao, p.estoque, p.minimo ?? "—",
+          p.equipamentos.split(", ").map((e) => (campoEq(e) ? `${campoEq(e)} · ${e}` : e)).join(", ")])} />
           : <p className="text-[13px] text-texto-3">Nenhuma peça de equipamento de criticidade Alta em falta.</p>}
       </Grafico>
       <Grafico titulo="Compras aguardando aprovação" subtitulo={pend.length ? `${pend.length} requisições · ${brl(pend.reduce((s, r) => s + r.total, 0))}` : undefined}>

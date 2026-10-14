@@ -8,6 +8,7 @@ import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados, resultados, serieMensal } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -20,6 +21,9 @@ import { horas, int, num } from "../execucao/_ui/fmt";
 import { param } from "../execucao/_ui/memo";
 import { PontoSituacao, Tabela, type Coluna } from "../execucao/_ui/Tabela";
 
+/** Rótulo do campo de ordenação geral do equipamento (o mesmo das abas Equipamentos e Calendário). */
+const ROTULO_CAMPO = "Campo de ordenação";
+
 export const metadata: Metadata = { title: "Preditiva (SEMEQ)" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,7 +33,7 @@ const SERIES: Cor[] = ["serie-1", "serie-2", "serie-3", "serie-4"];
 const COLS_FILA: Coluna[] = [
   { id: "codigo", rotulo: "Código", tipo: "codigo", largura: 120 }, { id: "tecnica", rotulo: "Técnica", largura: 150 },
   { id: "achado", rotulo: "Achado", largura: 200 }, { id: "objeto", rotulo: "Objeto técnico", largura: 190 },
-  { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" }, { id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 190 },
+  { id: "campo", rotulo: ROTULO_CAMPO }, { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" }, { id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 190 },
   { id: "deteccao", rotulo: "Detecção", tipo: "data" }, { id: "dias", rotulo: "Dias em aberto", tipo: "barra", corBarra: "st-critico", largura: 140 },
   { id: "nota", rotulo: "Nota", tipo: "codigo" }, { id: "ordem", rotulo: "Ordem", tipo: "codigo" }, { id: "status", rotulo: "Status SAP", tipo: "codigo", largura: 140 },
   { id: "fimPrevisto", rotulo: "Fim previsto (data-base)", tipo: "data", largura: 120 }, { id: "centro", rotulo: "Centro de trabalho", tipo: "codigo", largura: 130 },
@@ -38,7 +42,7 @@ const COLS: Coluna[] = [
   { id: "codigo", rotulo: "Código", tipo: "codigo", largura: 120 }, { id: "tecnica", rotulo: "Técnica", largura: 150 },
   { id: "achado", rotulo: "Achado", largura: 200 }, { id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 190 },
   { id: "status", rotulo: "Status SAP", tipo: "codigo", largura: 140 }, { id: "deteccao", rotulo: "Detecção", tipo: "data" },
-  { id: "objeto", rotulo: "Objeto técnico", largura: 190 }, { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" },
+  { id: "objeto", rotulo: "Objeto técnico", largura: 190 }, { id: "campo", rotulo: ROTULO_CAMPO }, { id: "equipamento", rotulo: "Equipamento", tipo: "codigo" },
   { id: "area", rotulo: "Área", largura: 100 }, { id: "centro", rotulo: "Centro de trabalho", tipo: "codigo", largura: 130 },
   { id: "nota", rotulo: "Nota", tipo: "codigo" }, { id: "ordem", rotulo: "Ordem", tipo: "codigo" }, { id: "tipo", rotulo: "Tipo", tipo: "codigo", largura: 70 },
   { id: "fimPrevisto", rotulo: "Fim previsto", tipo: "data" }, { id: "fimReal", rotulo: "Fim real", tipo: "data" },
@@ -50,6 +54,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
   await exigir("preditiva");
   const params = await props.searchParams;
   const c = await contexto(params);
+  const campoEq = await campoDoEquipamento(c);
   const cab = <Cabecalho titulo="Preditiva SEMEQ," destaque="da anomalia detectada à tratativa."
     sobre="IW28 · IW38 · IW47"
     subtitulo="Anomalias apontadas pela preditiva (notas IW28) e a tratativa pelas ordens (IW38): técnica, achado, equipamento, prazo e quem tratou." />;
@@ -110,7 +115,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
           <Tabela colunas={COLS_FILA} cores={COR_ANOMALIA} altura={320} contagem="abertas" resumoPor="situacao" arquivo="anomalias_abertas"
             facetas={[{ id: "situacao", rotulo: "Situação", ordem: [...pr.SITUACOES] }, { id: "tecnica", rotulo: "Técnica" }]}
             abrirParam={{ param: "anomalia", campo: "codigo", ancora: "anomalia" }}
-            linhas={fila.slice(0, 300).map((a) => ({ codigo: a.codigo, tecnica: a.tecnica, achado: a.achado, objeto: a.objeto, equipamento: a.equipamento,
+            linhas={fila.slice(0, 300).map((a) => ({ codigo: a.codigo, tecnica: a.tecnica, achado: a.achado, objeto: a.objeto, campo: campoEq(a.equipamento), equipamento: a.equipamento,
               situacao: a.situacao, deteccao: a.deteccao, dias: a.diasEmAberto, nota: a.nota, ordem: a.ordem, status: a.statusSap,
               fimPrevisto: a.fimPrevisto, centro: a.centroTrabalho }))} />
         </Quadro>
@@ -135,7 +140,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
             </Grafico>
             <Grafico titulo="Equipamentos com mais anomalias" subtitulo="Reincidência no período · em aberto × encerradas"
               legenda={<LegendaCores itens={[["Em aberto", "serie-2"], ["Encerradas", "serie-1"]]} />}
-              tabela={{ colunas: ["Equipamento", "Nome", "Anomalias", "Em aberto"], linhas: eqs.map((x) => [x.equipamento, x.nome, x.anomalias, x.abertas]) }}>
+              tabela={{ colunas: [ROTULO_CAMPO, "Equipamento", "Nome", "Anomalias", "Em aberto"], linhas: eqs.map((x) => [campoEq(x.equipamento) || "—", x.equipamento, x.nome, x.anomalias, x.abertas]) }}>
               {eqs.length ? <Barras formato="inteiro" larguraRotulo={210} itens={eqs.map((x) => ({ rotulo: x.nome || x.equipamento, detalhe: x.equipamento, valor: x.anomalias,
                 partes: [{ nome: "Encerradas", valor: x.anomalias - x.abertas, cor: "serie-1" as Cor }, { nome: "Em aberto", valor: x.abertas, cor: "serie-2" as Cor }] }))} />
                 : <p className="text-[13px] text-texto-3">Nenhuma anomalia com equipamento no período.</p>}
@@ -146,12 +151,12 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
 
       <Secao titulo="Anomalias" sub="Clique numa linha para ver a anomalia completa e abrir a ficha do equipamento.">
         <Tabela colunas={COLS} cores={COR_ANOMALIA} contagem="anomalias" resumoPor="situacao" arquivo="anomalias_semeq" altura={480}
-          busca={{ campos: ["codigo", "achado", "equipamento", "objeto", "nota", "ordem", "quem"], placeholder: "código, achado, equipamento, nota, ordem…" }}
+          busca={{ campos: ["codigo", "achado", "equipamento", "campo", "objeto", "nota", "ordem", "quem"], placeholder: "código, achado, equipamento, nota, ordem…" }}
           facetas={[{ id: "tecnica", rotulo: "Técnica" }, { id: "situacao", rotulo: "Situação", ordem: [...pr.SITUACOES] }]}
           alternancias={[{ id: "per", rotulo: "Só detectadas no período", campo: "noPeriodo", padrao: true, dica: "Desligue para ver as anomalias de todas as datas." }]}
           abrirParam={{ param: "anomalia", campo: "codigo", ancora: "anomalia" }}
           linhas={an.map((a) => ({ codigo: a.codigo, tecnica: a.tecnica, achado: a.achado, situacao: a.situacao, status: a.statusSap, deteccao: a.deteccao,
-            objeto: a.objeto, equipamento: a.equipamento, area: a.area, centro: a.centroTrabalho, nota: a.nota, ordem: a.ordem, tipo: a.tipo,
+            objeto: a.objeto, campo: campoEq(a.equipamento), equipamento: a.equipamento, area: a.area, centro: a.centroTrabalho, nota: a.nota, ordem: a.ordem, tipo: a.tipo,
             fimPrevisto: a.fimPrevisto, fimReal: a.fimReal, diasTratar: a.diasParaTratar, dias: a.diasEmAberto, quem: a.tratadoPor,
             hh: a.hhApontadas, custo: a.custoReal || null, noPeriodo: a.deteccao != null && a.deteccao >= ini && a.deteccao <= fim ? 1 : null }))} />
       </Secao>
@@ -163,7 +168,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
               Abrir ficha de {sel.equipamento} <ArrowRight className="size-3.5" />
             </Link>) : undefined}>
           <div className="mb-4"><PontoSituacao nome={sel.situacao} cor={COR_ANOMALIA[sel.situacao]} /></div>
-          <Campos itens={[["Técnica", sel.tecnica], ["Achado", sel.achado], ["Equipamento", [sel.equipamento, sel.objeto].filter(Boolean).join(" · ")],
+          <Campos itens={[["Técnica", sel.tecnica], ["Achado", sel.achado], [ROTULO_CAMPO, campoEq(sel.equipamento) || "—"], ["Equipamento", [sel.equipamento, sel.objeto].filter(Boolean).join(" · ")],
             ["Área", sel.area], ["Centro de trabalho", sel.centroTrabalho], ["Detecção", dataBr(sel.deteccao)], ["Nota (detecção)", sel.nota],
             ["Ordem (tratativa)", sel.ordem ? `${sel.ordem}${sel.tipo ? ` · ${sel.tipo}` : ""}` : "sem ordem"], ["Status SAP", sel.statusSap],
             ["Fim previsto (data-base)", dataBr(sel.fimPrevisto)], ["Fim real", dataBr(sel.fimReal)], ["Dias para tratar", num(sel.diasParaTratar, 0)],

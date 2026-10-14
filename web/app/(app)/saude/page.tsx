@@ -9,6 +9,7 @@ import { Cabecalho } from "@/components/ui";
 import { veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados } from "@/lib/wcm/contexto";
 import * as saude from "@/lib/wcm/saude";
 import { dataBr } from "@/lib/wcm/util";
@@ -176,7 +177,7 @@ function Distribuicao({ t }: { t: saude.LinhaSaude[] }) {
 }
 
 const COLS_FILA = [
-  { rotulo: "Código" }, { rotulo: "Equipamento", larga: true }, { rotulo: "Criticidade" }, { rotulo: "Saúde", dica: "Índice 0–100" },
+  { rotulo: "Campo de ordenação" }, { rotulo: "Código" }, { rotulo: "Equipamento", larga: true }, { rotulo: "Criticidade" }, { rotulo: "Saúde", dica: "Índice 0–100" },
   { rotulo: "Faixa" }, { rotulo: "Risco", dir: true, dica: "(100 − saúde) × peso da criticidade" }, { rotulo: "Principal causa" },
   { rotulo: "Quebras", dir: true }, { rotulo: "Falhas AF", dir: true }, { rotulo: "Corretivas", dir: true }, { rotulo: "Backlog atrasado", dir: true },
   { rotulo: "Preventivas atrasadas", dir: true }, { rotulo: "Anomalias abertas", dir: true }, { rotulo: "Custo 12 meses", dir: true },
@@ -191,6 +192,7 @@ async function Fila({ t, params, c, fichaLiberada }: { t: saude.LinhaSaude[]; pa
   const linha = sel ? t.find((l) => l.codigo === sel) : undefined;
   const causas = [...new Set(t.map((l) => l.principalCausa))].sort();
   const csvHref = `/api/saude${hrefCom(params, { pag: null, eq: null })}`;
+  const campoEq = await campoDoEquipamento(c);
   return (
     <Secao titulo="Fila de ataque" destaque="maior risco primeiro"
       sub="Selecione um equipamento (código) para ver o que derruba a saúde dele. Comece pelos críticos de criticidade Alta — análise de falha, revisão do plano de manutenção e ataque ao backlog atrasado.">
@@ -201,11 +203,11 @@ async function Fila({ t, params, c, fichaLiberada }: { t: saude.LinhaSaude[]; pa
           { tipo: "multi", param: "scausa", rotulo: "Principal causa", opcoes: causas.map((x) => ({ valor: x, n: t.filter((l) => l.principalCausa === x).length })) },
           { tipo: "pilulas", param: "sfaixa", rotulo: "Faixa de saúde", opcoes: saude.FAIXAS, padrao: [saude.CRITICA, saude.ATENCAO] },
         ]} />
-        {linha && <Detalhe l={linha} c={c} params={params} fichaLiberada={fichaLiberada} />}
+        {linha && <Detalhe l={linha} campo={campoEq(linha.codigo)} c={c} params={params} fichaLiberada={fichaLiberada} />}
         <TabelaT colunas={COLS_FILA} vazio="Nenhum equipamento com estes filtros."
           linhas={pg.itens.map((l) => ({
             chave: l.codigo, ativa: l.codigo === sel, href: hrefCom(params, { eq: l.codigo === sel ? null : l.codigo }, "fila"),
-            celulas: [l.codigo, l.equipamento || "—", l.criticidade || <span className="text-texto-3">sem classe</span>, <BarraSaude key="s" valor={l.saude} faixa={l.faixa} />,
+            celulas: [campoEq(l.codigo), l.codigo, l.equipamento || "—", l.criticidade || <span className="text-texto-3">sem classe</span>, <BarraSaude key="s" valor={l.saude} faixa={l.faixa} />,
               <SeloFaixa key="f" faixa={l.faixa} />, inteiroBr(l.risco), l.principalCausa, l.quebras, l.falhasAf, l.corretivas, l.backlogAtrasado,
               l.preventivasAtrasadas, l.anomaliasAbertas, brl(l.custo12Meses), dataBr(l.ultimaFalha), l.area || "—", l.centro || "—"],
           }))} />
@@ -215,13 +217,13 @@ async function Fila({ t, params, c, fichaLiberada }: { t: saude.LinhaSaude[]; pa
   );
 }
 
-async function Detalhe({ l, c, params, fichaLiberada }: { l: saude.LinhaSaude; c: Awaited<ReturnType<typeof contexto>>; params: Params; fichaLiberada: boolean }) {
+async function Detalhe({ l, campo, c, params, fichaLiberada }: { l: saude.LinhaSaude; campo: string; c: Awaited<ReturnType<typeof contexto>>; params: Params; fichaLiberada: boolean }) {
   const contrib = saude.contribuicao(l);
   const d = await dados(c, { areas: c.f.areas, centros: c.centros, tipos: c.f.tipos });
   const pend = d.ordens.filter((o) => o.equipChave === l.codigo && o.atrasada && o.situacao !== "Cancelada").sort((a, b) => (a.fim ?? 0) - (b.fim ?? 0));
   return (
     <Cartao className="border-borda-forte"
-      titulo={<span>{l.codigo} · {l.equipamento || "—"}</span>}
+      titulo={<span>{campo ? `${campo} · ` : ""}{l.codigo} · {l.equipamento || "—"}</span>}
       sub={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">saúde <b className="num text-texto">{l.saude}</b> <SeloFaixa faixa={l.faixa} /> · criticidade {l.criticidade || "sem classe"} · risco <b className="num text-texto">{l.risco}</b></span>}
       acoes={<div className="flex flex-wrap gap-2">
         {fichaLiberada && <Link href={`/equipamentos?${new URLSearchParams({ visao: V_ANALISE, eq: l.codigo }).toString()}#ficha`}
@@ -235,6 +237,7 @@ async function Detalhe({ l, c, params, fichaLiberada }: { l: saude.LinhaSaude; c
             max={20} larguraRotulo={220} formato="padrao" />
         </div>
         <ul className="space-y-2 text-[13.5px] text-texto-2">
+          <li>Campo de ordenação: <b className="text-texto">{campo || "—"}</b></li>
           <li><b className="num text-texto">{l.quebras}</b> quebra(s) e <b className="num text-texto">{l.falhasAf}</b> falha(s) registradas no Gerenciador de AF ({n1.format(l.horasParadasAf)} h paradas)</li>
           <li><b className="num text-texto">{l.corretivas}</b> ordem(ns) sem plano em 12 meses</li>
           <li><b className="num text-texto">{l.backlogAtrasado}</b> ordem(ns) atrasada(s) e <b className="num text-texto">{l.preventivasAtrasadas}</b> preventiva(s) atrasada(s) hoje</li>

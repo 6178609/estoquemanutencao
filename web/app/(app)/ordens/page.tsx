@@ -8,6 +8,7 @@ import { PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho, Selo } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto, inteiro } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, ordensEnriquecidas, resultados, serieMensal, type Contexto, type OrdemEnriquecida } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { dataBr } from "@/lib/wcm/util";
@@ -18,7 +19,7 @@ import { Numeros } from "./_comum/Numeros";
 import { TabelaDados } from "./_comum/TabelaDados";
 import { eixoTempo } from "./_comum/tempo";
 import { paginar, um, type Params } from "./_comum/url";
-import { COLUNAS, NATUREZAS, colunasEscolhidas, linha, opcoesFiltro, ordenarOrdens, ordensDaPagina } from "./dados";
+import { COLUNAS, NATUREZAS, type CampoFn, colunasEscolhidas, comCampo, linha, opcoesFiltro, ordenarOrdens, ordensDaPagina } from "./dados";
 
 export const metadata: Metadata = { title: "Ordens" };
 export const dynamic = "force-dynamic";
@@ -42,9 +43,10 @@ export default async function Ordens(props: { searchParams: Promise<Params> }) {
   if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}><Cabecalho titulo="Ordens de manutenção" /><SemDados base="IW38 (ordens)" /></PaginaWcm>;
   const [[atual, anterior], serie] = await Promise.all([resultados(c), serieMensal(c)]);
   const { base, filtradas } = ordensDaPagina(c, params);
+  const campoEq = await campoDoEquipamento(c);
   const ops = opcoesFiltro(base);
   const { colunas } = colunasEscolhidas(params);
-  const { lista, ord, desc } = ordenarOrdens(filtradas, params);
+  const { lista, ord, desc } = ordenarOrdens(comCampo(filtradas, campoEq), params);
   const { itens, pagina, paginas } = paginar(lista, params.pag);
   const sel = um(params.ordem);
 
@@ -91,7 +93,7 @@ export default async function Ordens(props: { searchParams: Promise<Params> }) {
         <p className="text-[12px] text-texto-3">Mais recentes primeiro · clique no cabeçalho para ordenar · no celular aparecem as colunas principais (escolha outras em “Colunas”).</p>
       </Secao>
 
-      {sel && <Detalhe c={c} ordem={sel} />}
+      {sel && <Detalhe c={c} ordem={sel} campoEq={campoEq} />}
     </PaginaWcm>
   );
 }
@@ -164,7 +166,7 @@ function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode 
 
 const h1 = (v: number) => n1.format(v);
 
-function Detalhe({ c, ordem }: { c: Contexto; ordem: string }) {
+function Detalhe({ c, ordem, campoEq }: { c: Contexto; ordem: string; campoEq: CampoFn }) {
   const todas = ordensEnriquecidas(c);
   const o = todas.find((x) => x.ordem === ordem);
   if (!o) return <GavetaUrl chaves={["ordem"]} titulo={`Ordem ${ordem}`}><p className="text-[14px] text-texto-3">Ordem não encontrada no IW38 carregado.</p></GavetaUrl>;
@@ -173,6 +175,7 @@ function Detalhe({ c, ordem }: { c: Contexto; ordem: string }) {
   const ap = (c.b.confirmacoes.dados ?? []).filter((x) => x.ordem === ordem).sort((a, b) => (a.data ?? 0) - (b.data ?? 0));
   const hist = o.equipChave ? todas.filter((x) => x.equipChave === o.equipChave).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
   const fmtD = (d: number | null) => (d == null ? "—" : dataBr(d));
+  const campo = campoEq(o.equipChave);
   return (
     <GavetaUrl chaves={["ordem"]} titulo={`Ordem ${o.ordem}`} subtitulo={o.texto}>
       <div className="flex flex-wrap gap-1.5">
@@ -185,6 +188,7 @@ function Detalhe({ c, ordem }: { c: Contexto; ordem: string }) {
         <Info rotulo="Tipo / classe">{o.tipoNome || "—"} / {o.classe || "—"}</Info>
         <Info rotulo="Custo real"><span className="num">{brl(o.custoReal)}</span> <span className="text-texto-3">(plan. {brl(o.custoPlanejado)})</span></Info>
         <Info rotulo="Equipamento">{o.equipamento || "—"} · {o.objeto || "—"}</Info>
+        <Info rotulo="Campo de ordenação">{campo || "—"}</Info>
         <Info rotulo="Local">{o.local || "—"}</Info>
         <Info rotulo="Centro de trabalho">{o.centroTrabalho || "—"}{o.setor ? ` · ${o.setor}` : ""}</Info>
         <Info rotulo="Datas-base → fim real">{fmtD(o.inicio)} → {fmtD(o.fim)} · real {fmtD(o.fimReal)}{o.leadTime != null ? ` · ${o.leadTime} d` : ""}</Info>
