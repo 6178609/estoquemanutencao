@@ -71,3 +71,16 @@ describe("programação do mês", () => {
     expect(md.tempo(130)).toBe("2 h");
   });
 });
+
+describe("campo de ordenação geral do ativo (Calendário de ordens)", () => {
+  it("um campo por equipamento: o mais usado nas ordens dele; os outros ficam nas ordens", () => {
+    const campo = new Map([["1", "LINHA-A"], ["2", " linha-a "], ["3", "LINHA-A-MOTOR"], ["4", "X"]]);
+    const g = md.campoGeralPorEquipamento([
+      { ordem: "1", equipChave: "EQ1" }, { ordem: "2", equipChave: "EQ1" }, { ordem: "3", equipChave: "EQ1" },
+      { ordem: "4", equipChave: "" }, { ordem: "5", equipChave: "EQ2" },
+    ], campo);
+    expect(g.get("EQ1")).toBe("LINHA-A");
+    expect(g.has("EQ2")).toBe(false); // sem campo: o calendário mostra o equipamento
+    expect(g.size).toBe(1);
+  });
+});
