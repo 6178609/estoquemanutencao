@@ -6,6 +6,7 @@ import { AbasVisao, Aviso, PaginaWcm, Secao, SemDados } from "@/components/Pagin
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
+import type { CampoFn } from "@/app/(app)/ordens/dados";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import * as ex from "@/lib/wcm/execucao";
 import { descrever } from "@/lib/wcm/filtros";
@@ -17,7 +18,6 @@ import { horas, int, num, pct } from "./_ui/fmt";
 import { param } from "./_ui/memo";
 import { Tabela, type Coluna } from "./_ui/Tabela";
 import { semanasGrafico, topPessoas } from "./calculos";
-import type { CampoFn } from "@/app/(app)/ordens/dados";
 import { execucaoDoRecorte } from "./dados";
 
 export const metadata: Metadata = { title: "Execução das atividades" };
