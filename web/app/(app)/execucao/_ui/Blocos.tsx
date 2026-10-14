@@ -69,7 +69,7 @@ export function Opcoes({ param, opcoes, atual, params, rotulo }: { param: string
         const p = new URLSearchParams(base);
         p.set(param, o.valor);
         return (
-          <Link key={o.valor} href={`?${p.toString()}`} scroll={false} aria-current={o.valor === atual ? "true" : undefined}
+          <Link prefetch={false} key={o.valor} href={`?${p.toString()}`} scroll={false} aria-current={o.valor === atual ? "true" : undefined}
             className={o.valor === atual ? "rounded-full bg-superficie-3 px-3 py-1.5 text-[13px] font-medium text-texto"
               : "rounded-full px-3 py-1.5 text-[13px] text-texto-3 transition hover:text-texto"}>
             {o.rotulo ?? o.valor}

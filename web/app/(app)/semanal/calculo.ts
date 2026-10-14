@@ -22,7 +22,7 @@ function guardar<T>(chave: string, fn: () => T): T {
 }
 
 const assinatura = (c: Contexto) => [c.b.ordens, c.b.operacoes, c.b.confirmacoes, c.b.equipe, c.b.equipamentos, c.b.cruas.ip19, c.b.cruas.af]
-  .map((x) => `${x.atualizado}:${x.dados?.length ?? -1}`).join("|") + `|${c.b.hoje}|${c.f.areas}|${c.centros}|${c.f.tipos}`;
+  .map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${c.b.hoje}|${c.f.areas}|${c.centros}|${c.f.tipos}`;
 
 export function operacoesDoRecorte(c: Contexto): ex.Atividade[] {
   return guardar(`ops|${assinatura(c)}`, () => {

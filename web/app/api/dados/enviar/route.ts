@@ -4,6 +4,7 @@ import { autorizar } from "@/lib/auth/sessao";
 import { LIMITE_BYTES, receberParte } from "@/lib/dados/envio";
 import { FonteErro } from "@/lib/dados/fonte";
 import { ehTipo } from "@/lib/leitura/tipos";
+import { COOKIE_ENVIO, ENVIO_VALE_MS } from "@/lib/wcm/dados";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -33,7 +34,11 @@ export async function POST(req: NextRequest) {
       modificado: new Date(modificado).toISOString().replace(/\.\d{3}Z$/, "+00:00"), linhas: Number(texto("linhas", 10)) || 0,
       por: u.login,
     });
-    return NextResponse.json({ ok: true, ...r });
+    const resp = NextResponse.json({ ok: true, ...r });
+    // por 2 min as telas de quem enviou esperam a base nova em vez de mostrar a anterior (ver bases())
+    resp.cookies.set(COOKIE_ENVIO, String(Date.now()), { httpOnly: true, sameSite: "lax", path: "/", maxAge: ENVIO_VALE_MS / 1000,
+      secure: process.env.NODE_ENV === "production" });
+    return resp;
   } catch (e) {
     const status = e instanceof FonteErro ? 409 : 500;
     return NextResponse.json({ erro: (e as Error).message }, { status });

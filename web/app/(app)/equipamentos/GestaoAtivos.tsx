@@ -39,7 +39,7 @@ export async function GestaoAtivos({ c, params, completo, cadastra }: { c: Conte
   const t = await inventarioAtivos(c);
   const campoEq = await campoDoEquipamento(c);
   if (!t.length) {
-    return <Aviso>Nenhum ativo encontrado. Envie o export do <b>IH08</b> (cadastro de equipamentos) ou do <b>IW38</b> em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>{completo ? <>, ou cadastre os equipamentos em <b>Cadastro de equipamentos</b></> : null}.</Aviso>;
+    return <Aviso>Nenhum ativo encontrado. Envie o export do <b>IH08</b> (cadastro de equipamentos) ou do <b>IW38</b> em <Link prefetch={false} href="/dados" className="font-medium underline">Fontes de dados</Link>{completo ? <>, ou cadastre os equipamentos em <b>Cadastro de equipamentos</b></> : null}.</Aviso>;
   }
   const r = ativos.resumo(t);
   const aba = ABAS.some((a) => a.id === param(params, "aba")) ? param(params, "aba") : "inventario";
@@ -215,9 +215,9 @@ function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: 
         <Cartao className="border-borda-forte" titulo={`${campoEq(r.codigo) ? `${campoEq(r.codigo)} · ` : ""}${r.codigo} · ${r.equipamento || "—"}`}
           sub={<span className="inline-flex flex-wrap items-center gap-1.5">{r.situacao} · criticidade {r.criticidade || "sem classe"} · <Selo cor={SELO_REC[r.recomendacao] ?? "cinza"}>{r.recomendacao}</Selo></span>}
           acoes={<div className="flex flex-wrap gap-2">
-            {completo && temOrdens && <Link href={`?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Abrir ficha (ordens)</Link>}
-            {cadastra && <Link href={`?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-marca-500 px-3 text-[13px] font-medium text-white transition hover:bg-marca-600"><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
-            <Link scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
+            {completo && temOrdens && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Abrir ficha (ordens)</Link>}
+            {cadastra && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-marca-500 px-3 text-[13px] font-medium text-white transition hover:bg-marca-600"><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
+            <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
             {[[ROTULO_CAMPO, campoEq(r.codigo) || "—"], ["Local", r.localInstalacao || "—"], ["Área", r.area || "—"], ["Centro", r.centro || "—"], ["Origem", r.origem],

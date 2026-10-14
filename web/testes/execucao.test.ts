@@ -13,7 +13,7 @@ const operacao = (p: Partial<Operacao>): Operacao => ({
   unidade: "H", statusSistema: "", horas: 0, pessoas: 1, inicio: null, fimReal: null, concluida: false, cancelada: false,
   setor: "", ...p,
 });
-const ordem = (p: Partial<Ordem>): Ordem => ({
+const ordem = (p: Partial<Ordem>): Ordem => ({ campo: "",
   ordem: "", tipo: "", prioridade: "", texto: "", equipamento: "", objeto: "", local: "", centroTrabalho: "", centroCusto: "",
   localizacao: "", centro: "", plano: "", statusSistema: "", statusUsuario: "", inicio: null, fim: null, entrada: null,
   criadoPor: "", custoReal: 0, custoPlanejado: 0, comPlano: false, natureza: "", situacao: "Aberta", data: null,

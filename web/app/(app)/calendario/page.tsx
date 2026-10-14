@@ -10,7 +10,7 @@ import { inteiro } from "@/lib/formato";
 import * as cal from "@/lib/wcm/calendario";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
-import { NAT_BACKLOG, NAT_PLANO } from "@/lib/wcm/preparo";
+import { NAT_BACKLOG, NAT_PLANO, type Equipamento, type Ordem } from "@/lib/wcm/preparo";
 import { dataBr, partes, SETORES, setorDoCentro } from "@/lib/wcm/util";
 
 import { Controles } from "../planos/_comum/Controles";
@@ -26,6 +26,29 @@ export const maxDuration = 60;
 const PADRAO_SIT = [cal.PROGRAMADA, cal.ATRASADA, cal.CONCLUIDA];
 const MAX_LISTA = 5000;
 const NATUREZAS = [NAT_PLANO, NAT_BACKLOG];
+
+interface AtivoDaOrdem { chave: string; campo: boolean; nome: string; campoOrdem: string }
+// o mapa ordem → ativo cruza todas as ordens: guardado enquanto o IW38 e o IH08 preparados forem os mesmos
+const memoAtivos = new WeakMap<object, { equip: object; mapa: Map<string, AtivoDaOrdem> }>();
+
+async function ativosDasOrdens(ordensBase: Ordem[], equipamentos: Equipamento[]): Promise<Map<string, AtivoDaOrdem>> {
+  const m = memoAtivos.get(ordensBase);
+  if (m && m.equip === equipamentos) return m.mapa;
+  const campoDe = await camposDeOrdenacao(ordensBase);
+  const equipDe = (o: { equipamento: string }) => (o.equipamento || "").trim().toUpperCase();
+  const geral = campoGeralPorEquipamento(ordensBase.map((o) => ({ ordem: o.ordem, equipChave: equipDe(o) })), campoDe);
+  const nomes = nomesDeAtivos(ordensBase.map((o) => ({ equipamento: o.equipamento, campo: campoDe.get(o.ordem) ?? "", objeto: o.objeto })),
+    equipamentos.map((e) => [e.equipamento, e.denominacao]));
+  const mapa = new Map(ordensBase.map((o): [string, AtivoDaOrdem] => {
+    const proprio = (campoDe.get(o.ordem) ?? "").trim().toUpperCase(), equip = equipDe(o);
+    const campo = (equip && geral.get(equip)) || proprio;
+    const chave = campo || equip;
+    return [o.ordem, { chave: chave || "Sem ativo", campo: !!campo, nome: (equip && nomes[equip]) || (chave && nomes[chave]) || o.objeto || "",
+      campoOrdem: proprio }];
+  }));
+  memoAtivos.set(ordensBase, { equip: equipamentos, mapa });
+  return mapa;
+}
 
 export default async function Calendario(props: { searchParams: Promise<Params> }) {
   await exigir("calendario");
@@ -60,18 +83,7 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   // cada dia mostra os ATIVOS por UM campo de ordenação geral (o mais usado nas ordens do equipamento; sem equipamento,
   // o da própria ordem; sem campo, o equipamento) + o equipamento principal. O campo de cada ordem fica como
   // informação interna, na lista de atividades do ativo.
-  const campoDe = await camposDeOrdenacao(ordensBase);
-  const equipDe = (o: { equipamento: string }) => (o.equipamento || "").trim().toUpperCase();
-  const geral = campoGeralPorEquipamento(ordensBase.map((o) => ({ ordem: o.ordem, equipChave: equipDe(o) })), campoDe);
-  const nomes = nomesDeAtivos(ordensBase.map((o) => ({ equipamento: o.equipamento, campo: campoDe.get(o.ordem) ?? "", objeto: o.objeto })),
-    (c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
-  const ativoDe = new Map(ordensBase.map((o) => {
-    const proprio = (campoDe.get(o.ordem) ?? "").trim().toUpperCase(), equip = equipDe(o);
-    const campo = (equip && geral.get(equip)) || proprio;
-    const chave = campo || equip;
-    return [o.ordem, { chave: chave || "Sem ativo", campo: !!campo, nome: (equip && nomes[equip]) || (chave && nomes[chave]) || o.objeto || "",
-      campoOrdem: proprio }];
-  }));
+  const ativoDe = await ativosDasOrdens(ordensBase, c.b.equipamentos.dados ?? []);
   // filtros da página
   const busca = um(params, "cq");
   const selSit = params.csit !== undefined ? lista(params, "csit") : PADRAO_SIT;
@@ -242,7 +254,6 @@ const COR_SIT: Record<string, string> = { [cal.ATRASADA]: "var(--st-critico)", [
   [cal.CONCLUIDA]: "var(--st-bom)", [cal.CANCELADA]: "var(--texto-4)" };
 
 interface OrdemDoAtivo { ordem: string; titulo: string; situacao: string; natureza: string; ajustada: boolean; campo: string }
-type AtivoDaOrdem = { chave: string; campo: boolean; nome: string; campoOrdem: string };
 interface AtivoDoDia { chave: string; campo: boolean; nome: string; situacao: string; ordens: OrdemDoAtivo[] }
 interface DiaAtivos { visiveis: AtivoDoDia[]; escondidos: AtivoDoDia[] }
 

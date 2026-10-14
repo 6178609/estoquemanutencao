@@ -215,7 +215,7 @@ function Detalhe({ c, ordem, campoEq }: { c: Contexto; ordem: string; campoEq: C
           <Tabela colunas={["Ordem", "Data", "Tipo", "Natureza", "Texto", "Situação", "Custo real"]}
             linhas={hist.slice(0, 200).map((x) => [x.ordem, fmtD(x.data), x.tipo, x.natureza, x.texto, x.situacao, brl(x.custoReal)])} />
           {hist.length > 200 && <p className="text-[12px] text-texto-3">Mostrando as 200 mais recentes.</p>}
-          <Link href={`/equipamentos?eq=${encodeURIComponent(o.equipChave)}`} className="inline-flex items-center gap-1 text-[13px] font-medium text-texto-2 hover:text-texto">
+          <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(o.equipChave)}`} className="inline-flex items-center gap-1 text-[13px] font-medium text-texto-2 hover:text-texto">
             Abrir ficha do equipamento <ArrowRight className="size-3.5" />
           </Link>
         </div>

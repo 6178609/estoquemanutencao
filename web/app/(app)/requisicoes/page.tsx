@@ -75,7 +75,7 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
 
         {fora.length > 0 && (
           <Aviso><b>{inteiro(fora.length)} requisição(ões) pendente(s)</b> ({brl(soma(fora))}) foram enviadas fora do período escolhido —{" "}
-            <Link href={href(params, { per: "tudo", de: null, ate: null, pag: null })} className="font-medium underline">ver tudo</Link>.</Aviso>
+            <Link prefetch={false} href={href(params, { per: "tudo", de: null, ate: null, pag: null })} className="font-medium underline">ver tudo</Link>.</Aviso>
         )}
 
         <Numeros colunas={4} itens={[

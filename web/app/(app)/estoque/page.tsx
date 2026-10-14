@@ -57,7 +57,7 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
         subtitulo="O almoxarifado (MB52) com a Descr Completa do Sysmat e o catálogo inteiro de materiais cadastrados — tudo numa rolagem só, sem limite." />
       <nav className="flex flex-wrap gap-1">
         {abas.map((a) => (
-          <Link key={a.id} href={a.href} scroll={false}
+          <Link prefetch={false} key={a.id} href={a.href} scroll={false}
             className={clsx("inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] transition",
               aba === a.id ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
             <a.icone className="size-4" strokeWidth={1.75} />{a.titulo}
@@ -66,16 +66,16 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
       </nav>
       {aba === "almox" && almox && (
         <>
-          {!almox.estoque.dados && <Aviso>O export do <b>MB52</b> ainda não está no repositório de dados{almox.estoque.erro ? ` (${almox.estoque.erro})` : ""}. Envie em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>}
+          {!almox.estoque.dados && <Aviso>O export do <b>MB52</b> ainda não está no repositório de dados{almox.estoque.erro ? ` (${almox.estoque.erro})` : ""}. Envie em <Link prefetch={false} href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>}
           {almox.estoque.dados && !almox.catalogo.dados && (
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
-              <Link href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
+              <Link prefetch={false} href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
           <Almoxarifado itens={itensAlmox} edita={podeEditar(u)} />
         </>
       )}
       {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} /> : (
-        <Aviso>O <b>catálogo de materiais (Sysmat)</b> ainda não está no repositório de dados. Envie a extração em <Link href="/dados" className="font-medium underline">Configuração › Fontes de dados</Link>.</Aviso>
+        <Aviso>O <b>catálogo de materiais (Sysmat)</b> ainda não está no repositório de dados. Envie a extração em <Link prefetch={false} href="/dados" className="font-medium underline">Configuração › Fontes de dados</Link>.</Aviso>
       ))}
     </Pagina>
   );

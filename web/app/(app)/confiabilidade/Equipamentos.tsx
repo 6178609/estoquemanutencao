@@ -83,7 +83,7 @@ export function Equipamentos({ linhas }: { linhas: Celula[][] }) {
                 </div>
               ))}
             </div>
-            <Link href={`/equipamentos?eq=${encodeURIComponent(String(sel[I.codigo]))}`}
+            <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(String(sel[I.codigo]))}`}
               className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
               Abrir a ficha do equipamento <ArrowRight className="size-4" />
             </Link>

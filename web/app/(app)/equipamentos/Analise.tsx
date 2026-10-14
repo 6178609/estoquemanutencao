@@ -170,7 +170,7 @@ async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel:
           )}
         </div>
         <Cartao titulo="Cadastro do equipamento" className="h-fit"
-          acoes={cadastra ? <Link href={`?${new URLSearchParams({ visao: V_CADASTRO, form: sel })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2">
+          acoes={cadastra ? <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_CADASTRO, form: sel })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2">
             <Pencil className="size-3.5" /> {temCad ? "Editar cadastro" : "Cadastrar equipamento"}</Link> : undefined}>
           {temCad ? (
             <div className="space-y-3 text-[13px]">

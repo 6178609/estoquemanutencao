@@ -11,7 +11,7 @@ export function LinksParam({ chave, opcoes, atual, params, rotulo }: { chave: st
         const p = new URLSearchParams(base);
         p.set(chave, o);
         return (
-          <Link key={o} href={`?${p.toString()}`} scroll={false} aria-current={o === atual ? "true" : undefined}
+          <Link prefetch={false} key={o} href={`?${p.toString()}`} scroll={false} aria-current={o === atual ? "true" : undefined}
             className={o === atual ? "rounded-full bg-superficie-3 px-3 py-1.5 text-[13px] font-medium text-texto" : "rounded-full px-3 py-1.5 text-[13px] text-texto-3 transition hover:text-texto"}>
             {o}
           </Link>

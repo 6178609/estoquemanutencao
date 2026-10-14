@@ -57,13 +57,13 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
         sobre="Custos e suprimentos"
         subtitulo="Cada equipamento da lista (IH08, cadastro do site e IW38) com os materiais de manutenção vinculados a ele, completados pela MB52 (saldo, valor, depósitos) e pelo catálogo Sysmat (descrição completa, fabricante/referência) — e, ao contrário, onde cada material é usado." />
       {!t.length ? (
-        <Aviso>Nenhum equipamento na lista. Envie o export do <b>IH08</b> ou do <b>IW38</b> em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>
+        <Aviso>Nenhum equipamento na lista. Envie o export do <b>IH08</b> ou do <b>IW38</b> em <Link prefetch={false} href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>
       ) : (
         <div className="space-y-6">
           {(!bm.est || !bm.cat) && (
             <Aviso tom="azul">{!bm.est ? <>Sem o export do <b>MB52</b> o saldo das peças fica em branco. </> : null}
               {!bm.cat ? <>Sem o <b>catálogo Sysmat</b> faltam o código Sysmat, a descrição completa e o fabricante/referência das peças. </> : null}
-              Envie em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>
+              Envie em <Link prefetch={false} href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>
           )}
           <GradeNumeros colunas={5}>
             <Numero rotulo="Ativos com peças vinculadas" valor={pct(r.cobertura)} detalhe={`${inteiroBr(r.comPecas)} de ${inteiroBr(r.ativos)} ativos`}
@@ -130,9 +130,9 @@ function PorAtivo({ t, params, edita, listas }: { t: M.AtivoMro[]; params: Param
           sub={<span className="inline-flex flex-wrap items-center gap-1.5">{a.situacao} · {crit(a.criticidade)} · {[a.area, a.local].filter(Boolean).join(" · ") || "sem local"}
             · <Selo cor={SELO_MRO[a.mro]}>{a.mro}</Selo></span>}
           acoes={<div className="flex flex-wrap gap-2">
-            <Link href={`/equipamentos?${new URLSearchParams({ visao: V_CADASTRO, form: a.codigo })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2">
+            <Link prefetch={false} href={`/equipamentos?${new URLSearchParams({ visao: V_CADASTRO, form: a.codigo })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2">
               <Pencil className="size-3.5" /> Cadastro do equipamento</Link>
-            <Link scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
+            <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <PecasAtivo key={a.codigo} tag={a.codigo} pecas={a.pecas} edita={edita} />
           {edita && listas && a.pecas.length > 0 && (
@@ -189,7 +189,7 @@ function PorMaterial({ t, params }: { t: M.AtivoMro[]; params: Params }) {
             x.ativos.length, x.nAlta || "—",
             <span key="u" className="flex flex-wrap gap-1">
               {x.ativos.slice(0, 12).map((a) => (
-                <Link key={a.codigo} href={irAtivo(a.codigo)} title={dica(a)} className="rounded-md bg-superficie-2 px-1.5 py-0.5 font-mono text-[11.5px] text-texto-2 hover:underline"
+                <Link prefetch={false} key={a.codigo} href={irAtivo(a.codigo)} title={dica(a)} className="rounded-md bg-superficie-2 px-1.5 py-0.5 font-mono text-[11.5px] text-texto-2 hover:underline"
                   style={a.criticidade === "Alta" ? { boxShadow: "inset 0 0 0 1px var(--st-critico)" } : undefined}>{M.rotuloAtivo(a)}</Link>
               ))}
               {x.ativos.length > 12 && <span className="text-[11.5px] text-texto-3">+{x.ativos.length - 12}</span>}

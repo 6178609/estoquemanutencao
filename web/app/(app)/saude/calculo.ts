@@ -25,7 +25,7 @@ export function guardar<T>(chave: string, fn: () => T): T {
 export function assinatura(c: Contexto): string {
   const b = c.b;
   return [b.ordens, b.notas, b.operacoes, b.confirmacoes, b.equipamentos, b.equipe, b.cruas.ip19, b.cruas.af]
-    .map((x) => `${x.atualizado}:${x.dados?.length ?? -1}`).join("|") + `|${b.hoje}|${hashTexto(JSON.stringify(c.cad.equipamentos))}`;
+    .map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${b.hoje}|${hashTexto(JSON.stringify(c.cad.equipamentos))}`;
 }
 
 /** Recorte da fábrica inteira (sem área, centro nem tipo). */

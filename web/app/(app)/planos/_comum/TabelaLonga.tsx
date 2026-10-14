@@ -81,7 +81,7 @@ export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, vazio =
               });
               const cls = clsx("absolute inset-x-0 grid border-b border-borda bg-superficie", href && "transition hover:bg-superficie-2");
               const estilo = { gridTemplateColumns: modelo, height: ALT, transform: `translateY(${r.start}px)` };
-              return href ? <Link key={r.key} href={href} scroll={false} className={cls} style={estilo}>{conteudo}</Link>
+              return href ? <Link prefetch={false} key={r.key} href={href} scroll={false} className={cls} style={estilo}>{conteudo}</Link>
                 : <div key={r.key} className={cls} style={estilo}>{conteudo}</div>;
             })}
           </div>

@@ -18,7 +18,7 @@ export function memo<T>(chave: string, fn: () => T): T {
 }
 
 export const assinatura = (b: Bases) => [b.ordens, b.notas, b.operacoes, b.confirmacoes, b.equipamentos, b.equipe,
-  b.cruas.af, b.cruas.acoesAf].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}`).join("|") + `|${b.hoje}`;
+  b.cruas.af, b.cruas.acoesAf].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${b.hoje}`;
 
 /** Parâmetro do endereço como texto único. */
 export const param = (p: Record<string, string | string[] | undefined>, k: string) => {
