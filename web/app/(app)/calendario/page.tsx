@@ -17,7 +17,7 @@ import { Controles } from "../planos/_comum/Controles";
 import { atalhos, contagem, fimDoMes, iso, lista, periodo, um, type Params } from "../planos/_comum/params";
 import { TabelaLonga } from "../planos/_comum/TabelaLonga";
 import { camposDeOrdenacao } from "@/lib/wcm/camposOrdenacao";
-import { ARQ_LOTES, datasAlteradas, nomesDeAtivos } from "@/lib/wcm/programacao";
+import { ARQ_LOTES, campoGeralPorEquipamento, datasAlteradas, nomesDeAtivos } from "@/lib/wcm/programacao";
 
 export const metadata: Metadata = { title: "Calendário de ordens" };
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   const c = await contexto(params);
   const b = barra(c);
   const cab = <Cabecalho titulo="Calendário de ordens," destaque="o que está alocado em cada dia."
-    sobre="Programação · IW38" subtitulo="Os ativos com ordem em cada dia (data-base de início do IW38): o campo de ordenação e o equipamento principal; abra o ativo para ver as ordens." />;
+    sobre="Programação · IW38" subtitulo="Os ativos com ordem em cada dia (data-base de início do IW38), cada um por um único campo de ordenação geral e o equipamento principal; abra o ativo para ver as atividades." />;
   const moldura = (filhos: React.ReactNode) => (
     <PaginaWcm barra={{ ...b, recorte: "Área, centro e tipo valem aqui; o período é o da página" }} periodo={false}>{filhos}</PaginaWcm>
   );
@@ -57,14 +57,20 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   const naJanela = ajustadas.filter((o) => o.data != null && o.data >= iniJanela && o.data <= fimJanela);
   const ag = cal.agenda(naJanela, c.b.operacoes.dados, c.b.confirmacoes.dados, c.b.equipe.dados, hoje);
 
-  // cada dia mostra os ATIVOS: campo de ordenação do IW38 (sem ele, o equipamento) + o equipamento principal
+  // cada dia mostra os ATIVOS por UM campo de ordenação geral (o mais usado nas ordens do equipamento; sem equipamento,
+  // o da própria ordem; sem campo, o equipamento) + o equipamento principal. O campo de cada ordem fica como
+  // informação interna, na lista de atividades do ativo.
   const campoDe = await camposDeOrdenacao(ordensBase);
+  const equipDe = (o: { equipamento: string }) => (o.equipamento || "").trim().toUpperCase();
+  const geral = campoGeralPorEquipamento(ordensBase.map((o) => ({ ordem: o.ordem, equipChave: equipDe(o) })), campoDe);
   const nomes = nomesDeAtivos(ordensBase.map((o) => ({ equipamento: o.equipamento, campo: campoDe.get(o.ordem) ?? "", objeto: o.objeto })),
     (c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
   const ativoDe = new Map(ordensBase.map((o) => {
-    const campo = (campoDe.get(o.ordem) ?? "").trim().toUpperCase(), equip = (o.equipamento || "").trim().toUpperCase();
+    const proprio = (campoDe.get(o.ordem) ?? "").trim().toUpperCase(), equip = equipDe(o);
+    const campo = (equip && geral.get(equip)) || proprio;
     const chave = campo || equip;
-    return [o.ordem, { chave: chave || "Sem ativo", campo: !!campo, nome: (chave && nomes[chave]) || o.objeto || "" }];
+    return [o.ordem, { chave: chave || "Sem ativo", campo: !!campo, nome: (equip && nomes[equip]) || (chave && nomes[chave]) || o.objeto || "",
+      campoOrdem: proprio }];
   }));
   // filtros da página
   const busca = um(params, "cq");
@@ -75,7 +81,10 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
   const filtroPag = { situacoes: selSit, naturezas: selNat, turnos: selTur, localizacoes: selLoc, centros: selCt, setores: selSet };
   // a busca acha também o campo de ordenação e o nome do equipamento principal (o destaque de cada dia)
   const termo = busca.trim().toUpperCase();
-  const doAtivo = (o: string) => { const a = ativoDe.get(o); return !!a && (a.chave.includes(termo) || a.nome.toUpperCase().includes(termo)); };
+  const doAtivo = (o: string) => {
+    const a = ativoDe.get(o);
+    return !!a && (a.chave.includes(termo) || a.campoOrdem.includes(termo) || a.nome.toUpperCase().includes(termo));
+  };
   const semBusca = cal.filtrarAgenda(ag, { busca: "", ...filtroPag });
   const porTexto = termo ? new Set(cal.filtrarAgenda(ag, { busca, ...filtroPag })) : null;
   const vis = porTexto ? semBusca.filter((l) => porTexto.has(l) || doAtivo(l.ordem)) : semBusca;
@@ -147,7 +156,7 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
       </div>
 
       <Secao titulo={descrever(ini, fim)} destaque="· dia a dia"
-        sub="Uma linha por ativo no dia: o campo de ordenação (ou o equipamento, quando a ordem não tem campo) e o nome do equipamento principal, com quantas ordens ele tem. Clique no ativo para ver as ordens; a lista completa está abaixo.">
+        sub="Uma linha por ativo no dia, identificado por um campo de ordenação geral (o mais usado nas ordens do equipamento; sem campo, o equipamento) e o nome do equipamento principal, com quantas ordens ele tem. Clique no ativo para ver as atividades: o campo de ordenação de cada ordem, quando é outro, aparece ao lado dela como informação interna. A lista completa está abaixo.">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-texto-2">
           <span className="text-texto-3">Faixa à esquerda = a pior situação das ordens do ativo no dia:</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded-full" style={{ background: "var(--st-bom)" }} />Concluída</span>
@@ -213,11 +222,13 @@ export default async function Calendario(props: { searchParams: Promise<Params> 
       <Secao titulo="Lista das ordens do período" destaque={`· ${inteiro(r.ordens)} ordens`} sub="Uma linha por ordem e turno. Baixe em CSV para abrir no Excel.">
         {noPeriodo.length > MAX_LISTA && <Aviso>A lista mostra as {inteiro(MAX_LISTA)} primeiras linhas; refine os filtros para ver o resto.</Aviso>}
         <TabelaLonga altura={460} csv={`calendario_ordens_${iso(ini).replaceAll("-", "")}_${iso(fim).replaceAll("-", "")}`} vazio="Nenhuma ordem no período e filtro."
-          colunas={[{ titulo: "Dia", largura: 96 }, { titulo: "Turno", largura: 150 }, { titulo: "Ordem", largura: 100 }, { titulo: "Título", largura: 220 },
+          colunas={[{ titulo: "Dia", largura: 96 }, { titulo: "Turno", largura: 150 }, { titulo: "Ordem", largura: 100 },
+            { titulo: "Ativo (campo geral)", largura: 140 }, { titulo: "Campo da ordem", largura: 120 }, { titulo: "Título", largura: 220 },
             { titulo: "Texto", largura: 240 }, { titulo: "Tipo", largura: 64 }, { titulo: "Natureza", largura: 150 }, { titulo: "Situação", largura: 110 },
             { titulo: "Situação da ordem", largura: 160 }, { titulo: "Quem", largura: 280 }, { titulo: "Duração", largura: 90 },
             { titulo: "Setor", largura: 120 }, { titulo: "Centro de trabalho", largura: 130 }, { titulo: "Localização", largura: 140 }]}
-          linhas={noPeriodo.slice(0, MAX_LISTA).map((l) => [dataBr(l.dia), l.turno, l.ordem, (l.ajustada ? "↻ " : "") + l.titulo, l.texto, l.tipo, l.natureza,
+          linhas={noPeriodo.slice(0, MAX_LISTA).map((l) => [dataBr(l.dia), l.turno, l.ordem, ativoDe.get(l.ordem)?.chave ?? "",
+            ativoDe.get(l.ordem)?.campoOrdem ?? "", (l.ajustada ? "↻ " : "") + l.titulo, l.texto, l.tipo, l.natureza,
             { t: l.situacao, forte: l.situacao === cal.ATRASADA }, l.situacaoOrdem, l.quem, cal.duracao(l.duracaoH),
             setorDoCentro(l.centroTrabalho), l.centroTrabalho, l.localizacao])} />
       </Secao>
@@ -230,22 +241,25 @@ const PESO: Record<string, number> = { [cal.ATRASADA]: 0, [cal.PROGRAMADA]: 1, [
 const COR_SIT: Record<string, string> = { [cal.ATRASADA]: "var(--st-critico)", [cal.PROGRAMADA]: "var(--borda-forte)",
   [cal.CONCLUIDA]: "var(--st-bom)", [cal.CANCELADA]: "var(--texto-4)" };
 
-interface OrdemDoAtivo { ordem: string; titulo: string; situacao: string; natureza: string; ajustada: boolean }
+interface OrdemDoAtivo { ordem: string; titulo: string; situacao: string; natureza: string; ajustada: boolean; campo: string }
+type AtivoDaOrdem = { chave: string; campo: boolean; nome: string; campoOrdem: string };
 interface AtivoDoDia { chave: string; campo: boolean; nome: string; situacao: string; ordens: OrdemDoAtivo[] }
 interface DiaAtivos { visiveis: AtivoDoDia[]; escondidos: AtivoDoDia[] }
 
 /** Ordens distintas de cada dia agrupadas por ativo (campo de ordenação ou equipamento), o ativo com mais ordens primeiro. */
-function ativosPorDia(ag: cal.ItemAgenda[], ativoDe: Map<string, { chave: string; campo: boolean; nome: string }>, max: number): Map<number, DiaAtivos> {
+function ativosPorDia(ag: cal.ItemAgenda[], ativoDe: Map<string, AtivoDaOrdem>, max: number): Map<number, DiaAtivos> {
   const porDia = new Map<number, Map<string, AtivoDoDia>>();
   const vistas = new Set<string>();
   for (const l of ag) {
     const k = `${l.dia}|${l.ordem}`;
     if (vistas.has(k)) continue; // a agenda repete a ordem em cada turno que apontou
     vistas.add(k);
-    const a = ativoDe.get(l.ordem) ?? { chave: "Sem ativo", campo: false, nome: "" };
+    const a = ativoDe.get(l.ordem) ?? { chave: "Sem ativo", campo: false, nome: "", campoOrdem: "" };
     const dia = porDia.get(l.dia) ?? porDia.set(l.dia, new Map()).get(l.dia)!;
-    const at = dia.get(a.chave) ?? dia.set(a.chave, { ...a, situacao: l.situacao, ordens: [] }).get(a.chave)!;
-    at.ordens.push({ ordem: l.ordem, titulo: l.titulo, situacao: l.situacao, natureza: l.natureza, ajustada: l.ajustada });
+    const at = dia.get(a.chave) ?? dia.set(a.chave, { chave: a.chave, campo: a.campo, nome: a.nome, situacao: l.situacao, ordens: [] }).get(a.chave)!;
+    // campo da ordem diferente do geral: informação interna da atividade
+    at.ordens.push({ ordem: l.ordem, titulo: l.titulo, situacao: l.situacao, natureza: l.natureza, ajustada: l.ajustada,
+      campo: a.campoOrdem && a.campoOrdem !== a.chave ? a.campoOrdem : "" });
     if ((PESO[l.situacao] ?? 9) < (PESO[at.situacao] ?? 9)) at.situacao = l.situacao;
   }
   const out = new Map<number, DiaAtivos>();
@@ -271,9 +285,12 @@ function LinhaAtivo({ a }: { a: AtivoDoDia }) {
       </summary>
       <ul className="space-y-0.5 border-t border-borda px-1.5 py-1 text-[10.5px]">
         {a.ordens.map((o) => (
-          <li key={o.ordem} className={clsx("truncate", o.situacao === cal.CANCELADA && "line-through opacity-60")} title={`${o.ordem} · ${o.titulo} · ${o.situacao}`}>
+          <li key={o.ordem} className={clsx("truncate", o.situacao === cal.CANCELADA && "line-through opacity-60")}
+            title={`${o.ordem}${o.campo ? ` · campo ${o.campo}` : ""} · ${o.titulo} · ${o.situacao}`}>
             <span className="inline-block size-1.5 -translate-y-px rounded-full" style={{ background: COR_SIT[o.situacao] }} />{" "}
-            <span className="num font-medium">{o.ordem}</span>{o.ajustada ? " ↻" : ""} <span className="text-texto-3">{o.titulo}</span>
+            <span className="num font-medium">{o.ordem}</span>{o.ajustada ? " ↻" : ""}
+            {o.campo && <span className="ml-1 rounded bg-superficie-3 px-1 font-mono text-[10px] text-texto-2">{o.campo}</span>}{" "}
+            <span className="text-texto-3">{o.titulo}</span>
           </li>
         ))}
       </ul>

@@ -124,23 +124,8 @@ export interface AtivoMro {
 
 type AtivoBase = Pick<LinhaAtivo, "codigo" | "equipamento" | "criticidade" | "area" | "localInstalacao" | "situacao">;
 
-/** Campo de ordenação de cada equipamento: o mais frequente nas ordens dele (empate: o menor em ordem alfabética). */
-export function camposPorEquipamento(ordens: { ordem: string; equipChave: string }[], campoDaOrdem: Map<string, string>): Map<string, string> {
-  const conta = new Map<string, Map<string, number>>();
-  for (const o of ordens) {
-    const c = (campoDaOrdem.get(o.ordem) ?? "").trim().toUpperCase();
-    if (!c || !o.equipChave) continue;
-    const m = conta.get(o.equipChave) ?? conta.set(o.equipChave, new Map()).get(o.equipChave)!;
-    m.set(c, (m.get(c) ?? 0) + 1);
-  }
-  const out = new Map<string, string>();
-  for (const [eq, m] of conta) {
-    let melhor = "", n = -1;
-    for (const [c, k] of m) if (k > n || (k === n && c < melhor)) { melhor = c; n = k; }
-    out.set(eq, melhor);
-  }
-  return out;
-}
+/** Campo de ordenação geral de cada equipamento (o mesmo do Calendário de ordens). */
+export { campoGeralPorEquipamento as camposPorEquipamento } from "@/lib/wcm/programacao";
 
 /** O que aparece no lugar do equipamento: o campo de ordenação (o código vai embaixo); sem campo, o código. */
 export const rotuloAtivo = (a: { codigo: string; campo: string }) => a.campo || a.codigo;
