@@ -17,7 +17,7 @@ export function TabelaFicha({ colunas, linhas, busca, baixar, limite, alturaMax,
   const [sel, setSel] = useState<Celula[] | null>(null);
   return (
     <TabelaDados colunas={colunas} linhas={linhas} busca={busca} baixar={baixar} limite={limite} alturaMax={alturaMax}
-      aoSelecionar={setSel} selecionada={sel?.[colunaCodigo]}
+      aoSelecionar={setSel} selecionada={sel?.[colunaCodigo]} colunaChave={colunaCodigo}
       rodape={sel ? (
         <Link href={`/equipamentos?eq=${encodeURIComponent(String(sel[colunaCodigo]))}`}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-texto-2 hover:text-texto">

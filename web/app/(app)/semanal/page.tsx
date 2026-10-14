@@ -5,6 +5,7 @@ import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho, Kpi } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { inteiro } from "@/lib/formato";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados } from "@/lib/wcm/contexto";
 import * as hh from "@/lib/wcm/hh";
 import * as ind from "@/lib/wcm/indicadores";
@@ -29,6 +30,7 @@ export default async function Semanal(props: { searchParams: Promise<Params> }) 
   await exigir("semanal");
   const params = await props.searchParams;
   const c = await contexto(params);
+  const campoEq = await campoDoEquipamento(c);
   const b = barra(c);
   const cab = <Cabecalho titulo="Programação semanal," destaque="carga × capacidade e o que entra na semana."
     sobre="Programação · IW38OP" subtitulo="Carga × capacidade por centro de trabalho, o que está programado na semana, o que pode completar a folga e a aderência à programação das semanas anteriores." />;
@@ -170,13 +172,13 @@ export default async function Semanal(props: { searchParams: Promise<Params> }) 
           <TabelaLonga altura={400} csv={`candidatos_semana_${iso(seg).replaceAll("-", "")}`}
             rodape={cand.length > 500 ? `Mostrando as 500 primeiras de ${inteiro(cand.length)} (o CSV traz as 500)` : undefined}
             colunas={[{ titulo: "Cabe na folga", largura: 110, centro: true }, { titulo: "Ordem", largura: 100 }, { titulo: "Op.", largura: 60 },
-              { titulo: "Texto da operação", largura: 240 }, { titulo: "Objeto técnico", largura: 200 }, { titulo: "Centro de trabalho", largura: 130 },
+              { titulo: "Texto da operação", largura: 240 }, { titulo: "Campo de ordenação", largura: 150 }, { titulo: "Objeto técnico", largura: 200 }, { titulo: "Centro de trabalho", largura: 130 },
               { titulo: "HH", largura: 64, num: true }, { titulo: "Liberada", largura: 84, centro: true }, { titulo: "Criticidade", largura: 96 },
               { titulo: "Risco", largura: 70, num: true, dica: "Risco do equipamento (Saúde dos ativos)" }, { titulo: "Programada para", largura: 120 },
               { titulo: "Dias de atraso", largura: 110, num: true }, { titulo: "Natureza", largura: 150 }]}
             linhas={cand.slice(0, 500).map((x, i) => [
               cabe[i] ? { t: "✓ cabe", fundo: "color-mix(in srgb, var(--st-bom) 20%, transparent)", cor: "var(--texto)" } : "",
-              x.ordem, x.op, x.textoOperacao, x.objeto, x.centroTrabalho, n1(x.horas), x.pronta ? "✓" : "", x.criticidade,
+              x.ordem, x.op, x.textoOperacao, campoEq(x.equipamento || x.objeto) || "—", x.objeto, x.centroTrabalho, n1(x.horas), x.pronta ? "✓" : "", x.criticidade,
               x.riscoEquipamento ? Math.round(x.riscoEquipamento) : "", dataBr(x.inicio), x.diasAtraso, x.natureza ?? ""])} />
         )}
       </Secao>

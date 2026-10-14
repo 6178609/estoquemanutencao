@@ -149,7 +149,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
                   if (!sit) return "";
                   const e = estiloCelula(sit);
                   return { t: l.texto[s], fundo: e.background, cor: e.color, dica: sit };
-                }), campoEq(l.equipamento), l.equipamento, l.centro, l.ciclo, l.chamadas])} />
+                }), campoEq(l.codigoEquip) || "—", l.equipamento, l.centro, l.ciclo, l.chamadas])} />
           )}
       </Secao>
 
@@ -185,7 +185,7 @@ function DetalhePlano({ det, hoje, temIw38, campoEq }: { det: planos.DetalhePlan
     ["Ordem", (x) => x.ordem, 100], ["Situação IW38", (x) => x.situacaoIw38, 120],
     ["Custo real", (x) => (temIw38 ? brl(x.custoReal) : ""), 110], ["Tipo de programação", (x) => x.tipoProgramacao, 200],
     ["Atividade", (x) => x.atividade, 110], ["Pacote", (x) => x.pacote, 90], ["Operações", (x) => x.operacoes, 90],
-    ["Horas", (x) => (x.horas ? Math.round(x.horas * 10) / 10 : ""), 70], ["Campo de ordenação", (x) => campoEq(x.objeto || x.equipamento), 150],
+    ["Horas", (x) => (x.horas ? Math.round(x.horas * 10) / 10 : ""), 70], ["Campo de ordenação", (x) => campoEq(x.equipamento || x.objeto), 150],
     ["Objeto técnico", (x) => x.objeto, 200],
     ["Centro de trabalho", (x) => x.centroTrabalho, 120],
   ];

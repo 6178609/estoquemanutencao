@@ -195,7 +195,7 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
       <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · laranja = reincidentes (≤ 30 dias)"
         legenda={<span className="text-[12px] text-texto-3" />}
         tabela={{ colunas: ["Campo de ordenação", "Equipamento", "Quebras", "Reincidentes"],
-          linhas: bad.map(([k, v]) => [campoEq(k), `${v.nome} (${campoEq(k) ? `${campoEq(k)} · ` : ""}${k})`, v.quebras, v.reinc]) }}>
+          linhas: bad.map(([k, v]) => [campoEq(k) || "—", `${v.nome} (${k})`, v.quebras, v.reinc]) }}>
         {bad.length ? <Barras itens={bad.map(([k, v]) => ({ rotulo: v.nome, valor: v.quebras, detalhe: `${campoEq(k) ? `${campoEq(k)} · ` : ""}${k}`,
           partes: [{ nome: "Primeira", valor: v.quebras - v.reinc, cor: "serie-1" }, { nome: "Reincidente", valor: v.reinc, cor: "serie-2" }] }))} larguraRotulo={200} />
           : <p className="text-[13px] text-texto-3">Nenhuma quebra no período.</p>}

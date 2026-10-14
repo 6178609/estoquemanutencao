@@ -54,9 +54,11 @@ function baixarCsv(nome: string, colunas: Coluna[], linhas: Celula[][]) {
 }
 
 export function TabelaDados({ colunas, linhas, busca, baixar, limite = 400, alturaMax = 460, ordemInicial, aoSelecionar, selecionada,
-  vazio = "Nada a mostrar.", rodape, filtroExterno }: {
+  colunaChave = 0, vazio = "Nada a mostrar.", rodape, filtroExterno }: {
   colunas: Coluna[]; linhas: Celula[][]; busca?: string; baixar?: string; limite?: number; alturaMax?: number;
   ordemInicial?: { coluna: number; desc: boolean }; aoSelecionar?: (linha: Celula[]) => void; selecionada?: Celula;
+  /** coluna que identifica a linha selecionada (o código do equipamento) */
+  colunaChave?: number;
   vazio?: string; rodape?: React.ReactNode; filtroExterno?: React.ReactNode;
 }) {
   const [texto, setTexto] = useState("");
@@ -111,7 +113,7 @@ export function TabelaDados({ colunas, linhas, busca, baixar, limite = 400, altu
           <tbody className="divide-borda divide-y">
             {mostradas.map((l, i) => (
               <tr key={i} onClick={aoSelecionar ? () => aoSelecionar(l) : undefined}
-                className={clsx(aoSelecionar && "cursor-pointer hover:bg-superficie-2", selecionada != null && l[0] === selecionada && "bg-superficie-3")}>
+                className={clsx(aoSelecionar && "cursor-pointer hover:bg-superficie-2", selecionada != null && l[colunaChave] === selecionada && "bg-superficie-3")}>
                 {l.map((v, j) => {
                   const c = colunas[j] ?? { rotulo: "" };
                   const t = formatarCelula(v, c.formato);

@@ -369,7 +369,9 @@ function ciclosEstimados(ch: ChamadaClassificada[]): Map<string, string> {
 
 export interface LinhaCalendario {
   /** chave do plano ("20976 / 1" quando a IP19 traz item) */
-  plano: string; descricao: string; equipamento: string; centro: string; ciclo: string; chamadas: number; atrasadas: number;
+  plano: string; descricao: string; equipamento: string;
+  /** código do equipamento (o mais frequente nas chamadas do plano) — para achar o campo de ordenação */
+  codigoEquip: string; centro: string; ciclo: string; chamadas: number; atrasadas: number;
   /** texto de cada semana (rótulo → "✓", "○2"…; "" sem chamada) */
   texto: Record<string, string>;
   /** situação de cada semana (a pior das chamadas dela; "" sem chamada) */
@@ -407,7 +409,7 @@ export function montarCalendario(ch: ChamadaClassificada[], inicio: Dia, fim: Di
   const pior = new Map<string, Map<string, { pri: number; n: number }>>();
   for (const p of planos) {
     linhas.set(p, {
-      plano: p, descricao: desc.get(p) ?? "", equipamento: objeto.get(p) ?? equip.get(p) ?? "", centro: centro.get(p) ?? "",
+      plano: p, descricao: desc.get(p) ?? "", equipamento: objeto.get(p) ?? equip.get(p) ?? "", codigoEquip: equip.get(p) ?? "", centro: centro.get(p) ?? "",
       ciclo: ciclo.get(p) ?? "", chamadas: 0, atrasadas: 0,
       texto: Object.fromEntries(semanas.map((s) => [s, ""])), situacao: Object.fromEntries(semanas.map((s) => [s, ""])),
     });

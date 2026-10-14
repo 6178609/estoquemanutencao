@@ -130,7 +130,7 @@ function Graficos({ xs, ini, fim, campoEq }: { xs: Nota[]; ini: number; fim: num
       </Grafico>
       <Grafico className="min-w-0" titulo="Equipamentos com mais notas" subtitulo="Reincidência · laranja = quebras"
         legenda={<Legenda series={[{ nome: "Outras notas", cor: "serie-1" }, { nome: "Quebras", cor: "serie-2" }]} />}
-        tabela={{ colunas: ["Equipamento", "Campo de ordenação", "Código", "Notas", "Quebras"], linhas: top.map(([k, v]) => [v.nome, campoEq(k), k, v.notas, v.quebras]) }}>
+        tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Notas", "Quebras"], linhas: top.map(([k, v]) => [campoEq(k) || "—", k, v.nome, v.notas, v.quebras]) }}>
         {top.length ? <Barras larguraRotulo={190} formato="inteiro" itens={top.map(([k, v]) => ({ rotulo: v.nome, valor: v.notas, detalhe: `${campoEq(k) ? campoEq(k) + " · " : ""}${k}`,
           partes: [{ nome: "Outras notas", valor: v.notas - v.quebras, cor: "serie-1" }, { nome: "Quebras", valor: v.quebras, cor: "serie-2" }] }))} />
           : <p className="text-[13px] text-texto-3">Notas sem equipamento informado.</p>}

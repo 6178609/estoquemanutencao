@@ -57,7 +57,7 @@ export function Equipamentos({ linhas }: { linhas: Celula[][] }) {
   return (
     <>
       <TabelaDados colunas={colunas} linhas={vis} busca="Buscar equipamento: código, nome ou local…" baixar="confiabilidade_equipamentos"
-        aoSelecionar={abrir} selecionada={sel?.[0]} limite={500}
+        aoSelecionar={abrir} selecionada={sel?.[I.codigo]} colunaChave={I.codigo} limite={500}
         filtroExterno={(
           <>
             <MultiEscolha rotulo="Criticidade" opcoes={CRIT.map((c) => ({ valor: c, n: linhas.filter((l) => l[I.criticidade] === c).length }))} valor={crit} aoMudar={setCrit} />

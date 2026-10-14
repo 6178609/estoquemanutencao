@@ -141,7 +141,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
             <Grafico titulo="Equipamentos com mais anomalias" subtitulo="Reincidência no período · em aberto × encerradas"
               legenda={<LegendaCores itens={[["Em aberto", "serie-2"], ["Encerradas", "serie-1"]]} />}
               tabela={{ colunas: [ROTULO_CAMPO, "Equipamento", "Nome", "Anomalias", "Em aberto"], linhas: eqs.map((x) => [campoEq(x.equipamento) || "—", x.equipamento, x.nome, x.anomalias, x.abertas]) }}>
-              {eqs.length ? <Barras formato="inteiro" larguraRotulo={210} itens={eqs.map((x) => ({ rotulo: x.nome || x.equipamento, detalhe: x.equipamento, valor: x.anomalias,
+              {eqs.length ? <Barras formato="inteiro" larguraRotulo={210} itens={eqs.map((x) => ({ rotulo: x.nome || x.equipamento, detalhe: campoEq(x.equipamento) ? `${campoEq(x.equipamento)} · ${x.equipamento}` : x.equipamento, valor: x.anomalias,
                 partes: [{ nome: "Encerradas", valor: x.anomalias - x.abertas, cor: "serie-1" as Cor }, { nome: "Em aberto", valor: x.abertas, cor: "serie-2" as Cor }] }))} />
                 : <p className="text-[13px] text-texto-3">Nenhuma anomalia com equipamento no período.</p>}
             </Grafico>

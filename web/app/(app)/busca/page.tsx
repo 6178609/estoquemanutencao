@@ -39,7 +39,7 @@ const ROTULO_FIM: Record<string, string> = { fim: "Prazo" };
 const COL_EQUIP: Partial<Record<busca.Categoria, string>> = { Ordens: "equipChave", Notas: "equipChave", Equipamentos: "equipamento",
   Planos: "equipamento", "Análises de falha": "equipamento" };
 /** Código do equipamento de uma linha de resultado (a chave de ordens e notas; o equipamento nas demais). */
-const codigoDe = (l: Linha) => txt(l.equipChave || l.equipamento || l.objeto);
+const codigoDe = (l: Linha) => txt(l.equipChave || l.codigoSap || l.equipamento || l.objeto); // AF: o código está no codigoSap
 
 function Moldura({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-[1320px] space-y-8 px-4 py-8 sm:px-8">{children}</div>;

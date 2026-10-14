@@ -9,8 +9,7 @@ import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
 import { resumoCatalogo } from "@/lib/dados/catalogoBusca";
 import { dataHora, idade } from "@/lib/formato";
-import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
-import { contexto } from "@/lib/wcm/contexto";
+import { campoDoEquipamentoDasBases } from "@/lib/wcm/campoGeral";
 import type { ItemAlmox } from "@/lib/dados/materiais";
 import { Almoxarifado } from "./Almoxarifado";
 import { Catalogo } from "./Catalogo";
@@ -45,9 +44,9 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
     { id: "almox", titulo: "Material do almoxarifado", icone: Boxes, href: "/estoque" },
     { id: "cadastrado", titulo: "Material cadastrado", icone: BookOpen, href: "/estoque?aba=cadastrado" },
   ];
-  const almox = aba === "almox" ? await almoxarifado() : null;
-  // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material
-  const itensAlmox = almox ? comCampo(almox.itens, await campoDoEquipamento(await contexto({}))) : [];
+  // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material; só a base de ordens, em paralelo
+  const [almox, campoEq] = aba === "almox" ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases()]) : [null, null];
+  const itensAlmox = almox && campoEq ? comCampo(almox.itens, campoEq) : [];
   const resumo = aba === "cadastrado" ? await resumoCatalogo() : null;
   const base = almox?.estoque;
 
