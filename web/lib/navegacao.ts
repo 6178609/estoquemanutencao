@@ -37,6 +37,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Custos e suprimentos", abas: [
     { id: "custos", titulo: "Custos", icone: "Wallet", rota: "/custos" },
     { id: "estoque", titulo: "Estoque", icone: "Boxes", rota: "/estoque" },
+    { id: "mro", titulo: "Gestão de MRO", icone: "Wrench", rota: "/mro" },
     { id: "requisicoes", titulo: "Requisições", icone: "Receipt", rota: "/requisicoes" },
   ] },
   { titulo: "Configuração", abas: [

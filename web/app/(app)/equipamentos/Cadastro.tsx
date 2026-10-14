@@ -98,6 +98,8 @@ function Lista({ c, params, est, cadastra }: { c: Contexto; params: Params; est:
         {!pg.itens.length && <p className="px-1 text-[13px] text-texto-3">Nenhum equipamento com esse filtro.</p>}
         {pg.itens.map(([tag, v]) => {
           const comps = materiaisDe(v);
+          // item criado só pela Gestão de MRO (peças vinculadas): o nome continua o do SAP
+          const nome = String(v.nome ?? "") || (c.b.equipamentos.dados?.find((x) => x.equipamento === tag)?.denominacao ?? "");
           const pecas = comps.map((m) => situacaoPeca(m, est, c.cad.materiais));
           const alerta = pecasEmAlerta(pecas);
           const crit = String(v.criticidade ?? "");
@@ -111,7 +113,7 @@ function Lista({ c, params, est, cadastra }: { c: Contexto; params: Params; est:
             <details key={tag} className="group rounded-cartao border border-borda bg-superficie open:border-borda-forte">
               <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2.5 gap-y-1.5 px-4 py-3.5 hover:bg-superficie-2 [&::-webkit-details-marker]:hidden">
                 <span className="font-mono text-[13px] font-semibold text-alp-azul">{tag}</span>
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{String(v.nome ?? "")}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{nome}</span>
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Selo cor="azul">{String(v.categoria || "—")}</Selo>
                   <Selo cor={SELO_CRIT[crit] ?? "cinza"}>{crit || "sem criticidade"}</Selo>

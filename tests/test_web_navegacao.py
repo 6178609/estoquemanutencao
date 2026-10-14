@@ -20,5 +20,7 @@ def test_mesmas_regras_de_acesso():
         auth.PAGINAS_LIVRES
     assert dict(re.findall(r'(\w+): "([^"]+)"', re.search(r"PAGINAS_PARCIAIS[^=]*= \{(.*?)\}", ts).group(1))) == \
         auth.PAGINAS_PARCIAIS
+    assert set(re.findall(r'"([a-z_]+)"', re.search(r"PAGINAS_TERCEIRO = new Set\(\[(.*?)\]\)", ts).group(1))) == \
+        auth.PAGINAS_TERCEIRO
     assert re.search(r"ITERACOES = 260_000", (WEB / "auth" / "senha.ts").read_text(encoding="utf-8"))
     assert auth.ITERACOES == 260_000
