@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { infoCad, inventarioAtivos, materiaisDe } from "@/app/(app)/equipamentos/dados";
 import { baseMateriais, camposDosAtivos, listasDosAtivos } from "@/app/(app)/mro/dados";
-import { ansi, csvInclusao } from "@/app/(app)/mro/ia06";
+import { ansi, csvInclusao, identificarAtivo } from "@/app/(app)/mro/ia06";
 import * as M from "@/app/(app)/mro/logica";
 import { podeEditar, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
@@ -13,8 +13,8 @@ export const maxDuration = 60;
 
 /**
  * Planilhas da Gestão de MRO, com os filtros da tela: ?planilha=ativos (ativo × peça), ?planilha=materiais (onde é
- * usado) ou ?planilha=ia06 (carga de inclusão nas listas de tarefas de todos os ativos filtrados: operação 0010,
- * quantidade 1 e EXECUTAR em branco, para revisar e marcar com X antes de rodar o script).
+ * usado) ou ?planilha=ia06 (carga de inclusão nas listas de tarefas de todos os ativos filtrados, pronta para o script:
+ * operação 0010, quantidade 1, EXECUTAR = X, cada material uma vez por lista e a coluna ATIVOS com os ativos de cada peça).
  */
 export async function GET(req: NextRequest) {
   const u = await autorizar("mro");
@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
     const listas = await listasDosAtivos(c);
     const itens = M.filtrarAtivos(t, M.lerFiltroAtivos(params)).flatMap((a) => (listas.get(a.codigo) ?? []).flatMap((l) => a.pecas.map((p) => ({
       grupo: l.grupo, numerador: l.numerador, operacao: "0010", material: p.codigo, quantidade: 1, um: p.um, texto: p.descricao,
-      equipamento: M.rotuloAtivo(a), usoLista: l.equipamentos,
+      equipamento: identificarAtivo(a), usoLista: l.equipamentos,
     }))));
-    return new NextResponse(ansi(csvInclusao(itens, false)) as BodyInit, {
+    return new NextResponse(ansi(csvInclusao(itens)) as BodyInit, {
       headers: { "Content-Type": "text/csv; charset=windows-1252", "Content-Disposition": 'attachment; filename="SAP_IA06_INCLUIR_materiais.csv"',
         "Cache-Control": "no-store" },
     });

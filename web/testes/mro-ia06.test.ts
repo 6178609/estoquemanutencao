@@ -35,14 +35,31 @@ describe("listas de tarefas de cada equipamento", () => {
 describe("carga e script", () => {
   const item: I.ItemInclusao = { grupo: "GRP_A", numerador: "1", operacao: "10", material: "100200", quantidade: 1.5, um: "PC",
     texto: "ROLAMENTO; 6205 ÇÃO", equipamento: "LINHA-1" };
-  it("CSV no leiaute do script: X, operação com 4 dígitos, vírgula decimal, sem ; no texto, sem repetir", () => {
+  it("CSV no leiaute do script: X, operação com 4 dígitos, vírgula decimal, sem ; no texto, ativos identificados", () => {
     const s = I.csvInclusao([item, item, { ...item, material: "" }]);
     const l = s.trim().split("\r\n");
-    expect(l[0]).toBe("EXECUTAR;GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;EQUIPAMENTO;EQUIPAMENTOS_DA_LISTA");
+    expect(l[0]).toBe(I.CABECALHO_CSV);
+    expect(l[0]).toBe("EXECUTAR;GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;ATIVOS;QTD_ATIVOS;EQUIPAMENTOS_DA_LISTA");
     expect(l).toHaveLength(2);
-    expect(l[1]).toBe("X;GRP_A;1;0010;100200;1,5;PC;ROLAMENTO 6205 ÇÃO;LINHA-1;");
+    expect(l[1]).toBe("X;GRP_A;1;0010;100200;1,5;PC;ROLAMENTO 6205 ÇÃO;LINHA-1;1;");
     expect(I.csvInclusao([{ ...item, usoLista: 3 }]).split("\r\n")[1].endsWith(";3")).toBe(true);
     expect(I.csvInclusao([item], false).split("\r\n")[1].startsWith(";GRP_A;")).toBe(true);
+  });
+  it("nunca repete o material na mesma lista: outra operação, zeros à esquerda ou outro ativo viram uma linha só", () => {
+    const l = I.csvInclusao([
+      { ...item, equipamento: "EXT-01 (41001404) - PRENSA 01" },
+      { ...item, operacao: "20", material: "000100200", equipamento: "EXT-02 (41001405) - PRENSA 02" },
+      { ...item, equipamento: "EXT-01 (41001404) - PRENSA 01" },
+      { ...item, numerador: "2", equipamento: "EXT-03" }, // outra lista: entra
+    ]).trim().split("\r\n").slice(1);
+    expect(l).toHaveLength(2);
+    expect(l[0].split(";")).toEqual(["X", "GRP_A", "1", "0010", "100200", "1,5", "PC", "ROLAMENTO 6205 ÇÃO",
+      "EXT-01 (41001404) - PRENSA 01 | EXT-02 (41001405) - PRENSA 02", "2", ""]);
+    expect(l[1].split(";").slice(1, 3)).toEqual(["GRP_A", "2"]);
+  });
+  it("identificação do ativo: campo de ordenação, equipamento e nome", () => {
+    expect(I.identificarAtivo({ codigo: "41001404", campo: "EXT-01", nome: "PRENSA; 01" })).toBe("EXT-01 (41001404) - PRENSA 01");
+    expect(I.identificarAtivo({ codigo: "41001404", campo: "41001404" })).toBe("41001404");
   });
   it("ANSI: acento em Latin-1, fora dele vira ?", () => {
     expect([...I.ansi("Ç€a")]).toEqual([0xc7, 63, 97]);
@@ -67,5 +84,11 @@ describe("carga e script", () => {
     expect(t).toContain('Const ARQ_CSV = "' + I.ARQ_CSV + '"');
     expect(t).not.toMatch(/COL_UM|Loop While pos <= maxPos \+ vis/); // não escreve unidade; varredura não passa do fim
     expect(conta(/If pos > maxPos Then pos = maxPos/g)).toBe(4);
+    // nunca repete: chave por lista + material (sem operação) nos feitos e no próprio CSV; ativos nos logs
+    expect(t).toContain("Function ChaveMaterial(campos)");
+    expect(t).toContain("ElseIf vistos.Exists(chMat) Then");
+    expect(t).toContain("feitosMat.Exists(chMat)");
+    expect(t).toMatch(/AnotaFeito campos, "ja estava"/);
+    expect(t).toContain('"GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;MOTIVO;DATA;ATIVOS"');
   });
 });

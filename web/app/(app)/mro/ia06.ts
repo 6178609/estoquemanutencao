@@ -11,6 +11,7 @@ import { acharColuna, texto } from "@/lib/dados/texto";
 /** equipamentos: quantos equipamentos têm plano nesta lista (lista geral compartilhada = mais de 1). */
 export interface ListaTarefas { grupo: string; numerador: string; planos: string[]; texto: string; equipamentos: number }
 export interface ItemInclusao {
+  /** equipamento: o ativo que pediu a peça, já identificado (ver identificarAtivo) */
   grupo: string; numerador: string; operacao: string; material: string; quantidade: number; um: string; texto: string; equipamento: string;
   /** quantos equipamentos usam a lista (informativo na planilha) */
   usoLista?: number;
@@ -65,23 +66,41 @@ export function operacao4(op: string): string {
   return /^\d{1,3}$/.test(o) ? o.padStart(4, "0") : o;
 }
 
-const limpo = (s: unknown, n = 60) => String(s ?? "").replace(/[;\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+const limpo = (s: unknown, n = 60) => String(s ?? "").replace(/[;|\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
 const qtdBr = (q: number) => String(Math.round(q * 1000) / 1000).replace(".", ",");
+/** Material sem zeros à esquerda e em maiúsculas: "000123" e "123" são o mesmo material no SAP. */
+const chaveMaterial = (m: string) => String(m ?? "").trim().toUpperCase().replace(/^0+(?=.)/, "");
+
+/** Como o ativo aparece na carga e nos logs do script: campo de ordenação (equipamento) e o nome. */
+export function identificarAtivo(a: { codigo: string; campo?: string; nome?: string }): string {
+  const campo = (a.campo ?? "").trim(), cod = (a.codigo ?? "").trim();
+  const id = campo && campo.toUpperCase() !== cod.toUpperCase() ? `${campo} (${cod})` : cod || campo;
+  return limpo([id, limpo(a.nome, 40)].filter(Boolean).join(" - "), 90);
+}
+
+export const CABECALHO_CSV = "EXECUTAR;GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;ATIVOS;QTD_ATIVOS;EQUIPAMENTOS_DA_LISTA";
 
 /**
- * CSV da carga do script (o mesmo leiaute do script de remoção: EXECUTAR = X processa a linha).
- * `marcar` = false deixa EXECUTAR em branco (planilha geral para revisar antes de rodar).
+ * CSV da carga do script (o mesmo leiaute do script de remoção nas 8 primeiras colunas: EXECUTAR = X processa a linha).
+ * Um material entra UMA vez em cada lista de tarefas (grupo + contador), nunca repetido — nem em outra operação, nem
+ * com zeros à esquerda diferentes. A coluna ATIVOS diz para quais ativos (campo de ordenação, equipamento e nome) a
+ * peça está sendo incluída: numa lista geral compartilhada, todos eles numa linha só.
+ * `marcar` = false deixa EXECUTAR em branco.
  */
 export function csvInclusao(itens: ItemInclusao[], marcar = true): string {
-  const linhas = ["EXECUTAR;GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;EQUIPAMENTO;EQUIPAMENTOS_DA_LISTA"];
-  const vistos = new Set<string>();
+  const porChave = new Map<string, { i: ItemInclusao; op: string; ativos: string[] }>();
   for (const i of itens) {
-    const op = operacao4(i.operacao), k = `${i.grupo}|${i.numerador}|${op}|${i.material}`;
-    if (!i.grupo || !op || !i.material || vistos.has(k)) continue;
-    vistos.add(k);
-    linhas.push([marcar ? "X" : "", limpo(i.grupo, 20), limpo(i.numerador, 4), op, limpo(i.material, 40), qtdBr(i.quantidade > 0 ? i.quantidade : 1),
-      limpo(i.um, 6), limpo(i.texto), limpo(i.equipamento, 40), i.usoLista ?? ""].join(";"));
+    const op = operacao4(i.operacao), mat = chaveMaterial(i.material);
+    if (!i.grupo || !op || !mat) continue;
+    const k = `${i.grupo.trim().toUpperCase()}|${String(i.numerador ?? "").trim()}|${mat}`;
+    const x = porChave.get(k) ?? porChave.set(k, { i, op, ativos: [] }).get(k)!;
+    const eq = limpo(i.equipamento, 90);
+    if (eq && !x.ativos.includes(eq)) x.ativos.push(eq);
   }
+  const linhas = [CABECALHO_CSV];
+  for (const { i, op, ativos } of porChave.values())
+    linhas.push([marcar ? "X" : "", limpo(i.grupo, 20), limpo(i.numerador, 4), op, limpo(i.material, 40), qtdBr(i.quantidade > 0 ? i.quantidade : 1),
+      limpo(i.um, 6), limpo(i.texto), ativos.join(" | ").slice(0, 900), ativos.length, i.usoLista ?? ""].join(";"));
   return linhas.join("\r\n") + "\r\n";
 }
 
@@ -114,6 +133,10 @@ const VBS = String.raw`' =======================================================
 '    informativa: o SAP propoe a unidade basica do material.
 '  - Inclui o material na primeira linha livre dos componentes da operacao (categoria L).
 '  - Material que ja esta na operacao conta como feito (nada e alterado).
+'  - Um material entra UMA vez em cada lista (grupo + contador): linha repetida no CSV
+'    (mesmo material na mesma lista, em qualquer operacao) e o que ja foi incluido antes sao pulados.
+'  - A coluna ATIVOS diz para quais ativos a peca foi incluida: vai para o log, para
+'    SAP_IA06_INCLUIR_incluidos.csv e para os pendentes.
 '  - Confere na tela se o material entrou ANTES de gravar. Se nao entrou, a lista nao e gravada.
 '  - O que nao der certo vai para SAP_IA06_INCLUIR_pendentes.csv, com o motivo, e o script segue.
 '  MODO_TESTE = True  -> inclui na tela mas NAO grava. MODO_TESTE = False -> grava.
@@ -143,7 +166,7 @@ Const MAX_TELA_RUIM = 4                   ' telas nao reconhecidas seguidas ate 
 ' -----------------------------------------------------------------------------------
 
 Dim fso, pasta, session, cacheCol
-Dim feitos, pendDic, total, jaEstavam, erros, nPend, parar, telaRuim
+Dim feitos, feitosMat, pendDic, total, jaEstavam, erros, nPend, parar, telaRuim, repetidos
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set cacheCol = CreateObject("Scripting.Dictionary")
 pasta = ""
@@ -181,12 +204,14 @@ Sub Registra(msg)
     On Error GoTo 0
 End Sub
 
-Sub AnotaFeito(chaveItem, origem)
-    Dim f
+Sub AnotaFeito(campos, origem)
+    Dim f, chaveItem
+    chaveItem = ChaveItem(campos)
     feitos(chaveItem) = True
+    feitosMat(ChaveMaterial(campos)) = True
     On Error Resume Next
     Set f = fso.OpenTextFile(pasta & ARQ_FEITOS, 8, True)
-    f.WriteLine chaveItem & ";" & Now & ";" & origem
+    f.WriteLine chaveItem & ";" & Now & ";" & origem & ";" & Ativos(campos)
     f.Close
     Err.Clear
     On Error GoTo 0
@@ -201,12 +226,12 @@ Sub Pendente(campos, motivo)
     m = SoAnsi(Trim(Replace(Replace(Replace(motivo, ";", ","), vbCr, " "), vbLf, " ")))
     txt = ""
     If UBound(campos) >= 7 Then txt = campos(7)
-    Registra "PEND | lista " & campos(1) & "/" & campos(2) & " op " & campos(3) & " | material " & campos(4) & " | " & m
+    Registra "PEND | lista " & campos(1) & "/" & campos(2) & " op " & campos(3) & " | material " & campos(4) & " | " & m & " | ativos " & Ativos(campos)
     On Error Resume Next
     novo = Not fso.FileExists(pasta & ARQ_PEND)
     Set f = fso.OpenTextFile(pasta & ARQ_PEND, 8, True)
-    If novo Then f.WriteLine "GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;MOTIVO;DATA"
-    f.WriteLine campos(1) & ";" & campos(2) & ";" & campos(3) & ";" & campos(4) & ";" & campos(5) & ";" & campos(6) & ";" & txt & ";" & m & ";" & Now
+    If novo Then f.WriteLine "GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDADE;UM;TEXTO;MOTIVO;DATA;ATIVOS"
+    f.WriteLine campos(1) & ";" & campos(2) & ";" & campos(3) & ";" & campos(4) & ";" & campos(5) & ";" & campos(6) & ";" & txt & ";" & m & ";" & Now & ";" & Ativos(campos)
     f.Close
     Err.Clear
     On Error GoTo 0
@@ -625,6 +650,17 @@ Function ChaveItem(campos)
     ChaveItem = campos(1) & ";" & campos(2) & ";" & campos(3) & ";" & campos(4)
 End Function
 
+' Lista + material, sem a operacao e sem zeros a esquerda: o mesmo material nunca entra duas vezes na lista
+Function ChaveMaterial(campos)
+    ChaveMaterial = UCase(Trim(campos(1))) & ";" & Trim(campos(2)) & ";" & UCase(SemZeros(campos(4)))
+End Function
+
+' Ativos para os quais a peca e incluida (coluna ATIVOS do CSV)
+Function Ativos(campos)
+    Ativos = ""
+    If UBound(campos) >= 8 Then Ativos = Trim(campos(8))
+End Function
+
 ' Codigo sem zeros a esquerda (o SAP pode mostrar o material com ou sem eles)
 Function SemZeros(s)
     Dim t
@@ -856,13 +892,13 @@ Sub ProcessaLista(grupo, contador, itens)
                     End If
                     On Error GoTo 0
                     If res = "" Then
-                        Registra "INCL | lista " & campos(1) & " op " & campos(3) & " | material " & campos(4) & " | qtd " & campos(5)
+                        Registra "INCL | lista " & campos(1) & " op " & campos(3) & " | material " & campos(4) & " | qtd " & campos(5) & " | ativos " & Ativos(campos)
                         incluidos = incluidos + 1
                         novos = novos & it & vbLf
                         telaRuim = 0
                     ElseIf res = "JA" Then
-                        Registra "JA   | lista " & campos(1) & " op " & campos(3) & " | material " & campos(4) & " ja estava na operacao"
-                        If Not MODO_TESTE Then AnotaFeito chItem, "ja estava"
+                        Registra "JA   | lista " & campos(1) & " op " & campos(3) & " | material " & campos(4) & " ja estava na operacao | ativos " & Ativos(campos)
+                        If Not MODO_TESTE Then AnotaFeito campos, "ja estava"
                         jaEstavam = jaEstavam + 1
                         telaRuim = 0
                     Else
@@ -899,7 +935,7 @@ Sub ProcessaLista(grupo, contador, itens)
             If falha = "" Then
                 Registra "GRAV | lista " & grupo & "/" & contador & " | " & incluidos & " incluidos | " & BarraStatus()
                 For Each p In Split(novos, vbLf)
-                    If p <> "" Then AnotaFeito ChaveItem(Split(p, ";")), "incluido"
+                    If p <> "" Then AnotaFeito Split(p, ";"), "incluido"
                 Next
                 total = total + incluidos
             Else
@@ -915,23 +951,28 @@ Sub ProcessaLista(grupo, contador, itens)
 End Sub
 
 Sub Principal()
-    Dim arq, linha, campos, dados, chItem, jaFeitos, chave, partes, itens
+    Dim arq, linha, campos, dados, chItem, jaFeitos, chave, partes, itens, vistos, chMat
     If Not fso.FileExists(pasta & ARQ_CSV) Then
         MsgBox "Arquivo nao encontrado: " & pasta & ARQ_CSV & vbCrLf & "Salve o CSV na mesma pasta deste script.", vbCritical
         Exit Sub
     End If
     Set feitos = CreateObject("Scripting.Dictionary")
     Set pendDic = CreateObject("Scripting.Dictionary")
+    Set feitosMat = CreateObject("Scripting.Dictionary")
     If fso.FileExists(pasta & ARQ_FEITOS) Then
         Set arq = fso.OpenTextFile(pasta & ARQ_FEITOS, 1)
         Do Until arq.AtEndOfStream
             campos = Split(arq.ReadLine, ";")
-            If UBound(campos) >= 3 Then feitos(campos(0) & ";" & campos(1) & ";" & Op4(campos(2)) & ";" & campos(3)) = True
+            If UBound(campos) >= 3 Then
+                feitos(campos(0) & ";" & campos(1) & ";" & Op4(campos(2)) & ";" & campos(3)) = True
+                feitosMat(UCase(Trim(campos(0))) & ";" & Trim(campos(1)) & ";" & UCase(SemZeros(campos(3)))) = True
+            End If
         Loop
         arq.Close
     End If
     Set dados = CreateObject("Scripting.Dictionary")
-    jaFeitos = 0
+    Set vistos = CreateObject("Scripting.Dictionary")
+    jaFeitos = 0: repetidos = 0
     Set arq = fso.OpenTextFile(pasta & ARQ_CSV, 1)
     arq.ReadLine
     Do Until arq.AtEndOfStream
@@ -943,9 +984,14 @@ Sub Principal()
             linha = Join(campos, ";")
             If UCase(Trim(campos(0))) = "X" Then
                 chItem = ChaveItem(campos)
-                If feitos.Exists(chItem) Then
+                chMat = ChaveMaterial(campos)
+                If feitos.Exists(chItem) Or feitosMat.Exists(chMat) Then
                     jaFeitos = jaFeitos + 1
+                ElseIf vistos.Exists(chMat) Then
+                    ' o mesmo material na mesma lista outra vez (outra operacao ou outra linha): nunca inclui repetido
+                    repetidos = repetidos + 1
                 Else
+                    vistos.Add chMat, True
                     chave = campos(1) & "|" & campos(2)
                     If Not dados.Exists(chave) Then dados.Add chave, ""
                     dados(chave) = dados(chave) & linha & vbLf
@@ -955,10 +1001,12 @@ Sub Principal()
     Loop
     arq.Close
     If dados.Count = 0 Then
-        MsgBox "Nada a fazer: nenhuma linha pendente com EXECUTAR = X." & vbCrLf & "Ja incluidos antes: " & jaFeitos, vbInformation
+        MsgBox "Nada a fazer: nenhuma linha pendente com EXECUTAR = X." & vbCrLf & "Ja incluidos antes: " & jaFeitos & vbCrLf & _
+               "Repetidos no CSV (pulados): " & repetidos, vbInformation
         Exit Sub
     End If
     If MsgBox(dados.Count & " listas com materiais a INCLUIR." & vbCrLf & "Ja incluidos antes (pulados): " & jaFeitos & vbCrLf & _
+              "Repetidos no CSV (pulados): " & repetidos & vbCrLf & _
               "Modo: " & IIf(MODO_TESTE, "TESTE (nao grava)", "GRAVACAO") & vbCrLf & "Continuar?", vbYesNo + vbQuestion) = vbNo Then Exit Sub
     Set session = ConectaSAP()
     If session Is Nothing Then Exit Sub
@@ -974,7 +1022,7 @@ Sub Principal()
         ProcessaLista partes(0), partes(1), itens
         If parar Then Exit For
     Next
-    Registra "===== FIM | incluidos e gravados: " & total & " | ja estavam: " & jaEstavam & " | pendentes: " & nPend & " | erros: " & erros & IIf(parar, " | INTERROMPIDO", "") & " ====="
+    Registra "===== FIM | incluidos e gravados: " & total & " | ja estavam: " & jaEstavam & " | pendentes: " & nPend & " | repetidos pulados: " & repetidos & " | erros: " & erros & IIf(parar, " | INTERROMPIDO", "") & " ====="
     MsgBox IIf(parar, "Interrompido: tela do SAP nao reconhecida.", "Concluido.") & vbCrLf & _
            IIf(MODO_TESTE, "Modo teste: nada foi gravado.", "Incluidos: " & total) & vbCrLf & "Ja estavam: " & jaEstavam & vbCrLf & _
            "Pendentes: " & nPend & vbCrLf & "Log: " & ARQ_LOG & " em " & pasta, vbInformation
