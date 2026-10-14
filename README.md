@@ -248,6 +248,12 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
     busca na MB52 e no catálogo Sysmat e vincula ou desvincula na hora;
   - **Por material**: onde cada peça é usada, quantos ativos de criticidade Alta dependem dela, código Sysmat,
     fabricante/referência e valor em estoque;
+  - **Incluir na lista de tarefas do SAP (IA06)**: na ficha do ativo, editor/administrador escolhe as listas de tarefas
+    (achadas pelos planos do equipamento: IW38 × IP19 "Grupo listas tarefas"/"Numerador de grupos", ou digitadas), a
+    operação, as peças e a quantidade e baixa `SAP_IA06_INCLUIR_materiais.csv` + `SAP_IA06_INCLUIR_materiais.vbs`
+    (mesmo esqueleto do script de remoção; sai em modo teste por padrão). Salvar os dois na mesma pasta e rodar com o
+    SAP aberto. Lista geral usada por vários equipamentos vem desmarcada. Há também a carga geral dos ativos filtrados
+    (EXECUTAR em branco, para revisar);
   - o vínculo é o mesmo campo `materiais` do cadastro de equipamentos (aba Equipamentos, Almoxarifado e peças críticas
     do Painel enxergam a mesma coisa); planilhas ativo × peça e por material.
 - **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.

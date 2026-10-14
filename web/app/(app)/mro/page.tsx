@@ -15,8 +15,10 @@ import { hrefCom, type Params } from "../equipamentos/_ui/url";
 import { infoCad, inventarioAtivos, materiaisDe } from "../equipamentos/dados";
 import { paginar, param, SEM_CLASSE, V_CADASTRO } from "../equipamentos/logica";
 import { SeloPeca } from "../equipamentos/SeloPeca";
-import { baseMateriais, camposDosAtivos } from "./dados";
+import { baseMateriais, camposDosAtivos, listasDosAtivos } from "./dados";
 import * as M from "./logica";
+import { InclusaoIa06 } from "./InclusaoIa06";
+import type { ListaTarefas } from "./ia06";
 import { PecasAtivo } from "./PecasAtivo";
 
 export const metadata: Metadata = { title: "Gestão de MRO" };
@@ -78,7 +80,8 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
           {!edita && <Aviso tom="azul">Só editor ou administrador da equipe de manutenção vincula e desvincula peças. Aqui você consulta.</Aviso>}
           <div id="abas" className="scroll-mt-24 space-y-4">
             <AbasParam params={params} param="visao" abas={ABAS} atual={visao} ancora="abas" />
-            {visao === M.V_ATIVOS ? <PorAtivo t={t} params={params} edita={edita} /> : <PorMaterial t={t} params={params} />}
+            {visao === M.V_ATIVOS ? <PorAtivo t={t} params={params} edita={edita} listas={edita ? await listasDosAtivos(c) : null} />
+              : <PorMaterial t={t} params={params} />}
           </div>
         </div>
       )}
@@ -103,7 +106,7 @@ const COLS_ATIVOS = [
   { rotulo: "Situação MRO" },
 ];
 
-function PorAtivo({ t, params, edita }: { t: M.AtivoMro[]; params: Params; edita: boolean }) {
+function PorAtivo({ t, params, edita, listas }: { t: M.AtivoMro[]; params: Params; edita: boolean; listas: Map<string, ListaTarefas[]> | null }) {
   const f = M.lerFiltroAtivos(params);
   const vis = M.filtrarAtivos(t, f);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
@@ -132,6 +135,10 @@ function PorAtivo({ t, params, edita }: { t: M.AtivoMro[]; params: Params; edita
             <Link scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <PecasAtivo key={a.codigo} tag={a.codigo} pecas={a.pecas} edita={edita} />
+          {edita && listas && a.pecas.length > 0 && (
+            <InclusaoIa06 key={`ia06-${a.codigo}-${a.pecas.length}`} equipamento={a.codigo} rotulo={M.rotuloAtivo(a)} listas={listas.get(a.codigo) ?? []}
+              pecas={a.pecas.map((p) => ({ codigo: p.codigo, descricao: p.descricao, um: p.um }))} />
+          )}
         </Cartao>
       )}
       <TabelaT colunas={COLS_ATIVOS} vazio="Nenhum ativo com estes filtros."
@@ -141,6 +148,13 @@ function PorAtivo({ t, params, edita }: { t: M.AtivoMro[]; params: Params; edita
             <Selo key="m" cor={SELO_MRO[x.mro]}>{x.mro}</Selo>],
         }))} />
       <Paginacao params={params} {...pg} mostrados={pg.itens.length} rotulo="ativo(s)" baixar={`/api/mro${hrefCom(params, { planilha: "ativos", pag: null, at: null })}`} />
+      {edita && (
+        <p className="text-[12.5px] text-texto-3">
+          Carga para o SAP de todos os ativos filtrados (listas de tarefas pelos planos, operação 0010, quantidade 1, EXECUTAR em branco para
+          revisar): <a className="font-medium text-alp-azul underline" download href={`/api/mro${hrefCom(params, { planilha: "ia06", pag: null, at: null })}`}>baixar
+          SAP_IA06_INCLUIR_materiais.csv</a>. O script vem da ficha de qualquer ativo (botão “Baixar script VBS”).
+        </p>
+      )}
     </div>
   );
 }
