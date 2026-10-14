@@ -5,6 +5,7 @@ import { camposDeOrdenacao } from "@/lib/wcm/camposOrdenacao";
 import type { Contexto } from "@/lib/wcm/contexto";
 
 import { guardar } from "../saude/calculo";
+import { listasPorEquipamento, listasPorPlano, type ListaTarefas } from "./ia06";
 import { camposPorEquipamento, indexarMateriais, type BaseMateriais } from "./logica";
 
 /** MB52 + catálogo Sysmat indexados por código (refeito só quando um dos dois exports muda). */
@@ -19,4 +20,11 @@ export async function camposDosAtivos(c: Contexto): Promise<Map<string, string>>
   const ordens = c.b.ordens.dados ?? [];
   const porOrdem = await camposDeOrdenacao(c.b.ordens.dados);
   return guardar(`mro-campos|${c.b.ordens.atualizado}:${ordens.length}:${porOrdem.size}`, () => camposPorEquipamento(ordens, porOrdem));
+}
+
+/** Listas de tarefas (grupo + numerador) de cada equipamento: planos das ordens do IW38 × IP19. */
+export async function listasDosAtivos(c: Contexto): Promise<Map<string, ListaTarefas[]>> {
+  const ordens = c.b.ordens.dados ?? [], ip19 = c.b.cruas.ip19;
+  return guardar(`mro-listas|${c.b.ordens.atualizado}:${ordens.length}|${ip19.atualizado}:${ip19.dados?.length ?? -1}`,
+    () => listasPorEquipamento(ordens, listasPorPlano(ip19.dados)));
 }
