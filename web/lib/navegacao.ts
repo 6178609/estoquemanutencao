@@ -16,6 +16,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   ] },
   { titulo: "Confiabilidade", abas: [
     { id: "confiabilidade", titulo: "Quebras, MTBF e MTTR", icone: "ShieldCheck", rota: "/confiabilidade" },
+    { id: "confiabilidade_tipos", titulo: "MTBF e MTTR por tipo de ordem", icone: "Timer", rota: "/confiabilidade_tipos" },
     { id: "saude", titulo: "Saúde dos ativos", icone: "HeartPulse", rota: "/saude" },
     { id: "preditiva", titulo: "Preditiva (SEMEQ)", icone: "Radar", rota: "/preditiva" },
     { id: "equipamentos", titulo: "Equipamentos", icone: "Factory", rota: "/equipamentos" },
