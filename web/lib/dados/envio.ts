@@ -53,6 +53,7 @@ async function gravar(caminho: string, bytes: Uint8Array, mensagem: string) {
 /** Junta a entrada ao manifesto lido agora e grava condicionado à versão (o sincronizador pode gravar no meio). */
 async function registrar(caminho: string, entrada: InfoBase): Promise<InfoBase | undefined> {
   const f = fonte()!;
+  await f.versoes(true); // a versão do manifesto tem de ser a de agora (senão a 1ª gravação sempre conflita)
   for (let i = 0; i < 5; i++) {
     const lido = await f.ler(MANIFESTO);
     const man: Record<string, InfoBase> = lido ? JSON.parse(new TextDecoder().decode(lido.bytes)) : {};
@@ -83,8 +84,13 @@ export async function receberParte(p: Parte): Promise<{ concluido: boolean }> {
   // última parte: confere que todas chegaram e só então o manifesto passa a valer
   const partes = unico ? undefined : Array.from({ length: p.total }, (_, i) => caminhoParte(p.tipo, p.envio, i + 1));
   if (partes) {
-    const versoes = await f.versoes(true);
-    const faltam = partes.filter((c) => !versoes.has(c));
+    // logo depois de gravar, a lista de arquivos do GitHub pode vir sem a última parte por alguns segundos
+    let faltam = partes;
+    for (let i = 0; i < 4 && faltam.length; i++) {
+      if (i) await new Promise((ok) => setTimeout(ok, 1500 * i));
+      const versoes = await f.versoes(true);
+      faltam = partes.filter((c) => !versoes.has(c));
+    }
     if (faltam.length) throw new FonteErro(`faltam ${faltam.length} parte(s) deste envio; envie o arquivo de novo`);
   }
   const anterior = await registrar(destino, {

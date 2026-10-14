@@ -27,16 +27,30 @@ function novoEnvio() {
   return Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 16);
 }
 
-/** Lê os arquivos num Web Worker (fallback: na própria página) e devolve as bases já em parquet. */
+const LIMITE_LEITURA_MS = 3 * 60_000; // um export grande leva segundos; minutos = travou
+const LIMITE_ENVIO_MS = 90_000;        // por parte (o servidor grava no GitHub)
+
+/**
+ * Lê os arquivos num Web Worker e devolve as bases já em parquet. Se o worker não abrir ou cair, lê na própria
+ * página; nada fica "lendo…" para sempre: passou do limite, o arquivo aparece com o erro.
+ */
 function useLeitor() {
   const worker = useRef<Worker | null>(null);
-  const pendentes = useRef(new Map<number, (r: Processado) => void>());
+  const pendentes = useRef(new Map<number, { ok: (r: Processado) => void; falha: (e: Error) => void }>());
   useEffect(() => {
     try {
       const w = new Worker(new URL("../../../lib/leitura/trabalhador.ts", import.meta.url), { type: "module" });
       w.onmessage = (ev: MessageEvent<{ id: number; r: Processado }>) => {
-        pendentes.current.get(ev.data.id)?.(ev.data.r);
+        pendentes.current.get(ev.data.id)?.ok(ev.data.r);
         pendentes.current.delete(ev.data.id);
+      };
+      // o worker caiu (memória, script que não carregou…): os pendentes viram erro e os próximos são lidos na página
+      w.onerror = (ev) => {
+        ev.preventDefault();
+        for (const p of pendentes.current.values()) p.falha(new Error("a leitura em segundo plano parou; tente anexar de novo"));
+        pendentes.current.clear();
+        w.terminate();
+        worker.current = null;
       };
       worker.current = w;
     } catch {
@@ -46,15 +60,41 @@ function useLeitor() {
   }, []);
   return useCallback(async (id: number, arquivo: File): Promise<Processado> => {
     const buf = await arquivo.arrayBuffer();
-    if (worker.current) {
-      return new Promise((ok) => {
-        pendentes.current.set(id, ok);
-        worker.current!.postMessage({ id, nome: arquivo.name, buf }, [buf]);
+    const w = worker.current;
+    if (w) {
+      return new Promise((ok, falha) => {
+        const t = setTimeout(() => {
+          pendentes.current.delete(id);
+          falha(new Error("a leitura passou de 3 minutos; confira se o arquivo abre no Excel e anexe de novo"));
+        }, LIMITE_LEITURA_MS);
+        pendentes.current.set(id, { ok: (r) => { clearTimeout(t); ok(r); }, falha: (e) => { clearTimeout(t); falha(e); } });
+        w.postMessage({ id, nome: arquivo.name, buf }, [buf]);
       });
     }
     const { processar } = await import("@/lib/leitura/processar");
     return processar(arquivo.name, new Uint8Array(buf));
   }, []);
+}
+
+/** POST de uma parte com tempo limite e uma nova tentativa quando a rede ou o servidor falham no meio. */
+async function enviarParte(form: FormData): Promise<void> {
+  let ultimo = "";
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), LIMITE_ENVIO_MS);
+    try {
+      const r = await fetch("/api/dados/enviar", { method: "POST", body: form, signal: ctl.signal });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) return;
+      ultimo = j.erro || `erro ${r.status} do servidor`;
+      if (r.status < 500 && r.status !== 409) break; // sem permissão, pedido inválido: tentar de novo não adianta
+    } catch (e) {
+      ultimo = (e as Error).name === "AbortError" ? "o servidor não respondeu em 90 s" : "a conexão caiu durante o envio";
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  throw new Error(ultimo);
 }
 
 export function Envio({ demo }: { demo: boolean }) {
@@ -65,6 +105,7 @@ export function Envio({ demo }: { demo: boolean }) {
   const entrada = useRef<HTMLInputElement>(null);
   const ler = useLeitor();
   const router = useRouter();
+  const [pronto, setPronto] = useState(false);
 
   const atualizar = (id: number, f: (i: Item) => Item) => setItens((xs) => xs.map((x) => (x.id === id ? f(x) : x)));
 
@@ -76,6 +117,16 @@ export function Envio({ demo }: { demo: boolean }) {
         (e) => atualizar(id, (i) => ({ ...i, situacao: "erro", erro: String(e) })));
     }
   }, [ler]);
+
+  // a página só aceita arquivos depois de carregar o JavaScript; o que foi escolhido antes disso é lido agora
+  useEffect(() => {
+    setPronto(true);
+    const ja = entrada.current?.files;
+    if (ja?.length) {
+      anexar(ja);
+      if (entrada.current) entrada.current.value = "";
+    }
+  }, [anexar]);
 
   const prontas = itens.flatMap((i) => i.bases.filter((b) => !b.situacao || b.situacao === "erro").map((b) => ({ i, b })));
   // a mesma base em dois arquivos: vale o arquivo mais novo
@@ -106,9 +157,7 @@ export function Envio({ demo }: { demo: boolean }) {
           form.set("modificado", new Date(i.arquivo.lastModified || Date.now()).toISOString());
           form.set("linhas", String(b.linhas));
           form.set("dados", new Blob([b.partes[p] as BlobPart], { type: "application/octet-stream" }), "parte.parquet");
-          const r = await fetch("/api/dados/enviar", { method: "POST", body: form });
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(j.erro || `erro ${r.status}`);
+          await enviarParte(form);
           marcar({ progresso: (p + 1) / b.partes.length });
         }
         marcar({ situacao: "enviado" });
@@ -126,17 +175,18 @@ export function Envio({ demo }: { demo: boolean }) {
   return (
     <Cartao className="p-6">
       <div
+        aria-busy={!pronto}
         onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
         onDragLeave={() => setArrastando(false)}
         onDrop={(e) => { e.preventDefault(); setArrastando(false); anexar(e.dataTransfer.files); }}
         onClick={() => entrada.current?.click()}
         role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") entrada.current?.click(); }}
         className={clsx("pontos flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition",
-          arrastando ? "border-marca-500 bg-marca-500/5" : "border-borda-forte hover:border-marca-300")}>
+          arrastando ? "border-marca-500 bg-marca-500/5" : "border-borda-forte hover:border-marca-300", !pronto && "pointer-events-none opacity-60")}>
         <span className="grid size-12 place-items-center rounded-[12px] border border-borda bg-superficie text-marca-600">
           <UploadCloud className="size-5" strokeWidth={1.75} />
         </span>
-        <div className="font-display text-[16px] font-medium">Arraste os exports do SAP aqui ou clique para escolher</div>
+        <div className="font-display text-[16px] font-medium">{pronto ? "Arraste os exports do SAP aqui ou clique para escolher" : "Preparando a página…"}</div>
         <div className="max-w-xl text-[13px] text-texto-3">
           Vários de uma vez: .xlsx, o .xls/.htm do SAP GUI, .csv ou .txt. O arquivo é lido no seu navegador — só a tabela
           compactada vai para o repositório de dados.
