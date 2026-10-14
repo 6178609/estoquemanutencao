@@ -20,6 +20,10 @@
   e-mails ou nomes de pessoas. Testes usam só dados fictícios.
 - Nunca pedir credenciais, tokens ou chaves no chat; se aparecerem, não repetir e orientar a revogar.
 
+## Skills do projeto (`.claude/skills/`)
+- `prompt-master` (MIT, v1.8.2): escreve e corrige prompts para outras IAs (ChatGPT, Claude, Cursor,
+  Midjourney…). Só entra quando o pedido é escrever/ajustar um prompt.
+
 ## Estrutura
 - `web/`: site novo (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer.
 - `central/`, `paginas/`, `streamlit_app.py`: site antigo (Streamlit), mesmo cadastro de usuários e dados.
