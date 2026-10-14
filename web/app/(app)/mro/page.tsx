@@ -15,7 +15,7 @@ import { hrefCom, type Params } from "../equipamentos/_ui/url";
 import { infoCad, inventarioAtivos, materiaisDe } from "../equipamentos/dados";
 import { paginar, param, SEM_CLASSE, V_CADASTRO } from "../equipamentos/logica";
 import { SeloPeca } from "../equipamentos/SeloPeca";
-import { baseMateriais } from "./dados";
+import { baseMateriais, camposDosAtivos } from "./dados";
 import * as M from "./logica";
 import { PecasAtivo } from "./PecasAtivo";
 
@@ -43,8 +43,9 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
   const c = await contexto(params);
   // terceiros consultam; vincular é de editor/administrador da equipe
   const edita = veInteira(u, "mro") && podeEditar(u) && !soEstoque(u);
-  const [inv, bm] = await Promise.all([inventarioAtivos(c), baseMateriais()]);
-  const t = M.linhasPorAtivo(inv, (k) => materiaisDe(infoCad(c, k)), (m) => M.pecaMro(m, bm, c.cad.materiais));
+  const [inv, bm, campos] = await Promise.all([inventarioAtivos(c), baseMateriais(), camposDosAtivos(c)]);
+  const t = M.linhasPorAtivo(inv, (k) => materiaisDe(infoCad(c, k)), (m) => M.pecaMro(m, bm, c.cad.materiais),
+    (k) => campos.get(k) ?? "");
   const r = M.resumo(t);
   const visao = param(params, "visao") === M.V_MATERIAIS ? M.V_MATERIAIS : M.V_ATIVOS;
 
@@ -85,8 +86,19 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
   );
 }
 
+/** Equipamento pelo campo de ordenação do IW38, com o código do equipamento embaixo (sem campo: só o código). */
+function Equip({ a }: { a: { codigo: string; campo: string } }) {
+  if (!a.campo || a.campo === a.codigo) return <>{a.codigo}</>;
+  return (
+    <span className="inline-flex flex-col leading-tight">
+      <span>{a.campo}</span>
+      <span className="text-[11px] font-normal text-texto-3">{a.codigo}</span>
+    </span>
+  );
+}
+
 const COLS_ATIVOS = [
-  { rotulo: "Equipamento" }, { rotulo: "Nome", larga: true }, { rotulo: "Criticidade" }, { rotulo: "Área" }, { rotulo: "Local de instalação" },
+  { rotulo: "Equipamento", dica: "Campo de ordenação do IW38 (o código do equipamento embaixo)" }, { rotulo: "Nome", larga: true }, { rotulo: "Criticidade" }, { rotulo: "Área" }, { rotulo: "Local de instalação" },
   { rotulo: "Peças", dir: true, dica: "Materiais vinculados ao ativo" }, { rotulo: "Em falta", dir: true, dica: "Zeradas, abaixo do mínimo ou fora da base de material" },
   { rotulo: "Situação MRO" },
 ];
@@ -103,7 +115,7 @@ function PorAtivo({ t, params, edita }: { t: M.AtivoMro[]; params: Params; edita
   return (
     <div className="space-y-3">
       <FiltrosUrl zerar={["at"]} campos={[
-        { tipo: "busca", param: "q", placeholder: "Buscar equipamento, nome, local ou material vinculado…" },
+        { tipo: "busca", param: "q", placeholder: "Buscar campo de ordenação, equipamento, nome, local ou material…" },
         { tipo: "multi", param: "crit", rotulo: "Criticidade", opcoes: M.CRITS.map((cr) => ({ valor: cr, n: conta((x) => (x.criticidade || SEM_CLASSE) === cr) })) },
         { tipo: "multi", param: "area", rotulo: "Área", opcoes: areas.map((ar) => ({ valor: ar, n: conta((x) => x.area === ar) })) },
         { tipo: "pilulas", param: "smro", rotulo: "Situação MRO", opcoes: M.SITUACOES_MRO },
@@ -111,7 +123,7 @@ function PorAtivo({ t, params, edita }: { t: M.AtivoMro[]; params: Params; edita
       ]} />
       <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} ativo(s) · clique no código do equipamento para ver{edita ? " e vincular" : ""} as peças.</p>
       {a && (
-        <Cartao className="border-borda-forte" titulo={`${a.codigo} · ${a.nome || "—"}`}
+        <Cartao className="border-borda-forte" titulo={`${a.campo && a.campo !== a.codigo ? `${a.campo} · ${a.codigo}` : a.codigo} · ${a.nome || "—"}`}
           sub={<span className="inline-flex flex-wrap items-center gap-1.5">{a.situacao} · {crit(a.criticidade)} · {[a.area, a.local].filter(Boolean).join(" · ") || "sem local"}
             · <Selo cor={SELO_MRO[a.mro]}>{a.mro}</Selo></span>}
           acoes={<div className="flex flex-wrap gap-2">
@@ -125,7 +137,7 @@ function PorAtivo({ t, params, edita }: { t: M.AtivoMro[]; params: Params; edita
       <TabelaT colunas={COLS_ATIVOS} vazio="Nenhum ativo com estes filtros."
         linhas={pg.itens.map((x) => ({
           chave: x.codigo, ativa: x.codigo === sel, href: hrefCom(params, { at: x.codigo === sel ? null : x.codigo }, "abas"),
-          celulas: [x.codigo, x.nome || "—", crit(x.criticidade), x.area || "—", x.local || "—", x.pecas.length, x.emFalta || "—",
+          celulas: [<Equip key="e" a={x} />, x.nome || "—", crit(x.criticidade), x.area || "—", x.local || "—", x.pecas.length, x.emFalta || "—",
             <Selo key="m" cor={SELO_MRO[x.mro]}>{x.mro}</Selo>],
         }))} />
       <Paginacao params={params} {...pg} mostrados={pg.itens.length} rotulo="ativo(s)" baixar={`/api/mro${hrefCom(params, { planilha: "ativos", pag: null, at: null })}`} />
@@ -145,6 +157,7 @@ function PorMaterial({ t, params }: { t: M.AtivoMro[]; params: Params }) {
   const vis = M.filtrarMateriais(todos, f);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
   const irAtivo = (codigo: string) => `?${new URLSearchParams({ visao: M.V_ATIVOS, q: codigo, at: codigo })}#abas`;
+  const dica = (a: M.UsoAtivo) => [a.campo && a.campo !== a.codigo ? `Equipamento ${a.codigo}` : "", a.nome].filter(Boolean).join(" · ");
   return (
     <div className="space-y-3">
       <FiltrosUrl campos={[
@@ -162,8 +175,8 @@ function PorMaterial({ t, params }: { t: M.AtivoMro[]; params: Params }) {
             x.ativos.length, x.nAlta || "—",
             <span key="u" className="flex flex-wrap gap-1">
               {x.ativos.slice(0, 12).map((a) => (
-                <Link key={a.codigo} href={irAtivo(a.codigo)} title={a.nome} className="rounded-md bg-superficie-2 px-1.5 py-0.5 font-mono text-[11.5px] text-texto-2 hover:underline"
-                  style={a.criticidade === "Alta" ? { boxShadow: "inset 0 0 0 1px var(--st-critico)" } : undefined}>{a.codigo}</Link>
+                <Link key={a.codigo} href={irAtivo(a.codigo)} title={dica(a)} className="rounded-md bg-superficie-2 px-1.5 py-0.5 font-mono text-[11.5px] text-texto-2 hover:underline"
+                  style={a.criticidade === "Alta" ? { boxShadow: "inset 0 0 0 1px var(--st-critico)" } : undefined}>{M.rotuloAtivo(a)}</Link>
               ))}
               {x.ativos.length > 12 && <span className="text-[11.5px] text-texto-3">+{x.ativos.length - 12}</span>}
             </span>],

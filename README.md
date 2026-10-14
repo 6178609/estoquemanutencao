@@ -244,7 +244,7 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   editor enviar o arquivo quando o catálogo não está carregado. O cruzamento com o MB52 é pelo código Alpargatas
   (= código do material no SAP).
 - **Gestão de MRO** — as peças de reposição de cada ativo da lista de equipamentos (IH08, cadastro do site e IW38):
-  - **Por ativo**: as peças vinculadas a cada equipamento com a situação no estoque (MB52 × mínimo); editor/administrador
+  - **Por ativo**: cada equipamento aparece pelo campo de ordenação do IW38 (o código embaixo), com as peças vinculadas com a situação no estoque (MB52 × mínimo); editor/administrador
     busca na MB52 e no catálogo Sysmat e vincula ou desvincula na hora;
   - **Por material**: onde cada peça é usada, quantos ativos de criticidade Alta dependem dela, código Sysmat,
     fabricante/referência e valor em estoque;
