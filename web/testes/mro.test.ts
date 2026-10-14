@@ -20,7 +20,7 @@ const inv = [
   { codigo: "EQ-D", equipamento: "VELHA", criticidade: "Alta", area: "A2", localInstalacao: "", situacao: "Desativado" },
 ];
 const vinc: Record<string, string[]> = { "EQ-A": ["100", "200", "200"], "EQ-B": ["100"], "EQ-C": ["300", "999"], "EQ-D": ["200"] };
-const t = M.linhasPorAtivo(inv, (k) => vinc[k] ?? [], sit);
+const t = M.linhasPorAtivo(inv, (k) => vinc[k] ?? [], sit, (k) => (k === "EQ-A" ? "PR-01" : ""));
 
 describe("linhasPorAtivo", () => {
   it("situação das peças, sem repetir, Alta e em falta primeiro", () => {
@@ -57,6 +57,22 @@ describe("peça com MB52 + Sysmat", () => {
     expect(M.pecaMro("42", M.indexarMateriais([e("00042", "PINO", 3)], null), {})).toMatchObject({ status: "ok", estoque: 3 });
     expect(M.procurar(bm, {}, "s-5").itens.map((x) => x.codigo)).toEqual(["500"]);
     expect(M.procurar(bm, {}, "marca x").total).toBe(2);
+  });
+});
+
+describe("campo de ordenação no lugar do equipamento", () => {
+  it("o campo mais usado nas ordens do equipamento", () => {
+    const campos = new Map([["1", "pr-01"], ["2", "PR-01"], ["3", "PR-02"], ["4", "B"], ["5", "A"]]);
+    const m = M.camposPorEquipamento([{ ordem: "1", equipChave: "EQ-A" }, { ordem: "2", equipChave: "EQ-A" }, { ordem: "3", equipChave: "EQ-A" },
+      { ordem: "4", equipChave: "EQ-B" }, { ordem: "5", equipChave: "EQ-B" }, { ordem: "9", equipChave: "EQ-C" }], campos);
+    expect([...m]).toEqual([["EQ-A", "PR-01"], ["EQ-B", "A"]]);
+  });
+  it("aparece na linha, na busca, no onde é usado e na planilha", () => {
+    const a = t.find((x) => x.codigo === "EQ-A")!;
+    expect([a.campo, M.rotuloAtivo(a), M.rotuloAtivo(t.find((x) => x.codigo === "EQ-B")!)]).toEqual(["PR-01", "PR-01", "EQ-B"]);
+    expect(M.filtrarAtivos(t, M.lerFiltroAtivos({ q: "pr-01" })).map((x) => x.codigo)).toEqual(["EQ-A"]);
+    expect(M.linhasPorMaterial(t).find((x) => x.codigo === "100")!.ativos.map(M.rotuloAtivo)).toEqual(["PR-01", "EQ-B"]);
+    expect(M.csvAtivos([a]).split("\r\n")[1].startsWith("PR-01;EQ-A;")).toBe(true);
   });
 });
 

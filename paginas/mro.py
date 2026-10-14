@@ -22,6 +22,17 @@ saldo = dict(zip(estoque["Material"], estoque["Estoque"])) if estoque is not Non
 descr = dict(zip(estoque["Material"], estoque["Descrição"])) if estoque is not None else {}
 CRIT_ABC = {"A": "Alta", "B": "Média", "C": "Baixa"}
 
+# campo de ordenação de cada equipamento: o mais usado nas ordens dele (IW38)
+iw38 = bases.iw38().df
+campo_de = {}  # sem anotação de tipo (a "magic" do Streamlit quebra com ela)
+if iw38 is not None and "Campo de ordenação" in iw38:
+    o = iw38[["Equip. (chave)", "Campo de ordenação"]].astype(str)
+    o = o[(o["Equip. (chave)"] != "") & (o["Campo de ordenação"].str.strip() != "")]
+    o["Campo de ordenação"] = o["Campo de ordenação"].str.strip().str.upper()
+    campo_de = (o.groupby(["Equip. (chave)", "Campo de ordenação"]).size().reset_index(name="n")
+                .sort_values(["n", "Campo de ordenação"], ascending=[False, True])
+                .drop_duplicates("Equip. (chave)").set_index("Equip. (chave)")["Campo de ordenação"].to_dict())
+
 
 def situacao(cod: str) -> str:
     if cod not in saldo:
@@ -42,7 +53,7 @@ for tag, info in cad.items():
         continue
     crit = info.get("criticidade") or CRIT_ABC.get(str(abc.get(tag, "")).upper().strip(), "")
     for cod in dict.fromkeys(str(m) for m in (info.get("materiais") or [])):
-        linhas.append({"Equipamento": tag, "Nome": str(info.get("nome") or nome_sap.get(tag) or ""), "Criticidade": crit,
+        linhas.append({"Campo de ordenação": campo_de.get(tag, ""), "Equipamento": tag, "Nome": str(info.get("nome") or nome_sap.get(tag) or ""), "Criticidade": crit,
                        "Material": cod, "Descrição": str(descr.get(cod) or ""), "Estoque": saldo.get(cod), "Situação da peça": situacao(cod)})
 
 st.info("Para vincular ou desvincular peças, use a aba **Gestão de MRO** do site novo (ou o cadastro do equipamento).")
@@ -58,11 +69,11 @@ c[1].metric("Materiais vinculados", inteiro(t["Material"].nunique()))
 c[2].metric("Peças em falta", inteiro(t.loc[em_falta, "Material"].nunique()))
 c[3].metric("Peças críticas em falta", inteiro(t.loc[em_falta & (t["Criticidade"] == "Alta"), "Material"].nunique()))
 
-busca = st.text_input("Buscar", placeholder="equipamento, nome, material ou descrição…", key="mro_busca")
+busca = st.text_input("Buscar", placeholder="campo de ordenação, equipamento, nome, material ou descrição…", key="mro_busca")
 so_falta = st.toggle("Só peças em falta", key="mro_falta")
 m = pd.Series(True, index=t.index)
 if busca.strip():
-    hay = (t["Equipamento"] + " " + t["Nome"] + " " + t["Material"] + " " + t["Descrição"]).map(lambda s: sem_acento(s).upper())
+    hay = (t["Campo de ordenação"] + " " + t["Equipamento"] + " " + t["Nome"] + " " + t["Material"] + " " + t["Descrição"]).map(lambda s: sem_acento(s).upper())
     for termo in sem_acento(busca).upper().split():
         m &= hay.str.contains(termo, regex=False)
 if so_falta:

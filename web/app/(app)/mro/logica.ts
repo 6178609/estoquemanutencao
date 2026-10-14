@@ -117,21 +117,44 @@ export function procurar(b: BaseMateriais, cadMat: Record<string, unknown>, q: s
 // Por ativo
 // ----------------------------------------------------------------------------
 export interface AtivoMro {
-  codigo: string; nome: string; criticidade: string; area: string; local: string; situacao: string; desativado: boolean;
+  /** campo: o campo de ordenação do IW38 (o mais usado nas ordens do equipamento); "" quando não há. */
+  codigo: string; campo: string; nome: string; criticidade: string; area: string; local: string; situacao: string; desativado: boolean;
   pecas: PecaMro[]; emFalta: number; zeradas: number; mro: string;
 }
 
 type AtivoBase = Pick<LinhaAtivo, "codigo" | "equipamento" | "criticidade" | "area" | "localInstalacao" | "situacao">;
 
+/** Campo de ordenação de cada equipamento: o mais frequente nas ordens dele (empate: o menor em ordem alfabética). */
+export function camposPorEquipamento(ordens: { ordem: string; equipChave: string }[], campoDaOrdem: Map<string, string>): Map<string, string> {
+  const conta = new Map<string, Map<string, number>>();
+  for (const o of ordens) {
+    const c = (campoDaOrdem.get(o.ordem) ?? "").trim().toUpperCase();
+    if (!c || !o.equipChave) continue;
+    const m = conta.get(o.equipChave) ?? conta.set(o.equipChave, new Map()).get(o.equipChave)!;
+    m.set(c, (m.get(c) ?? 0) + 1);
+  }
+  const out = new Map<string, string>();
+  for (const [eq, m] of conta) {
+    let melhor = "", n = -1;
+    for (const [c, k] of m) if (k > n || (k === n && c < melhor)) { melhor = c; n = k; }
+    out.set(eq, melhor);
+  }
+  return out;
+}
+
+/** O que aparece no lugar do equipamento: o campo de ordenação (o código vai embaixo); sem campo, o código. */
+export const rotuloAtivo = (a: { codigo: string; campo: string }) => a.campo || a.codigo;
+
 /** Uma linha por ativo: Alta primeiro e, dentro da criticidade, quem tem mais peças em falta. */
-export function linhasPorAtivo(inv: AtivoBase[], materiaisDe: (codigo: string) => string[], situacao: (material: string) => PecaMro): AtivoMro[] {
+export function linhasPorAtivo(inv: AtivoBase[], materiaisDe: (codigo: string) => string[], situacao: (material: string) => PecaMro,
+  campoDe: (codigo: string) => string = () => ""): AtivoMro[] {
   const cache = new Map<string, PecaMro>();
   const sit = (m: string) => cache.get(m) ?? cache.set(m, situacao(m)).get(m)!;
   return inv.map((x): AtivoMro => {
     const pecas = [...new Set(materiaisDe(x.codigo))].map(sit);
     const emFalta = pecas.filter(emAlerta).length;
     return {
-      codigo: x.codigo, nome: x.equipamento, criticidade: x.criticidade, area: x.area, local: x.localInstalacao, situacao: x.situacao,
+      codigo: x.codigo, campo: campoDe(x.codigo), nome: x.equipamento, criticidade: x.criticidade, area: x.area, local: x.localInstalacao, situacao: x.situacao,
       desativado: x.situacao === ativos.DESATIVADO, pecas, emFalta, zeradas: pecas.filter((p) => p.status === "zerado").length,
       mro: !pecas.length ? SEM_PECAS : emFalta ? COM_FALTA : EM_DIA,
     };
@@ -153,7 +176,7 @@ export function filtrarAtivos(t: AtivoMro[], f: FiltroAtivos): AtivoMro[] {
     if (f.areas.length && !f.areas.includes(x.area)) return false;
     if (f.mro.length && !f.mro.includes(x.mro)) return false;
     if (termos.length) {
-      const hay = normalizarBusca([x.codigo, x.nome, x.area, x.local, ...x.pecas.flatMap((p) => [p.codigo, p.descricao, p.sysmat, p.fabricanteRef])].join(" "));
+      const hay = normalizarBusca([x.codigo, x.campo, x.nome, x.area, x.local, ...x.pecas.flatMap((p) => [p.codigo, p.descricao, p.sysmat, p.fabricanteRef])].join(" "));
       if (!termos.every((t) => hay.includes(t))) return false;
     }
     return true;
@@ -163,7 +186,7 @@ export function filtrarAtivos(t: AtivoMro[], f: FiltroAtivos): AtivoMro[] {
 // ----------------------------------------------------------------------------
 // Por material (onde é usado)
 // ----------------------------------------------------------------------------
-export interface UsoAtivo { codigo: string; nome: string; criticidade: string }
+export interface UsoAtivo { codigo: string; campo: string; nome: string; criticidade: string }
 export interface MaterialMro extends PecaMro { ativos: UsoAtivo[]; nAlta: number }
 
 /** Cada material vinculado com os ativos (não desativados) que o usam: em falta e de ativos Alta primeiro. */
@@ -173,7 +196,7 @@ export function linhasPorMaterial(t: AtivoMro[]): MaterialMro[] {
     if (a.desativado) continue;
     for (const p of a.pecas) {
       const x = m.get(p.codigo) ?? m.set(p.codigo, { ...p, ativos: [], nAlta: 0 }).get(p.codigo)!;
-      x.ativos.push({ codigo: a.codigo, nome: a.nome, criticidade: a.criticidade });
+      x.ativos.push({ codigo: a.codigo, campo: a.campo, nome: a.nome, criticidade: a.criticidade });
       if (a.criticidade === "Alta") x.nAlta++;
     }
   }
@@ -194,7 +217,7 @@ export function filtrarMateriais(t: MaterialMro[], f: FiltroMateriais): Material
     if (f.falta && !emAlerta(x)) return false;
     if (f.alta && !x.nAlta) return false;
     if (termos.length) {
-      const hay = normalizarBusca([x.codigo, x.descricao, x.sysmat, x.fabricanteRef, ...x.ativos.flatMap((a) => [a.codigo, a.nome])].join(" "));
+      const hay = normalizarBusca([x.codigo, x.descricao, x.sysmat, x.fabricanteRef, ...x.ativos.flatMap((a) => [a.codigo, a.campo, a.nome])].join(" "));
       if (!termos.every((t) => hay.includes(t))) return false;
     }
     return true;
@@ -265,16 +288,16 @@ export function aplicarPecas(atual: Record<string, unknown> | undefined, adicion
 export function csvAtivos(t: AtivoMro[]): string {
   const linhas: unknown[][] = [];
   for (const a of t) {
-    const base = [a.codigo, a.nome, a.criticidade || SEM_CLASSE, a.area, a.local, a.situacao, a.mro];
+    const base = [a.campo, a.codigo, a.nome, a.criticidade || SEM_CLASSE, a.area, a.local, a.situacao, a.mro];
     if (!a.pecas.length) linhas.push([...base, ...COLS_PECA.map(() => "")]);
     for (const p of a.pecas) linhas.push([...base, ...celulasPeca(p)]);
   }
-  return csv(["Equipamento", "Nome", "Criticidade", "Área", "Local de instalação", "Situação do ativo", "Situação MRO", ...COLS_PECA], linhas);
+  return csv(["Campo de ordenação", "Equipamento", "Nome", "Criticidade", "Área", "Local de instalação", "Situação do ativo", "Situação MRO", ...COLS_PECA], linhas);
 }
 
 export function csvMateriais(t: MaterialMro[]): string {
   return csv([...COLS_PECA, "Ativos que usam", "Ativos Alta", "Equipamentos"],
-    t.map((x) => [...celulasPeca(x), x.ativos.length, x.nAlta, x.ativos.map((a) => a.codigo).join(", ")]));
+    t.map((x) => [...celulasPeca(x), x.ativos.length, x.nAlta, x.ativos.map(rotuloAtivo).join(", ")]));
 }
 
 const COLS_PECA = ["Material", "Descrição", "Estoque (MB52)", "UM", "Mínimo", "Valor em estoque (R$)", "Depósitos", "Situação da peça",

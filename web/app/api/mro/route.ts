@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { infoCad, inventarioAtivos, materiaisDe } from "@/app/(app)/equipamentos/dados";
-import { baseMateriais } from "@/app/(app)/mro/dados";
+import { baseMateriais, camposDosAtivos } from "@/app/(app)/mro/dados";
 import * as M from "@/app/(app)/mro/logica";
 import { autorizar } from "@/lib/auth/sessao";
 import { contexto } from "@/lib/wcm/contexto";
@@ -14,8 +14,9 @@ export async function GET(req: NextRequest) {
   if (!(await autorizar("mro"))) return NextResponse.json({ erro: "Sem acesso." }, { status: 403 });
   const params: Record<string, string> = Object.fromEntries(req.nextUrl.searchParams.entries());
   const c = await contexto(params);
-  const [inv, bm] = await Promise.all([inventarioAtivos(c), baseMateriais()]);
-  const t = M.linhasPorAtivo(inv, (k) => materiaisDe(infoCad(c, k)), (m) => M.pecaMro(m, bm, c.cad.materiais));
+  const [inv, bm, campos] = await Promise.all([inventarioAtivos(c), baseMateriais(), camposDosAtivos(c)]);
+  const t = M.linhasPorAtivo(inv, (k) => materiaisDe(infoCad(c, k)), (m) => M.pecaMro(m, bm, c.cad.materiais),
+    (k) => campos.get(k) ?? "");
   const materiais = params.planilha === "materiais";
   const corpo = materiais ? M.csvMateriais(M.filtrarMateriais(M.linhasPorMaterial(t), M.lerFiltroMateriais(params)))
     : M.csvAtivos(M.filtrarAtivos(t, M.lerFiltroAtivos(params)));
