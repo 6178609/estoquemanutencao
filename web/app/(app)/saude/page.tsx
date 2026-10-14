@@ -128,7 +128,7 @@ function Matriz({ t, params }: { t: saude.LinhaSaude[]; params: Params }) {
               const forca = n ? Math.round(14 + (n / max) * 56) : 0;
               const prioridade = cr === "Alta" && f === saude.CRITICA;
               return (
-                <Link key={f} scroll={false} href={hrefCom(params, { sfaixa: f, scrit: cr, sq: null, scausa: null, pag: null, eq: null }, "fila")}
+                <Link prefetch={false} key={f} scroll={false} href={hrefCom(params, { sfaixa: f, scrit: cr, sq: null, scausa: null, pag: null, eq: null }, "fila")}
                   title={`${cr} × ${f}: ${n} equipamento(s)`}
                   className={`grid h-16 place-items-center rounded-lg border transition hover:border-borda-forte ${prioridade ? "border-[var(--st-critico)]" : "border-transparent"}`}
                   style={{ background: n ? `color-mix(in srgb, var(--${COR_FAIXA[f]}) ${forca}%, var(--superficie))` : "var(--superficie-2)" }}>
@@ -226,9 +226,9 @@ async function Detalhe({ l, campo, c, params, fichaLiberada }: { l: saude.LinhaS
       titulo={<span>{campo ? `${campo} · ` : ""}{l.codigo} · {l.equipamento || "—"}</span>}
       sub={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">saúde <b className="num text-texto">{l.saude}</b> <SeloFaixa faixa={l.faixa} /> · criticidade {l.criticidade || "sem classe"} · risco <b className="num text-texto">{l.risco}</b></span>}
       acoes={<div className="flex flex-wrap gap-2">
-        {fichaLiberada && <Link href={`/equipamentos?${new URLSearchParams({ visao: V_ANALISE, eq: l.codigo }).toString()}#ficha`}
+        {fichaLiberada && <Link prefetch={false} href={`/equipamentos?${new URLSearchParams({ visao: V_ANALISE, eq: l.codigo }).toString()}#ficha`}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2">Abrir ficha do equipamento <ArrowRight className="size-3.5" /></Link>}
-        <Link scroll={false} href={hrefCom(params, { eq: null }, "fila")} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
+        <Link prefetch={false} scroll={false} href={hrefCom(params, { eq: null }, "fila")} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
       </div>}>
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div>

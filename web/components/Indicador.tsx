@@ -57,7 +57,7 @@ export function CartaoKpi({ kpi, valor, anterior, metas, serie, link = true }: {
         <div className="mt-3"><Sparkline valores={serie} cor={COR_FAROL[f] === "neutro" ? "serie-1" : COR_FAROL[f]} /></div>
       )}
       {link && (
-        <Link href={kpi.pagina} className="mt-3 inline-flex items-center gap-1 text-[12.5px] text-texto-3 transition hover:text-texto">
+        <Link prefetch={false} href={kpi.pagina} className="mt-3 inline-flex items-center gap-1 text-[12.5px] text-texto-3 transition hover:text-texto">
           Detalhar <ArrowRight className="size-3.5" />
         </Link>
       )}

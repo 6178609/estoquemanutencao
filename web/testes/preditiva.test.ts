@@ -14,7 +14,7 @@ const nota = (p: Partial<Nota>): Nota => ({
   dataNota: null, comParada: false, horasParado: 0, comOrdem: false, data: null, dias: null, equipChave: "", setor: "",
   tipoOrdem: "", quebra: false, ...p,
 });
-const ordem = (p: Partial<Ordem>): Ordem => ({
+const ordem = (p: Partial<Ordem>): Ordem => ({ campo: "",
   ordem: "", tipo: "", prioridade: "", texto: "", equipamento: "", objeto: "", local: "", centroTrabalho: "MEC", centroCusto: "",
   localizacao: "GAL1", centro: "", plano: "", statusSistema: "", statusUsuario: "", inicio: null, fim: null, entrada: null,
   criadoPor: "", custoReal: 0, custoPlanejado: 0, comPlano: false, natureza: "", situacao: "Aberta", data: null,

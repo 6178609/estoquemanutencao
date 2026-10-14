@@ -33,7 +33,7 @@ export interface Base<T> {
   erro?: string;
 }
 
-const g = globalThis as unknown as { __cmBases?: Map<string, { versao: string; valor: unknown }> };
+const g = globalThis as unknown as { __cmBases?: Map<string, { versao: string; valor: unknown; atualizado?: string | null }> };
 const cache = (g.__cmBases ??= new Map()); // uma cópia por processo (páginas e rotas de API)
 const gl = globalThis as unknown as { __cmLendo?: Map<string, Promise<unknown>> };
 const lendo = (gl.__cmLendo ??= new Map());
@@ -86,9 +86,15 @@ async function lerEPreparar<T>(f: NonNullable<ReturnType<typeof fonte>>, caminho
     if (lidos.some((l) => !l)) return { dados: null, ...meta };
     const linhas = (await Promise.all(lidos.map((l) => lerParquet(l!.bytes)))).flat();
     const valor = preparar(linhas);
-    cache.set(caminho, { versao, valor });
+    cache.set(caminho, { versao, valor, atualizado: meta.atualizado });
     return { dados: valor, ...meta };
   } catch (e) {
+    // falhou o download (GitHub fora, demorou…): segue com a versão anterior, se houver, em vez de esvaziar a tela;
+    // a próxima requisição tenta de novo
+    const antiga = cache.get(caminho);
+    console.warn(`[dados] ${caminho}: ${(e as Error).message}${antiga ? " (usando a versão anterior)" : ""}`);
+    // (o erro vai junto: quem guarda o resultado sabe que precisa tentar de novo)
+    if (antiga) return { dados: antiga.valor as T, ...meta, atualizado: antiga.atualizado ?? meta.atualizado, erro: (e as Error).message };
     return { dados: null, ...meta, erro: (e as Error).message };
   }
 }

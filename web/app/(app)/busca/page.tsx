@@ -86,7 +86,7 @@ export default async function Buscar(props: { searchParams: Promise<Params> }) {
           <p className="text-[13px] text-texto-3"><b className="num font-medium text-texto">{inteiro(total)}</b> resultado(s) — até {busca.LIMITE} por tipo</p>
           <nav className="flex flex-wrap gap-1" aria-label="Tipos de resultado">
             {com.map((k) => (
-              <Link key={k} href={href(params, { cat: k, sel: null })} scroll={false} aria-current={k === cat ? "page" : undefined}
+              <Link prefetch={false} key={k} href={href(params, { cat: k, sel: null })} scroll={false} aria-current={k === cat ? "page" : undefined}
                 className={clsx("rounded-full px-4 py-2 text-[13.5px] transition", k === cat ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
                 {k} <span className="num text-[12px] text-texto-3">{inteiro(res[k].length)}{res[k].length >= busca.LIMITE ? "+" : ""}</span>
               </Link>
@@ -130,7 +130,7 @@ function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode 
 }
 
 function Ir({ href: h, children }: { href: string; children: React.ReactNode }) {
-  return <Link href={h} className="inline-flex items-center gap-1 text-[13.5px] font-medium text-texto-2 hover:text-texto">{children} <ArrowRight className="size-3.5" /></Link>;
+  return <Link prefetch={false} href={h} className="inline-flex items-center gap-1 text-[13.5px] font-medium text-texto-2 hover:text-texto">{children} <ArrowRight className="size-3.5" /></Link>;
 }
 
 const ficha = (cod: string) => `/equipamentos?eq=${encodeURIComponent(cod)}`;

@@ -52,7 +52,7 @@ export function TabelaDados({ colunas, linhas, params, ord, desc, pagina, pagina
                 if (!ordenavel) return <th key={c.chave} className={cls} title={c.dica}>{c.rotulo}</th>;
                 return (
                   <th key={c.chave} className={cls} title={c.dica} aria-sort={atual ? (desc ? "descending" : "ascending") : undefined}>
-                    <Link scroll={false} href={href(params, { ord: c.chave, dir: atual && !desc ? "desc" : "asc", pag: null })}
+                    <Link prefetch={false} scroll={false} href={href(params, { ord: c.chave, dir: atual && !desc ? "desc" : "asc", pag: null })}
                       className={clsx("inline-flex items-center gap-1 transition hover:text-texto", atual && "text-texto")}>
                       {c.rotulo}
                       {atual && (desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}
@@ -80,7 +80,7 @@ export function TabelaDados({ colunas, linhas, params, ord, desc, pagina, pagina
                       : <span className={clsx(t === "texto" && "line-clamp-2", t === "longo" && "line-clamp-3")}>{txt}</span>;
                     return (
                       <td key={c.chave} className={cls}>
-                        {h ? <Link scroll={false} href={h} tabIndex={j === 0 ? undefined : -1}
+                        {h ? <Link prefetch={false} scroll={false} href={h} tabIndex={j === 0 ? undefined : -1}
                           className={clsx("block", j === 0 && "font-medium text-alp-azul")}>{conteudo}</Link> : conteudo}
                       </td>
                     );
@@ -107,16 +107,16 @@ export function Paginacao({ params, pagina, paginas, chave = "pag" }: { params: 
   const btn = "grid h-8 min-w-8 place-items-center rounded-lg px-2 transition hover:bg-superficie-2 hover:text-texto";
   return (
     <nav className="flex items-center gap-0.5" aria-label="Páginas">
-      {pagina > 1 ? <Link scroll={false} href={href(params, { [chave]: pagina - 1 })} className={btn} aria-label="Página anterior"><ChevronLeft className="size-4" /></Link>
+      {pagina > 1 ? <Link prefetch={false} scroll={false} href={href(params, { [chave]: pagina - 1 })} className={btn} aria-label="Página anterior"><ChevronLeft className="size-4" /></Link>
         : <span className={clsx(btn, "opacity-40")}><ChevronLeft className="size-4" /></span>}
       {nums.map((p, i) => (
         <span key={p} className="flex items-center">
           {i > 0 && p - nums[i - 1] > 1 && <span className="px-1">…</span>}
-          <Link scroll={false} href={href(params, { [chave]: p })} aria-current={p === pagina ? "page" : undefined}
+          <Link prefetch={false} scroll={false} href={href(params, { [chave]: p })} aria-current={p === pagina ? "page" : undefined}
             className={clsx(btn, "num", p === pagina && "bg-superficie-3 font-medium text-texto")}>{inteiro(p)}</Link>
         </span>
       ))}
-      {pagina < paginas ? <Link scroll={false} href={href(params, { [chave]: pagina + 1 })} className={btn} aria-label="Próxima página"><ChevronRight className="size-4" /></Link>
+      {pagina < paginas ? <Link prefetch={false} scroll={false} href={href(params, { [chave]: pagina + 1 })} className={btn} aria-label="Próxima página"><ChevronRight className="size-4" /></Link>
         : <span className={clsx(btn, "opacity-40")}><ChevronRight className="size-4" /></span>}
     </nav>
   );

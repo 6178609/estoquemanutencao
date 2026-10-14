@@ -43,7 +43,7 @@ export function AbasVisao({ visoes, atual, params }: { visoes: string[]; atual: 
         const p = new URLSearchParams(base);
         p.set("visao", v);
         return (
-          <Link key={v} href={`?${p.toString()}`} scroll={false}
+          <Link prefetch={false} key={v} href={`?${p.toString()}`} scroll={false}
             className={v === atual ? "rounded-full bg-superficie-3 px-4 py-2 text-[13.5px] font-medium text-texto" : "rounded-full px-4 py-2 text-[13.5px] text-texto-3 transition hover:text-texto"}>
             {v}
           </Link>
@@ -63,5 +63,5 @@ export function Aviso({ children, tom = "laranja" }: { children: React.ReactNode
 }
 
 export function SemDados({ base }: { base: string }) {
-  return <Aviso>A base <b>{base}</b> ainda não está no repositório de dados. Envie o export em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>;
+  return <Aviso>A base <b>{base}</b> ainda não está no repositório de dados. Envie o export em <Link prefetch={false} href="/dados" className="font-medium underline">Fontes de dados</Link>.</Aviso>;
 }

@@ -45,6 +45,8 @@ const IW38_COLUNAS: Record<string, string[]> = {
   Inicio: ["DATA BASE DO INICIO", "INICIO BASE", "DATA INICIO"], Fim: ["DATA BASE DO FIM", "FIM BASE", "DATA FIM"],
   Entrada: ["DATA DE ENTRADA", "^CRIADO EM$"], CriadoPor: ["CRIADO POR"],
   CustoReal: ["CUSTOS? TOT.*REA", "CUSTO.*REA", "CUSTOS? TOT"], CustoPlanejado: ["CUSTOS? TOT.*PLAN", "CUSTO.*PLAN", "CUSTO.*ESTIM"],
+  // por último: o padrão solto não pode roubar a coluna de outro campo
+  Campo: ["CAMPO DE ORDENACAO", "CAMPO ORDENACAO", "CAMPO.*ORDEN"],
 };
 
 export const ENCERRADA_SEM_CONF = "Encerrada sem confirmação";
@@ -72,6 +74,8 @@ export interface Ordem {
   custoReal: number; custoPlanejado: number;
   comPlano: boolean; natureza: string; situacao: Situacao; data: Dia | null; atrasada: boolean;
   diasEmAberto: number | null; duracao: number | null; equipChave: string; setor: string; busca: string;
+  /** Campo de ordenação da ordem (IW38), em maiúsculas; "" quando o export não tem a coluna. */
+  campo: string;
 }
 
 export function prepararIw38(cru: Crua[], hoje: Dia, excluir = true): { ordens: Ordem[]; removidas: number } {
@@ -104,6 +108,7 @@ export function prepararIw38(cru: Crua[], hoje: Dia, excluir = true): { ordens: 
       diasEmAberto: pendente && ref != null ? Math.max(0, hoje - ref) : null,
       duracao: dur != null && dur >= 0 && dur < 3650 ? dur : null,
       equipChave: base.equipamento || base.objeto, setor: setorDoCentro(base.centroTrabalho),
+      campo: pega(l, c.Campo).trim().toUpperCase(),
       busca: chave([ordem, base.texto, base.equipamento, base.objeto, base.local, base.plano, base.criadoPor, base.statusUsuario].join(" ")),
     });
   }

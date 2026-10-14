@@ -164,7 +164,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
       {sel && (
         <Quadro id="anomalia" titulo={`Anomalia ${sel.codigo}`} subtitulo={sel.texto}
           acoes={sel.equipamento ? (
-            <Link href={`/equipamentos?eq=${encodeURIComponent(sel.equipamento)}`} className="inline-flex items-center gap-1 text-[13px] text-texto-2 hover:text-texto">
+            <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(sel.equipamento)}`} className="inline-flex items-center gap-1 text-[13px] text-texto-2 hover:text-texto">
               Abrir ficha de {sel.equipamento} <ArrowRight className="size-3.5" />
             </Link>) : undefined}>
           <div className="mb-4"><PontoSituacao nome={sel.situacao} cor={COR_ANOMALIA[sel.situacao]} /></div>

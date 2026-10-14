@@ -318,8 +318,8 @@ function Todas({ acoes, afs, ini, fim, params, campoEq }: { acoes: af.AcaoAf[]; 
             <Quadro titulo={`Análise de falha de origem · AF ${sel.numeroAf}`}
               acoes={
                 <div className="flex flex-wrap items-center gap-3 text-[13px]">
-                  <Link href={`/af_planos?af=${encodeURIComponent(sel.numeroAf)}#af`} className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Abrir em Planos de AF <ArrowRight className="size-3.5" /></Link>
-                  {sel.codigoSap && <Link href={`/equipamentos?eq=${encodeURIComponent(sel.codigoSap)}`} className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Ficha do equipamento <ArrowRight className="size-3.5" /></Link>}
+                  <Link prefetch={false} href={`/af_planos?af=${encodeURIComponent(sel.numeroAf)}#af`} className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Abrir em Planos de AF <ArrowRight className="size-3.5" /></Link>
+                  {sel.codigoSap && <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(sel.codigoSap)}`} className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Ficha do equipamento <ArrowRight className="size-3.5" /></Link>}
                 </div>
               }>
               {orig ? (

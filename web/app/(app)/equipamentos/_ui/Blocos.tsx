@@ -88,7 +88,7 @@ export function TabelaT({ colunas, linhas, vazio = "Nada para mostrar com estes 
             <tr key={l.chave} className={clsx("transition", l.ativa ? "bg-marca-500/8" : "hover:bg-superficie-2")}>
               {l.celulas.map((v, j) => (
                 <td key={j} className={clsx("px-3 py-2 align-middle", colunas[j]?.dir && "num text-right tabular-nums", colunas[j]?.larga && "min-w-[220px] max-w-[360px] whitespace-normal")}>
-                  {j === 0 && l.href ? <Link href={l.href} scroll={false} className="font-mono text-[12.5px] font-medium text-alp-azul underline-offset-2 hover:underline">{v}</Link> : v}
+                  {j === 0 && l.href ? <Link prefetch={false} href={l.href} scroll={false} className="font-mono text-[12.5px] font-medium text-alp-azul underline-offset-2 hover:underline">{v}</Link> : v}
                 </td>
               ))}
             </tr>
@@ -113,10 +113,10 @@ export function Paginacao({ params, pag, paginas, total, inicio, mostrados, rotu
         )}
         {paginas > 1 && (
           <>
-            {pag > 1 ? <Link scroll={false} href={hrefCom(params, { pag: pag - 1 })} className={btn} aria-label="Página anterior"><ChevronLeft className="size-4" /></Link>
+            {pag > 1 ? <Link prefetch={false} scroll={false} href={hrefCom(params, { pag: pag - 1 })} className={btn} aria-label="Página anterior"><ChevronLeft className="size-4" /></Link>
               : <span className={clsx(btn, "opacity-40")}><ChevronLeft className="size-4" /></span>}
             <span className="num">{pag} / {paginas}</span>
-            {pag < paginas ? <Link scroll={false} href={hrefCom(params, { pag: pag + 1 })} className={btn} aria-label="Próxima página"><ChevronRight className="size-4" /></Link>
+            {pag < paginas ? <Link prefetch={false} scroll={false} href={hrefCom(params, { pag: pag + 1 })} className={btn} aria-label="Próxima página"><ChevronRight className="size-4" /></Link>
               : <span className={clsx(btn, "opacity-40")}><ChevronRight className="size-4" /></span>}
           </>
         )}
@@ -131,7 +131,7 @@ export function AbasParam({ params, param, abas, atual, ancora }: { params: Para
   return (
     <nav className="flex flex-wrap gap-1 border-b border-borda">
       {abas.map((a) => (
-        <Link key={a.id} scroll={false} href={hrefCom(params, { [param]: a.id, pag: null }, ancora)}
+        <Link prefetch={false} key={a.id} scroll={false} href={hrefCom(params, { [param]: a.id, pag: null }, ancora)}
           className={clsx("-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13.5px] transition",
             a.id === atual ? "border-texto font-medium text-texto" : "border-transparent text-texto-3 hover:text-texto")}>
           {a.icone}{a.rotulo}

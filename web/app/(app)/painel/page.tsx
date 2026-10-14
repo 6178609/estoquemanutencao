@@ -78,7 +78,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
                 <SeloFarol farol={cores[k.id] as ind.Farol} compacto />
                 <span className="min-w-0 flex-1"><b className="font-medium">{k.nome}</b> <span className="num">{ind.formatar(k, atual[k.id])}</span>
                   <span className="text-texto-3"> · meta {k.sentido > 0 ? "≥" : "≤"} {ind.formatar(k, ind.meta(k, metas))}</span></span>
-                <Link href={k.pagina} className="text-texto-3 hover:text-texto" aria-label={`Ver ${k.nome}`}><ArrowRight className="size-4" /></Link>
+                <Link prefetch={false} href={k.pagina} className="text-texto-3 hover:text-texto" aria-label={`Ver ${k.nome}`}><ArrowRight className="size-4" /></Link>
               </li>
             ))}
           </ul>
@@ -108,7 +108,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
           <span>{ind.formatar(ind.POR_ID.semeq_tratadas, atual.semeq_tratadas)} tratadas</span>
           <span>{ind.formatar(ind.POR_ID.semeq_com_ordem, atual.semeq_com_ordem)} com ordem</span>
           <span className="inline-flex items-center gap-1"><SeloFarol farol={(atual.semeq_atrasadas ?? 0) > 0 ? "vermelho" : "verde"} compacto />{atual.semeq_atrasadas ?? 0} atrasadas hoje</span>
-          <Link href="/preditiva" className="ml-auto inline-flex items-center gap-1 text-texto-3 hover:text-texto">Abrir preditiva <ArrowRight className="size-3.5" /></Link>
+          <Link prefetch={false} href="/preditiva" className="ml-auto inline-flex items-center gap-1 text-texto-3 hover:text-texto">Abrir preditiva <ArrowRight className="size-3.5" /></Link>
         </div>
       )}
 

@@ -68,12 +68,6 @@ export async function entrar(loginDigitado: string, senha: string, manter: boole
     const ped = (await pendentes().catch(() => ({})) as Record<string, Record<string, unknown>>)[login];
     if (ped && (await confere(ped, senha))) return "Seu pedido de acesso ainda está aguardando aprovação de um administrador.";
   }
-  if (!u) {
-    // senha certa de um pedido ainda não aprovado: avisa em vez de "incorretos" (como no central/auth.py)
-    const { pendentes } = await import("./solicitacoes");
-    const ped = (await pendentes().catch(() => ({})) as Record<string, Record<string, unknown>>)[login];
-    if (ped && (await confere(ped, senha))) return "Seu pedido de acesso ainda está aguardando aprovação de um administrador.";
-  }
   if (!u || !(await confere(u, senha))) {
     const falhas = (t?.falhas || 0) + 1;
     tentativas.set(login, falhas >= MAX_FALHAS ? { falhas: 0, ate: Date.now() + BLOQUEIO_MS } : { falhas, ate: 0 });

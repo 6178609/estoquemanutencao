@@ -48,7 +48,7 @@ export async function Cadastro({ c, params, cadastra }: { c: Contexto; params: P
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <p className="max-w-2xl text-[13.5px] text-texto-3">Equipamentos da planta com categoria, criticidade, situação, ciclo de vida e os componentes de reposição vinculados à base de material (MB52).
           A criticidade cadastrada aqui vale para a Saúde dos ativos, a Gestão de ativos e as peças críticas do Painel.</p>
-        {cadastra && !form && <Link href={hrefCom(params, { form: "novo" }, "form")} scroll={false} className={BOTAO_PRIMARIO}><Plus className="size-4" /> Novo equipamento</Link>}
+        {cadastra && !form && <Link prefetch={false} href={hrefCom(params, { form: "novo" }, "form")} scroll={false} className={BOTAO_PRIMARIO}><Plus className="size-4" /> Novo equipamento</Link>}
       </div>
       {!cadastra && <Aviso tom="azul">Só editor ou administrador cadastra e edita equipamentos. Aqui você consulta o cadastro.</Aviso>}
 
@@ -151,8 +151,8 @@ function Lista({ c, params, est, cadastra, campoEq }: { c: Contexto; params: Par
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <span className="text-[12px] text-texto-3">{v.atualizado_em ? `Última edição: ${String(v.atualizado_por || "sem nome")} em ${String(v.atualizado_em).slice(0, 16).replace("T", " ")} (UTC)` : ""}</span>
                   <span className="flex flex-wrap gap-2">
-                    {c.b.ordens.dados && <Link href={`?${new URLSearchParams({ visao: V_ANALISE, eq: tag })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Ficha</Link>}
-                    {cadastra && <Link href={hrefCom(params, { form: tag }, "form")} scroll={false} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><Pencil className="size-3.5" /> Editar</Link>}
+                    {c.b.ordens.dados && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_ANALISE, eq: tag })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Ficha</Link>}
+                    {cadastra && <Link prefetch={false} href={hrefCom(params, { form: tag }, "form")} scroll={false} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><Pencil className="size-3.5" /> Editar</Link>}
                     {cadastra && <RemoverEquip tag={tag} />}
                   </span>
                 </div>

@@ -22,7 +22,7 @@ export const BOTAO_SECUNDARIO =
 /** Pílula do topo da seção ("4.093 materiais · MB52 de hoje ›"). */
 export function Pilula({ children, href }: { children: React.ReactNode; href?: string }) {
   const cls = "inline-flex items-center gap-1.5 rounded-full border border-borda-forte bg-superficie-2 px-3 py-1 text-[12.5px] font-medium text-texto-2";
-  return href ? <Link href={href} className={clsx(cls, "transition hover:text-texto")}>{children}<ChevronRight className="size-3.5" /></Link>
+  return href ? <Link prefetch={false} href={href} className={clsx(cls, "transition hover:text-texto")}>{children}<ChevronRight className="size-3.5" /></Link>
     : <span className={cls}>{children}</span>;
 }
 

@@ -19,7 +19,7 @@ export function TabelaFicha({ colunas, linhas, busca, baixar, limite, alturaMax,
     <TabelaDados colunas={colunas} linhas={linhas} busca={busca} baixar={baixar} limite={limite} alturaMax={alturaMax}
       aoSelecionar={setSel} selecionada={sel?.[colunaCodigo]} colunaChave={colunaCodigo}
       rodape={sel ? (
-        <Link href={`/equipamentos?eq=${encodeURIComponent(String(sel[colunaCodigo]))}`}
+        <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(String(sel[colunaCodigo]))}`}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-texto-2 hover:text-texto">
           Abrir ficha de {String(sel[colunaCodigo])}{sel[colunaNome] ? ` · ${String(sel[colunaNome]).slice(0, 40)}` : ""} <ArrowRight className="size-4" />
         </Link>

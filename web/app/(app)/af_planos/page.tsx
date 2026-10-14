@@ -313,7 +313,7 @@ function Distribuicao({ dist, gerP, afs, ini, fim, campoEq }: { dist: string; ge
           { rotulo: "Em aberto", direita: true }, { rotulo: "Parada (h)", direita: true }, { rotulo: "Causa mais frequente" }, { rotulo: "Última falha" }]}
         linhas={top.map((x) => ({ celulas: [
           campoEq(x.cod) || "—",
-          x.cod ? <Link href={`/equipamentos?eq=${encodeURIComponent(x.cod)}`} className="font-mono text-[12px] text-[var(--serie-1)] hover:underline">{x.cod}</Link> : "—",
+          x.cod ? <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(x.cod)}`} className="font-mono text-[12px] text-[var(--serie-1)] hover:underline">{x.cod}</Link> : "—",
           x.eq, x.area, int(x.n), int(x.a), int(x.aberto), num(x.parada), x.causa, dataBr(x.ultima)] }))} />
     </Quadro>
   );
@@ -409,7 +409,7 @@ function TabelaAfs({ afs, acoes, ini, fim, params, campoEq }: { afs: af.Af[]; ac
               pctAcoes: nan(a.pctAcoesConcluidas), acoes: qtd.get(a.numero) ?? 0, abertas: abertas.get(a.numero) ?? 0, link: a.link,
               os: a.osCorretiva, componente: a.componente };
           })} />
-        <Link href="/af_acoes" className="inline-flex items-center gap-1 text-[13px] text-texto-3 hover:text-texto">Abrir Ações de AF <ArrowRight className="size-3.5" /></Link>
+        <Link prefetch={false} href="/af_acoes" className="inline-flex items-center gap-1 text-[13px] text-texto-3 hover:text-texto">Abrir Ações de AF <ArrowRight className="size-3.5" /></Link>
       </Secao>
       {sel && (
         <Quadro id="af" titulo={`AF ${sel.numero} · ${sel.equipamento || "equipamento não informado"}`}
@@ -417,7 +417,7 @@ function TabelaAfs({ afs, acoes, ini, fim, params, campoEq }: { afs: af.Af[]; ac
           acoes={
             <div className="flex flex-wrap items-center gap-3 text-[13px]">
               {/^https?:\/\//i.test(sel.link) && <a href={sel.link} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Abrir a AF (arquivo) <ExternalLink className="size-3.5" /></a>}
-              {sel.codigoSap ? <Link href={`/equipamentos?eq=${encodeURIComponent(sel.codigoSap)}`} className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Ficha do equipamento <ArrowRight className="size-3.5" /></Link>
+              {sel.codigoSap ? <Link prefetch={false} href={`/equipamentos?eq=${encodeURIComponent(sel.codigoSap)}`} className="inline-flex items-center gap-1 text-texto-2 hover:text-texto">Ficha do equipamento <ArrowRight className="size-3.5" /></Link>
                 : <span className="text-texto-3">Sem código SAP no gerenciador</span>}
             </div>
           }>

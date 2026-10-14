@@ -33,6 +33,11 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
 - **Login**: Número Pessoal (NP) + senha (hash PBKDF2, o mesmo formato do app Streamlit). A sessão fica registrada
   em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora.
 - Sem repositório configurado o site abre em **modo demonstração** (dados fictícios gerados no código).
+- **Estabilidade**: cada chamada ao GitHub tem tempo limite e repete em falha de rede, 5xx e limite de taxa; se o
+  GitHub falhar, o site segue com a última versão lida. Export novo do robô: a tela responde com as bases anteriores
+  e monta as novas logo depois da resposta (quem acabou de enviar pela aba Fontes de dados espera e já vê o dado
+  novo). Uma tela que falhar mostra "Tentar de novo". Os links não pré-carregam as telas ao abrir a página (só a
+  barra lateral, ao passar o mouse).
 
 Nenhum dado da empresa vai para este repositório (ele é público).
 

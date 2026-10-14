@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { ArrowUpRight, ChevronsLeft, LoaderCircle, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Icone } from "./Icone";
@@ -38,10 +38,13 @@ function Abrindo() {
 function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string; itens: ItemMenu[] }[];
   aoNavegar?: () => void; recolhido?: boolean }) {
   const rota = usePathname();
+  // sem pré-carregar as ~20 abas ao abrir a página (cada uma é uma chamada ao servidor): só ao passar o mouse/focar
+  const router = useRouter();
+  const preparar = (href: string) => () => router.prefetch(href);
   const ativo = (href: string) => (href === "/" ? rota === "/" : rota.startsWith(href));
   return (
     <nav className="space-y-5">
-      <Link href="/" onClick={aoNavegar}
+      <Link prefetch={false} href="/" onClick={aoNavegar}
         className={clsx("relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition",
           ativo("/") ? "bg-superficie-3 font-medium text-texto" : "text-texto-2 hover:bg-superficie-2 hover:text-texto")}>
         {ativo("/") && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
@@ -67,7 +70,8 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
                       <ArrowUpRight className="size-3.5 opacity-0 transition group-hover:opacity-100" /></>}
                   </a>
                 ) : (
-                  <Link href={it.href} onClick={aoNavegar} title={it.titulo}
+                  <Link prefetch={false} href={it.href} onClick={aoNavegar} title={it.titulo}
+                    onMouseEnter={preparar(it.href)} onFocus={preparar(it.href)}
                     className={clsx("relative flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] transition",
                       ativo(it.href) ? "bg-superficie-3 font-medium text-texto" : "text-texto hover:bg-superficie-2")}>
                     {ativo(it.href) && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}

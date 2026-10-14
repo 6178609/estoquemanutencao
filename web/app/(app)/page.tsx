@@ -42,8 +42,8 @@ export default async function Inicio() {
             </p>
             {verEstoque && (
               <div className="flex flex-wrap items-center gap-5">
-                <Link href="/estoque" className={BOTAO_PRIMARIO}>Abrir o estoque <ArrowRight className="size-4" /></Link>
-                <Link href="/estoque?aba=cadastrado" className="inline-flex items-center gap-1 text-[15px] text-texto-3 transition hover:text-texto">
+                <Link prefetch={false} href="/estoque" className={BOTAO_PRIMARIO}>Abrir o estoque <ArrowRight className="size-4" /></Link>
+                <Link prefetch={false} href="/estoque?aba=cadastrado" className="inline-flex items-center gap-1 text-[15px] text-texto-3 transition hover:text-texto">
                   Material cadastrado <ChevronRight className="size-4" />
                 </Link>
               </div>
@@ -99,7 +99,7 @@ export default async function Inicio() {
                 </>
               );
               const cls = "group flex flex-col items-center rounded-cartao px-2 py-4 transition hover:bg-superficie-2";
-              if (a.rota) return <Link key={a.id} href={a.rota} className={cls}>{conteudo}</Link>;
+              if (a.rota) return <Link prefetch={false} key={a.id} href={a.rota} className={cls}>{conteudo}</Link>;
               return <div key={a.id} className={cls + " cursor-default opacity-50"} title="Em breve">{conteudo}</div>;
             })}
           </div>
