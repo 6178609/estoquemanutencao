@@ -5,6 +5,7 @@ import { Aviso } from "@/components/PaginaWcm";
 import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
 import { brl } from "@/lib/formato";
 import * as ativos from "@/lib/wcm/ativos";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import type { Contexto } from "@/lib/wcm/contexto";
 import { PENDENTES } from "@/lib/wcm/preparo";
 import { dataBr, paraData, partes } from "@/lib/wcm/util";
@@ -14,7 +15,7 @@ import { FiltrosUrl } from "./_ui/FiltrosUrl";
 import { hrefCom, type Params } from "./_ui/url";
 import { infoCad, mapaEstoque, materiaisDe, type MapaEstoque } from "./dados";
 import { FormEquipamento } from "./FormEquipamento";
-import { CRITICIDADES, filtrarCadastro, formInicial, lerFiltroCadastro, paginar, param, pecasEmAlerta, situacaoPeca, V_ANALISE } from "./logica";
+import { CampoEq, CRITICIDADES, filtrarCadastro, formInicial, lerFiltroCadastro, paginar, param, pecasEmAlerta, ROTULO_CAMPO, situacaoPeca, V_ANALISE } from "./logica";
 import { RemoverEquip } from "./RemoverEquip";
 import { SeloPeca } from "./SeloPeca";
 
@@ -24,7 +25,7 @@ const SELO_CRIT: Record<string, "vermelho" | "laranja" | "verde"> = { Alta: "ver
 const num = (v: unknown) => { const x = Number(v); return v != null && v !== "" && Number.isFinite(x) && x > 0 ? x : null; };
 
 export async function Cadastro({ c, params, cadastra }: { c: Contexto; params: Params; cadastra: boolean }) {
-  const est = await mapaEstoque();
+  const [est, campoEq] = await Promise.all([mapaEstoque(), campoDoEquipamento(c)]);
   const cad = c.cad.equipamentos;
   const n = Object.keys(cad).length;
   const form = param(params, "form");
@@ -69,13 +70,13 @@ export async function Cadastro({ c, params, cadastra }: { c: Contexto; params: P
           <div className="mt-3 font-display text-[17px] font-medium">Nenhum equipamento cadastrado</div>
           <p className="mx-auto mt-1 max-w-md text-[13px] text-texto-3">Cadastre os equipamentos da planta com categoria, criticidade e vincule os componentes de reposição da base de material.</p>
         </div>
-      ) : n > 0 && <Lista c={c} params={params} est={est} cadastra={cadastra} />}
+      ) : n > 0 && <Lista c={c} params={params} est={est} cadastra={cadastra} campoEq={campoEq} />}
     </div>
   );
 }
 
-function Lista({ c, params, est, cadastra }: { c: Contexto; params: Params; est: MapaEstoque | null; cadastra: boolean }) {
-  const itens = filtrarCadastro(c.cad.equipamentos, lerFiltroCadastro(params), (m) => est?.get(m)?.descricao ?? "");
+function Lista({ c, params, est, cadastra, campoEq }: { c: Contexto; params: Params; est: MapaEstoque | null; cadastra: boolean; campoEq: CampoEq }) {
+  const itens = filtrarCadastro(c.cad.equipamentos, lerFiltroCadastro(params), (m) => est?.get(m)?.descricao ?? "", campoEq);
   const pg = paginar(itens, Number(param(params, "pag")) || 1);
   // resumo das ordens do IW38 e o código ABC do SAP
   const resumo = new Map<string, { ordens: number; pendentes: number }>();
@@ -109,9 +110,11 @@ function Lista({ c, params, est, cadastra }: { c: Contexto; params: Params; est:
             num(v.ano_instalacao) ? `instalado em ${Math.trunc(num(v.ano_instalacao)!)}` : "", num(v.vida_util) ? `vida útil ${Math.trunc(num(v.vida_util)!)} anos` : "",
             gar != null ? `garantia até ${dataBr(gar)}` : "", num(v.valor_reposicao) ? `reposição ${brl(num(v.valor_reposicao))}` : ""].filter(Boolean);
           const r = resumo.get(tag);
+          const campo = campoEq(tag);
           return (
             <details key={tag} className="group rounded-cartao border border-borda bg-superficie open:border-borda-forte">
               <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2.5 gap-y-1.5 px-4 py-3.5 hover:bg-superficie-2 [&::-webkit-details-marker]:hidden">
+                {campo && <span className="text-[13px] text-texto-3">{campo} ·</span>}
                 <span className="font-mono text-[13px] font-semibold text-alp-azul">{tag}</span>
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{nome}</span>
                 <span className="flex flex-wrap items-center gap-1.5">
@@ -124,6 +127,7 @@ function Lista({ c, params, est, cadastra }: { c: Contexto; params: Params; est:
                 </span>
               </summary>
               <div className="space-y-3 border-t border-borda px-4 py-4 text-[13px]">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1"><dt className="text-[12px] text-texto-3">{ROTULO_CAMPO}</dt><dd className="font-medium">{campo || "—"}</dd></dl>
                 {!!v.observacoes && <blockquote className="border-l-2 border-borda-forte pl-3 text-texto-2">{String(v.observacoes)}</blockquote>}
                 {ciclo.length > 0 && <p className="flex items-start gap-1.5 text-texto-3"><Hourglass className="mt-0.5 size-3.5 shrink-0" />{ciclo.join(" · ")}</p>}
                 {(r || abc.get(tag)) && (

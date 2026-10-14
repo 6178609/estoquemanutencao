@@ -5,6 +5,7 @@ import { COR_FAROL, GradeKpis } from "@/components/Indicador";
 import { AbasVisao, Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados, resultados, serieMensal } from "@/lib/wcm/contexto";
 import * as hh from "@/lib/wcm/hh";
 import * as ind from "@/lib/wcm/indicadores";
@@ -37,7 +38,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
     subtitulo="Horas apontadas (IW47) por pessoa, centro e tipo de manutenção, utilização da equipe (Gestão de HH) e carga pendente em semanas." />;
   if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW38 (ordens)" /></PaginaWcm>;
 
-  const [[atual, anterior], serie, d] = await Promise.all([resultados(c), serieMensal(c), dados(c)]);
+  const [[atual, anterior], serie, d, campoEq] = await Promise.all([resultados(c), serieMensal(c), dados(c), campoDoEquipamento(c)]);
   const metas = c.cad.metas;
   const { ini, fim } = c.f;
   const visao = VISOES.includes(String(params.visao)) ? String(params.visao) : VISOES[0];
@@ -77,7 +78,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {visao === "Equipe e pessoas" ? <Equipe c={c} d={d} ex={ex} jan={jan} />
           : visao === "Distribuição das horas" ? <Distribuicao d={d} ex={ex} />
-            : <Backlog d={d} atual={atual} metas={metas} />}
+            : <Backlog d={d} atual={atual} metas={metas} campoEq={campoEq} />}
       </Secao>
     </PaginaWcm>
   );
@@ -192,7 +193,7 @@ function Distribuicao({ d, ex }: { d: ind.Dados; ex: Exec[] }) {
 
 const COL_BK: Coluna[] = [
   { rotulo: "Ordem", formato: "codigo" }, { rotulo: "Tipo" }, { rotulo: "Natureza" }, { rotulo: "Texto", largo: true },
-  { rotulo: "Equipamento", formato: "codigo" }, { rotulo: "Centro de trabalho" }, { rotulo: "Início (data-base)", formato: "data" },
+  { rotulo: "Campo de ordenação" }, { rotulo: "Equipamento", formato: "codigo" }, { rotulo: "Centro de trabalho" }, { rotulo: "Início (data-base)", formato: "data" },
   { rotulo: "Idade (dias)", formato: "inteiro" }, { rotulo: "HH pendentes", formato: "num1" }, { rotulo: "Situação" },
 ];
 const COL_SC: Coluna[] = [
@@ -200,7 +201,8 @@ const COL_SC: Coluna[] = [
   { rotulo: "Semanas", formato: "sem" }, { rotulo: "Ordens", formato: "inteiro" },
 ];
 
-function Backlog({ d, atual, metas }: { d: ind.Dados; atual: ind.Resultado; metas: Record<string, Record<string, unknown>> }) {
+function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Resultado; metas: Record<string, Record<string, unknown>>;
+  campoEq: (codigo: string | null | undefined) => string }) {
   const bk = ind.backlog(d);
   const [cap, origem] = ind.capacidadeSemanal(d, d.centros.length ? d.centros : null);
   const kB = ind.POR_ID.backlog_sem;
@@ -260,7 +262,7 @@ function Backlog({ d, atual, metas }: { d: ind.Dados; atual: ind.Resultado; meta
         <div className="font-display text-[15px] font-medium">Ordens em aberto</div>
         <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">Mais antigas primeiro{bk.length > lista.length ? ` · ${n0.format(lista.length)} de ${n0.format(bk.length)}` : ""}</div>
         <TabelaDados colunas={COL_BK} baixar="backlog" busca="Buscar ordem, texto, equipamento, centro…" limite={500}
-          linhas={lista.map((b) => [b.ordem, b.tipo, b.natureza, b.texto, b.equipChave, b.centroTrabalho, b.data, b.idade, b.hhPendentes, b.situacao])} />
+          linhas={lista.map((b) => [b.ordem, b.tipo, b.natureza, b.texto, campoEq(b.equipChave), b.equipChave, b.centroTrabalho, b.data, b.idade, b.hhPendentes, b.situacao])} />
       </div>
       {sc.length > 0 && (
         <details className="rounded-cartao border border-borda bg-superficie p-5">

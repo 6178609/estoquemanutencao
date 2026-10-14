@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { respostaCsv } from "@/app/(app)/ordens/_comum/csv";
 import { hojeArquivo, paramsDe } from "@/app/(app)/ordens/_comum/rota";
-import { colunasEscolhidas, linha, ordenarOrdens, ordensDaPagina } from "@/app/(app)/ordens/dados";
+import { colunasEscolhidas, comCampo, linha, ordenarOrdens, ordensDaPagina } from "@/app/(app)/ordens/dados";
 import { autorizar } from "@/lib/auth/sessao";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { contexto } from "@/lib/wcm/contexto";
 
 /**
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
   const p = paramsDe(req);
   const c = await contexto(p);
   const { filtradas } = ordensDaPagina(c, p);
-  const { lista } = ordenarOrdens(filtradas, p);
+  const campoEq = await campoDoEquipamento(c);
+  const { lista } = ordenarOrdens(comCampo(filtradas, campoEq), p);
   return respostaCsv(`ordens_filtradas_${hojeArquivo()}`, colunasEscolhidas(p).colunas, lista.map(linha));
 }

@@ -6,6 +6,7 @@ import { Aviso } from "@/components/PaginaWcm";
 import { Selo } from "@/components/ui";
 import { brl, brlCurto } from "@/lib/formato";
 import * as ativos from "@/lib/wcm/ativos";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import type { Contexto } from "@/lib/wcm/contexto";
 import { dataBr } from "@/lib/wcm/util";
 
@@ -13,7 +14,7 @@ import { AbasParam, BarraSaude, Cartao, GradeNumeros, inteiroBr, Numero, Paginac
 import { FiltrosUrl } from "./_ui/FiltrosUrl";
 import { hrefCom, type Params } from "./_ui/url";
 import { inventarioAtivos } from "./dados";
-import { filtrarInventario, lerFiltroInventario, paginar, param, SEM_CLASSE, V_ANALISE, V_CADASTRO } from "./logica";
+import { CampoEq, filtrarInventario, lerFiltroInventario, paginar, param, ROTULO_CAMPO, SEM_CLASSE, V_ANALISE, V_CADASTRO } from "./logica";
 
 /** Visão "Gestão de ativos" (porta de central/ativos_ui.py) — a única que o Manutentor vê, sem editar. */
 
@@ -36,6 +37,7 @@ const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v)}%`);
 
 export async function GestaoAtivos({ c, params, completo, cadastra }: { c: Contexto; params: Params; completo: boolean; cadastra: boolean }) {
   const t = await inventarioAtivos(c);
+  const campoEq = await campoDoEquipamento(c);
   if (!t.length) {
     return <Aviso>Nenhum ativo encontrado. Envie o export do <b>IH08</b> (cadastro de equipamentos) ou do <b>IW38</b> em <Link href="/dados" className="font-medium underline">Fontes de dados</Link>{completo ? <>, ou cadastre os equipamentos em <b>Cadastro de equipamentos</b></> : null}.</Aviso>;
   }
@@ -59,29 +61,29 @@ export async function GestaoAtivos({ c, params, completo, cadastra }: { c: Conte
       </GradeNumeros>
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-        <Pareto t={t} />
+        <Pareto t={t} campoEq={campoEq} />
         <Recomendacoes t={t} />
       </div>
 
       <div id="abas" className="scroll-mt-24 space-y-4">
         <AbasParam params={params} param="aba" abas={ABAS} atual={aba} ancora="abas" />
         {aba === "area" && <PorArea t={t} />}
-        {aba === "vida" && <CicloVida t={t} cadastra={cadastra} />}
+        {aba === "vida" && <CicloVida t={t} cadastra={cadastra} campoEq={campoEq} />}
         {aba === "lacunas" && <Lacunas t={t} />}
-        {aba === "inventario" && <Inventario t={t} params={params} completo={completo} cadastra={cadastra} temOrdens={!!c.b.ordens.dados} />}
+        {aba === "inventario" && <Inventario t={t} params={params} completo={completo} cadastra={cadastra} temOrdens={!!c.b.ordens.dados} campoEq={campoEq} />}
       </div>
     </div>
   );
 }
 
-function Pareto({ t }: { t: ativos.LinhaAtivo[] }) {
+function Pareto({ t, campoEq }: { t: ativos.LinhaAtivo[]; campoEq: CampoEq }) {
   const p = ativos.paretoCusto(t);
   const total = t.filter((x) => x.situacao !== ativos.DESATIVADO).reduce((s, x) => s + x.custo12Meses, 0);
   const topo = p.reduce((s, x) => s + x.custo12Meses, 0);
   return (
     <Grafico titulo="Bad actors" subtitulo="Os 15 ativos que mais custaram em 12 meses"
       dica="Poucos ativos costumam concentrar a maior parte do gasto: comece a análise de custo por eles."
-      tabela={{ colunas: ["Código", "Equipamento", "Criticidade", "Custo 12 meses", "% acumulado"], linhas: p.map((x) => [x.codigo, x.equipamento, x.criticidade || "—", brl(x.custo12Meses), `${Math.round(x.pctAcumulado)}%`]) }}>
+      tabela={{ colunas: [ROTULO_CAMPO, "Código", "Equipamento", "Criticidade", "Custo 12 meses", "% acumulado"], linhas: p.map((x) => [campoEq(x.codigo) || "—", x.codigo, x.equipamento, x.criticidade || "—", brl(x.custo12Meses), `${Math.round(x.pctAcumulado)}%`]) }}>
       {!p.length ? <p className="text-[13px] text-texto-3">Sem custo de manutenção nos últimos 12 meses.</p> : (
         <div className="space-y-5">
           <div>
@@ -128,7 +130,7 @@ function PorArea({ t }: { t: ativos.LinhaAtivo[] }) {
   );
 }
 
-function CicloVida({ t, cadastra }: { t: ativos.LinhaAtivo[]; cadastra: boolean }) {
+function CicloVida({ t, cadastra, campoEq }: { t: ativos.LinhaAtivo[]; cadastra: boolean; campoEq: CampoEq }) {
   const v = ativos.cicloDeVida(t);
   return (
     <div className="space-y-4">
@@ -144,11 +146,11 @@ function CicloVida({ t, cadastra }: { t: ativos.LinhaAtivo[]; cadastra: boolean 
       ) : (
         <Cartao titulo="Atenção no ciclo de vida" sub="Substituição a avaliar, garantia vencendo ou fim da vida útil (≤ 1 ano)">
           {!v.alerta.length ? <p className="text-[13px] text-texto-3">Nenhum ativo em alerta de ciclo de vida.</p> : (
-            <TabelaT alta colunas={[{ rotulo: "Código" }, { rotulo: "Equipamento", larga: true }, { rotulo: "Criticidade" }, { rotulo: "Fabricante" }, { rotulo: "Modelo" },
+            <TabelaT alta colunas={[{ rotulo: ROTULO_CAMPO }, { rotulo: "Código" }, { rotulo: "Equipamento", larga: true }, { rotulo: "Criticidade" }, { rotulo: "Fabricante" }, { rotulo: "Modelo" },
               { rotulo: "Ano", dir: true }, { rotulo: "Idade (anos)", dir: true }, { rotulo: "Vida útil", dir: true }, { rotulo: "Vida restante", dir: true },
               { rotulo: "Garantia até" }, { rotulo: "Reposição", dir: true }, { rotulo: "Custo 12 meses", dir: true },
               { rotulo: "Custo ÷ reposição", dir: true, dica: `≥ ${ativos.LIMITE_SUBSTITUICAO * 100}% = avaliar substituição` }, { rotulo: "Recomendação" }]}
-              linhas={v.alerta.map((x) => ({ chave: x.codigo, celulas: [x.codigo, x.equipamento || "—", x.criticidade || "—", x.fabricante || "—", x.modelo || "—",
+              linhas={v.alerta.map((x) => ({ chave: x.codigo, celulas: [campoEq(x.codigo) || "—", x.codigo, x.equipamento || "—", x.criticidade || "—", x.fabricante || "—", x.modelo || "—",
                 x.anoInstalacao ?? "—", x.idade ?? "—", x.vidaUtil ?? "—", x.vidaRestante ?? "—", dataBr(x.garantiaAte), brl(x.valorReposicao), brl(x.custo12Meses),
                 x.custoPorReposicaoPct == null ? "—" : `${x.custoPorReposicaoPct}%`, <Selo key="r" cor={SELO_REC[x.recomendacao] ?? "cinza"}>{x.recomendacao}</Selo>] }))} />
           )}
@@ -182,16 +184,16 @@ function Lacunas({ t }: { t: ativos.LinhaAtivo[] }) {
 }
 
 const COLS_INV = [
-  { rotulo: "Código" }, { rotulo: "Equipamento", larga: true }, { rotulo: "Situação" }, { rotulo: "Criticidade" }, { rotulo: "Área" },
+  { rotulo: ROTULO_CAMPO }, { rotulo: "Código" }, { rotulo: "Equipamento", larga: true }, { rotulo: "Situação" }, { rotulo: "Criticidade" }, { rotulo: "Área" },
   { rotulo: "Local de instalação" }, { rotulo: "Saúde", dica: "Índice 0–100 da Saúde dos ativos" }, { rotulo: "Custo 12 meses", dir: true },
   { rotulo: "Quebras 12 meses", dir: true }, { rotulo: "MTBF (dias)", dir: true, dica: "365 dias ÷ quebras de 12 meses" },
   { rotulo: "Planos", dir: true, dica: "Planos de manutenção preventiva (IP19 ou ordens de plano do IW38)" }, { rotulo: "Pendentes", dir: true },
   { rotulo: "Idade (anos)", dir: true }, { rotulo: "Garantia" }, { rotulo: "Recomendação" }, { rotulo: "Origem" },
 ];
 
-function Inventario({ t, params, completo, cadastra, temOrdens }: { t: ativos.LinhaAtivo[]; params: Params; completo: boolean; cadastra: boolean; temOrdens: boolean }) {
+function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: ativos.LinhaAtivo[]; params: Params; completo: boolean; cadastra: boolean; temOrdens: boolean; campoEq: CampoEq }) {
   const f = lerFiltroInventario(params);
-  const vis = filtrarInventario(t, f);
+  const vis = filtrarInventario(t, f, campoEq);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
   const sel = param(params, "at");
   const r = sel ? t.find((x) => x.codigo === sel) : undefined;
@@ -210,7 +212,7 @@ function Inventario({ t, params, completo, cadastra, temOrdens }: { t: ativos.Li
       ]} />
       <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} de {inteiroBr(t.length)} ativo(s){f.sits.length ? "" : " (sem os desativados)"} · clique no código para ver o resumo{completo ? ", abrir a ficha ou editar o cadastro" : ""}.</p>
       {r && (
-        <Cartao className="border-borda-forte" titulo={`${r.codigo} · ${r.equipamento || "—"}`}
+        <Cartao className="border-borda-forte" titulo={`${campoEq(r.codigo) ? `${campoEq(r.codigo)} · ` : ""}${r.codigo} · ${r.equipamento || "—"}`}
           sub={<span className="inline-flex flex-wrap items-center gap-1.5">{r.situacao} · criticidade {r.criticidade || "sem classe"} · <Selo cor={SELO_REC[r.recomendacao] ?? "cinza"}>{r.recomendacao}</Selo></span>}
           acoes={<div className="flex flex-wrap gap-2">
             {completo && temOrdens && <Link href={`?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Abrir ficha (ordens)</Link>}
@@ -218,7 +220,7 @@ function Inventario({ t, params, completo, cadastra, temOrdens }: { t: ativos.Li
             <Link scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
-            {[["Local", r.localInstalacao || "—"], ["Área", r.area || "—"], ["Centro", r.centro || "—"], ["Origem", r.origem],
+            {[[ROTULO_CAMPO, campoEq(r.codigo) || "—"], ["Local", r.localInstalacao || "—"], ["Área", r.area || "—"], ["Centro", r.centro || "—"], ["Origem", r.origem],
               ["Custo total (IW38)", brl(r.custoTotal)], ["Custo 12 meses", brl(r.custo12Meses)], ["Planos preventivos", inteiroBr(r.planosPreventivos)], ["Peças vinculadas", inteiroBr(r.pecasVinculadas)],
               ["Fabricante / modelo", [r.fabricante, r.modelo].filter(Boolean).join(" ") || "—"], ["Nº de série", r.serie || "—"],
               ["Instalação", r.anoInstalacao != null ? `${r.anoInstalacao} (${r.idade} anos)` : "—"], ["Vida útil", r.vidaUtil != null ? `${r.vidaUtil} anos (restam ${r.vidaRestante ?? "—"})` : "—"],
@@ -231,7 +233,7 @@ function Inventario({ t, params, completo, cadastra, temOrdens }: { t: ativos.Li
       <TabelaT colunas={COLS_INV} vazio="Nenhum ativo com estes filtros."
         linhas={pg.itens.map((x) => ({
           chave: x.codigo, ativa: x.codigo === sel, href: hrefCom(params, { at: x.codigo === sel ? null : x.codigo }, "abas"),
-          celulas: [x.codigo, x.equipamento || "—", x.situacao, x.criticidade || <span className="text-texto-3">sem classe</span>, x.area || "—", x.localInstalacao || "—",
+          celulas: [campoEq(x.codigo) || "—", x.codigo, x.equipamento || "—", x.situacao, x.criticidade || <span className="text-texto-3">sem classe</span>, x.area || "—", x.localInstalacao || "—",
             <BarraSaude key="s" valor={x.saude} faixa={x.faixa} />, brl(x.custo12Meses), x.quebras12Meses, x.mtbfDias ?? "—", x.planosPreventivos, x.ordensPendentes,
             x.idade ?? "—", x.garantia, <Selo key="r" cor={SELO_REC[x.recomendacao] ?? "cinza"}>{x.recomendacao}</Selo>, x.origem],
         }))} />

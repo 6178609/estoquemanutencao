@@ -8,6 +8,7 @@ import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import * as af from "@/lib/wcm/af";
+import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -39,6 +40,7 @@ const COR_GRUPO: Record<string, Cor> = { [af.G_NO_PRAZO]: "st-bom", [af.G_FORA]:
 
 type Params = Record<string, string | string[] | undefined>;
 type AfG = af.Af & { grupo: string };
+type CampoEq = (codigo: string | null | undefined) => string;
 
 export default async function PlanosAf(props: { searchParams: Promise<Params> }) {
   await exigir("af_planos");
@@ -63,6 +65,7 @@ export default async function PlanosAf(props: { searchParams: Promise<Params> })
     .map((a) => ({ ...a, grupo: af.GRUPO_DA_SITUACAO_AF[a.situacao] ?? af.G_ABERTO }));
   const risco = af.afsEmRisco(vivas, hoje);
   const nAtr = risco.filter((a) => a.situacao === af.AF_ATRASADA).length;
+  const campoEq = await campoDoEquipamento(c);
 
   return moldura(
     <>
@@ -75,10 +78,11 @@ export default async function PlanosAf(props: { searchParams: Promise<Params> })
             abrirParam={{ param: "af", campo: "numero", ancora: "af" }}
             colunas={[{ id: "numero", rotulo: "Nº AF", tipo: "codigo", largura: 100 }, { id: "situacao", rotulo: "Situação", tipo: "situacao", largura: 160 },
               { id: "atraso", rotulo: "Dias de atraso", tipo: "barra", corBarra: "st-critico", largura: 130 }, { id: "limite", rotulo: "Data limite", tipo: "data" },
-              { id: "crit", rotulo: "Criticidade", largura: 90 }, { id: "equipamento", rotulo: "Equipamento", largura: 200 }, { id: "resumo", rotulo: "Resumo", largura: 300 },
+              { id: "crit", rotulo: "Criticidade", largura: 90 }, { id: "campoOrdenacao", rotulo: "Campo de ordenação", largura: 150 },
+              { id: "equipamento", rotulo: "Equipamento", largura: 200 }, { id: "resumo", rotulo: "Resumo", largura: 300 },
               { id: "supervisor", rotulo: "Supervisor", largura: 170 }, { id: "area", rotulo: "Área", largura: 120 }, { id: "link", rotulo: "Link", tipo: "link", largura: 70 }]}
             linhas={risco.map((a) => ({ numero: a.numero, situacao: a.situacao, atraso: a.diasDeAtraso, limite: a.dataLimite, crit: a.criticidade,
-              equipamento: a.equipamento, resumo: a.resumo, supervisor: a.supervisor, area: a.area, link: a.link }))} />
+              campoOrdenacao: campoEq(a.codigoSap), equipamento: a.equipamento, resumo: a.resumo, supervisor: a.supervisor, area: a.area, link: a.link }))} />
         </Quadro>
       )}
 
@@ -100,14 +104,14 @@ export default async function PlanosAf(props: { searchParams: Promise<Params> })
 
       <Secao titulo="Onde e por que falha" sub={`${int(gerP.length)} AFs geradas no período (data da falha; canceladas não contam).`}>
         <Opcoes param="dist" opcoes={DIST.map((d) => ({ valor: d }))} atual={DIST.includes(param(params, "dist")) ? param(params, "dist") : DIST[0]} params={params} />
-        <Distribuicao dist={DIST.includes(param(params, "dist")) ? param(params, "dist") : DIST[0]} gerP={gerP} afs={afs} ini={ini} fim={fim} />
+        <Distribuicao dist={DIST.includes(param(params, "dist")) ? param(params, "dist") : DIST[0]} gerP={gerP} afs={afs} ini={ini} fim={fim} campoEq={campoEq} />
       </Secao>
 
       <Secao titulo="Referência IW28" destaque="quebras A × AFs A">
         <ReferenciaIw28 notas={notas} gerP={gerP} ini={ini} fim={fim} />
       </Secao>
 
-      <TabelaAfs afs={afs} acoes={acoes} ini={ini} fim={fim} params={params} />
+      <TabelaAfs afs={afs} acoes={acoes} ini={ini} fim={fim} params={params} campoEq={campoEq} />
     </>,
   );
 }
@@ -212,7 +216,7 @@ function GraficoGrupo({ titulo, subtitulo, dica, gerP, campo }: { titulo: string
   );
 }
 
-function Distribuicao({ dist, gerP, afs, ini, fim }: { dist: string; gerP: AfG[]; afs: af.Af[]; ini: Dia; fim: Dia }) {
+function Distribuicao({ dist, gerP, afs, ini, fim, campoEq }: { dist: string; gerP: AfG[]; afs: af.Af[]; ini: Dia; fim: Dia; campoEq: CampoEq }) {
   if (dist === "Situação e criticidade") {
     const todas = afs.filter((a) => a.dataFalha != null && a.dataFalha >= ini && a.dataFalha <= fim);
     const sit = af.SITUACOES_AF.map((s) => ({ s, n: todas.filter((a) => a.situacao === s).length })).filter((x) => x.n);
@@ -305,9 +309,10 @@ function Distribuicao({ dist, gerP, afs, ini, fim }: { dist: string; gerP: AfG[]
   return (
     <Quadro titulo="Equipamentos com mais AFs no período" subtitulo="Candidatos a revisão de plano de manutenção, melhoria (fragilidade de projeto) e expansão horizontal das ações · o código abre a ficha do equipamento">
       <TabelaSimples minimo={980}
-        colunas={[{ rotulo: "Código SAP" }, { rotulo: "Equipamento" }, { rotulo: "Área" }, { rotulo: "AFs", direita: true }, { rotulo: "AFs A", direita: true },
+        colunas={[{ rotulo: "Campo de ordenação" }, { rotulo: "Código SAP" }, { rotulo: "Equipamento" }, { rotulo: "Área" }, { rotulo: "AFs", direita: true }, { rotulo: "AFs A", direita: true },
           { rotulo: "Em aberto", direita: true }, { rotulo: "Parada (h)", direita: true }, { rotulo: "Causa mais frequente" }, { rotulo: "Última falha" }]}
         linhas={top.map((x) => ({ celulas: [
+          campoEq(x.cod) || "—",
           x.cod ? <Link href={`/equipamentos?eq=${encodeURIComponent(x.cod)}`} className="font-mono text-[12px] text-[var(--serie-1)] hover:underline">{x.cod}</Link> : "—",
           x.eq, x.area, int(x.n), int(x.a), int(x.aberto), num(x.parada), x.causa, dataBr(x.ultima)] }))} />
     </Quadro>
@@ -349,7 +354,7 @@ const COLS_AF: Coluna[] = [
   { id: "crit", rotulo: "Criticidade", largura: 90 }, { id: "falha", rotulo: "Data da falha", tipo: "data", largura: 110 },
   { id: "limite", rotulo: "Data limite", tipo: "data" }, { id: "analise", rotulo: "Data da análise", tipo: "data", largura: 120 },
   { id: "atraso", rotulo: "Dias de atraso", tipo: "num", largura: 100 }, { id: "diasAnalise", rotulo: "Dias para análise", tipo: "num", largura: 110 },
-  { id: "area", rotulo: "Área", largura: 120 }, { id: "equipamento", rotulo: "Equipamento", largura: 200 }, { id: "sap", rotulo: "Código SAP", tipo: "codigo" },
+  { id: "area", rotulo: "Área", largura: 120 }, { id: "campoOrdenacao", rotulo: "Campo de ordenação", largura: 150 }, { id: "equipamento", rotulo: "Equipamento", largura: 200 }, { id: "sap", rotulo: "Código SAP", tipo: "codigo" },
   { id: "resumo", rotulo: "Resumo", largura: 300 }, { id: "causa", rotulo: "Causa raiz", largura: 200 }, { id: "pilar", rotulo: "Pilar", largura: 70 },
   { id: "especialidade", rotulo: "Especialidade", largura: 130 }, { id: "supervisor", rotulo: "Supervisor", largura: 170 }, { id: "turno", rotulo: "Turno", largura: 80 },
   { id: "parada", rotulo: "Parada (h)", tipo: "num", casas: 1 }, { id: "pctAcoes", rotulo: "Ações concluídas", tipo: "barra", max: 100, corBarra: "st-bom", largura: 140 },
@@ -366,7 +371,7 @@ const COLS_ACAO: Coluna[] = [
 
 const LISTAS = [{ valor: "periodo", rotulo: "Só no período" }, { valor: "todas", rotulo: "Todas as datas" }];
 
-function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.AcaoAf[]; ini: Dia; fim: Dia; params: Params }) {
+function TabelaAfs({ afs, acoes, ini, fim, params, campoEq }: { afs: af.Af[]; acoes: af.AcaoAf[]; ini: Dia; fim: Dia; params: Params; campoEq: CampoEq }) {
   const base = (["falha", "limite", "analise"].includes(param(params, "base")) ? param(params, "base") : "falha") as keyof typeof CAMPO_BASE;
   const campo = CAMPO_BASE[base];
   const qtd = new Map<string, number>(), abertas = new Map<string, number>();
@@ -399,7 +404,7 @@ function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.A
           abrirParam={{ param: "af", campo: "numero", ancora: "af" }}
           linhas={visiveis.map((a) => {
             return { numero: a.numero, situacao: a.situacao, crit: a.criticidade, falha: a.dataFalha, limite: a.dataLimite, analise: a.dataAnalise,
-              atraso: a.diasDeAtraso, diasAnalise: a.diasParaAnalise, area: a.area, equipamento: a.equipamento, sap: a.codigoSap, resumo: a.resumo,
+              atraso: a.diasDeAtraso, diasAnalise: a.diasParaAnalise, area: a.area, campoOrdenacao: campoEq(a.codigoSap), equipamento: a.equipamento, sap: a.codigoSap, resumo: a.resumo,
               causa: a.causaRaiz, pilar: a.pilar, especialidade: a.especialidade, supervisor: a.supervisor, turno: a.turno, parada: nan(a.duracaoParada),
               pctAcoes: nan(a.pctAcoesConcluidas), acoes: qtd.get(a.numero) ?? 0, abertas: abertas.get(a.numero) ?? 0, link: a.link,
               os: a.osCorretiva, componente: a.componente };
@@ -421,7 +426,7 @@ function TabelaAfs({ afs, acoes, ini, fim, params }: { afs: af.Af[]; acoes: af.A
             {!!sel.diasDeAtraso && <span className="text-texto-2">{int(sel.diasDeAtraso)} dia(s) de atraso</span>}
           </div>
           <Campos itens={[["Tipo de análise", sel.tipoAnalise], ["Status no gerenciador", sel.status], ["Criticidade", sel.criticidade], ["Área", sel.area],
-            ["Área da falha", sel.areaFalha], ["Código SAP", sel.codigoSap], ["Conjunto", sel.conjunto], ["Subconjunto", sel.subconjunto], ["Componente", sel.componente],
+            ["Área da falha", sel.areaFalha], ["Campo de ordenação", campoEq(sel.codigoSap) || "—"], ["Código SAP", sel.codigoSap], ["Conjunto", sel.conjunto], ["Subconjunto", sel.subconjunto], ["Componente", sel.componente],
             ["Pilar", af.PILARES[sel.pilar] ? `${sel.pilar} · ${af.PILARES[sel.pilar]}` : sel.pilar], ["Causa raiz", sel.causaRaiz], ["Especialidade", sel.especialidade],
             ["OS corretiva", sel.osCorretiva], ["Duração da parada (h)", num(nan(sel.duracaoParada))], ["Supervisor", sel.supervisor], ["Turno", sel.turno],
             ["Data da falha", dataBr(sel.dataFalha)], ["Data limite", dataBr(sel.dataLimite)], ["Ajuste", sel.ajuste], ["Data da análise", dataBr(sel.dataAnalise)],

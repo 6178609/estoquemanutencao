@@ -49,6 +49,7 @@ export const COLUNAS: Coluna[] = [
   { chave: "tipoNota", rotulo: "Tipo de nota" },
   { chave: "descricao", rotulo: "Descrição", tipo: "longo", celular: true },
   { chave: "objeto", rotulo: "Objeto técnico" },
+  { chave: "campoOrdenacao", rotulo: "Campo de ordenação" },
   { chave: "equipamento", rotulo: "Equipamento", tipo: "codigo" },
   { chave: "codigoAbc", rotulo: "ABC" },
   { chave: "quebra", rotulo: "Quebra", tipo: "bool", dica: "Nota Y1 convertida em ordem YM11" },
@@ -72,6 +73,11 @@ export function ordenarNotas(xs: Nota[], p: Params) {
 }
 
 export const linha = (n: Nota): Linha => n as unknown as Linha;
+
+/** Campo de ordenação do equipamento de cada nota (o geral do equipamento). */
+export type CampoFn = (codigo: string | null | undefined) => string;
+export const comCampo = (xs: Nota[], campoEq: CampoFn): (Nota & { campoOrdenacao: string })[] =>
+  xs.map((n) => ({ ...n, campoOrdenacao: campoEq(n.equipChave) }));
 
 /** Idade da fila sem ordem. */
 export const FAIXAS_IDADE = [["Até 7 dias", 0, 7], ["8 a 30 dias", 8, 30], ["31 a 90 dias", 31, 90], ["Mais de 90 dias", 91, Infinity]] as const;

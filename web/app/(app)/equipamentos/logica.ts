@@ -18,6 +18,11 @@ export const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirma�
 export const POR_PAGINA = 50;
 export const V_ATIVOS = "Gestão de ativos", V_CADASTRO = "Cadastro de equipamentos", V_ANALISE = "Análise pelas ordens (IW38)";
 export const VISOES = [V_ATIVOS, V_CADASTRO, V_ANALISE];
+/** Rótulo da coluna/campo com o campo de ordenação geral do equipamento (o mesmo do Calendário e da Gestão de MRO). */
+export const ROTULO_CAMPO = "Campo de ordenação";
+/** Padrão de `campoEq`: sem a função, não há coluna de campo (as planilhas e buscas seguem como antes). */
+export const semCampo = (_codigo: string): string => "";
+export type CampoEq = (codigo: string) => string;
 
 export type Params = Record<string, string | string[] | undefined>;
 
@@ -81,7 +86,7 @@ export function lerFiltroInventario(p: Params): FiltroInventario {
     recs: listaParam(p, "irec"), semPlano: param(p, "iplano") === "1", site: param(p, "isite") === "1" };
 }
 
-export function filtrarInventario(t: LinhaAtivo[], f: FiltroInventario): LinhaAtivo[] {
+export function filtrarInventario(t: LinhaAtivo[], f: FiltroInventario, campoEq: CampoEq = semCampo): LinhaAtivo[] {
   const termos = normalizarBusca(f.q).split(/\s+/).filter(Boolean);
   return t.filter((x) => {
     if (f.areas.length && !f.areas.includes(x.area)) return false;
@@ -91,7 +96,7 @@ export function filtrarInventario(t: LinhaAtivo[], f: FiltroInventario): LinhaAt
     if (f.semPlano && x.cobertoPorPlano) return false;
     if (f.site && x.origem === "SAP") return false;
     if (termos.length) {
-      const hay = normalizarBusca([x.codigo, x.equipamento, x.localInstalacao, x.area, x.fabricante, x.modelo, x.serie].join(" "));
+      const hay = normalizarBusca([x.codigo, x.equipamento, x.localInstalacao, x.area, x.fabricante, x.modelo, x.serie, campoEq(x.codigo)].join(" "));
       if (!termos.every((t) => hay.includes(t))) return false;
     }
     return true;
@@ -99,8 +104,12 @@ export function filtrarInventario(t: LinhaAtivo[], f: FiltroInventario): LinhaAt
 }
 
 /** Colunas da planilha do inventário (a mesma ordem da tabela do site atual, com o ciclo de vida inteiro). */
-export function csvInventario(t: LinhaAtivo[]): string {
-  return csv(ativos.COLUNAS.map(([, r]) => r), t.map((x) => ativos.COLUNAS.map(([k]) => (k === "garantiaAte" ? dataCsv(x.garantiaAte) : x[k]))));
+export function csvInventario(t: LinhaAtivo[], campoEq: CampoEq = semCampo): string {
+  const com = campoEq !== semCampo;
+  // o campo de ordenação vem IMEDIATAMENTE ANTES do código
+  const cols: [keyof LinhaAtivo | null, string][] = ativos.COLUNAS.flatMap(([k, r]): [keyof LinhaAtivo | null, string][] =>
+    (k === "codigo" && com ? [[null, ROTULO_CAMPO], [k, r]] : [[k, r]]));
+  return csv(cols.map(([, r]) => r), t.map((x) => cols.map(([k]) => (k == null ? campoEq(x.codigo) : k === "garantiaAte" ? dataCsv(x.garantiaAte) : x[k]))));
 }
 
 // ----------------------------------------------------------------------------
@@ -213,14 +222,14 @@ export function lerFiltroAnalise(p: Params): FiltroAnalise {
   return { q: param(p, "aq"), crits: listaParam(p, "acrit"), pend: param(p, "apend") === "1", periodo: param(p, "aper") !== "0" };
 }
 
-export function filtrarAnalise(t: LinhaAnalise[], f: FiltroAnalise): LinhaAnalise[] {
+export function filtrarAnalise(t: LinhaAnalise[], f: FiltroAnalise, campoEq: CampoEq = semCampo): LinhaAnalise[] {
   const termos = normalizarBusca(f.q).split(/\s+/).filter(Boolean);
   return t.filter((x) => {
     if (f.crits.length && !f.crits.includes(x.criticidade || NAO_CLASSIFICADO)) return false;
     if (f.pend && !(x.pendentes > 0)) return false;
     if (f.periodo && !(x.ordens > 0)) return false;
     if (termos.length) {
-      const hay = normalizarBusca(`${x.codigo} ${x.nome} ${x.local}`);
+      const hay = normalizarBusca(`${x.codigo} ${x.nome} ${x.local} ${campoEq(x.codigo)}`);
       if (!termos.every((t) => hay.includes(t))) return false;
     }
     return true;
@@ -234,9 +243,13 @@ export const COLUNAS_ANALISE: [keyof LinhaAnalise, string][] = [
   ["ultima", "Última ordem"], ["pecas", "Peças"], ["pecasEmFalta", "Peças em falta"],
 ];
 
-export function csvAnalise(t: LinhaAnalise[]): string {
+export function csvAnalise(t: LinhaAnalise[], campoEq: CampoEq = semCampo): string {
   const cols = COLUNAS_ANALISE.filter(([k]) => !(["notas", "notasSemOrdem", "quebras"].includes(k) && t.every((x) => x[k] == null)));
-  return csv(cols.map(([, r]) => r), t.map((x) => cols.map(([k]) => (k === "ultima" ? dataCsv(x.ultima) : x[k]))));
+  const com = campoEq !== semCampo;
+  // o campo de ordenação vem IMEDIATAMENTE ANTES do código
+  const todas: [keyof LinhaAnalise | null, string][] = cols.flatMap(([k, r]): [keyof LinhaAnalise | null, string][] =>
+    (k === "codigo" && com ? [[null, ROTULO_CAMPO], [k, r]] : [[k, r]]));
+  return csv(todas.map(([, r]) => r), t.map((x) => todas.map(([k]) => (k == null ? campoEq(x.codigo) : k === "ultima" ? dataCsv(x.ultima) : x[k]))));
 }
 
 /** Média de dias entre uma ordem de backlog (sem plano) e a seguinte — aproxima o MTBF. */
@@ -331,7 +344,7 @@ export function lerFiltroCadastro(p: Params): FiltroCadastro {
 }
 
 /** Itens do cadastro em ordem de TAG, pela busca (TAG, nome, códigos e descrições dos componentes) e criticidade. */
-export function filtrarCadastro(cad: Record<string, unknown>, f: FiltroCadastro, descricao: (material: string) => string = () => ""):
+export function filtrarCadastro(cad: Record<string, unknown>, f: FiltroCadastro, descricao: (material: string) => string = () => "", campoEq: CampoEq = semCampo):
   [string, Record<string, unknown>][] {
   const termos = normalizarBusca(f.q).split(/\s+/).filter(Boolean);
   return Object.entries(cad)
@@ -341,7 +354,7 @@ export function filtrarCadastro(cad: Record<string, unknown>, f: FiltroCadastro,
       if (f.crits.length && !f.crits.includes(String(v.criticidade ?? ""))) return false;
       if (!termos.length) return true;
       const mats = Array.isArray(v.materiais) ? v.materiais.map(String) : [];
-      const hay = normalizarBusca([k, String(v.nome ?? ""), ...mats, ...mats.map(descricao)].join(" "));
+      const hay = normalizarBusca([k, String(v.nome ?? ""), ...mats, ...mats.map(descricao), campoEq(k)].join(" "));
       return termos.every((t) => hay.includes(t));
     });
 }
