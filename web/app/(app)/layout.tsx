@@ -1,16 +1,17 @@
+import { Inatividade } from "@/components/Inatividade";
 import { Shell, type ItemMenu } from "@/components/Shell";
 import { ehAdmin, nomeFuncao, PAGINAS_PARCIAIS, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { pendentes } from "@/lib/auth/solicitacoes";
 import { GRUPOS } from "@/lib/navegacao";
-import { acaoSair } from "./acoes";
+import { acaoSair, acaoSairPorInatividade } from "./acoes";
 import { TrocaObrigatoria } from "./TrocaObrigatoria";
 
 export const dynamic = "force-dynamic";
 
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
   const u = await exigir();
-  if (u.trocarSenha && !u.demo) return <TrocaObrigatoria nome={u.nome || u.login} sair={acaoSair} />;
+  if (u.trocarSenha && !u.demo) return <><TrocaObrigatoria nome={u.nome || u.login} sair={acaoSair} /><Inatividade sair={acaoSairPorInatividade} /></>;
   const grupos = GRUPOS.map((g) => ({
     titulo: g.titulo,
     itens: g.abas
@@ -33,6 +34,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     <Shell grupos={grupos} sair={acaoSair}
       pessoa={{ nome: u.nome || u.login, funcao: nomeFuncao(u), perfil: PERFIS[u.perfil || ""] || "Leitor", demo: !!u.demo }}>
       {children}
+      <Inatividade sair={acaoSairPorInatividade} />
     </Shell>
   );
 }

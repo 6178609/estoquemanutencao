@@ -7,13 +7,14 @@ import { redirect } from "next/navigation";
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
 import { podeEditar, podeVer, type Usuario } from "./acesso";
+import { COOKIE_ATIVO, COOKIE_SESSAO, VALIDADE_S } from "./inatividade";
 import { confere, hashToken, normalizarLogin } from "./senha";
 
 /**
  * Sessões no mesmo formato do site atual: o hash do token fica em `sessoes` do usuário (usuarios.json), então
  * desativar alguém ou trocar a senha dele (que limpa as sessões) derruba o acesso nos dois sites.
  */
-const COOKIE = "cmw_sessao";
+const COOKIE = COOKIE_SESSAO;
 const DIAS_MANTER = 30;
 const HORAS_SEM_MANTER = 12;
 const MAX_FALHAS = 5;
@@ -51,6 +52,10 @@ async function gravarCookie(login: string, token: string, manter: boolean) {
   jar.set(COOKIE, `${encodeURIComponent(login)}:${token}`, {
     httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/",
     ...(manter ? { maxAge: DIAS_MANTER * 86400 } : {}),
+  });
+  // a contagem de inatividade começa agora (um registro antigo de outra sessão derrubaria esta na hora)
+  jar.set(COOKIE_ATIVO, String(Date.now()), {
+    httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: VALIDADE_S,
   });
 }
 
@@ -98,6 +103,7 @@ export async function sair(): Promise<void> {
   const jar = await cookies();
   const valor = jar.get(COOKIE)?.value;
   jar.delete(COOKIE);
+  jar.delete(COOKIE_ATIVO);
   if (!valor || !fonte()) return;
   const [loginCod, token] = valor.split(":");
   const login = decodeURIComponent(loginCod || "");

@@ -3,6 +3,8 @@
 import { ArrowRight, Eye, EyeOff, KeyRound, LoaderCircle, Sparkles, UserRound } from "lucide-react";
 import { useActionState, useState } from "react";
 
+import { INATIVIDADE_MIN } from "@/lib/auth/inatividade";
+
 import { acaoDemo, acaoEntrar, type EstadoEntrada } from "./acoes";
 
 export function FormularioEntrada({ demo }: { demo: boolean }) {
@@ -48,7 +50,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
           </span>
         </label>
         <label className="flex items-center gap-2 text-[13px] text-texto-3">
-          <input type="checkbox" name="manter" className="size-4 rounded accent-marca-600" disabled={demo} /> Manter conectado neste aparelho (30 dias)
+          <input type="checkbox" name="manter" className="size-4 rounded accent-marca-600" disabled={demo} /> Manter conectado neste aparelho (30 dias; sai sozinho após {INATIVIDADE_MIN} min sem uso)
         </label>
         {estado.erro && (
           <p role="alert" className="rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-3.5 py-2.5 text-sm font-medium text-perigo-500">
