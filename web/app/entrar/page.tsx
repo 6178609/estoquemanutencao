@@ -6,6 +6,7 @@ import { Marca } from "@/components/Marca";
 import { Objeto } from "@/components/Objeto";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
+import { INATIVIDADE_MIN, MOTIVO } from "@/lib/auth/inatividade";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { codigoConfiguracao, precisaPrimeiroAdmin } from "@/lib/auth/usuarios";
 import { AbasEntrada } from "./AbasEntrada";
@@ -21,8 +22,9 @@ const DESTAQUES = [
   { icone: ShieldCheck, tom: "vermelho" as const, titulo: "Acesso por função", texto: "Líder, analista, manutentor e terceiros: cada um vê só o que a função libera." },
 ];
 
-export default async function Entrar() {
+export default async function Entrar(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (await usuarioAtual()) redirect("/");
+  const inativo = (await props.searchParams).motivo === MOTIVO;
   const demo = modo() === "demo";
   let primeiro = false, erroFonte = "";
   try {
@@ -49,6 +51,11 @@ export default async function Entrar() {
                 Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o seu Número Pessoal (NP) e a sua senha.
               </p>
               <div className={`${demo ? "max-w-sm" : "max-w-md"} rounded-cartao border border-borda bg-superficie p-5 shadow-flutuante`}>
+                {inativo && (
+                  <p role="status" className="mb-4 rounded-xl border border-borda bg-superficie-2 px-3.5 py-2.5 text-sm text-texto-2">
+                    Você saiu por inatividade ({INATIVIDADE_MIN} minutos sem usar o site). Entre de novo para continuar.
+                  </p>
+                )}
                 {erroFonte && (
                   <p role="alert" className="mb-4 rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-3.5 py-2.5 text-sm text-perigo-500">
                     Não consegui ler o repositório de dados: {erroFonte} Confira DADOS_GH_REPO e DADOS_GH_TOKEN na Vercel.

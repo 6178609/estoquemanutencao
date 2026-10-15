@@ -31,7 +31,9 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
   Streamlit: relê, aplica só o que mudou, grava condicionado à versão (sem perder a gravação de outra pessoa) e faz
   a cópia diária em `app/backup/`.
 - **Login**: Número Pessoal (NP) + senha (hash PBKDF2, o mesmo formato do app Streamlit). A sessão fica registrada
-  em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora.
+  em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora. Depois de **30 minutos sem
+  uso** (em todas as abas abertas) o site avisa 1 minuto antes e sai sozinho; o servidor também encerra a sessão parada
+  (`proxy.ts`, regra em `lib/auth/inatividade.ts`).
 - Sem repositório configurado o site abre em **modo demonstração** (dados fictícios gerados no código).
 - **Estabilidade**: cada chamada ao GitHub tem tempo limite e repete em falha de rede, 5xx e limite de taxa; se o
   GitHub falhar, o site segue com a última versão lida. Export novo do robô: a tela responde com as bases anteriores
