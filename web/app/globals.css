@@ -195,6 +195,16 @@ body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01
 @keyframes flutuar { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(-1deg); } }
 .flutuar { animation: flutuar 7s ease-in-out infinite; }
 
+/* logo SIM da tela de entrada: gira devagar em 3D, com um brilho que atravessa */
+@keyframes logo-3d {
+  0%, 100% { transform: rotateY(-14deg) rotateX(4deg); }
+  50% { transform: rotateY(14deg) rotateX(-3deg); }
+}
+@keyframes logo-brilho { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+.logo-3d { perspective: 900px; }
+.logo-3d > div { animation: logo-3d 7s ease-in-out infinite; transform-style: preserve-3d; }
+.logo-3d .logo-brilho { animation: logo-brilho 7s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
