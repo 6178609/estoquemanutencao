@@ -22,7 +22,7 @@ describe("aviso semanal de treinamentos", () => {
   });
   it("e-mail com assunto contado, texto puro e HTML escapado", () => {
     const e = montarEmail(itensAviso(rec, pessoas), HOJE, "https://exemplo.test/treinamentos_ferias?visao=Treinamentos");
-    expect(e.assunto).toBe("Treinamentos da equipe: 2 vencido(s) e 1 vencendo em até 60 dias");
+    expect(e.assunto).toBe("Treinamentos da manutenção: 2 vencido(s) e 1 vencendo em até 60 dias");
     expect(e.texto).toContain("Pessoa Um (Eletricista) · NR-10 · validade 08/11/2026 · vence em 20 dia(s)");
     expect(e.texto).toContain("vencido há 5 dia(s)");
     expect(e.html).toContain("Pessoa &lt;Dois&gt;");

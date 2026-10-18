@@ -30,8 +30,8 @@ export interface Email { assunto: string; texto: string; html: string }
 /** O e-mail (texto puro e HTML) com a lista; `site` é o endereço da aba para o líder abrir. */
 export function montarEmail(itens: ItemAviso[], hoje: Dia, site: string): Email {
   const vencidos = itens.filter((i) => i.vencido).length, vencendo = itens.length - vencidos;
-  const assunto = `Treinamentos da equipe: ${vencidos} vencido(s) e ${vencendo} vencendo em até 60 dias`;
-  const intro = `Aviso semanal da Central de Manutenção (${dataBr(hoje)}): estes treinamentos da equipe estão vencidos ou vencem em até `
+  const assunto = `Treinamentos da manutenção: ${vencidos} vencido(s) e ${vencendo} vencendo em até 60 dias`;
+  const intro = `Aviso semanal da Central de Manutenção (${dataBr(hoje)}): estes treinamentos da equipe de manutenção estão vencidos ou vencem em até `
     + "60 dias e ainda não têm turma lançada. Solicite a reciclagem e, quando a turma estiver marcada, lance na aba Treinamentos e férias.";
   const linhas = itens.map((i) => `- ${i.nome}${i.cargo ? ` (${i.cargo})` : ""} · ${i.titulo} · validade ${dataBr(i.validade)} · ${prazo(i)}`);
   const texto = [intro, "", ...linhas, "", `Abrir: ${site}`, "", "Você recebe este aviso por ser líder com e-mail no cadastro de usuários."].join("\n");

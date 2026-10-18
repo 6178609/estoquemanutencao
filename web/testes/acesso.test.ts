@@ -29,9 +29,11 @@ describe("acesso por função", () => {
         expect(TODAS.filter((p) => podeVer(u, p))).toEqual(["estoque"]);
         expect(TODAS.filter((p) => veInteira(u, p))).toEqual(["estoque"]);
         expect(acessoTotal(u)).toBe(false);
-        expect(ehAdmin(u)).toBe(false);
       }
     }
+    expect(ehAdmin({ login: "t", funcao: "terceiro", perfil: "admin" })).toBe(false);
+    // manutentor que já era administrador segue administrando usuários (o site não fica sem administrador)
+    expect(ehAdmin({ login: "m", funcao: "manutentor", perfil: "admin" })).toBe(true);
   });
   it("perfil de edição", () => {
     expect(podeEditar({ login: "a", perfil: "editor" })).toBe(true);

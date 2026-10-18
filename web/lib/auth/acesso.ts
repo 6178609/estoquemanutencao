@@ -25,9 +25,13 @@ export function soEstoque(u: Usuario | null): boolean {
   return !!u?.funcao && FUNCOES_SO_ESTOQUE.has(u.funcao);
 }
 
-/** Administra o site (usuários): perfil administrador e não terceiro. */
+/**
+ * Administra o site (usuários): perfil administrador e não terceiro. Um Manutentor que já era administrador antes de a
+ * função passar a ver só o Estoque continua administrando (para o site nunca ficar sem administrador), mas não se cria
+ * mais nenhum: ver erroAdminSoEstoque.
+ */
 export function ehAdmin(u: Usuario | null): boolean {
-  return !!u && u.perfil === "admin" && !soEstoque(u);
+  return !!u && u.perfil === "admin" && u.funcao !== "terceiro";
 }
 
 export interface Usuario {
