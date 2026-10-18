@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais } from "@/lib/dados/materiais";
+import { cobertura, fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais } from "@/lib/dados/materiais";
 
 // dados fictícios
 const CRU = [
@@ -62,5 +62,21 @@ describe("almoxarifado", () => {
     expect(a["444"].situacao).toBe("Abaixo do mínimo");
     expect(a["999"].cadastro).toBe("Não encontrado no Sysmat");
     expect(montarAlmox(mb52.resumo, null, {}).every((x) => x.cadastro === "Sem catálogo")).toBe(true);
+  });
+});
+
+describe("cobertura do mínimo", () => {
+  it("sem mínimo (ausente ou zero) não tem cobertura", () => {
+    expect(cobertura(5, null)).toBeNull();
+    expect(cobertura(5, 0)).toBeNull();
+  });
+  it("estoque igual ou acima do mínimo é 100%", () => {
+    expect(cobertura(4, 4)).toBe(100);
+    expect(cobertura(9, 4)).toBe(100);
+  });
+  it("zerado é 0% e o meio é arredondado", () => {
+    expect(cobertura(0, 4)).toBe(0);
+    expect(cobertura(-2, 4)).toBe(0);
+    expect(cobertura(2, 6)).toBe(33);
   });
 });
