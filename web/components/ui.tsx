@@ -15,23 +15,26 @@ export const ESPECTRO = {
 export type Tom = keyof typeof ESPECTRO | "neutro";
 
 export const BOTAO_PRIMARIO =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-marca-500 px-5 font-display text-[15px] font-medium text-white transition hover:bg-marca-600 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-tinta px-5 font-display text-[15px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] disabled:cursor-not-allowed disabled:opacity-60";
 export const BOTAO_SECUNDARIO =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-borda bg-superficie px-4 font-display text-[15px] font-medium text-texto transition hover:bg-superficie-2";
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-borda-forte bg-superficie px-4 font-display text-[15px] font-medium text-texto transition hover:bg-superficie-2";
+/** Ação destrutiva (excluir, cancelar pedido): vermelho da marca Alpargatas, texto branco. */
+export const BOTAO_PERIGO =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#B5121B] px-5 font-display text-[15px] font-medium text-white transition hover:bg-[#9A0F17] disabled:cursor-not-allowed disabled:opacity-60";
 
-/** Pílula do topo da seção ("4.093 materiais · MB52 de hoje ›"). */
+/** Sobretítulo do topo da seção ("4.093 materiais · MB52 de hoje ›"): caixa alta, cor de ação, sem borda. */
 export function Pilula({ children, href }: { children: React.ReactNode; href?: string }) {
-  const cls = "inline-flex items-center gap-1.5 rounded-full border border-borda-forte bg-superficie-2 px-3 py-1 text-[12.5px] font-medium text-texto-2";
-  return href ? <Link prefetch={false} href={href} className={clsx(cls, "transition hover:text-texto")}>{children}<ChevronRight className="size-3.5" /></Link>
+  const cls = "inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-acao";
+  return href ? <Link prefetch={false} href={href} className={clsx(cls, "transition hover:text-[var(--acao-forte)]")}>{children}<ChevronRight className="size-3.5" /></Link>
     : <span className={cls}>{children}</span>;
 }
 
-/** Título em dois tons: `titulo` em preto, `destaque` no cinza (é o que dá sentido à frase). */
+/** Título em dois tons: `titulo` em preto, `destaque` no verde de ação (é o que dá sentido à frase). */
 export function Titulo({ titulo, destaque, nivel = 1, className }: { titulo: string; destaque?: string; nivel?: 1 | 2;
   className?: string }) {
   const H = nivel === 1 ? "h1" : "h2";
   return (
-    <H className={clsx("font-display font-medium tracking-[-0.03em] text-texto",
+    <H className={clsx("font-display font-semibold tracking-[-0.03em] text-texto",
       nivel === 1 ? "text-[34px] leading-[1.06] sm:text-[46px]" : "text-[28px] leading-[1.1] sm:text-[34px]", className)}>
       {titulo}{destaque && <> <span className="tom2">{destaque}</span></>}
     </H>
@@ -52,13 +55,14 @@ export function Cabecalho({ titulo, destaque, subtitulo, sobre, acoes }: { titul
   );
 }
 
-/** Ícone num quadradinho com borda (como nos cartões do template); a cor vem do espectro das logos. */
+/** Ícone num quadradinho: fundo na cor do tom a 12% e ícone na cor `--icone-<tom>` (tem versão escura, sem borda). */
 export function IconeQuadro({ icone: I, tom = "neutro", grande }: { icone: LucideIcon; tom?: Tom; grande?: boolean }) {
+  const colorido = tom !== "neutro";
   return (
-    <span className={clsx("grid shrink-0 place-items-center rounded-[10px] border border-borda bg-superficie",
+    <span className={clsx("grid shrink-0 place-items-center rounded-[10px]", !colorido && "bg-superficie-2",
       grande ? "size-12" : "size-9")}
-      style={tom !== "neutro" ? { color: ESPECTRO[tom] } : undefined}>
-      <I className={clsx(grande ? "size-5" : "size-[17px]", tom === "neutro" && "text-texto-2")} strokeWidth={1.75} />
+      style={colorido ? { backgroundColor: `color-mix(in srgb, ${ESPECTRO[tom]} 12%, transparent)`, color: `var(--icone-${tom})` } : undefined}>
+      <I className={clsx(grande ? "size-5" : "size-[17px]", !colorido && "text-texto-2")} strokeWidth={1.75} />
     </span>
   );
 }
@@ -66,7 +70,7 @@ export function IconeQuadro({ icone: I, tom = "neutro", grande }: { icone: Lucid
 export function Kpi({ rotulo, valor, detalhe, icone, tom = "verde", dica }: { rotulo: string; valor: string;
   detalhe?: string; icone?: LucideIcon; tom?: Tom; dica?: string }) {
   return (
-    <div title={dica} className="rounded-cartao border border-borda bg-superficie-2 p-5 transition hover:border-borda-forte">
+    <div title={dica} className="rounded-cartao border border-borda bg-superficie p-5 transition hover:border-borda-forte">
       {icone && <IconeQuadro icone={icone} tom={tom} />}
       <div className={clsx("text-[13.5px] font-medium text-texto-2", icone && "mt-4")}>{rotulo}</div>
       <div className="num mt-1.5 font-display text-[32px] font-medium leading-none tracking-[-0.03em]">{valor}</div>
@@ -90,17 +94,17 @@ export function FaixaNumeros({ itens }: { itens: { valor: string; rotulo: string
   );
 }
 
+/** Cor de cada selo → par de tokens de status (fundo claro, texto escuro; sempre com o nome do status). */
 const SELO: Record<string, string> = {
-  verde: "#009c48", azul: "#006cb4", laranja: "#f07818", vermelho: "#e41824", amarelo: "#b58100", ciano: "#0083b5",
+  verde: "bom", amarelo: "atencao", laranja: "serio", vermelho: "critico", azul: "info", ciano: "info", cinza: "neutro",
 };
 
 export function Selo({ cor = "cinza", children, className }: { cor?: "verde" | "azul" | "laranja" | "vermelho" | "amarelo" | "ciano" | "cinza";
   children: React.ReactNode; className?: string }) {
-  const c = SELO[cor];
+  const status = SELO[cor];
   return (
-    <span className={clsx("inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11.5px] font-medium",
-      !c && "bg-superficie-3 text-texto-2", className)}
-      style={c ? { color: c, backgroundColor: `color-mix(in srgb, ${c} 11%, transparent)` } : undefined}>
+    <span className={clsx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-semibold", className)}
+      style={{ color: `var(--selo-${status}-texto)`, backgroundColor: `var(--selo-${status}-fundo)` }}>
       {children}
     </span>
   );
@@ -112,4 +116,16 @@ export function Cartao({ children, className }: { children: React.ReactNode; cla
 
 export function Pagina({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-[1240px] space-y-10 px-4 py-8 sm:px-8 sm:py-12">{children}</div>;
+}
+
+/** Cores da marca Alpargatas, na ordem do espectro (vermelho → azul). */
+const CORES_FAIXA = ["#E41824", "#F07818", "#FCB40C", "#A8C024", "#009C48", "#009CD8", "#006CB4"];
+
+/** Faixa decorativa de 7 cores no topo do conteúdo: some na impressão e não é lida por leitores de tela. */
+export function FaixaMarca({ altura = 5 }: { altura?: number }) {
+  return (
+    <div aria-hidden className="nao-imprimir flex w-full" style={{ height: altura }}>
+      {CORES_FAIXA.map((cor) => <span key={cor} className="flex-1" style={{ backgroundColor: cor }} />)}
+    </div>
+  );
 }

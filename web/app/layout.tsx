@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
 
-const texto = Inter({ subsets: ["latin"], variable: "--fonte-texto", display: "swap" });
+const texto = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--fonte-texto", display: "swap" });
 const titulo = Space_Grotesk({ subsets: ["latin"], variable: "--fonte-titulo", display: "swap", weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#06331F" },
+    { media: "(prefers-color-scheme: dark)", color: "#072A18" },
   ],
 };
 
