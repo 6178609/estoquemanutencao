@@ -1,4 +1,4 @@
-import { ChevronRight, ClipboardList, GraduationCap, Package, Search } from "lucide-react";
+import { ChevronRight, CircleCheck, ClipboardList, Database, GraduationCap, Package, Search } from "lucide-react";
 import Link from "next/link";
 
 import { Icone } from "@/components/Icone";
@@ -6,14 +6,15 @@ import { Cartao, IconeQuadro, Pilula, Selo, Titulo, type Tom } from "@/component
 import { podeVer, type Usuario } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
+import { modo } from "@/lib/dados/fonte";
 import { inteiro, saudacao } from "@/lib/formato";
 import { GRUPOS } from "@/lib/navegacao";
-import { barra, contexto, dados as dadosDo, type Contexto } from "@/lib/wcm/contexto";
+import { contexto, dados as dadosDo, type Contexto } from "@/lib/wcm/contexto";
 import * as hh from "@/lib/wcm/hh";
 import * as ind from "@/lib/wcm/indicadores";
 import { alertasInicio, type Alerta, type EntradaInicio, type NivelAlerta } from "@/lib/wcm/inicio";
 import * as tr from "@/lib/wcm/treinamentos";
-import { dataBr, partes, type Dia } from "@/lib/wcm/util";
+import { dataBr, partes } from "@/lib/wcm/util";
 
 import { doRecorte, noPeriodo } from "./ordens/dados";
 
@@ -31,7 +32,8 @@ async function seguro<T>(fn: () => T | Promise<T>): Promise<T | null> {
 }
 
 /** Equipe da Gestão de HH e as ausências dela (mesmas chamadas da aba Treinamentos e férias). */
-function equipeDoInicio(c: Contexto) {
+type EquipeInicio = { pes: hh.PessoaHh[]; aus: hh.Ausencia[] };
+function equipeDoInicio(c: Contexto): EquipeInicio {
   const pes = hh.pessoas(c.b.equipe.dados ?? [], c.cad.hh, ind.horasSemanaDe(c.cad.metas));
   const np = new Set(pes.map((p) => p.np));
   const aus = hh.ausencias(c.cad.hh).filter((a) => np.has(a.np));
@@ -39,22 +41,21 @@ function equipeDoInicio(c: Contexto) {
 }
 
 /** Reciclagens vencidas e as que vencem em até 60 dias (mesma regra da aba Treinamentos e férias). */
-function reciclagensDoInicio(c: Contexto): EntradaInicio["reciclagens"] {
-  const { aus } = equipeDoInicio(c);
+function reciclagensDoInicio(c: Contexto, { aus }: EquipeInicio): EntradaInicio["reciclagens"] {
   const rec = tr.reciclagens(aus.filter((a) => a.tipo === tr.TREINAMENTO), c.b.hoje);
   const vencidas = rec.filter((r) => r.situacao === "Vencido"), vencendo = rec.filter((r) => r.situacao === "Vence em breve");
   return { vencidas: vencidas.length, vencendo: vencendo.length, titulos: [...new Set([...vencidas, ...vencendo].map((r) => r.titulo))] };
 }
 
 /** A semana (segunda a domingo de hoje): aderência, ordens concluídas, HH disponível e quem está fora hoje. */
-async function semanaDoInicio(c: Contexto, u: Usuario) {
+async function semanaDoInicio(c: Contexto, u: Usuario, eq: EquipeInicio) {
   const hoje = c.b.hoje;
   const seg = hoje - ((partes(hoje).semana + 6) % 7), dom = seg + 6;
   const d = await dadosDo(c);
   const r = ind.calcular(d, seg, dom);
   const itens: { rotulo: string; valor: string }[] = [];
   if (podeVer(u, "planos") && r.aderencia != null) itens.push({ rotulo: "Aderência ao plano", valor: ind.formatar(ind.POR_ID.aderencia, r.aderencia) });
-  if (podeVer(u, "ordens")) {
+  if (podeVer(u, "ordens") && c.b.ordens.dados) {
     const concluidas = doRecorte(c).filter((o) => o.situacao === "Concluída" && o.fimReal != null && o.fimReal >= seg && o.fimReal <= dom).length;
     itens.push({ rotulo: "Ordens concluídas", valor: inteiro(concluidas) });
   }
@@ -62,9 +63,8 @@ async function semanaDoInicio(c: Contexto, u: Usuario) {
     const h = ind.hhDisponiveis(d, seg, dom);
     if (h != null) itens.push({ rotulo: "HH disponível", valor: `${inteiro(Math.round(h))} h` });
   }
-  if (podeVer(u, "treinamentos_ferias")) {
-    const { aus } = equipeDoInicio(c);
-    itens.push({ rotulo: "Pessoas fora hoje", valor: inteiro(new Set(tr.foraEm(aus, hoje).map((a) => a.np)).size) });
+  if (podeVer(u, "treinamentos_ferias") && c.b.equipe.dados) {
+    itens.push({ rotulo: "Pessoas fora hoje", valor: inteiro(new Set(tr.foraEm(eq.aus, hoje).map((a) => a.np)).size) });
   }
   return { seg, dom, itens };
 }
@@ -80,14 +80,15 @@ export default async function Inicio() {
     verOrdens || verTreinos || verSemana ? seguro(() => contexto({})) : null,
   ]);
 
+  const eq = c && (verTreinos || verSemana) ? await seguro(() => equipeDoInicio(c)) : null;
   const [ordens, reciclagens, semana] = await Promise.all([
     verOrdens && c ? seguro(() => {
       if (!c.b.ordens.dados) return null;
       const xs = noPeriodo(c, doRecorte(c)).filter((o) => o.atrasada);
       return { atrasadas: xs.length, altaPrioridade: xs.filter((o) => o.prioridade.trim() === PRIORIDADE_ALTA).length };
     }) : null,
-    verTreinos && c ? seguro(() => (c.b.equipe.dados ? reciclagensDoInicio(c) : null)) : null,
-    verSemana && c ? seguro(() => semanaDoInicio(c, u)) : null,
+    verTreinos && c && eq ? seguro(() => (c.b.equipe.dados ? reciclagensDoInicio(c, eq) : null)) : null,
+    verSemana && c && eq ? seguro(() => semanaDoInicio(c, u, eq)) : null,
   ]);
 
   const estoque = almox?.estoque.dados ? { zerados: almox.itens.filter((i) => i.situacao === "Zerado").length,
@@ -126,7 +127,7 @@ export default async function Inicio() {
             {alertas.map((a) => (
               <Link prefetch={false} key={a.id} href={a.href}
                 className="group flex min-h-11 items-start gap-4 rounded-cartao border border-borda bg-superficie p-5 transition hover:border-borda-forte"
-                style={{ boxShadow: `inset 4px 0 0 var(--selo-${a.nivel === "critico" ? "critico" : a.nivel === "serio" ? "serio" : "atencao"}-texto)` }}>
+                style={{ boxShadow: `inset 4px 0 0 var(--selo-${a.nivel}-texto)` }}>
                 <IconeQuadro icone={ICONE_ALERTA[a.id]} tom={TOM[a.nivel]} />
                 <div className="min-w-0 flex-1">
                   <div className="num font-display text-[32px] font-medium leading-none tracking-[-0.03em]">{inteiro(a.numero)}</div>
@@ -140,7 +141,7 @@ export default async function Inicio() {
         )}
         {alertas.length === 0 && algumBloco && (
           <Cartao className="flex items-center gap-4 p-5">
-            <IconeQuadro icone={ClipboardList} tom="verde" />
+            <IconeQuadro icone={CircleCheck} tom="verde" />
             <div>
               <div className="font-display text-[15px] font-medium">Tudo em dia</div>
               <p className="mt-1 text-[13.5px] text-texto-3">Nenhuma ordem atrasada, material faltando nem reciclagem vencida no seu acesso.</p>
@@ -183,6 +184,21 @@ export default async function Inicio() {
             </dl>
           </section>
         )}
+
+        <section>
+          <div className="flex items-start gap-4 rounded-cartao border border-borda bg-superficie-2 p-6">
+            <span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-borda bg-superficie text-alp-azul">
+              <Database className="size-[17px]" strokeWidth={1.75} />
+            </span>
+            <div>
+              <div className="font-display text-[15px] font-medium">Fonte de dados</div>
+              <p className="mt-1 text-[13.5px] text-texto-3">
+                {modo() === "demo" ? "Demonstração (dados fictícios). Para os dados reais, preencha DADOS_GH_REPO e DADOS_GH_TOKEN nas variáveis do projeto na Vercel."
+                  : modo() === "github" ? "Repositório privado de dados — atualizado em Fontes de dados." : "Pasta local."}
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </>
   );

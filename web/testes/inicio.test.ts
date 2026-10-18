@@ -33,7 +33,7 @@ describe("alertasInicio", () => {
   it("detalhe de ordens cita a quantidade de alta prioridade e aponta para as atrasadas", () => {
     const [a] = alertasInicio({ ordens: { atrasadas: 12, altaPrioridade: 3 } });
     expect(a.numero).toBe(12);
-    expect(a.detalhe).toContain("3");
+    expect(a.detalhe).toContain("3 de alta prioridade");
     expect(a.detalhe).toContain("alta prioridade");
     expect(a.href).toBe("/ordens?atr=1");
   });
