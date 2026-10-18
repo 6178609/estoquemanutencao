@@ -39,6 +39,10 @@
 ## Skills do projeto (`.claude/skills/`)
 - `prompt-master` (MIT, v1.8.2): escreve e corrige prompts para outras IAs (ChatGPT, Claude, Cursor,
   Midjourney…). Só entra quando o pedido é escrever/ajustar um prompt.
+- `ui-ux-pro-max` (MIT, v2.15.0): guia de UI/UX (estilos, paletas, tipografia, 119 regras de UX/acessibilidade,
+  gráficos, stack Next.js/shadcn). Usar ao criar ou mexer em telas do site, junto com o visual atual (cores SIM/
+  Alpargatas de `web/app/globals.css`). Busca: `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<consulta>"
+  --domain <ux|style|color|typography|chart>` ou `--stack nextjs`.
 
 ## Informativos (padrão a partir de agora)
 - Texto do informativo (comunicado, boletim, status da manutenção): skill `internal-comms`.

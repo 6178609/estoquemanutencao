@@ -5,6 +5,8 @@
 *.xlsm
 *.csv
 *.parquet
+# exceção: dados de referência de design das skills (nada da empresa)
+!.claude/skills/**/*.csv
 
 # Segredos
 .env
