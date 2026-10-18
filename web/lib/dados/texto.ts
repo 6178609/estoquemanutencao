@@ -1,5 +1,5 @@
 /**
- * As mesmas regras de texto do site atual (central/util.py): cabeçalhos normalizados, colunas achadas por
+ * Regras de texto: cabeçalhos normalizados, colunas achadas por
  * padrão e números no formato do SAP/Excel. Testado em testes/texto.test.ts.
  */
 

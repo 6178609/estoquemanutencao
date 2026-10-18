@@ -1,6 +1,6 @@
 import { Inatividade } from "@/components/Inatividade";
 import { Shell, type ItemMenu } from "@/components/Shell";
-import { ehAdmin, nomeFuncao, PAGINAS_PARCIAIS, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
+import { ehAdmin, nomeFuncao, PERFIS, podeVer } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { pendentes } from "@/lib/auth/solicitacoes";
 import { GRUPOS } from "@/lib/navegacao";
@@ -16,19 +16,15 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     titulo: g.titulo,
     itens: g.abas
       .filter((a) => podeVer(u, a.id))
-      .flatMap((a): ItemMenu[] => {
-        if (a.rota) return [{ id: a.id, titulo: a.titulo, icone: a.icone, href: a.rota, externo: false }];
-        const parcial = !veInteira(u, a.id) ? PAGINAS_PARCIAIS[a.id] : undefined;
-        return [{ id: a.id, titulo: parcial ? `${a.titulo} (${parcial})` : a.titulo, icone: a.icone, href: "", externo: true, parcial }];
-      }),
+      .map((a): ItemMenu => ({ id: a.id, titulo: a.titulo, icone: a.icone, href: a.rota })),
   })).filter((g) => g.itens.length);
   const admin = ehAdmin(u) && !u.demo;
   // pedidos de acesso aguardando: o administrador vê o número no menu
   const nPedidos = admin ? Object.keys(await pendentes().catch(() => ({}))).length : 0;
   grupos.push({ titulo: "Conta", itens: [
-    { id: "conta", titulo: "Minha conta", icone: "UserRound", href: "/conta", externo: false },
+    { id: "conta", titulo: "Minha conta", icone: "UserRound", href: "/conta" },
     ...(admin ? [{ id: "usuarios", titulo: nPedidos ? `Usuários (${nPedidos} pedido${nPedidos > 1 ? "s" : ""})` : "Usuários",
-      icone: "UsersRound", href: "/usuarios", externo: false }] : []),
+      icone: "UsersRound", href: "/usuarios" }] : []),
   ] });
   return (
     <Shell grupos={grupos} sair={acaoSair}

@@ -6,7 +6,7 @@ import { casa, ligado, lista, ordenar, termos, um, type Params } from "./_comum/
 import type { Coluna, Linha } from "./_comum/TabelaDados";
 
 /**
- * Ordens (IW38) — porta de paginas/ordens.py: recorte global (área/centro/tipo + período pela data da ordem),
+ * Ordens (IW38) : recorte global (área/centro/tipo + período pela data da ordem),
  * filtros da página e as colunas da tabela. Usado pela página e pela exportação (/api/ordens).
  */
 export interface FiltroOrdens { q: string; sit: string[]; nat: string; st: string[]; cls: string[]; atr: boolean; cst: boolean }

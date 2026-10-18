@@ -4,7 +4,7 @@ import { acessoTotal, ehAdmin, podeEditar, podeVer, veInteira } from "@/lib/auth
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { TODAS } from "@/lib/navegacao";
 
-describe("acesso por função (os casos de tests/test_acesso.py)", () => {
+describe("acesso por função", () => {
   it("líder e analista veem tudo; manutentor só estoque + gestão de ativos", () => {
     for (const funcao of ["lider", "analista"]) {
       const u = { login: "x", funcao, perfil: "leitor" };
@@ -14,13 +14,11 @@ describe("acesso por função (os casos de tests/test_acesso.py)", () => {
     const m = { login: "m", funcao: "manutentor", perfil: "admin" };
     expect(TODAS.filter((p) => podeVer(m, p))).toEqual(["equipamentos", "estoque"]);
     expect(TODAS.filter((p) => veInteira(m, p))).toEqual(["estoque"]);
-    expect(podeVer(m, "paginas/estoque.py")).toBe(true);
-    expect(podeVer(m, "paginas\\painel.py")).toBe(false);
   });
   it("conta antiga sem função e abas escolhidas", () => {
     expect(acessoTotal({ login: "a", perfil: "admin" })).toBe(true);
     expect(TODAS.filter((p) => podeVer({ login: "e", perfil: "editor" }, p))).toEqual(["equipamentos", "estoque"]);
-    const pers = { login: "p", funcao: "manutentor", abas: ["ordens", "paginas/planos.py"] };
+    const pers = { login: "p", funcao: "manutentor", abas: ["ordens", "planos"] };
     expect(podeVer(pers, "ordens") && podeVer(pers, "planos") && podeVer(pers, "estoque")).toBe(true);
     expect(podeVer(pers, "painel")).toBe(false);
     expect(acessoTotal({ login: "t", funcao: "manutentor", abas: TODAS })).toBe(true);
@@ -46,8 +44,8 @@ describe("acesso por função (os casos de tests/test_acesso.py)", () => {
   });
 });
 
-describe("senha e login (compatível com central/auth.py)", () => {
-  it("confere o hash PBKDF2 gerado pelo Python", async () => {
+describe("senha e login", () => {
+  it("confere um hash PBKDF2 já gravado no cadastro", async () => {
     const u = { sal: "00112233445566778899aabbccddeeff", senha_hash: "1b491ff57c39b5e752f1567e6f946262ab75a354d0d07ad374002b8e617be06a" };
     expect(await confere(u, "Senha-Teste-1")).toBe(true);
     expect(await confere(u, "senha-teste-1")).toBe(false);

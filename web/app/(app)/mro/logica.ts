@@ -8,8 +8,7 @@ import { csv, listaParam, param, SEM_CLASSE, type Params, type SituacaoPeca } fr
 /**
  * Regras puras da aba Gestão de MRO: cada ativo da lista de equipamentos (IH08 + cadastro do site + IW38) com as peças
  * de reposição vinculadas a ele e a situação delas no estoque (MB52 × mínimo), e o caminho inverso — cada material com
- * os ativos onde é usado. O vínculo é o campo `materiais` do `cadastro_equipamentos.json` (o mesmo da aba Equipamentos,
- * do Almoxarifado e do app Streamlit). Cada peça é completada com a MB52 (saldo, unidade, valor, depósitos) e com o
+ * os ativos onde é usado. O vínculo é o campo `materiais` do `cadastro_equipamentos.json` (o mesmo da aba Equipamentos e do Almoxarifado). Cada peça é completada com a MB52 (saldo, unidade, valor, depósitos) e com o
  * catálogo Sysmat (código Sysmat, descrição completa, fabricante/referência, situação do cadastro, substituto).
  * Testado em testes/mro.test.ts.
  */
@@ -124,8 +123,8 @@ export interface AtivoMro {
 
 type AtivoBase = Pick<LinhaAtivo, "codigo" | "equipamento" | "criticidade" | "area" | "localInstalacao" | "situacao">;
 
-/** Campo de ordenação geral de cada equipamento (o mesmo do Calendário de ordens). */
-export { campoGeralPorEquipamento as camposPorEquipamento } from "@/lib/wcm/programacao";
+/** Campo de ordenação geral de cada equipamento. */
+export { campoGeralPorEquipamento as camposPorEquipamento, campoGeralPorEquipamento } from "@/lib/wcm/util";
 
 /** O que aparece no lugar do equipamento: o campo de ordenação (o código vai embaixo); sem campo, o código. */
 export const rotuloAtivo = (a: { codigo: string; campo: string }) => a.campo || a.codigo;

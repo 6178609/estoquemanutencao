@@ -4,7 +4,7 @@ import * as ex from "@/lib/wcm/execucao";
 import * as sem from "@/lib/wcm/semanal";
 import { paraData, type Dia } from "@/lib/wcm/util";
 
-// os mesmos dados fictícios de tests/test_semanal.py
+// dados fictícios
 const T = (s: string): Dia => paraData(s)!;
 const HOJE = T("2026-10-08");   // quinta-feira
 const SEG = T("2026-10-05");

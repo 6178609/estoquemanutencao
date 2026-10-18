@@ -6,7 +6,7 @@ import * as saude from "@/lib/wcm/saude";
 import { hashTexto } from "../equipamentos/logica";
 
 /**
- * Saúde dos ativos no servidor (porta de contexto.saude_ativos): uma conta por recorte de área/centro/tipo, com
+ * Saúde dos ativos no servidor: uma conta por recorte de área/centro/tipo, com
  * cache pela versão das bases, pelo dia e pelo cadastro de equipamentos (a criticidade vem dele).
  * Também usada pela aba Equipamentos (fábrica inteira).
  */

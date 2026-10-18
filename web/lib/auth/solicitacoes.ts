@@ -7,8 +7,8 @@ import { gerarHash, normalizarLogin, validarLogin, validarSenha } from "./senha"
 import { usuarios } from "./usuarios";
 
 /**
- * Pedido de acesso (tela de entrada) e aprovação pelo administrador (Usuários) — as mesmas regras e o mesmo arquivo
- * (app/solicitacoes_acesso.json) de central/auth.py. A senha escolhida fica só como hash e some quando o pedido é decidido.
+ * Pedido de acesso (tela de entrada) e aprovação pelo administrador (Usuários) — gravado em
+ * app/solicitacoes_acesso.json. A senha escolhida fica só como hash e some quando o pedido é decidido.
  */
 export const ARQ_SOLICITACOES = "solicitacoes_acesso.json";
 export const MAX_PENDENTES = 30;               // proteção contra abuso do formulário público

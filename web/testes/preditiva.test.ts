@@ -4,7 +4,7 @@ import * as pr from "@/lib/wcm/preditiva";
 import type { Confirmacao, Nota, Operacao, Ordem, Pessoa } from "@/lib/wcm/preparo";
 import { paraData, type Dia } from "@/lib/wcm/util";
 
-// os mesmos dados fictícios de tests/test_preditiva.py
+// dados fictícios
 const T = (s: string): Dia => paraData(s)!;
 const HOJE = T("2026-09-30");
 

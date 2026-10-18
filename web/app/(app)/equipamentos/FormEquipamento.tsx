@@ -25,7 +25,7 @@ function Rotulo({ texto, dica, children, className }: { texto: string; dica?: st
   );
 }
 
-/** Formulário de novo equipamento / edição (porta do formulário de paginas/equipamentos.py). */
+/** Formulário de novo equipamento / edição. */
 export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar }: {
   inicial: FormCadastro; editando: string | null; vinculados: SituacaoPeca[]; anoMax: number; voltar: string;
 }) {

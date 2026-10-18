@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { autorizar } from "@/lib/auth/sessao";
 import { LIMITE_BYTES, receberParte } from "@/lib/dados/envio";
 import { FonteErro } from "@/lib/dados/fonte";
-import { ehTipo } from "@/lib/leitura/tipos";
+import { ehTipo, MOTIVO_SEM_ENVIO, TIPOS_SEM_ENVIO } from "@/lib/leitura/tipos";
 import { COOKIE_ENVIO, ENVIO_VALE_MS } from "@/lib/wcm/dados";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   const modificado = texto("modificado", 40);
   if (!ehTipo(tipo) || !(dados instanceof Blob) || Number.isNaN(Date.parse(modificado)))
     return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
+  if (TIPOS_SEM_ENVIO.has(tipo)) return NextResponse.json({ erro: `Não enviada: ${MOTIVO_SEM_ENVIO}.` }, { status: 400 });
   try {
     const r = await receberParte({
       tipo, envio: texto("envio", 40), parte: Number(texto("parte", 4)), total: Number(texto("total", 4)),

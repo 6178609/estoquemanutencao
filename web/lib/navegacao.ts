@@ -1,12 +1,12 @@
 /**
- * Abas do sistema — a MESMA lista de central/navegacao.py (o teste tests/test_web_navegacao.py confere).
- * `rota`: endereço da aba no site novo.
+ * Abas do sistema.
+ * `rota`: endereço da aba.
  */
 export interface Aba {
   id: string;
   titulo: string;
   icone: string; // nome do ícone (lucide)
-  rota?: string; // rota no site novo, quando já migrada
+  rota: string;
 }
 
 export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
@@ -29,11 +29,11 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Planejamento", abas: [
     { id: "ordens", titulo: "Ordens", icone: "ClipboardList", rota: "/ordens" },
     { id: "planos", titulo: "Planos", icone: "CalendarRange", rota: "/planos" },
-    { id: "calendario", titulo: "Calendário de ordens", icone: "CalendarDays", rota: "/calendario" },
     { id: "semanal", titulo: "Programação semanal", icone: "CalendarClock", rota: "/semanal" },
     { id: "execucao", titulo: "Execução das atividades", icone: "CircleCheckBig", rota: "/execucao" },
     { id: "mao_de_obra", titulo: "Mão de obra e backlog", icone: "HardHat", rota: "/mao_de_obra" },
     { id: "gestao_hh", titulo: "Gerenciador de HH", icone: "UsersRound", rota: "/gestao_hh" },
+    { id: "treinamentos_ferias", titulo: "Treinamentos e férias", icone: "GraduationCap", rota: "/treinamentos_ferias" },
   ] },
   { titulo: "Custos e suprimentos", abas: [
     { id: "custos", titulo: "Custos", icone: "Wallet", rota: "/custos" },

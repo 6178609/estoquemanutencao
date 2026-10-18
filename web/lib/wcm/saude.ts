@@ -2,7 +2,7 @@ import type { Equipamento, Ordem } from "./preparo";
 import type { Dia } from "./util";
 
 /**
- * Saúde dos ativos — porta de central/saude.py: índice de 0 a 100 por equipamento, no estilo do IBM Maximo
+ * Saúde dos ativos : índice de 0 a 100 por equipamento, no estilo do IBM Maximo
  * Health / SAP APM. Cada contribuinte vira uma penalidade de 0 a 1 (1 = pior caso) com um peso;
  * saúde = 100 − Σ peso × penalidade. Os pesos somam 100.
  *
@@ -57,7 +57,7 @@ export const SEM_CLASSE = "Sem classe";
 export const CRITICIDADES = ["Alta", "Média", "Baixa", SEM_CLASSE];
 export const JANELA_DIAS = 365;
 
-/** Situações da preditiva (as mesmas de central/preditiva.py: ABERTAS e ATRASADA). */
+/** Situações da preditiva (ABERTAS e ATRASADA). */
 export const PREDITIVA_ATRASADA = "Atrasada";
 export const PREDITIVA_ABERTAS = new Set(["Encerrada sem confirmação", "Em tratativa", PREDITIVA_ATRASADA, "Sem ordem"]);
 
@@ -72,10 +72,10 @@ export function faixa(saude: number): Faixa {
 export type OrdemSaude = Pick<Ordem, "situacao" | "equipChave" | "data" | "comPlano" | "custoReal" | "atrasada" |
   "objeto" | "localizacao" | "centroTrabalho" | "setor">;
 
-/** Quebra (porta de indicadores.quebras): equipamento, data da nota e reincidência (≤ 30 dias da anterior). */
+/** Quebra: equipamento, data da nota e reincidência (≤ 30 dias da anterior). */
 export interface QuebraSaude { equipChave: string; data: Dia | null; reincidente: boolean }
 
-/** Falha do Gerenciador de AF (af.preparar_afs): "Código SAP", "Situação", "Data da falha", "Duração da parada (h)". */
+/** Falha do Gerenciador de AF: "Código SAP", "Situação", "Data da falha", "Duração da parada (h)". */
 export interface FalhaAfSaude { codigoSap: string; situacao: string; dataFalha: Dia | null; duracaoParada?: number | null }
 
 /** Chamada da IP19 classificada (planos.classificar): "Equipamento" e "Situação" (Atrasada, Programada…). */
@@ -108,11 +108,11 @@ export interface LinhaSaude {
   principalCausa: string; quebras: number; reincidencias: number; falhasAf: number; horasParadasAf: number;
   corretivas: number; backlogAtrasado: number; preventivasAtrasadas: number; anomaliasAbertas: number;
   custo12Meses: number; ultimaFalha: Dia | null; area: string; centro: string; setor: string;
-  /** pontos que cada contribuinte tirou da saúde (1 casa) — as colunas pts_* do Python */
+  /** pontos que cada contribuinte tirou da saúde (1 casa) — as colunas pts_* */
   pts: Record<IdContribuinte, number>;
 }
 
-/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel do site atual). */
+/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel). */
 export const COLUNAS: [keyof LinhaSaude, string][] = [
   ["codigo", "Código"], ["equipamento", "Equipamento"], ["criticidade", "Criticidade"], ["abc", "ABC"],
   ["saude", "Saúde"], ["faixa", "Faixa"], ["risco", "Risco"], ["principalCausa", "Principal causa"],
@@ -123,7 +123,7 @@ export const COLUNAS: [keyof LinhaSaude, string][] = [
   ["setor", "Setor"],
 ];
 
-/** Arredonda como o pandas/numpy (metade para o par). */
+/** Arredonda com metade para o par. */
 function arred(x: number, casas = 0): number {
   const f = 10 ** casas;
   const y = x * f;
@@ -132,7 +132,7 @@ function arred(x: number, casas = 0): number {
   return r / f;
 }
 
-/** Percentil com interpolação linear (o padrão do pandas). */
+/** Percentil com interpolação linear. */
 function quantil(xs: number[], q: number): number {
   const v = [...xs].sort((a, b) => a - b);
   const pos = (v.length - 1) * q;
@@ -273,7 +273,7 @@ export function calcular(ordens: OrdemSaude[], hoje: Dia, e: EntradasSaude = {})
       pts: Object.fromEntries(CONTRIBUINTES.map((c) => [c.id, arred(perdidos[c.id], 1)])) as Record<IdContribuinte, number>,
     };
   });
-  // maior risco primeiro; no empate, a pior saúde (e o código, como no sort estável do pandas)
+  // maior risco primeiro; no empate, a pior saúde (e o código)
   return out.sort((a, b) => b.risco - a.risco || a.saude - b.saude);
 }
 

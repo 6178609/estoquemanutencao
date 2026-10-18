@@ -11,8 +11,8 @@ import { assinatura, FABRICA, guardar, saudeAtivos } from "../saude/calculo";
 import { situacaoPeca, type SituacaoPeca } from "./logica";
 
 /**
- * Dados da aba Equipamentos no servidor: o inventário da Gestão de ativos (fábrica inteira, como em
- * central/ativos_ui._inventario), o estoque por material (situação das peças vinculadas) e o cadastro do site.
+ * Dados da aba Equipamentos no servidor: o inventário da Gestão de ativos (fábrica inteira),
+ * o estoque por material (situação das peças vinculadas) e o cadastro.
  */
 
 /** Inventário de ativos: IH08 + cadastro do site + ordens do IW38, com saúde, quebras e cobertura preventiva. */

@@ -37,7 +37,7 @@ afterEach(() => {
   _definirFonte(undefined);
 });
 
-describe("pedido de acesso (mesmas regras de central/auth.py)", () => {
+describe("pedido de acesso", () => {
   it("valida, grava pendente sem guardar a senha em texto e bloqueia duplicado", async () => {
     expect(await solicitar({ ...pedido, nome: "B" }, nova())).toBe("Informe seu nome.");
     expect(await solicitar({ ...pedido, login: "abc" }, nova())).toMatch(/NP|Número Pessoal/);

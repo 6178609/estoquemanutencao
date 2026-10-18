@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ArrowUpRight, ChevronsLeft, LoaderCircle, LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { ChevronsLeft, LoaderCircle, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,8 +14,6 @@ export interface ItemMenu {
   titulo: string;
   icone: string;
   href: string;
-  externo: boolean;
-  parcial?: string;
 }
 
 export interface Pessoa {
@@ -57,30 +55,15 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
           <ul className="space-y-0.5">
             {g.itens.map((it) => (
               <li key={it.id}>
-                {it.externo && !it.href ? (
-                  <span title={`${it.titulo} — em breve no site novo`}
-                    className="flex cursor-default items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] text-texto-4">
-                    <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
-                    {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span><span className="text-[10.5px]">em breve</span></>}
-                  </span>
-                ) : it.externo ? (
-                  <a href={it.href} title={it.titulo}
-                    className="group flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] text-texto-3 transition hover:bg-superficie-2 hover:text-texto">
-                    <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
-                    {!recolhido && <><span className="flex-1 truncate">{it.titulo}</span>
-                      <ArrowUpRight className="size-3.5 opacity-0 transition group-hover:opacity-100" /></>}
-                  </a>
-                ) : (
-                  <Link prefetch={false} href={it.href} onClick={aoNavegar} title={it.titulo}
-                    onMouseEnter={preparar(it.href)} onFocus={preparar(it.href)}
-                    className={clsx("relative flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] transition",
-                      ativo(it.href) ? "bg-superficie-3 font-medium text-texto" : "text-texto hover:bg-superficie-2")}>
-                    {ativo(it.href) && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
-                    <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
-                    {!recolhido && <span className="flex-1 truncate">{it.titulo}</span>}
-                    <Abrindo />
-                  </Link>
-                )}
+                <Link prefetch={false} href={it.href} onClick={aoNavegar} title={it.titulo}
+                  onMouseEnter={preparar(it.href)} onFocus={preparar(it.href)}
+                  className={clsx("relative flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] transition",
+                    ativo(it.href) ? "bg-superficie-3 font-medium text-texto" : "text-texto hover:bg-superficie-2")}>
+                  {ativo(it.href) && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-marca-500" />}
+                  <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
+                  {!recolhido && <span className="flex-1 truncate">{it.titulo}</span>}
+                  <Abrindo />
+                </Link>
               </li>
             ))}
           </ul>

@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 
 const NAO_INF = "(não informado)";
 const PAG = "/af_planos";
-/** KPIs de AF que o motor de indicadores não tem (mesma definição de paginas/af_planos.py). */
+/** KPIs de AF que o motor de indicadores não tem. */
 const EXTRA: Record<string, ind.Kpi> = {
   af_geradas: { id: "af_geradas", nome: "AFs geradas", unidade: "un", sentido: -1, meta: null, grupo: ind.ANALISE_FALHA, pagina: PAG,
     formula: "AFs com data da falha no período (canceladas não contam).", mensal: true },

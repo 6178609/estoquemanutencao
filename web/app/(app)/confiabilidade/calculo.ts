@@ -5,7 +5,7 @@ import { partes, type Dia } from "@/lib/wcm/util";
 import { faixa, somarPor } from "./_comum/agregar";
 
 /**
- * Contas da aba Confiabilidade (porta de paginas/confiabilidade.py), puras para testar (testes/confiabilidade.test.ts).
+ * Contas da aba Confiabilidade, puras para testar (testes/confiabilidade.test.ts).
  */
 export const ABC_PARA_CRITICIDADE: Record<string, string> = { A: "Alta", B: "Média", C: "Baixa" };
 

@@ -1,6 +1,5 @@
 /**
- * Estoque (MB52) e catálogo de materiais (Sysmat) — a mesma regra do site atual (central/bases.py
- * preparar_mb52 e central/materiais.py). Funções puras, testadas em testes/materiais.test.ts.
+ * Estoque (MB52) e catálogo de materiais (Sysmat) — funções puras, testadas em testes/materiais.test.ts.
  */
 import { acharColuna, paraNumero, texto } from "./texto";
 

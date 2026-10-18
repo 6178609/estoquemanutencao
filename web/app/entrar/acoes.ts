@@ -60,7 +60,7 @@ export async function acaoSolicitar(_: EstadoPedido, form: FormData): Promise<Es
   const campo = (k: string) => String(form.get(k) || "");
   const d = { nome: campo("nome"), login: campo("login"), funcao: campo("funcao"), motivo: campo("motivo"),
     senha: campo("senha"), senha2: campo("senha2") };
-  // limite por navegador (como a sessão do site atual): na fábrica todos saem pelo mesmo IP
+  // limite por navegador: na fábrica todos saem pelo mesmo IP
   const jar = await cookies();
   let origem = jar.get("cm_nav")?.value || "";
   if (!/^[\w-]{16,64}$/.test(origem)) {

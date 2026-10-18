@@ -7,7 +7,7 @@ import type { Coluna, Linha } from "../ordens/_comum/TabelaDados";
 import { casa, ligado, lista, ordenar, termos, um, type Params } from "../ordens/_comum/url";
 
 /**
- * Requisições de compra — porta de paginas/requisicoes.py. Sem os filtros globais (não têm área/centro): período
+ * Requisições de compra . Sem os filtros globais (não têm área/centro): período
  * próprio pelo "Enviado em" (abre no mês atual), só pendentes (ligado por padrão), aprovador, solicitante e busca.
  */
 export const PERIODOS = [

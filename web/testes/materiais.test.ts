@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais } from "@/lib/dados/materiais";
 
-// os mesmos dados fictícios de tests/test_materiais.py
+// dados fictícios
 const CRU = [
   ["10000001", "111", "", "", "84821010", "UN", "COMPONENTES", "ROLAMENTOS", "ROLAMENTO", "ROLAMENTO 6205",
     "ROLAMENTO RIGIDO DE ESFERAS; DIAMETRO INTERNO: 25 MM; APLICACAO: *****; FAB: SKF - REF: 6205-2Z.", "APROVADO"],

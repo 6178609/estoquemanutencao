@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/** Gravações da aba Metas: o mesmo formato do metas_wcm.json do app Streamlit (dados fictícios). */
+/** Gravações da aba Metas: formato do metas_wcm.json (dados fictícios). */
 const gravados: { nome: string; itens: Record<string, unknown>; mesclar: boolean }[] = [];
 let editor = true;
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));

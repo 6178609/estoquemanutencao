@@ -5,9 +5,9 @@ import type { Equipamento, Nota, Ordem } from "@/lib/wcm/preparo";
 import { paraData, partes, type Dia } from "@/lib/wcm/util";
 
 /**
- * Regras puras da aba Equipamentos (porta de paginas/equipamentos.py + central/ativos_ui.py): filtros do inventário e
+ * Regras puras da aba Equipamentos: filtros do inventário e
  * da análise, agregado por equipamento das ordens do IW38, situação das peças vinculadas e a validação do cadastro
- * (as MESMAS chaves do `cadastro_equipamentos.json` que o app Streamlit grava). Testado em testes/equipamentos.test.ts.
+ * (as chaves do `cadastro_equipamentos.json`). Testado em testes/equipamentos.test.ts.
  */
 
 export const CRITICIDADES = ["Alta", "Média", "Baixa"];
@@ -67,12 +67,7 @@ export function dataCsv(d: Dia | null | undefined): string {
   return `${String(p.dia).padStart(2, "0")}/${String(p.mes).padStart(2, "0")}/${p.ano}`;
 }
 
-/** Hash curto (FNV-1a) de um texto — chave de cache que muda quando o cadastro muda. */
-export function hashTexto(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
-  return (h >>> 0).toString(36) + ":" + s.length;
-}
+export { hashTexto } from "@/lib/wcm/util";
 
 // ----------------------------------------------------------------------------
 // Inventário (Gestão de ativos)
@@ -103,7 +98,7 @@ export function filtrarInventario(t: LinhaAtivo[], f: FiltroInventario, campoEq:
   });
 }
 
-/** Colunas da planilha do inventário (a mesma ordem da tabela do site atual, com o ciclo de vida inteiro). */
+/** Colunas da planilha do inventário (a ordem da tabela, com o ciclo de vida inteiro). */
 export function csvInventario(t: LinhaAtivo[], campoEq: CampoEq = semCampo): string {
   const com = campoEq !== semCampo;
   // o campo de ordenação vem IMEDIATAMENTE ANTES do código
@@ -260,7 +255,7 @@ export function intervaloMedio(datas: Dia[]): number | null {
 }
 
 // ----------------------------------------------------------------------------
-// Cadastro de equipamentos: validação do formulário → item do JSON (chaves do app Streamlit)
+// Cadastro de equipamentos: validação do formulário → item do JSON
 // ----------------------------------------------------------------------------
 export interface FormCadastro {
   tag: string; nome: string; categoria: string; criticidade: string; observacoes: string; materiais: string[];

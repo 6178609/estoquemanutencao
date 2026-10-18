@@ -3,7 +3,7 @@ import { hoje as hojeLocal, inicioDoMes, paraData, partes, somarMeses, type Dia 
 import type { Nota } from "./preparo";
 
 /**
- * Gerenciador de AF (análise de falha) — planos de AF e ações de AF. Porta de central/af.py.
+ * Gerenciador de AF (análise de falha) — planos de AF e ações de AF.
  *
  * Lê as duas abas do "Gerenciador de AF" (Excel mantido pelo PCM): "Análise de Falha" (uma linha por AF) e
  * "Plano de ação AF" (uma linha por ação de cada AF). Testado em testes/af.test.ts.
@@ -123,7 +123,7 @@ const ACAO_COLUNAS: Record<string, string[]> = {
   observacoes: ["OBSERVAC"],
 };
 
-/** Acha cada coluna pelo cabeçalho, sem repetir coluna já usada (o _padronizar do Python). */
+/** Acha cada coluna pelo cabeçalho, sem repetir coluna já usada. */
 function mapear(cru: Crua[], mapa: Record<string, string[]>): Record<string, string | null> {
   const colunas = cru.length ? Object.keys(cru[0]) : [];
   const usadas = new Set<string>();
@@ -147,7 +147,7 @@ function limpo(v: unknown): string {
 const RX_SERIAL = /^\d{5}(\.\d+)?$/;
 const SERIAL_ZERO = -25569; // 30/12/1899 em dias desde 01/01/1970
 
-/** Data da célula: texto (dd/mm/aaaa ou ISO), Date, ou número serial do Excel (como o para_data do Python). */
+/** Data da célula: texto (dd/mm/aaaa ou ISO), Date, ou número serial do Excel. */
 export function paraDia(v: unknown): Dia | null {
   if (v == null || v === "") return null;
   if (v instanceof Date) return Number.isNaN(+v) ? null : Math.floor(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()) / 86_400_000);
@@ -291,7 +291,7 @@ export function quebrasAIw28<T extends Pick<Nota, "quebra" | "codigoAbc" | "data
   return (notas ?? []).filter((n) => n.quebra && n.codigoAbc === "A" && n.data != null);
 }
 
-/** Ids iguais aos dos KPIs do site (central/indicadores.py e metas). */
+/** Ids iguais aos dos KPIs (indicadores e metas). */
 export interface IndicadoresAf {
   af_geradas: number; af_geradas_a: number; af_no_prazo: number | null; af_realizadas: number;
   af_execucao: number | null; af_atrasadas: number; af_abertas: number; dias_para_analise: number | null;
@@ -396,7 +396,7 @@ export function mensal(afs: Af[], acoes: AcaoAf[], ini: Dia, fim: Dia, hoje: Dia
   return out;
 }
 
-/** Ordena com os nulos no fim (como o sort_values do pandas), crescente ou decrescente. */
+/** Ordena com os nulos no fim, crescente ou decrescente. */
 function porCampo<T>(...chaves: [(x: T) => number | string | null, boolean][]) {
   return (a: T, b: T) => {
     for (const [f, cresc] of chaves) {
@@ -417,7 +417,7 @@ export function acoesDaAf(acoes: AcaoAf[], numero: string): AcaoAf[] {
 }
 
 // ----------------------------------------------------------------------------
-// Apoio às telas (paginas/af_planos.py e paginas/af_acoes.py)
+// Apoio às telas
 // ----------------------------------------------------------------------------
 /** Ordem da fila de AFs: atrasadas primeiro. */
 export const ORDEM_SITUACAO_AF: Record<SituacaoAf, number> = {

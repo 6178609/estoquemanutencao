@@ -28,7 +28,7 @@ export default async function Metas(props: { searchParams: Promise<Record<string
   return (
     <div className="mx-auto w-full max-w-[1320px] space-y-10 px-4 py-8 sm:px-8 sm:py-12">
       <Cabecalho titulo="Metas e parâmetros," destaque="o que o farol de cada indicador usa." sobre="Configuração"
-        subtitulo="Metas de cada indicador, jornada da equipe, capacidade por centro de trabalho e classificação dos tipos de ordem. Vale para todas as abas e para o app atual (mesmo cadastro)." />
+        subtitulo="Metas de cada indicador, jornada da equipe, capacidade por centro de trabalho e classificação dos tipos de ordem. Vale para todas as abas." />
       {!edita && (
         <p className="flex items-center gap-2 rounded-cartao border border-borda bg-superficie-2 px-4 py-3 text-[13.5px] text-texto-2">
           <Lock className="size-4 shrink-0 text-texto-3" /> Seu perfil é de consulta — só editores e administradores alteram metas e parâmetros.
@@ -59,7 +59,7 @@ function SecaoMetas({ cad, edita }: { cad: Record<string, Record<string, unknown
 
 async function SecaoCapacidade({ c, edita }: { c: Awaited<ReturnType<typeof contexto>>; edita: boolean }) {
   const horas = ind.horasSemanaDe(c.cad.metas);
-  // sem filtros: a fábrica toda; média apontada sem a capacidade configurada (como o Streamlit)
+  // sem filtros: a fábrica toda; média apontada sem a capacidade configurada
   const d = await dados(c, { areas: [], centros: [], tipos: [] });
   const semCfg: ind.Dados = { ...d, capacidade: {}, memo: new Map() };
   const centros = new Set<string>();
@@ -76,7 +76,7 @@ async function SecaoCapacidade({ c, edita }: { c: Awaited<ReturnType<typeof cont
         <EditorJornada horas={horas} edita={edita} />
       </Secao>
       <Secao titulo="Capacidade semanal" destaque="por centro de trabalho (HH/semana)"
-        sub={`Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.${d.equipe ? ` Equipe lida da planilha de Gestão de HH: ${n0.format(d.equipe.length)} pessoas, ${n0.format(tec.length)} técnicos de execução.` : ""}`}>
+        sub={`Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.${d.equipe ? ` Equipe da Gestão de HH: ${n0.format(d.equipe.length)} pessoas, ${n0.format(tec.length)} técnicos de execução.` : ""}`}>
         <EditorCapacidade linhas={linhas} edita={edita} />
       </Secao>
     </div>

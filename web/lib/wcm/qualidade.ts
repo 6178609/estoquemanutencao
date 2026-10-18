@@ -3,7 +3,7 @@ import { criticidadeDoSite, type CadastroEquip } from "./saude";
 import type { Dia } from "./util";
 
 /**
- * Qualidade dos dados — porta de central/qualidade.py: o que nas bases do SAP distorce os indicadores e como
+ * Qualidade dos dados : o que nas bases do SAP distorce os indicadores e como
  * corrigir na origem. Cada checagem mede uma proporção de registros com problema (últimos 12 meses, salvo
  * indicação), aponta os indicadores afetados e a correção no SAP.
  * Farol: até 2% verde, até 10% amarelo, acima disso vermelho. Índice de qualidade = 100 − média dos %.
@@ -16,7 +16,7 @@ export type Farol = typeof VERDE | typeof AMARELO | typeof VERMELHO;
 
 /** Valor de uma célula da lista de problemas (datas como `Dia`). */
 export type Valor = string | number | boolean | null;
-/** Linha da lista de problemas: rótulo da coluna (o mesmo do site atual) → valor. */
+/** Linha da lista de problemas: rótulo da coluna → valor. */
 export type LinhaProblema = Record<string, Valor>;
 /** Colunas de data nas listas de problemas (para formatar dd/mm/aaaa). */
 export const COLUNAS_DATA = new Set(["Data", "Fim", "Início", "Último"]);
@@ -62,7 +62,7 @@ export type ConfirmacaoQualidade = Pick<Confirmacao, "np" | "centroTrabalho" | "
 export type PessoaQualidade = Pick<Pessoa, "np">;
 export type EquipQualidade = Pick<Equipamento, "equipamento" | "codigoAbc">;
 /**
- * Quebra (porta de indicadores.quebras): "Nota", "Data", "Ordem", "Equip. (chave)", "Objeto técnico", "Descrição",
+ * Quebra: "Nota", "Data", "Ordem", "Equip. (chave)", "Objeto técnico", "Descrição",
  * "Centro de trabalho" e "Horas de reparo" (null = sem horas de reparo).
  */
 export interface QuebraQualidade {
@@ -80,7 +80,7 @@ export interface EntradasQualidade {
   equip?: EquipQualidade[] | null;
   cadEq?: CadastroEquip | null;
   quebras?: QuebraQualidade[] | null;
-  /** ordem → data do fim real (indicadores.fim_real_por_ordem); sem ela a checagem de fim real não roda */
+  /** ordem → data do fim real; sem ela a checagem de fim real não roda */
   fimReal?: Map<string, Dia | null> | null;
 }
 
@@ -93,7 +93,7 @@ const linhaOrdem = (o: OrdemQualidade): LinhaProblema => ({
   "Equip. (chave)": o.equipChave, "Objeto técnico": o.objeto, "Centro de trabalho": o.centroTrabalho, "Localização": o.localizacao,
 });
 
-/** Lista de checagens (só as que têm base carregada), na mesma ordem do site atual. */
+/** Lista de checagens (só as que têm base carregada). */
 export function verificar(hoje: Dia, e: EntradasQualidade = {}): Checagem[] {
   const cadEq = e.cadEq ?? {};
   const out: Checagem[] = [];
@@ -225,7 +225,7 @@ export function verificar(hoje: Dia, e: EntradasQualidade = {}): Checagem[] {
     out.push(checagem({
       id: "apont_fora_equipe", nome: "Apontamentos de pessoas fora da Gestão de HH", base: "IW47 / Gestão de HH",
       afeta: "Utilização da mão de obra, quem fez o quê",
-      corrigir: "Incluir a pessoa (matrícula) na planilha de Gestão de HH ou corrigir a matrícula no apontamento.",
+      corrigir: "Cadastrar a pessoa (matrícula) na Gestão de HH ou corrigir a matrícula no apontamento.",
       colunas: ["Nº pessoal", "Centro de trabalho", "Apontamentos", "HH", "Último"],
       problemas: resumo.map((g) => ({ "Nº pessoal": g.np, "Centro de trabalho": g.centro, Apontamentos: g.n, HH: g.hh, "Último": g.ultimo })),
       total: todos.size,

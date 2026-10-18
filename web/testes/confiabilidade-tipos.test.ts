@@ -4,7 +4,7 @@ import * as ct from "@/lib/wcm/confiabilidadeTipos";
 import type { Ordem } from "@/lib/wcm/preparo";
 import { dia } from "@/lib/wcm/util";
 
-/** MTBF e MTTR por tipo de ordem (dados fictícios) — os mesmos casos de tests/test_confiabilidade_tipos.py. */
+/** MTBF e MTTR por tipo de ordem (dados fictícios). */
 const D = (m: number, d: number) => dia(2026, m, d)!;
 const ordem = (p: Partial<Ordem>): Ordem => ({ campo: "",
   ordem: "", tipo: "", prioridade: "", texto: "", equipamento: "", objeto: "", local: "", centroTrabalho: "", centroCusto: "",

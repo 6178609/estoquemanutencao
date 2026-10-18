@@ -7,7 +7,7 @@ import { dia } from "@/lib/wcm/util";
 
 /**
  * Gerenciador de HH (jornada, % disponível, capacidade e ausências) e as bases que o alimentam (IW47 e Gestão de
- * HH), com dados fictícios — porta de tests/test_hh_disponibilidade.py e tests/test_hh.py.
+ * HH), com dados fictícios.
  */
 const D = (a: number, m: number, d: number) => dia(a, m, d)!;
 
@@ -68,11 +68,13 @@ describe("Gerenciador de HH · disponibilidade", () => {
     expect(hh.disponibilidade(p, cad, D(2026, 10, 5), D(2026, 10, 4)).every((x) => x.horasDisponiveis === 0)).toBe(true);
     // até antes do início vira um dia só; sem início válido fica fora
     const aus = hh.ausencias({ "10": { ausencias: [{ de: "2026-10-05", ate: "2026-10-01" }, { de: "", ate: "2026-10-01" }] } });
-    expect(aus).toEqual([{ np: "10", id: "", tipo: "Outro", de: D(2026, 10, 5), ate: D(2026, 10, 5), obs: "" }]);
+    expect(aus).toEqual([{ np: "10", id: "", tipo: "Outro", de: D(2026, 10, 5), ate: D(2026, 10, 5), obs: "", titulo: "", horas: null,
+      entidade: "", validade: null, semHh: false }]);
     expect(hh.diasAusente({}, D(2026, 10, 1), D(2026, 10, 31))).toEqual({});
   });
 
   it("apoio à tela: nova ausência, situação e item a gravar", () => {
+    expect(hh.sequenciaAusencias([{ id: "10-20261001-20261007-1" }, { id: "10-20261001-20261007-3" }])).toBe(3); // removida a 2ª: não repete
     const a = hh.novaAusencia("10", "Férias", D(2026, 10, 1), D(2026, 10, 7), " viagem ", 2);
     expect(a).toEqual({ id: "10-20261001-20261007-3", tipo: "Férias", de: "2026-10-01", ate: "2026-10-07", obs: "viagem" });
     const x = { de: D(2026, 10, 1), ate: D(2026, 10, 7) };
@@ -88,7 +90,7 @@ describe("Gerenciador de HH · disponibilidade", () => {
 });
 
 // ----------------------------------------------------------------------------
-// IW47 e Gestão de HH (tests/test_hh.py) — as linhas como a leitura entrega (texto)
+// IW47 e Gestão de HH — as linhas como a leitura entrega (texto)
 // ----------------------------------------------------------------------------
 const COLS_IW47 = ["Nº pessoal", "Ordem", "Status do sistema", "Operação", "Suboperação", "Trabalho real",
   "Unid.trabalho (real)", "Centro trab.(real)", "Tp.atividade (real)", "Tipo ativid.(plan.)", "Data lançamento",

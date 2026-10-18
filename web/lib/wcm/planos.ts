@@ -3,7 +3,7 @@ import type { Crua, Ordem } from "./preparo";
 import { dia, foraDaVisao, hoje as hojeLocal, mediana, paraData, partes, setorDoCentro, type Dia } from "./util";
 
 /**
- * Planos de manutenção — porta de central/planos.py. As chamadas da IP19 (programação dos planos) num calendário
+ * Planos de manutenção. As chamadas da IP19 (programação dos planos) num calendário
  * semanal, cruzadas com as ordens do IW38 para saber o que foi executado.
  *
  * Sem IP19, monta a mesma visão a partir das ordens do IW38 que têm plano (só o que já virou ordem; as chamadas
@@ -39,7 +39,7 @@ export interface Chamada {
   grupoPlanejamento: string; ciclo: string; pacote: string; estrategia: string; tipoOrdem: string;
   dataPlanejada: Dia | null; dataChamada: Dia | null; dataConclusao: Dia | null; tipoProgramacao: string; ordem: string;
   atividade: string; horas: number; operacoes: number; setor: string;
-  /** veio das ordens do IW38 (sem IP19) — o "_do_iw38" do Python */
+  /** veio das ordens do IW38 (sem IP19) */
   doIw38: boolean;
 }
 
@@ -89,7 +89,7 @@ function dataDe(v: unknown): Dia | null {
 }
 
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-/** Datas em ordem (decrescente se `desc`), sem data sempre no fim — como o sort_values do pandas. */
+/** Datas em ordem (decrescente se `desc`), sem data sempre no fim */
 const cmpDia = (a: Dia | null, b: Dia | null, desc = false) =>
   a === b ? 0 : a == null ? 1 : b == null ? -1 : desc ? b - a : a - b;
 
@@ -134,7 +134,7 @@ export function prepararIp19(cru: Crua[], excluirPilotoMatriz = true): Chamada[]
   }
 
   // ordena por plano, item e data planejada (estável) e junta as operações de cada chamada: vale o primeiro valor;
-  // nas datas de chamada/conclusão, a primeira preenchida (o "first" do pandas pula vazio)
+  // nas datas de chamada/conclusão, a primeira preenchida (pula vazio)
   const idx = ops.map((_, i) => i).sort((a, b) =>
     cmp(ops[a].plano, ops[b].plano) || cmp(ops[a].item, ops[b].item) || cmpDia(ops[a].dataPlanejada, ops[b].dataPlanejada) || a - b);
   const grupos = new Map<string, Chamada>();
@@ -220,7 +220,7 @@ export const JANELA_DIAS = 10;
  * A IP19 sem coluna de ordem: liga cada chamada à ordem do IW38 do mesmo plano com data-base de início mais próxima
  * da data planejada (até JANELA_DIAS de diferença; no empate, a de antes). Cada ordem fica com uma chamada só (a mais
  * próxima). Só entram chamadas que já geraram ordem ("solicitado", "chamado", "concluído") ou sem status nenhum —
- * "espera" e "ignorado" ainda não têm ordem e não podem roubar a de outra chamada. (merge_asof "nearest" do Python.)
+ * "espera" e "ignorado" ainda não têm ordem e não podem roubar a de outra chamada.
  */
 function ordemPorPlanoEData<T extends Chamada>(ch: T[], iw38: OrdemPlano[]): T[] {
   const porPlano = new Map<string, { inicio: Dia; ordem: string }[]>();
@@ -340,7 +340,7 @@ function modaPor(ch: ChamadaClassificada[], campo: (c: ChamadaClassificada) => s
 
 const LIMITES_CICLO: [number, string][] = [[2, "Diário"], [10, "Semanal"], [20, "Quinzenal"], [45, "Mensal"],
   [75, "Bimestral"], [120, "Trimestral"], [270, "Semestral"], [500, "Anual"]];
-/** Arredondamento do f"{x:.0f}" do Python (meio para o par). */
+/** Arredondamento sem casas (meio para o par). */
 const arredPar = (x: number) => { const r = Math.round(x); return r - x === 0.5 && r % 2 ? r - 1 : r; };
 
 /** Nome do ciclo estimado pelo intervalo (dias) entre as chamadas; o "*" marca que foi estimado. */
@@ -493,7 +493,7 @@ export function celulas(ch: ChamadaClassificada[], inicio: Dia, fim: Dia, ordemP
 }
 
 // ----------------------------------------------------------------------------
-// O que a página mostra (filtros, indicadores e detalhe do plano) — as contas de paginas/planos.py
+// O que a página mostra (filtros, indicadores e detalhe do plano)
 // ----------------------------------------------------------------------------
 export interface FiltroPlanos {
   inicio: Dia; fim: Dia;

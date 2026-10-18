@@ -94,7 +94,7 @@ describe("ativos.inventario", () => {
     expect(t.get("EQ1")!.planosPreventivos).toBe(1);
     expect(t.get("EQ3")!.cobertoPorPlano).toBe(false);
     expect(t.get("EQ2")!.quebras12Meses).toBe(2);
-    expect(t.get("EQ2")!.mtbfDias).toBe(182); // 365 ÷ 2 = 182,5 → 182 (metade para o par, como o pandas)
+    expect(t.get("EQ2")!.mtbfDias).toBe(182); // 365 ÷ 2 = 182,5 → 182 (metade para o par)
   });
 
   it("críticos sem plano pedem plano", () => {

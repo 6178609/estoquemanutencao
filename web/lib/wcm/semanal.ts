@@ -3,7 +3,7 @@ import { CANCELADA, segundaDe, type Atividade } from "./execucao";
 import { dataBr, dia, hoje as hojeLocal, partes, soma, type Dia } from "./util";
 
 /**
- * Programação semanal — porta de central/semanal.py: carga × capacidade por centro de trabalho, o que entra na
+ * Programação semanal : carga × capacidade por centro de trabalho, o que entra na
  * semana, o que pode completar a folga e a aderência à programação das semanas anteriores (SMRP "schedule
  * compliance"). Convenções:
  * - Semana de segunda a domingo; a atividade é a operação do IW38OP pela data programada (1ª data de início).
@@ -24,7 +24,7 @@ export const META_ADERENCIA = 90;
 /** Segunda-feira da semana da data. */
 export const segunda = segundaDe;
 
-/** Dia da semana com segunda = 0 (como o dayofweek do pandas). */
+/** Dia da semana com segunda = 0. */
 const diaDaSemana = (d: Dia) => (partes(d).semana + 6) % 7;
 
 export function semanasParaEscolher(hoje: Dia, antes = 8, depois = 6): Dia[] {
@@ -73,10 +73,10 @@ export function programadas(ops: Atividade[] | null | undefined, seg: Dia): Prog
 // Capacidade e carga
 // ----------------------------------------------------------------------------
 export interface Capacidade { centroTrabalho: string; capacidade: number | null; origem: string }
-/** Horas realizadas com data (IW47 ou operações concluídas do IW38OP) — como indicadores.hh_executadas. */
+/** Horas realizadas com data (IW47 ou operações concluídas do IW38OP) */
 export interface HorasExecutadas { centroTrabalho: string; horas: number; fimReal: Dia | null }
 
-/** Como o f"{x:.0f}" do Python (empate exato vai para o par). */
+/** Arredondamento sem casas (empate exato vai para o par). */
 function inteiroPy(x: number): string {
   const r = Math.round(x);
   return String(Math.abs(x % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r);

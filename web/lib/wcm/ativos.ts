@@ -3,7 +3,7 @@ import { modaPor, type CadastroEquip, type LinhaSaude } from "./saude";
 import { paraData, partes, type Dia } from "./util";
 
 /**
- * Gestão de ativos — porta de central/ativos.py: o inventário de equipamentos da planta num lugar só, no estilo
+ * Gestão de ativos : o inventário de equipamentos da planta num lugar só, no estilo
  * dos EAM do mercado (SAP EAM, IBM Maximo, Infor): cadastro, criticidade, situação, ciclo de vida, custo,
  * confiabilidade e cobertura de manutenção preventiva — e a recomendação do que fazer com cada ativo.
  *
@@ -50,7 +50,7 @@ export type EquipAtivo = Pick<Equipamento, "equipamento" | "denominacao" | "loca
 /** IW38 preparado (todas as datas). */
 export type OrdemAtivo = Pick<Ordem, "equipChave" | "situacao" | "objeto" | "localizacao" | "local" | "centroTrabalho" |
   "data" | "custoReal" | "comPlano" | "plano">;
-/** Quebra (porta de indicadores.quebras): só o equipamento e a data. */
+/** Quebra: só o equipamento e a data. */
 export interface QuebraAtivo { equipChave: string; data: Dia | null }
 /** Chamada da IP19 classificada (planos.classificar): "Equipamento", "Plano" e "Situação". */
 export interface ChamadaAtivo { equipamento: string; plano: string | null; situacao?: string }
@@ -79,7 +79,7 @@ export interface LinhaAtivo {
   planosPreventivos: number; cobertoPorPlano: boolean; pecasVinculadas: number; recomendacao: string;
 }
 
-/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel do site atual). */
+/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel). */
 export const COLUNAS: [keyof LinhaAtivo, string][] = [
   ["codigo", "Código"], ["equipamento", "Equipamento"], ["situacao", "Situação"], ["criticidade", "Criticidade"],
   ["abc", "ABC"], ["categoria", "Categoria"], ["area", "Área"], ["localInstalacao", "Local de instalação"],
@@ -92,7 +92,7 @@ export const COLUNAS: [keyof LinhaAtivo, string][] = [
   ["cobertoPorPlano", "Coberto por plano"], ["pecasVinculadas", "Peças vinculadas"], ["recomendacao", "Recomendação"],
 ];
 
-/** Arredonda como o pandas/numpy (metade para o par). */
+/** Arredonda com metade para o par. */
 function arred(x: number): number {
   const piso = Math.floor(x);
   return x - piso === 0.5 ? (piso % 2 === 0 ? piso : piso + 1) : Math.round(x);
@@ -122,7 +122,7 @@ export function situacaoGarantia(ate: Dia | null, hoje: Dia): string {
   return ate <= hoje + AVISO_GARANTIA_DIAS ? GARANTIAS[1] : GARANTIAS[0];
 }
 
-/** Planos distintos por equipamento (vazio conta como um valor, como o nunique do pandas). */
+/** Planos distintos por equipamento (vazio conta como um valor). */
 function planosDistintos<T>(xs: T[], chaveDe: (x: T) => string, planoDe: (x: T) => string | null | undefined): Map<string, number> {
   const s = new Map<string, Set<string>>();
   for (const x of xs) {
@@ -307,7 +307,7 @@ export function completude(t: LinhaAtivo[]): LinhaCompletude[] {
 }
 
 // ----------------------------------------------------------------------------
-// Agregados das telas (central/ativos_ui.py)
+// Agregados das telas
 // ----------------------------------------------------------------------------
 /** Quantos ativos (não desativados) em cada recomendação, na ordem de RECOMENDACOES. */
 export function contarRecomendacoes(t: LinhaAtivo[]): { recomendacao: string; ativos: number }[] {

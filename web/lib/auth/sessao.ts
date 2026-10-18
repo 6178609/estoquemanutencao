@@ -11,8 +11,8 @@ import { COOKIE_ATIVO, COOKIE_SESSAO, VALIDADE_S } from "./inatividade";
 import { confere, hashToken, normalizarLogin } from "./senha";
 
 /**
- * Sessões no mesmo formato do site atual: o hash do token fica em `sessoes` do usuário (usuarios.json), então
- * desativar alguém ou trocar a senha dele (que limpa as sessões) derruba o acesso nos dois sites.
+ * Sessões no formato do cadastro: o hash do token fica em `sessoes` do usuário (usuarios.json), então
+ * desativar alguém ou trocar a senha dele (que limpa as sessões) derruba o acesso.
  */
 const COOKIE = COOKIE_SESSAO;
 const DIAS_MANTER = 30;
@@ -68,7 +68,7 @@ export async function entrar(loginDigitado: string, senha: string, manter: boole
   const us = await usuarios();
   const u = us[login] || null;
   if (!u) {
-    // senha certa de um pedido ainda não aprovado: avisa em vez de "incorretos" (como no central/auth.py)
+    // senha certa de um pedido ainda não aprovado: avisa em vez de "incorretos"
     const { pendentes } = await import("./solicitacoes");
     const ped = (await pendentes().catch(() => ({})) as Record<string, Record<string, unknown>>)[login];
     if (ped && (await confere(ped, senha))) return "Seu pedido de acesso ainda está aguardando aprovação de um administrador.";

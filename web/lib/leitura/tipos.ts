@@ -1,8 +1,7 @@
 import { chave } from "../dados/texto";
 
 /**
- * As bases que o site entende — os mesmos tipos, nomes e destinos de central/leitura.py e central/nuvem.py, para o
- * envio por aqui e o do sincronizador do PC gravarem o mesmo arquivo no repositório de dados.
+ * As bases que o site entende — tipos, nomes e destinos no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",
   "equipe", "af", "acoes_af"] as const;
@@ -22,6 +21,13 @@ export const DESTINO: Record<Tipo, string> = {
   iw47: "bases/IW47.parquet", equipe: "bases/EQUIPE.parquet", af: "bases/AF.parquet", acoes_af: "bases/AF_ACOES.parquet",
   catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet",
 };
+
+/**
+ * Bases reconhecidas mas que NÃO são mais enviadas: a equipe agora é cadastrada na Gestão de HH. Continua reconhecida
+ * para a pasta de trabalho de HH não ter outras abas confundidas com IW47 etc. (e para os nomes dos tipos de ordem).
+ */
+export const TIPOS_SEM_ENVIO: ReadonlySet<Tipo> = new Set<Tipo>(["equipe"]);
+export const MOTIVO_SEM_ENVIO = "a equipe agora é cadastrada na aba Gestão de HH (a planilha não é mais enviada)";
 
 export function ehTipo(t: unknown): t is Tipo {
   return typeof t === "string" && (TIPOS as readonly string[]).includes(t);

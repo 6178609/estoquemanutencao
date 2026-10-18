@@ -3,8 +3,8 @@ import type { Confirmacao, Operacao, Ordem, Pessoa } from "@/lib/wcm/preparo";
 import { dataBr, type Dia } from "@/lib/wcm/util";
 
 /**
- * Contas da tela Execução das atividades que não estão em lib/wcm/execucao.ts (a porta de central/execucao.py):
- * o recorte de área/tipo como no central/execucao_ui.py e os quadros dos gráficos. Testado em testes/execucao_tela.test.ts.
+ * Contas da tela Execução das atividades que não estão em lib/wcm/execucao.ts:
+ * o recorte de área/tipo e os quadros dos gráficos. Testado em testes/execucao_tela.test.ts.
  */
 
 /** Ordens do IW38 na área/tipo escolhidos (null = sem IW38). */
@@ -15,7 +15,7 @@ export function ordensDoRecorte(ordens: Ordem[] | null, areas: string[], tipos: 
 
 /**
  * Operações (IW38OP) das ordens do recorte com situação e quem fez, e os apontamentos (IW47) só das pessoas da
- * Gestão de HH (sem a planilha, todos) — o _ops() de central/execucao_ui.py. `confRecorte` já vem filtrada por
+ * Gestão de HH (sem a planilha, todos). `confRecorte` já vem filtrada por
  * área/tipo (filtrarConf do contexto).
  */
 export function baseExecucao(oper: Operacao[], ordens: Ordem[] | null, confTodos: Confirmacao[] | null, confRecorte: Confirmacao[] | null,

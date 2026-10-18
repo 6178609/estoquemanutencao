@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Cartao, Selo } from "@/components/ui";
 import type { BaseLida, Processado } from "@/lib/leitura/processar";
+import { MOTIVO_SEM_ENVIO, TIPOS_SEM_ENVIO, type Tipo } from "@/lib/leitura/tipos";
 
 type Situacao = "lendo" | "pronto" | "enviando" | "enviado" | "erro";
 
@@ -128,7 +129,8 @@ export function Envio({ demo }: { demo: boolean }) {
     }
   }, [anexar]);
 
-  const prontas = itens.flatMap((i) => i.bases.filter((b) => !b.situacao || b.situacao === "erro").map((b) => ({ i, b })));
+  const prontas = itens.flatMap((i) => i.bases.filter((b) => !TIPOS_SEM_ENVIO.has(b.tipo as Tipo) && (!b.situacao || b.situacao === "erro"))
+    .map((b) => ({ i, b })));
   // a mesma base em dois arquivos: vale o arquivo mais novo
   const porTipo = new Map<string, { i: Item; b: Item["bases"][number] }>();
   for (const x of prontas) {
@@ -137,6 +139,8 @@ export function Envio({ demo }: { demo: boolean }) {
   }
   const aEnviar = [...porTipo.values()];
   const lendo = itens.some((i) => i.situacao === "lendo");
+  // os nomes dos tipos de ordem da planilha de HH continuam indo (para Metas), mesmo sem enviar a equipe
+  const temTipos = itens.some((i) => i.tiposOrdem && Object.keys(i.tiposOrdem).length);
 
   async function enviar() {
     setEnviando(true);
@@ -213,13 +217,15 @@ export function Envio({ demo }: { demo: boolean }) {
               </div>
               {i.erro && <p className="mt-1.5 flex items-start gap-1.5 text-[12.5px] text-perigo-500"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" />{i.erro}</p>}
               {i.bases.map((b) => {
-                const ignorada = !b.situacao && porTipo.get(b.tipo)?.i.id !== i.id;
+                const semEnvio = TIPOS_SEM_ENVIO.has(b.tipo as Tipo);
+                const ignorada = !semEnvio && !b.situacao && porTipo.get(b.tipo)?.i.id !== i.id;
                 return (
                   <div key={b.tipo} className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-7 text-[13px]">
-                    <Selo cor={b.situacao === "enviado" ? "verde" : b.situacao === "erro" ? "vermelho" : ignorada ? "cinza" : "azul"}>{b.nome}</Selo>
+                    <Selo cor={b.situacao === "enviado" ? "verde" : b.situacao === "erro" ? "vermelho" : ignorada || semEnvio ? "cinza" : "azul"}>{b.nome}</Selo>
                     <span className="text-texto-3">{n0.format(b.linhas)} linhas · {b.colunas.length} colunas{b.aba ? ` · aba ${b.aba}` : ""}
                       {b.partes.length > 1 ? ` · ${b.partes.length} partes` : ""}</span>
                     {ignorada && <span className="text-[12px] text-texto-4">(há um arquivo mais novo desta base na lista)</span>}
+                    {semEnvio && <span className="text-[12px] text-texto-3">Não é enviada: {MOTIVO_SEM_ENVIO}.</span>}
                     {b.situacao === "enviando" && <span className="flex items-center gap-1.5 text-texto-3"><LoaderCircle className="size-3.5 animate-spin" /> enviando {Math.round((b.progresso || 0) * 100)}%</span>}
                     {b.situacao === "enviado" && <span className="flex items-center gap-1 text-marca-600 dark:text-marca-300"><CheckCircle2 className="size-3.5" /> gravada</span>}
                     {b.erro && <span className="text-perigo-500">{b.erro}</span>}
@@ -229,8 +235,8 @@ export function Envio({ demo }: { demo: boolean }) {
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3 pt-3">
-            <button className={BOTAO_PRIMARIO} disabled={demo || enviando || lendo || !aEnviar.length} onClick={enviar}>
-              {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><Upload className="size-4" /> Enviar {aEnviar.length || ""} base(s)</>}
+            <button className={BOTAO_PRIMARIO} disabled={demo || enviando || lendo || (!aEnviar.length && !temTipos)} onClick={enviar}>
+              {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><Upload className="size-4" /> {aEnviar.length ? `Enviar ${aEnviar.length} base(s)` : "Enviar os tipos de ordem"}</>}
             </button>
             {!enviando && <button className={BOTAO_SECUNDARIO} onClick={() => setItens([])}>Limpar lista</button>}
             {demo && <span className="text-[12.5px] text-texto-3">Na demonstração dá para testar a leitura; o envio precisa do repositório de dados ligado.</span>}

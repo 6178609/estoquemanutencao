@@ -7,7 +7,7 @@ import { assinatura, guardado } from "../ordens/_comum/cache";
 import type { Coluna, TipoColuna } from "../ordens/_comum/TabelaDados";
 
 /**
- * Qualidade dos dados — porta de paginas/qualidade.py: as checagens de web/lib/wcm/qualidade.ts no recorte global
+ * Qualidade dos dados : as checagens de web/lib/wcm/qualidade.ts no recorte global
  * (área, setor, centro e tipo; sem período — cada checagem olha os últimos 12 meses até hoje).
  */
 export async function checagens(c: Contexto): Promise<q.Checagem[]> {

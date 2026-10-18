@@ -1,7 +1,7 @@
 import { chave } from "../dados/texto";
 
 /**
- * Regras pequenas usadas em todo o motor — as mesmas de central/util.py.
+ * Regras pequenas usadas em todo o motor.
  *
  * Datas: o SAP só traz o dia, então uma data é um número inteiro de dias desde 01/01/1970 (`Dia`) — comparar,
  * somar e agrupar por mês fica trivial e não há fuso no meio. `null` = sem data.
@@ -57,7 +57,7 @@ export function mesBr(d: Dia): string {
 const RX_DATA = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/;
 const RX_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})/;
 
-/** Datas como o sincronizador grava (dd/mm/aaaa, às vezes com hora) ou ISO; só hora ("07:48") não é data. */
+/** Datas como ficam no repositório de dados (dd/mm/aaaa, às vezes com hora) ou ISO; só hora ("07:48") não é data. */
 export function paraData(v: unknown): Dia | null {
   if (v == null) return null;
   const s = String(v).trim();
@@ -139,4 +139,33 @@ export function agrupar<T, K>(xs: T[], chaveDe: (x: T) => K): Map<K, T[]> {
     else m.set(k, [x]);
   }
   return m;
+}
+
+/** Hash curto (FNV-1a) de um texto — chave de cache que muda quando o cadastro muda. */
+export function hashTexto(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36) + ":" + s.length;
+}
+
+/**
+ * Campo de ordenação GERAL de cada equipamento: o mais frequente nas ordens dele (empate: o menor em ordem alfabética).
+ * É o que identifica o ativo em todas as abas (lib/wcm/campoGeral.ts) e na Gestão de MRO; os campos das demais ordens ficam como
+ * informação interna de cada atividade.
+ */
+export function campoGeralPorEquipamento(ordens: { ordem: string; equipChave: string }[], campoDaOrdem: Map<string, string>): Map<string, string> {
+  const conta = new Map<string, Map<string, number>>();
+  for (const o of ordens) {
+    const c = (campoDaOrdem.get(o.ordem) ?? "").trim().toUpperCase();
+    if (!c || !o.equipChave) continue;
+    const m = conta.get(o.equipChave) ?? conta.set(o.equipChave, new Map()).get(o.equipChave)!;
+    m.set(c, (m.get(c) ?? 0) + 1);
+  }
+  const out = new Map<string, string>();
+  for (const [eq, m] of conta) {
+    let melhor = "", n = -1;
+    for (const [c, k] of m) if (k > n || (k === n && c < melhor)) { melhor = c; n = k; }
+    out.set(eq, melhor);
+  }
+  return out;
 }
