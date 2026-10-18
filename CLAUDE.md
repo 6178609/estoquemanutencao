@@ -23,6 +23,19 @@
   liberar (lista de abas do usuário em Usuários). Regra única em `web/lib/auth/acesso.ts`.
 - Terceiros veem só `PAGINAS_TERCEIRO` (hoje: Estoque e Gestão de MRO), só consulta fora do Estoque.
 
+## Skills e conectores (usar sempre)
+- No início de cada tarefa, conferir as skills e os conectores disponíveis na sessão e usar **todos os que se aplicam**
+  à tarefa — não resolver "na mão" o que uma skill ou conector faz. Dizer na resposta quais foram usados.
+- Código do site: skills de processo (superpowers: brainstorming antes de tela/recurso novo, systematic-debugging em
+  erro, verification-before-completion antes de publicar) + revisão do Opus.
+- **Vercel** (conector): depois de cada merge, conferir o deploy de produção (estado READY) e, em erro, os logs.
+- **GitHub** (conector): PR, merge e checks.
+- Documentos e arquivos: `docs` (documento compartilhável), `docx`, `pdf`, `pptx`, `xlsx`; apresentações também pelo
+  conector **Gamma**; pesquisa na web com **Firecrawl** ou a skill `deep-research`.
+- Visual e textos: `canvas-design`, `theme-factory`, `internal-comms`, `doc-coauthoring`, `web-artifacts-builder`.
+- Skills/conectores sem relação com a tarefa (ex.: Shopify, GIF do Slack) não entram só para "usar"; o que estiver
+  desconectado (Microsoft 365, PostHog) é avisado ao usuário quando a tarefa precisar dele.
+
 ## Skills do projeto (`.claude/skills/`)
 - `prompt-master` (MIT, v1.8.2): escreve e corrige prompts para outras IAs (ChatGPT, Claude, Cursor,
   Midjourney…). Só entra quando o pedido é escrever/ajustar um prompt.
