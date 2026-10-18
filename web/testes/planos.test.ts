@@ -150,7 +150,7 @@ describe("planos (IP19)", () => {
     const cal = planos.montarCalendario(ch, D(2099, 1, 1), D(2099, 1, 31));
     expect(Object.fromEntries(cal.linhas.map((l) => [l.plano, l.ciclo]))).toEqual({ 1: "Semanal*", 2: "pacote T2", 3: "2 anos*" });
     expect(planos.nomeDoCiclo(547.5)).toBe("2 anos*");
-    expect(planos.nomeDoCiclo(912.5)).toBe("2 anos*"); // 2,5 → 2 (arredonda para o par, como o Python)
+    expect(planos.nomeDoCiclo(912.5)).toBe("2 anos*"); // 2,5 → 2 (arredonda para o par)
   });
 
   it("carga semanal, filtros e indicadores da página", () => {

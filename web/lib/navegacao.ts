@@ -1,12 +1,12 @@
 /**
  * Abas do sistema.
- * `rota`: endereço da aba no site novo.
+ * `rota`: endereço da aba.
  */
 export interface Aba {
   id: string;
   titulo: string;
   icone: string; // nome do ícone (lucide)
-  rota?: string; // rota no site novo, quando já migrada
+  rota: string;
 }
 
 export const GRUPOS: { titulo: string; abas: Aba[] }[] = [

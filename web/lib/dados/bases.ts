@@ -8,7 +8,7 @@ import {
   montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais, type ItemAlmox, type ItemCatalogo, type ItemEstoque,
 } from "./materiais";
 
-/** As bases gravadas no repositório de dados pelo sincronizador do PC e pelo envio no site. */
+/** As bases gravadas no repositório de dados pelo envio em Fontes de dados. */
 export const ARQUIVOS = {
   mb52: "bases/MB52.parquet",
   catalogo: "bases/CATALOGO_MATERIAIS.parquet",
@@ -22,7 +22,6 @@ export interface InfoBase {
   linhas?: number;
   enviado_em?: string;
   enviado_por?: string;
-  pc?: string;
   partes?: string[];
 }
 
@@ -60,7 +59,7 @@ export async function lerBase<T>(caminho: string, preparar: (linhas: Record<stri
   const [versoes, man] = await Promise.all([f.versoes(), manifesto()]);
   const info = man[caminho] || {};
   const meta = { atualizado: info.modificado || null, origem: info.origem || caminho };
-  // base enviada em partes pelo site (o manifesto diz quais) ou o arquivo único do sincronizador
+  // base enviada em partes (o manifesto diz quais) ou em arquivo único
   const arquivos = info.partes?.length ? info.partes : [caminho];
   if (arquivos.some((a) => !versoes.has(a))) return { dados: null, ...meta };
   const versao = arquivos.map((a) => versoes.get(a)).join("+") + (sufixo ? `@${sufixo}` : "");

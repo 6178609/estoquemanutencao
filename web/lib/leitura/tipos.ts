@@ -1,8 +1,7 @@
 import { chave } from "../dados/texto";
 
 /**
- * As bases que o site entende — os mesmos tipos, nomes e destinos, para o
- * envio por aqui e o do sincronizador do PC gravarem o mesmo arquivo no repositório de dados.
+ * As bases que o site entende — tipos, nomes e destinos no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",
   "equipe", "af", "acoes_af"] as const;

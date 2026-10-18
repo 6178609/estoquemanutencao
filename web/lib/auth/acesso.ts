@@ -32,7 +32,7 @@ export interface Usuario {
 }
 
 export function idPagina(pagina: string): string {
-  return pagina.replaceAll("\\", "/").split("/").pop()!.replace(/\.py$/, "");
+  return String(pagina).trim();
 }
 
 export function abasPersonalizadas(u: Usuario | null): Set<string> | null {

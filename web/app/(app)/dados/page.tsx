@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Clock, FolderSync } from "lucide-react";
+import { CheckCircle2, CircleDashed, Clock } from "lucide-react";
 import type { Metadata } from "next";
 
 import { Cabecalho, Cartao, IconeQuadro, Pagina, Pilula, Selo } from "@/components/ui";
@@ -61,7 +61,7 @@ export default async function FontesDeDados() {
                       {b.info.linhas !== undefined && <div>{inteiro(b.info.linhas)} linhas</div>}
                       {b.info.origem && <div className="truncate" title={b.info.origem}>{b.info.origem}</div>}
                       <div>
-                        {b.info.enviado_por ? <>Enviado por {b.info.enviado_por}</> : b.info.pc ? <><FolderSync className="mr-1 inline size-3" />Sincronizador ({b.info.pc})</> : null}
+                        {b.info.enviado_por && <>Enviado por {b.info.enviado_por}</>}
                         {b.info.enviado_em && <> · {dataHora(b.info.enviado_em)}</>}
                       </div>
                     </div>
@@ -71,10 +71,6 @@ export default async function FontesDeDados() {
             </Cartao>
           ))}
         </div>
-        <p className="text-[12.5px] text-texto-3">
-          O sincronizador do PC (opcional) continua funcionando: ele envia sozinho o export mais novo de cada base a cada
-          5 minutos para o mesmo repositório.
-        </p>
       </section>
     </Pagina>
   );

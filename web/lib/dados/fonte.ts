@@ -6,8 +6,8 @@ import path from "node:path";
 /**
  * De onde vêm os dados — o repositório de dados usado pelo site:
  *
- * - GitHub (produção na Vercel): repositório PRIVADO de dados. O sincronizador do PC grava `bases/*.parquet` e
- *   `bases/manifesto.json`; os cadastros (usuários, mínimos, equipamentos…) ficam em `app/*.json`.
+ * - GitHub (produção na Vercel): repositório PRIVADO de dados. As bases enviadas em Fontes de dados ficam em
+ *   `bases/*.parquet` e `bases/manifesto.json`; os cadastros (usuários, mínimos, equipamentos…) ficam em `app/*.json`.
  * - Pasta (desenvolvimento): a mesma estrutura numa pasta local (DADOS_PASTA).
  * - Sem nenhum dos dois: modo demonstração (dados fictícios gerados no código, ver demo.ts).
  *

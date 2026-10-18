@@ -1,7 +1,7 @@
 import { dataBr, dia, hoje as hojeLocal, partes, somarMeses, inicioDoMes, type Dia } from "./util";
 
 /**
- * Filtros globais (porta de contexto.Filtros): período "de/até" com atalhos, área, setor, centro de trabalho e tipo
+ * Filtros globais: período "de/até" com atalhos, área, setor, centro de trabalho e tipo
  * de ordem. Valem para todas as abas — ficam no endereço (?ini=…) e num cookie, para trocar de aba manter o recorte.
  */
 export interface Filtros {

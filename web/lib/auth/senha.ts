@@ -23,7 +23,7 @@ export async function gerarHash(senha: string): Promise<{ sal: string; senha_has
   return { sal, senha_hash: await hashSenha(senha, sal) };
 }
 
-/** Mesma regra de validar_senha: 8+ caracteres, com letras e números. */
+/** Senha válida: 8+ caracteres, com letras e números. */
 export function validarSenha(senha: string): string {
   if ((senha || "").length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
   if (/^\d+$/.test(senha) || /^\p{L}+$/u.test(senha)) return "Use letras e números na senha.";

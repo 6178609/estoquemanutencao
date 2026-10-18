@@ -11,7 +11,7 @@ import { hoje as hojeLocal, inicioDoMes, mesBr, soma, type Dia } from "./util";
  */
 
 export const PALAVRA = "SEMEQ";
-// \W do Python (Unicode) = nem letra, nem número, nem "_"
+// \W (Unicode) = nem letra, nem número, nem "_"
 const RX = /SEMEQ[^\p{L}\p{N}_]*(?<tec>[A-Z]{2,4})[^\p{L}\p{N}_]*(?<num>\p{Nd}+)[^\p{L}\p{N}_]*(?<achado>.*)/u;
 export const TECNICAS: Record<string, string> = {
   AVB: "Análise de vibração", AOL: "Análise de óleo", TMP: "Termografia", TER: "Termografia", UTS: "Ultrassom",
@@ -39,7 +39,7 @@ export function partesSemeq(texto: unknown): { codigo: string; sigla: string; ac
   return { codigo: g ? `${g.tec}-${g.num.replace(/^0+/, "")}` : "", sigla: g?.tec ?? "", achado };
 }
 
-/** Como o str.capitalize do Python: 1ª letra maiúscula, o resto minúsculo. */
+/** 1ª letra maiúscula, o resto minúsculo. */
 const capitalizar = (s: string) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : s);
 
 export interface Anomalia {

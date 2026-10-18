@@ -7,8 +7,7 @@ import { MANIFESTO, type InfoBase } from "./bases";
 import { fonte, FonteErro } from "./fonte";
 
 /**
- * Recebe uma base lida no navegador (já em parquet) e grava no repositório de dados — o mesmo arquivo que o
- * sincronizador do PC grava. Base pequena: `bases/<BASE>.parquet`. Base grande: partes em `bases/partes/`, e o
+ * Recebe uma base lida no navegador (já em parquet) e grava no repositório de dados. Base pequena: `bases/<BASE>.parquet`. Base grande: partes em `bases/partes/`, e o
  * manifesto só passa a apontar para elas quando a última chega (até lá, vale a versão anterior inteira).
  */
 export const LIMITE_BYTES = 4_000_000;
@@ -50,7 +49,7 @@ async function gravar(caminho: string, bytes: Uint8Array, mensagem: string) {
   throw new FonteErro(`${caminho} está sendo gravado por outra pessoa agora; tente de novo.`);
 }
 
-/** Junta a entrada ao manifesto lido agora e grava condicionado à versão (o sincronizador pode gravar no meio). */
+/** Junta a entrada ao manifesto lido agora e grava condicionado à versão (outra pessoa pode gravar no meio). */
 async function registrar(caminho: string, entrada: InfoBase): Promise<InfoBase | undefined> {
   const f = fonte()!;
   await f.versoes(true); // a versão do manifesto tem de ser a de agora (senão a 1ª gravação sempre conflita)

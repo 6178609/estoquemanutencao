@@ -270,7 +270,7 @@ export interface PessoaExecucao {
   cargo: string; area: string; turma: string;
 }
 
-/** Valor mais frequente (empate: o menor, como o mode() do pandas). */
+/** Valor mais frequente (empate: o menor). */
 function moda(xs: string[]): string {
   const n = new Map<string, number>();
   for (const x of xs) n.set(x, (n.get(x) ?? 0) + 1);

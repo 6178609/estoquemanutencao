@@ -62,7 +62,7 @@ export type ConfirmacaoQualidade = Pick<Confirmacao, "np" | "centroTrabalho" | "
 export type PessoaQualidade = Pick<Pessoa, "np">;
 export type EquipQualidade = Pick<Equipamento, "equipamento" | "codigoAbc">;
 /**
- * Quebra (porta de indicadores.quebras): "Nota", "Data", "Ordem", "Equip. (chave)", "Objeto técnico", "Descrição",
+ * Quebra: "Nota", "Data", "Ordem", "Equip. (chave)", "Objeto técnico", "Descrição",
  * "Centro de trabalho" e "Horas de reparo" (null = sem horas de reparo).
  */
 export interface QuebraQualidade {
@@ -80,7 +80,7 @@ export interface EntradasQualidade {
   equip?: EquipQualidade[] | null;
   cadEq?: CadastroEquip | null;
   quebras?: QuebraQualidade[] | null;
-  /** ordem → data do fim real (indicadores.fim_real_por_ordem); sem ela a checagem de fim real não roda */
+  /** ordem → data do fim real; sem ela a checagem de fim real não roda */
   fimReal?: Map<string, Dia | null> | null;
 }
 

@@ -36,7 +36,7 @@ export interface ChamadaBusca {
   plano: string; texto: string; data: Dia | null; situacao: string; ordem: string; equipamento: string; objeto: string;
   centroTrabalho: string;
 }
-/** Análise de falha do Gerenciador de AF (af.preparar_afs): "Nº AF", "Data da falha", "Código SAP"… */
+/** Análise de falha do Gerenciador de AF: "Nº AF", "Data da falha", "Código SAP"… */
 export interface AfBusca {
   numero: string; dataFalha: Dia | null; codigoSap: string; equipamento: string; resumo: string; situacao: string;
   criticidade: string; causaRaiz: string; area: string; osCorretiva: string;

@@ -50,7 +50,7 @@ export type EquipAtivo = Pick<Equipamento, "equipamento" | "denominacao" | "loca
 /** IW38 preparado (todas as datas). */
 export type OrdemAtivo = Pick<Ordem, "equipChave" | "situacao" | "objeto" | "localizacao" | "local" | "centroTrabalho" |
   "data" | "custoReal" | "comPlano" | "plano">;
-/** Quebra (porta de indicadores.quebras): só o equipamento e a data. */
+/** Quebra: só o equipamento e a data. */
 export interface QuebraAtivo { equipChave: string; data: Dia | null }
 /** Chamada da IP19 classificada (planos.classificar): "Equipamento", "Plano" e "Situação". */
 export interface ChamadaAtivo { equipamento: string; plano: string | null; situacao?: string }
@@ -92,7 +92,7 @@ export const COLUNAS: [keyof LinhaAtivo, string][] = [
   ["cobertoPorPlano", "Coberto por plano"], ["pecasVinculadas", "Peças vinculadas"], ["recomendacao", "Recomendação"],
 ];
 
-/** Arredonda como o pandas/numpy (metade para o par). */
+/** Arredonda com metade para o par. */
 function arred(x: number): number {
   const piso = Math.floor(x);
   return x - piso === 0.5 ? (piso % 2 === 0 ? piso : piso + 1) : Math.round(x);
@@ -122,7 +122,7 @@ export function situacaoGarantia(ate: Dia | null, hoje: Dia): string {
   return ate <= hoje + AVISO_GARANTIA_DIAS ? GARANTIAS[1] : GARANTIAS[0];
 }
 
-/** Planos distintos por equipamento (vazio conta como um valor, como o nunique do pandas). */
+/** Planos distintos por equipamento (vazio conta como um valor). */
 function planosDistintos<T>(xs: T[], chaveDe: (x: T) => string, planoDe: (x: T) => string | null | undefined): Map<string, number> {
   const s = new Map<string, Set<string>>();
   for (const x of xs) {

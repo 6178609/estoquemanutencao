@@ -91,7 +91,7 @@ describe("saude.calcular", () => {
     expect(saude.resumo([]).media).toBeNull();
   });
 
-  it("custo relativo ao p95 da planta, arredondamento do pandas e o que mais derruba a saúde", () => {
+  it("custo relativo ao p95 da planta, arredondamento metade para o par e o que mais derruba a saúde", () => {
     // 20 equipamentos com custo 1.000…20.000: p95 = 19.050; o de 20.000 perde o peso cheio (10)
     const o = ordens(Array.from({ length: 20 }, (_, i) => ({ equipChave: `E${String(i + 1).padStart(2, "0")}`, data: HOJE - 1,
       custoReal: 1000 * (i + 1) })));
@@ -100,7 +100,7 @@ describe("saude.calcular", () => {
     expect(e20.saude).toBe(90);
     expect(e20.principalCausa).toBe("Custo de manutenção");
     expect(e20.pts.custo).toBe(10);
-    // pesos somando 100: 2,5 pontos perdidos → 97,5 → 98; 1,5 → 98,5 → 98 (metade para o par, como o numpy)
+    // pesos somando 100: 2,5 pontos perdidos → 97,5 → 98; 1,5 → 98,5 → 98 (metade para o par)
     const o2 = ordens([{ equipChave: "X", data: HOJE, atrasada: true, situacao: "Aberta" }]);
     expect(saude.calcular(o2, HOJE, { pesos: { backlog: 12.5, quebras: 22.5 } })[0].saude).toBe(98);
     expect(saude.calcular(o2, HOJE, { pesos: { backlog: 7.5, quebras: 27.5 } })[0].saude).toBe(98);

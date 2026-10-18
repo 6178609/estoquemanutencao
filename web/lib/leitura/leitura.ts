@@ -11,7 +11,7 @@ export class LeituraErro extends Error {}
 
 export interface Tabela {
   colunas: string[];
-  linhas: string[][]; // tudo como texto, no mesmo formato que o sincronizador grava
+  linhas: string[][]; // tudo como texto, no formato do repositório de dados
 }
 
 export interface Achado {
@@ -123,7 +123,7 @@ function semTags(s: string): string {
   return desescapar(s.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "")).replace(/ /g, " ");
 }
 
-/** A tabela com mais linhas (tr) do documento, como a xpath do Python. */
+/** A tabela com mais linhas (tr) do documento. */
 function tabelaPrincipal(html: string): string | null {
   const abre = /<table\b/gi, fecha = /<\/table\s*>/gi;
   const marcas: { pos: number; abre: boolean }[] = [];
@@ -215,7 +215,7 @@ export function listaAgrupadaMb52(linhas: string[]): Tabela {
 const ehXlsx = (b: Uint8Array) => b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
 const ehXls = (b: Uint8Array) => b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
 
-/** Exports filtrados (deste site ou do antigo: ordens_filtradas, IW38_filtrado.csv…): nunca viram a base. */
+/** Exports filtrados (ordens_filtradas, IW38_filtrado.csv…): nunca viram a base. */
 export function ehRecorte(nome: string): boolean {
   return /filtrad/i.test(nome.replace(/\.[^.]*$/, ""));
 }
@@ -226,10 +226,10 @@ function limpar(t: Tabela): Tabela {
   return { colunas: manter.map(([c]) => c), linhas };
 }
 
-// textos que o pandas (read_excel) lê como vazio — sempre lidos assim; mantidos iguais
-const NA_PANDAS = new Set(["", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
+// textos que valem como vazio na leitura
+const TEXTOS_VAZIOS = new Set(["", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
   "<NA>", "N/A", "NA", "NULL", "NaN", "None", "n/a", "nan", "null"]);
-const celulaXlsx = (v: Valor | undefined) => (typeof v === "string" && NA_PANDAS.has(v) ? "" : paraTexto(v));
+const celulaXlsx = (v: Valor | undefined) => (typeof v === "string" && TEXTOS_VAZIOS.has(v) ? "" : paraTexto(v));
 
 function tabelaXlsx(x: Xlsx, aba: string | null, linhaCab: number | null): Tabela {
   const a = (aba && x.abas.find((s) => s.nome === aba)) || x.abas[0];
@@ -239,7 +239,7 @@ function tabelaXlsx(x: Xlsx, aba: string | null, linhaCab: number | null): Tabel
   const cab = (linhas[ic] || []).map((v) => paraTexto(v));
   let largura = cab.length;
   for (let i = ic + 1; i < linhas.length; i++) largura = Math.max(largura, linhas[i].length); // sem espalhar (pilha)
-  // nomes repetidos ganham sufixo (.1, .2) como no pandas
+  // nomes repetidos ganham sufixo (.1, .2)
   const vistos = new Map<string, number>();
   const colunas = Array.from({ length: largura }, (_, i) => {
     const c = cab[i] || `Unnamed: ${i}`;

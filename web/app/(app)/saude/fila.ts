@@ -40,7 +40,7 @@ export function histograma(t: LinhaSaude[]): { rotulos: string[]; porFaixa: Reco
   return { rotulos, porFaixa };
 }
 
-/** Planilha da fila (todas as colunas do Python, sem as pts_*). `campoEq` dá o campo de ordenação do equipamento. */
+/** Planilha da fila (todas as colunas, sem as pts_*). `campoEq` dá o campo de ordenação do equipamento. */
 export function csvFila(t: LinhaSaude[], campoEq: (codigo: string) => string = () => ""): string {
   return csv(["Campo de ordenação", ...saude.COLUNAS.map(([, r]) => r)],
     t.map((l) => [campoEq(l.codigo), ...saude.COLUNAS.map(([k]) => (k === "ultimaFalha" ? dataCsv(l.ultimaFalha) : l[k] as unknown))]));

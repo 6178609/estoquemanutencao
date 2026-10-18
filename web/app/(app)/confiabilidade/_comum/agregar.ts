@@ -66,7 +66,7 @@ export function mesesEntre(ini: Dia, fim: Dia): Dia[] {
   return out;
 }
 
-/** Segunda-feira da semana do dia (semana de segunda a domingo, como o W-SUN do pandas). */
+/** Segunda-feira da semana do dia (semana de segunda a domingo). */
 export function segunda(d: Dia): Dia {
   const dow = new Date(d * 86_400_000).getUTCDay(); // 0 = domingo
   return d - ((dow + 6) % 7);
@@ -78,7 +78,7 @@ export function faixa(limites: number[], v: number): number {
   return i < 0 ? limites.length : i;
 }
 
-/** Moda (valor mais frequente; empate → o menor, como o mode().iat[0] do pandas). Vazios não contam. */
+/** Moda (valor mais frequente; empate → o menor). Vazios não contam. */
 export function moda(xs: string[]): string {
   const m = new Map<string, number>();
   for (const x of xs) if (x) m.set(x, (m.get(x) ?? 0) + 1);

@@ -123,7 +123,7 @@ const ACAO_COLUNAS: Record<string, string[]> = {
   observacoes: ["OBSERVAC"],
 };
 
-/** Acha cada coluna pelo cabeçalho, sem repetir coluna já usada (o _padronizar do Python). */
+/** Acha cada coluna pelo cabeçalho, sem repetir coluna já usada. */
 function mapear(cru: Crua[], mapa: Record<string, string[]>): Record<string, string | null> {
   const colunas = cru.length ? Object.keys(cru[0]) : [];
   const usadas = new Set<string>();
@@ -147,7 +147,7 @@ function limpo(v: unknown): string {
 const RX_SERIAL = /^\d{5}(\.\d+)?$/;
 const SERIAL_ZERO = -25569; // 30/12/1899 em dias desde 01/01/1970
 
-/** Data da célula: texto (dd/mm/aaaa ou ISO), Date, ou número serial do Excel (como o para_data do Python). */
+/** Data da célula: texto (dd/mm/aaaa ou ISO), Date, ou número serial do Excel. */
 export function paraDia(v: unknown): Dia | null {
   if (v == null || v === "") return null;
   if (v instanceof Date) return Number.isNaN(+v) ? null : Math.floor(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()) / 86_400_000);
@@ -396,7 +396,7 @@ export function mensal(afs: Af[], acoes: AcaoAf[], ini: Dia, fim: Dia, hoje: Dia
   return out;
 }
 
-/** Ordena com os nulos no fim (como o sort_values do pandas), crescente ou decrescente. */
+/** Ordena com os nulos no fim, crescente ou decrescente. */
 function porCampo<T>(...chaves: [(x: T) => number | string | null, boolean][]) {
   return (a: T, b: T) => {
     for (const [f, cresc] of chaves) {

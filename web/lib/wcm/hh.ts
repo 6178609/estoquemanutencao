@@ -69,7 +69,7 @@ function itemDe(cad: CadastroHh | null | undefined, np: string): ItemHh {
   return i && typeof i === "object" && !Array.isArray(i) ? (i as ItemHh) : {};
 }
 
-/** Número do cadastro ou o padrão (vazio/ilegível/NaN → padrão), como o float() do Python. */
+/** Número do cadastro ou o padrão (vazio/ilegível/NaN → padrão). */
 function num(v: unknown, padrao: number): number {
   if (v == null) return padrao;
   if (typeof v === "boolean") return Number(v);

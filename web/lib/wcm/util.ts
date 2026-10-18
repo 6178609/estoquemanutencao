@@ -57,7 +57,7 @@ export function mesBr(d: Dia): string {
 const RX_DATA = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/;
 const RX_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})/;
 
-/** Datas como o sincronizador grava (dd/mm/aaaa, às vezes com hora) ou ISO; só hora ("07:48") não é data. */
+/** Datas como ficam no repositório de dados (dd/mm/aaaa, às vezes com hora) ou ISO; só hora ("07:48") não é data. */
 export function paraData(v: unknown): Dia | null {
   if (v == null) return null;
   const s = String(v).trim();
