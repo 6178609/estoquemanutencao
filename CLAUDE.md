@@ -50,3 +50,6 @@
 - `web/`: o site (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer. É o único código do repositório:
   o site antigo (Streamlit), o robô do SAP, o sincronizador do PC e o Calendário de ordens foram apagados.
   Os exports do SAP entram pela aba Fontes de dados.
+- Dados: bases do SAP no repositório privado de dados (GitHub); cadastros no Supabase (projeto
+  `central-manutencao-sp`, São Paulo) — ver `web/lib/dados/cadastros.ts` e `supabase.ts`. Mudança no banco só por
+  migração (conector Supabase `apply_migration`), conferindo depois os avisos de segurança (`get_advisors`).
