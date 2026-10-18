@@ -2,13 +2,13 @@
 
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
-import { Camera, Download, ImageOff, LoaderCircle, PackageSearch, Save, Wrench } from "lucide-react";
+import { Camera, Download, ImageOff, ImagePlus, LoaderCircle, PackageSearch, Save, Wrench } from "lucide-react";
 import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
-import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
@@ -39,23 +39,47 @@ function baixarCsv(itens: ItemAlmox[]) {
   URL.revokeObjectURL(a.href);
 }
 
-/** Endereço da foto do material (o ?v= muda a cada troca, então o navegador pode guardar em cache). */
-function urlFoto(it: ItemAlmox): string | null {
-  if (!it.foto?.startsWith("app/fotos/materiais/")) return null;
-  const v = it.foto.split("?v=")[1] ?? "";
-  return `/api/estoque/foto?m=${encodeURIComponent(it.material)}&v=${encodeURIComponent(v)}`;
+/**
+ * Endereço da foto do material. Foto nova: `?v=` é a versão do conteúdo (cache longo no navegador) e `mini` pede a
+ * miniatura (só quando foi gravada). Foto do site antigo (`fotos_materiais/…`): `v=legado`, sem miniatura.
+ */
+function urlFoto(it: ItemAlmox, mini = false): string | null {
+  const ref = it.foto ?? "";
+  const m = encodeURIComponent(it.material);
+  if (ref.startsWith("app/fotos/materiais/")) {
+    const q = new URLSearchParams(ref.split("?")[1] ?? "");
+    const comMini = mini && q.get("mini") === "1";
+    return `/api/estoque/foto?m=${m}&v=${encodeURIComponent(q.get("v") ?? "")}${comMini ? "&mini=1" : ""}`;
+  }
+  if (/^fotos_materiais\/[0-9A-Za-z_-]+\.jpg$/.test(ref)) return `/api/estoque/foto?m=${m}&v=legado`;
+  return null;
 }
 
-/** Reduz a foto no aparelho (até 1600 px, JPEG) antes de enviar: sobe rápido mesmo no 4G da fábrica. */
-async function reduzirFoto(arquivo: File): Promise<Blob> {
-  const img = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
-  const escala = Math.min(1, 1600 / Math.max(img.width, img.height));
+/** Redesenha a foto com no máximo `lado` px, em JPEG (tira também os dados de localização do arquivo). */
+async function reduzir(img: ImageBitmap, lado: number, qualidade: number): Promise<Blob> {
+  const escala = Math.min(1, lado / Math.max(img.width, img.height));
   const tela = document.createElement("canvas");
   tela.width = Math.round(img.width * escala);
   tela.height = Math.round(img.height * escala);
   tela.getContext("2d")!.drawImage(img, 0, 0, tela.width, tela.height);
-  img.close();
-  return new Promise((ok, erro) => tela.toBlob((b) => (b ? ok(b) : erro(new Error("Não consegui ler a foto."))), "image/jpeg", 0.85));
+  return new Promise((ok, erro) => tela.toBlob((b) => (b ? ok(b) : erro(new Error("Não consegui ler a foto."))), "image/jpeg", qualidade));
+}
+
+/** A foto (até 1600 px) e a miniatura da lista (240 px), reduzidas no aparelho: sobe rápido mesmo no 4G da fábrica. */
+async function prepararFoto(arquivo: File): Promise<{ foto: Blob; mini: Blob | null }> {
+  let img: ImageBitmap;
+  try {
+    img = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
+  } catch {
+    // o navegador não abre esse formato (ex.: HEIC): envia o original se já for uma imagem comum e pequena
+    if (/^image\/(jpeg|png|webp)$/.test(arquivo.type) && arquivo.size <= 1_500_000) return { foto: arquivo, mini: null };
+    throw new Error("Não consegui abrir esse formato de imagem. Tire a foto pelo botão da câmera ou escolha um JPEG.");
+  }
+  try {
+    return { foto: await reduzir(img, 1600, 0.85), mini: await reduzir(img, 240, 0.8) };
+  } finally {
+    img.close();
+  }
 }
 
 /** Filtros rápidos de um toque (pílulas com contagem); no celular rolam na horizontal. */
@@ -80,9 +104,9 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
     <button onClick={aoAbrir}
       className="group grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_150px]">
       <div className="flex min-w-0 gap-3">
-      {urlFoto(it) && (
+      {urlFoto(it, true) && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={urlFoto(it)!} alt="" loading="lazy" className="size-14 shrink-0 rounded-xl border border-borda bg-white object-cover" />
+        <img src={urlFoto(it, true)!} alt="" loading="lazy" decoding="async" className="size-14 shrink-0 rounded-xl border border-borda bg-white object-cover" />
       )}
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -269,33 +293,45 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
 
 /** A foto do material na visão geral: qualquer pessoa com acesso ao Estoque tira ou escolhe uma e envia. */
 function FotoMaterial({ it, aoFoto }: { it: ItemAlmox; aoFoto: (m: string, foto: string) => void }) {
-  const entrada = useRef<HTMLInputElement>(null);
-  const [estado, setEstado] = useState<{ enviando: boolean; erro: string }>({ enviando: false, erro: "" });
+  const camera = useRef<HTMLInputElement>(null);
+  const galeria = useRef<HTMLInputElement>(null);
+  const [estado, setEstado] = useState<{ enviando: boolean; erro: string; ok: string }>({ enviando: false, erro: "", ok: "" });
   const [falhou, setFalhou] = useState(false);
   const url = urlFoto(it);
-  const enviar = async (arquivo: File | undefined) => {
+  const tem = !!url && !falhou;
+  const enviar = async (alvo: HTMLInputElement) => {
+    const arquivo = alvo.files?.[0];
     if (!arquivo) return;
-    setEstado({ enviando: true, erro: "" });
+    setEstado({ enviando: true, erro: "", ok: "" });
     try {
+      const { foto, mini } = await prepararFoto(arquivo);
       const corpo = new FormData();
       corpo.set("material", it.material);
-      corpo.set("foto", await reduzirFoto(arquivo), "foto.jpg");
+      corpo.set("foto", foto, "foto.jpg");
+      if (mini) corpo.set("mini", mini, "mini.jpg");
       const r = await fetch("/api/estoque/foto", { method: "POST", body: corpo });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.erro || "Não foi possível enviar a foto.");
       setFalhou(false);
       aoFoto(it.material, j.foto);
-      setEstado({ enviando: false, erro: "" });
+      setEstado({ enviando: false, erro: "", ok: "Foto enviada." });
     } catch (e) {
-      setEstado({ enviando: false, erro: (e as Error).message });
+      setEstado({ enviando: false, erro: (e as Error).message, ok: "" });
     } finally {
-      if (entrada.current) entrada.current.value = "";
+      alvo.value = "";
     }
   };
+  const botao = (rotulo: string, icone: React.ReactNode, principal: boolean, abrir: () => void) => (
+    <button type="button" onClick={abrir} disabled={estado.enviando} aria-busy={estado.enviando}
+      className={clsx(principal ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO, "flex-1")}>
+      {estado.enviando && principal ? <LoaderCircle className="size-4 animate-spin" /> : icone}
+      {estado.enviando && principal ? "Enviando…" : rotulo}
+    </button>
+  );
   return (
     <section className="space-y-3">
       <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl border border-borda bg-superficie-2">
-        {url && !falhou ? (
+        {tem ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={`Foto do material ${it.material}`} className="size-full bg-white object-contain" onError={() => setFalhou(true)} />
         ) : (
@@ -305,12 +341,16 @@ function FotoMaterial({ it, aoFoto }: { it: ItemAlmox; aoFoto: (m: string, foto:
           </div>
         )}
       </div>
-      <input ref={entrada} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden
-        onChange={(e) => enviar(e.target.files?.[0])} />
-      <button type="button" onClick={() => entrada.current?.click()} disabled={estado.enviando} className={clsx(BOTAO_PRIMARIO, "w-full")}>
-        {estado.enviando ? <LoaderCircle className="size-4 animate-spin" /> : <Camera className="size-4" />}
-        {estado.enviando ? "Enviando a foto…" : url && !falhou ? "Trocar a foto" : "Tirar ou escolher uma foto"}
-      </button>
+      {/* dois campos: com "capture" o celular abre direto a câmera; sem ele, deixa escolher da galeria */}
+      <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden
+        onChange={(e) => enviar(e.currentTarget)} />
+      <input ref={galeria} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden
+        onChange={(e) => enviar(e.currentTarget)} />
+      <div className="flex flex-wrap gap-2">
+        {botao(tem ? "Nova foto" : "Tirar foto", <Camera className="size-4" />, true, () => camera.current?.click())}
+        {botao("Da galeria", <ImagePlus className="size-4" />, false, () => galeria.current?.click())}
+      </div>
+      <p aria-live="polite" className={clsx("text-sm", estado.ok ? "text-[var(--selo-bom-texto)]" : "sr-only")}>{estado.ok}</p>
       {estado.erro && <p role="alert" className="rounded-lg bg-[var(--selo-critico-fundo)] px-3 py-2 text-sm text-[var(--selo-critico-texto)]">{estado.erro}</p>}
     </section>
   );
