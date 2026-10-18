@@ -15,7 +15,7 @@ import { Gaveta } from "@/components/Gaveta";
  */
 export type Campo =
   | { tipo: "busca"; chave: string; placeholder: string }
-  | { tipo: "multi"; chave: string; rotulo: string; opcoes: { valor: string; rotulo?: string; n?: number }[] }
+  | { tipo: "multi"; chave: string; rotulo: string; opcoes: { valor: string; rotulo?: string; n?: number }[]; soComputador?: boolean }
   | { tipo: "alternar"; chave: string; rotulo: string; dica?: string; padrao?: boolean }
   | { tipo: "segmentos"; chave: string; opcoes: { valor: string; rotulo: string }[]; padrao: string; limpa?: string[]; atual?: string }
   | { tipo: "datas"; de: string; ate: string; rotulo: string; padraoDe: string; padraoAte: string; limpa?: string[] };
@@ -37,9 +37,11 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
 
   const busca = campos.filter((c) => c.tipo === "busca");
   const outros = campos.filter((c) => c.tipo !== "busca");
-  const ligados = outros.filter((c) => c.tipo === "datas" ? !!(params.get(c.de) || params.get(c.ate)) : !!params.get(c.chave)).length;
-  const controles = (
-          outros.map((c) => {
+  // "soComputador" (ex.: escolher colunas da tabela) não vale no celular, onde a tabela vira cartões
+  const doCelular = outros.filter((c) => !(c.tipo === "multi" && c.soComputador));
+  const ligados = doCelular.filter((c) => c.tipo === "datas" ? !!(params.get(c.de) || params.get(c.ate)) : !!params.get(c.chave)).length;
+  const controles = (lista: Campo[]) => (
+    lista.map((c) => {
             if (c.tipo === "multi") {
               const valor = (params.get(c.chave) || "").split(",").filter(Boolean);
               return <MultiEscolha key={c.chave} rotulo={c.rotulo} opcoes={c.opcoes} valor={valor} aoMudar={(v) => aplicar(c.chave, v.join(","))} />;
@@ -63,7 +65,7 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
               const de = params.get(c.de) || c.padraoDe, ate = params.get(c.ate) || c.padraoAte;
               const entrada = "h-9 rounded-lg bg-superficie px-2 text-[13px] text-texto";
               return (
-                <div key={c.de} className="flex h-11 flex-wrap items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-2 text-[13px] text-texto-3">
+                <div key={c.de} className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-2 text-[13px] text-texto-3">
                   <span className="pl-1">{c.rotulo}</span>
                   <input type="date" aria-label="De" value={de} max={ate} className={entrada}
                     onChange={(e) => e.target.value && aplicar(c.de, e.target.value, { [c.ate]: ate, ...vazios(c.limpa) })} />
@@ -88,7 +90,7 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
               );
             }
             return null;
-          })
+    })
   );
   return (
     <div className="space-y-3 rounded-cartao border border-borda bg-superficie p-4">
@@ -96,8 +98,8 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
         <div className="min-w-0 flex-1 space-y-3">
           {busca.map((c) => <Busca key={c.chave} placeholder={c.placeholder} inicial={params.get(c.chave) ?? ""} aoMudar={(v) => aplicar(c.chave, v)} />)}
         </div>
-        {outros.length > 0 && (
-          <button type="button" onClick={() => setGaveta(true)} aria-haspopup="dialog"
+        {doCelular.length > 0 && (
+          <button type="button" onClick={() => setGaveta(true)} aria-haspopup="dialog" aria-expanded={gaveta}
             className={clsx("flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-[13.5px] font-medium md:hidden",
               ligados ? "border-transparent bg-tinta text-tinta-texto" : "border-borda bg-superficie-2 text-texto-2")}>
             <SlidersHorizontal className="size-4" aria-hidden /> Filtros{ligados ? ` · ${ligados}` : ""}
@@ -106,14 +108,14 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
       </div>
       {outros.length > 0 && (
         <div className="hidden flex-wrap items-center gap-2 md:flex">
-          {controles}
+          {controles(outros)}
           {pendente && <span className="text-[12.5px] text-texto-3">Filtrando…</span>}
         </div>
       )}
       {pendente && <span className="text-[12.5px] text-texto-3 md:hidden">Filtrando…</span>}
       <Gaveta aberta={gaveta} aoFechar={() => setGaveta(false)} titulo={`Filtros${ligados ? ` · ${ligados}` : ""}`}
         subtitulo="Cada escolha já filtra a lista; feche para ver o resultado.">
-        <div className="flex flex-col items-stretch gap-3 [&>*]:w-full">{controles}</div>
+        <div className="flex flex-col items-stretch gap-3 [&>*]:w-full">{controles(doCelular)}</div>
         <button type="button" onClick={() => setGaveta(false)} className="flex h-11 w-full items-center justify-center rounded-xl bg-tinta font-medium text-tinta-texto">
           Ver resultado
         </button>

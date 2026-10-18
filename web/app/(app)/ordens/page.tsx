@@ -74,7 +74,7 @@ export default async function Ordens(props: { searchParams: Promise<Params> }) {
           { tipo: "multi", chave: "cls", rotulo: "Classe WCM", opcoes: ops.cls },
           { tipo: "alternar", chave: "atr", rotulo: "Só atrasadas", dica: "Abertas/liberadas com a data-base já vencida" },
           { tipo: "alternar", chave: "cst", rotulo: "Só com custo" },
-          { tipo: "multi", chave: "cols", rotulo: "Colunas", opcoes: COLUNAS.map((x) => ({ valor: x.chave, rotulo: x.rotulo })) },
+          { tipo: "multi", chave: "cols", rotulo: "Colunas", soComputador: true, opcoes: COLUNAS.map((x) => ({ valor: x.chave, rotulo: x.rotulo })) },
         ]} />
 
         <Numeros itens={[
@@ -90,7 +90,7 @@ export default async function Ordens(props: { searchParams: Promise<Params> }) {
         <TabelaDados colunas={colunas} linhas={itens.map(linha)} params={params} ord={ord} desc={desc} pagina={pagina} paginas={paginas}
           total={lista.length} rotulo="ordens" vazio="Nenhuma ordem no filtro."
           hrefLinha={(l) => `?${query({ ...params, ordem: String(l.ordem) })}`} ativa={(l) => l.ordem === sel} cartao={CartaoOrdem} />
-        <p className="text-[12px] text-texto-3">Mais recentes primeiro · clique no cabeçalho para ordenar · no celular aparecem as colunas principais (escolha outras em “Colunas”).</p>
+        <p className="text-[12px] text-texto-3">Mais recentes primeiro<span className="hidden md:inline"> · clique no cabeçalho para ordenar · escolha as colunas em “Colunas”</span><span className="md:hidden"> · toque numa ordem para ver operações e histórico</span>.</p>
       </Secao>
 
       {sel && <Detalhe c={c} ordem={sel} campoEq={campoEq} />}
@@ -148,15 +148,17 @@ function CartaoOrdem(l: Linha) {
   const prio = String(l.prioridade ?? "").trim();
   return (
     <>
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 truncate text-[14px] font-semibold text-texto">{titulo}</span>
-        {prio && <Selo cor={prio === "1" ? "vermelho" : prio === "2" ? "laranja" : "cinza"}>Prioridade {prio}</Selo>}
-        {l.atrasada ? (
-          <span className="ml-auto shrink-0 text-[12.5px] font-semibold text-[var(--selo-critico-texto)]">
-            atrasada{l.diasEmAberto != null ? ` · ${inteiro(Number(l.diasEmAberto))} d` : ""}
-          </span>
-        ) : null}
-      </div>
+      <div className="line-clamp-2 text-[14px] font-semibold text-texto">{titulo}</div>
+      {(prio || l.atrasada) && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {prio && <Selo cor={prio === "1" ? "vermelho" : prio === "2" ? "laranja" : "cinza"}>Prioridade {prio}</Selo>}
+          {l.atrasada ? (
+            <span className="text-[12.5px] font-semibold text-[var(--selo-critico-texto)]">
+              atrasada{l.diasEmAberto != null ? ` · aberta há ${inteiro(Number(l.diasEmAberto))} d` : ""}
+            </span>
+          ) : null}
+        </div>
+      )}
       <div className="mt-0.5 line-clamp-2 text-[13px] text-texto-2">
         <span className="num font-mono">{String(l.ordem)}</span> · {String(l.tipoNome || l.tipo || "—")} · {String(l.texto || "")}
       </div>

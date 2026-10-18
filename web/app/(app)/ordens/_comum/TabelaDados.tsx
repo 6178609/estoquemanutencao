@@ -39,7 +39,6 @@ export function TabelaDados({ colunas, linhas, params, ord, desc, pagina, pagina
   hrefLinha?: (l: Linha) => string | undefined; ativa?: (l: Linha) => boolean; vazio?: string; rotulo?: string; porPagina?: number;
   ordenavel?: boolean; alturaMax?: boolean; cartao?: (l: Linha) => React.ReactNode;
 }) {
-  const escondeCelular = colunas.some((c) => c.celular);
   const ini = total ? (pagina - 1) * porPagina + 1 : 0, fim = Math.min(total, pagina * porPagina);
   return (
     <div className="overflow-hidden rounded-cartao border border-borda bg-superficie">
@@ -54,7 +53,7 @@ export function TabelaDados({ colunas, linhas, params, ord, desc, pagina, pagina
           );
           return (
             <li key={i} className={clsx(ativa?.(l) && "bg-marca-500/8")}>
-              {h ? <Link prefetch={false} scroll={false} href={h} className="block transition active:bg-superficie-2">{corpo}</Link> : corpo}
+              {h ? <Link prefetch={false} scroll={false} href={h} aria-current={ativa?.(l) ? "true" : undefined} className="block transition active:bg-superficie-2">{corpo}</Link> : corpo}
             </li>
           );
         })}
@@ -66,8 +65,7 @@ export function TabelaDados({ colunas, linhas, params, ord, desc, pagina, pagina
             <tr>
               {colunas.map((c) => {
                 const atual = ord === c.chave;
-                const cls = clsx("whitespace-nowrap px-3 py-2 font-medium", NUMERICOS.has(c.tipo ?? "texto") && "text-right",
-                  escondeCelular && !c.celular && "hidden sm:table-cell");
+                const cls = clsx("whitespace-nowrap px-3 py-2 font-medium", NUMERICOS.has(c.tipo ?? "texto") && "text-right");
                 if (!ordenavel) return <th key={c.chave} className={cls} title={c.dica}>{c.rotulo}</th>;
                 return (
                   <th key={c.chave} className={cls} title={c.dica} aria-sort={atual ? (desc ? "descending" : "ascending") : undefined}>
@@ -93,8 +91,7 @@ export function TabelaDados({ colunas, linhas, params, ord, desc, pagina, pagina
                       NUMERICOS.has(t) && "num whitespace-nowrap text-right tabular-nums",
                       t === "data" && "whitespace-nowrap tabular-nums",
                       t === "codigo" && "num whitespace-nowrap font-mono text-[12px]",
-                      t === "longo" ? "min-w-[240px] max-w-[420px]" : t === "texto" && "max-w-[260px]",
-                      escondeCelular && !c.celular && "hidden sm:table-cell");
+                      t === "longo" ? "min-w-[240px] max-w-[420px]" : t === "texto" && "max-w-[260px]");
                     const conteudo = t === "bool" && l[c.chave] ? <span className="text-texto-2">✓</span>
                       : <span className={clsx(t === "texto" && "line-clamp-2", t === "longo" && "line-clamp-3")}>{txt}</span>;
                     return (
