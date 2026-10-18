@@ -250,6 +250,16 @@ const iso = (d: Dia) => new Date(d * 86_400_000).toISOString().slice(0, 10);
 
 /** Ausência nova para gravar (id = "<matrícula>-<aaaammdd de>-<aaaammdd até>-<nº>", datas ISO). Treinamento leva também
  * nome, carga horária, entidade e validade (só os informados entram). */
+/** Maior número de sequência já usado nos ids das ausências (o id novo usa este + 1; nunca repete após remoções). */
+export function sequenciaAusencias(lista: unknown[]): number {
+  let n = lista.length;
+  for (const a of lista) {
+    const m = /-(\d+)$/.exec(String((a as { id?: unknown })?.id ?? ""));
+    if (m) n = Math.max(n, Number(m[1]));
+  }
+  return n;
+}
+
 export function novaAusencia(np: string, tipo: string, de: Dia, ate: Dia, obs: string, existentes: number,
   extra: { titulo?: string; horas?: number | null; entidade?: string; validade?: Dia | null } = {}):
   AusenciaGravada & { id: string; tipo: string; de: string; ate: string; obs: string } {

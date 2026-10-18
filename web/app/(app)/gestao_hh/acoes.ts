@@ -96,7 +96,7 @@ export async function adicionarAusencia(np: string, tipo: string, de: string, at
   // a lista é relida na hora da gravação (outra pessoa pode ter cadastrado ao mesmo tempo)
   return gravar({ [np]: (atual) => {
     const lista = ((atual as hh.ItemHh | undefined)?.ausencias ?? []) as hh.AusenciaGravada[];
-    return { ...(atual ?? {}), ausencias: [...lista, hh.novaAusencia(np, tipo, ini, fim, String(obs ?? "").slice(0, 300), lista.length, extra)] };
+    return { ...(atual ?? {}), ausencias: [...lista, hh.novaAusencia(np, tipo, ini, fim, String(obs ?? "").slice(0, 300), hh.sequenciaAusencias(lista), extra)] };
   } }, usuario, `${tipo === "Treinamento" && extra.titulo ? extra.titulo : tipo} de ${p.nome || np} adicionado(a).`);
 }
 

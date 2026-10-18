@@ -74,6 +74,7 @@ describe("Gerenciador de HH · disponibilidade", () => {
   });
 
   it("apoio à tela: nova ausência, situação e item a gravar", () => {
+    expect(hh.sequenciaAusencias([{ id: "10-20261001-20261007-1" }, { id: "10-20261001-20261007-3" }])).toBe(3); // removida a 2ª: não repete
     const a = hh.novaAusencia("10", "Férias", D(2026, 10, 1), D(2026, 10, 7), " viagem ", 2);
     expect(a).toEqual({ id: "10-20261001-20261007-3", tipo: "Férias", de: "2026-10-01", ate: "2026-10-07", obs: "viagem" });
     const x = { de: D(2026, 10, 1), ate: D(2026, 10, 7) };

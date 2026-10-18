@@ -8,7 +8,7 @@ import { exigir } from "@/lib/auth/sessao";
 import { solicitacoes } from "@/lib/auth/solicitacoes";
 import { adminsAtivos, usuarios } from "@/lib/auth/usuarios";
 import { equipe } from "@/lib/wcm/dados";
-import { GRUPOS } from "@/lib/navegacao";
+import { GRUPOS, TODAS } from "@/lib/navegacao";
 import { validarLogin } from "@/lib/auth/senha";
 import { GestaoUsuarios, type PedidoAcesso, type Pessoa } from "./GestaoUsuarios";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Usuários" };
 export const dynamic = "force-dynamic";
 
 function descrever(u: Pessoa): string {
-  if (Array.isArray(u.abas)) return `${u.abas.length + 1} aba(s) escolhida(s)`;
+  if (Array.isArray(u.abas)) return `${u.abas.filter((a) => TODAS.includes(String(a))).length + 1} aba(s) escolhida(s)`;
   if (u.funcao === "terceiro") return "Só Estoque";
   if (u.funcao === "manutentor") return "Estoque + Gestão de ativos";
   if (u.funcao && u.funcao in FUNCOES) return "Todas";
