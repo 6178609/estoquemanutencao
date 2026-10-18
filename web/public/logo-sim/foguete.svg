@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 540"><defs>
+  <radialGradient id="verde" cx="38%" cy="32%" r="75%">
+    <stop offset="0" stop-color="#2BC774"/><stop offset=".55" stop-color="#00A652"/><stop offset="1" stop-color="#008541"/>
+  </radialGradient>
+  <clipPath id="disco"><circle cx="278" cy="214" r="118"/></clipPath>
+</defs>
+<g transform="translate(288 212) rotate(46) scale(1.22)">
+  <path d="M0 -112 C 36 -82 44 -30 40 18 L 40 52 L -40 52 L -40 18 C -44 -30 -36 -82 0 -112 Z" fill="#FFFFFF" stroke="#77787B" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M-40 6 L -66 46 L -66 74 L -40 56 Z" fill="#FFFFFF" stroke="#77787B" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M40 6 L 66 46 L 66 74 L 40 56 Z" fill="#FFFFFF" stroke="#77787B" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M-22 52 L -14 70 L 14 70 L 22 52" fill="#E9EAEB" stroke="#77787B" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M-10 -96 C 10 -74 18 -30 16 30" fill="none" stroke="#C9CBCD" stroke-width="6" stroke-linecap="round" opacity=".7"/>
+  <circle cx="0" cy="-38" r="15" fill="#3A3B3D" stroke="#77787B" stroke-width="6"/>
+  <circle cx="-5" cy="-43" r="4.5" fill="#FFFFFF" opacity=".8"/>
+</g></svg>

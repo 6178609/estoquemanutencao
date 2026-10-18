@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
 import { LogoSim } from "@/components/Marca";
-import { Objeto } from "@/components/Objeto";
+import { ObjetoSim } from "@/components/ObjetoSim";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { INATIVIDADE_MIN, MOTIVO } from "@/lib/auth/inatividade";
@@ -46,7 +46,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
           <div aria-hidden className="pontos absolute inset-0" />
           <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 py-14 sm:px-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:py-20">
             <div className="max-w-[560px] space-y-6">
-              <LogoSim largura={180} />
+              <div className="lg:hidden"><LogoSim largura={180} /></div>
               <Pilula>SIM · Manutenção Profissional · F26</Pilula>
               <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[56px]" />
               <p className="text-[15.5px] leading-relaxed text-texto-3">
@@ -67,7 +67,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
                   : <AbasEntrada demo={demo} />}
               </div>
             </div>
-            <div className="hidden justify-center lg:flex"><Objeto tamanho={460} /></div>
+            <div className="hidden justify-center lg:flex"><ObjetoSim tamanho={520} /></div>
           </div>
         </section>
 
