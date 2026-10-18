@@ -27,10 +27,9 @@ describe("componentes compartilhados com o tema da marca", () => {
     expect(BOTAO_PERIGO).toContain("h-11");
   });
 
-  it("IconeQuadro com tom tem fundo tingido", () => {
-    const html = renderToStaticMarkup(createElement(IconeQuadro, { icone: Activity, tom: "vermelho" }))
-      .toLowerCase();
+  it("IconeQuadro com tom tem fundo tingido e ícone com token de cor (com versão escura)", () => {
+    const html = renderToStaticMarkup(createElement(IconeQuadro, { icone: Activity, tom: "vermelho" }));
     expect(html).toContain("color-mix");
-    expect(html).toContain("#a4111a");
+    expect(html).toContain("var(--icone-vermelho)");
   });
 });

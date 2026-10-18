@@ -84,6 +84,15 @@ describe("tema da marca", () => {
     }
   });
 
+  it("cor dos ícones de cada tom ≥ 3:1 sobre --superficie (claro e escuro)", () => {
+    for (const [nome, bl] of Object.entries(temas)) {
+      for (const tom of ["verde", "azul", "ciano", "lima", "amarelo", "laranja", "vermelho", "celeste"]) {
+        const c = contraste(cor(bl, `--icone-${tom}`), cor(bl, "--superficie"));
+        expect(c, `${nome}: ícone ${tom}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
   it("botão principal deixou de ser preto", () => {
     expect(claro["--tinta"].toLowerCase()).toBe("#007a38");
   });

@@ -55,19 +55,13 @@ export function Cabecalho({ titulo, destaque, subtitulo, sobre, acoes }: { titul
   );
 }
 
-/** Cor do ícone de cada tom, escurecida para ter contraste sobre o fundo claro (≥ 4,5:1). */
-const TOM_TEXTO: Record<keyof typeof ESPECTRO, string> = {
-  verde: "#00632D", azul: "#005799", ciano: "#005E84", celeste: "#005E84", lima: "#4D5A0A", amarelo: "#7A5600",
-  laranja: "#9A4705", vermelho: "#A4111A",
-};
-
-/** Ícone num quadradinho: fundo na cor do tom a 12% e ícone na versão escura da cor (sem borda). */
+/** Ícone num quadradinho: fundo na cor do tom a 12% e ícone na cor `--icone-<tom>` (tem versão escura, sem borda). */
 export function IconeQuadro({ icone: I, tom = "neutro", grande }: { icone: LucideIcon; tom?: Tom; grande?: boolean }) {
   const colorido = tom !== "neutro";
   return (
     <span className={clsx("grid shrink-0 place-items-center rounded-[10px]", !colorido && "bg-superficie-2",
       grande ? "size-12" : "size-9")}
-      style={colorido ? { backgroundColor: `color-mix(in srgb, ${ESPECTRO[tom]} 12%, transparent)`, color: TOM_TEXTO[tom] } : undefined}>
+      style={colorido ? { backgroundColor: `color-mix(in srgb, ${ESPECTRO[tom]} 12%, transparent)`, color: `var(--icone-${tom})` } : undefined}>
       <I className={clsx(grande ? "size-5" : "size-[17px]", !colorido && "text-texto-2")} strokeWidth={1.75} />
     </span>
   );
