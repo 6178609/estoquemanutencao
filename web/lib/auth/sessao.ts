@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
+import { cadastrosNoSupabase, gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
 import { podeEditar, podeVer, type Usuario } from "./acesso";
 import { COOKIE_ATIVO, COOKIE_SESSAO, VALIDADE_S } from "./inatividade";
@@ -128,8 +128,9 @@ export async function usuarioAtual(): Promise<UsuarioSessao | null> {
   const agora = new Date().toISOString();
   const valida = (u: Registro | undefined) => !!u && u.ativo !== false && (u.sessoes || []).some((s) => s.h === h && (s.ate || "") > agora);
   let u = (await usuarios())[login];
-  // sessão criada há pouco em outra instância do servidor: confere a versão de agora antes de recusar
-  if (!valida(u)) u = (await usuarios(true))[login];
+  // sessão criada há pouco em outra instância do servidor: no Supabase (consulta leve) confere a versão de agora
+  // antes de recusar; falha na releitura = sem sessão, nunca página de erro
+  if (!valida(u) && cadastrosNoSupabase()) u = (await usuarios(true).catch(() => ({} as Record<string, Registro>)))[login] ?? u;
   return valida(u) ? publico(login, u!) : null;
 }
 

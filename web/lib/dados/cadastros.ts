@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { fonte, FonteErro, type Fonte } from "./fonte";
 import { lerJsonDemo, gravarJsonDemo } from "./demo";
 import { MARCADOR_MIGRACAO, supabase, type ClienteSupabase } from "./supabase";
@@ -58,7 +60,6 @@ interface Armazem {
   ler(nome: string): Promise<Lido | null>;
   /** Grava se a versão ainda é `versao` (null = novo); false = alguém gravou antes. */
   gravar(nome: string, dados: Cadastro, versao: string | null, usuario: string, anterior: Lido | null): Promise<boolean>;
-  esquecer(): void;
 }
 
 class ArmazemArquivos implements Armazem {
@@ -84,9 +85,6 @@ class ArmazemArquivos implements Armazem {
     const bytes = new TextEncoder().encode(JSON.stringify(dados, null, 1));
     return this.f.gravarCondicional(caminho(nome), bytes, versao, `Central de Manutenção: ${nome}`);
   }
-  esquecer() {
-    void this.f.versoes(true).catch(() => null);
-  }
 }
 
 const TEMPO_VERSOES_SB_MS = 5_000;
@@ -106,8 +104,18 @@ async function copiaDoDia(f: Fonte | null, nome: string, dados: Cadastro) {
   }
 }
 
+/** Roda depois da resposta (a função não congela no meio); fora de uma requisição (testes), roda solto. */
+function depoisDaResposta(tarefa: () => Promise<void>) {
+  try {
+    after(tarefa);
+  } catch {
+    void tarefa();
+  }
+}
+
 class ArmazemSupabase implements Armazem {
   private lista: { em: number; mapa: Map<string, string> } | null = null;
+  private pedindo: Promise<Map<string, string>> | null = null;
   private migracao: Promise<void> | null = null;
   constructor(private sb: ClienteSupabase, private origem: Fonte) {}
 
@@ -144,14 +152,19 @@ class ArmazemSupabase implements Armazem {
   /** Versões de todos os cadastros (uma consulta), com a cópia inicial garantida. Falha: a lista anterior por até 10 min. */
   private async mapa(fresco: boolean): Promise<Map<string, string>> {
     if (!fresco && this.lista && Date.now() - this.lista.em <= TEMPO_VERSOES_SB_MS) return this.lista.mapa;
-    try {
-      let mapa = await this.sb.versoes();
+    // um pedido por vez por instância; com reserva na mão, uma tentativa só (banco fora do ar não trava cada página)
+    this.pedindo ??= (async () => {
+      const reserva = !!this.lista && Date.now() - this.lista.em <= RESERVA_MS;
+      let mapa = await this.sb.versoes(reserva);
       if (!mapa.has(MARCADOR_MIGRACAO)) {
         await this.migrar(mapa);
         mapa = await this.sb.versoes();
       }
       this.lista = { em: Date.now(), mapa };
       return mapa;
+    })().finally(() => { this.pedindo = null; });
+    try {
+      return await this.pedindo;
     } catch (e) {
       if (this.lista && Date.now() - this.lista.em <= RESERVA_MS) return this.lista.mapa;
       throw e;
@@ -174,11 +187,8 @@ class ArmazemSupabase implements Armazem {
     const nova = await this.sb.gravar(nome, dados, versao, usuario);
     if (nova == null) return false;
     if (this.lista) this.lista.mapa.set(nome, nova);
-    if (anterior) void copiaDoDia(this.origem, nome, anterior.dados);
+    if (anterior) depoisDaResposta(() => copiaDoDia(this.origem, nome, anterior.dados));
     return true;
-  }
-  esquecer() {
-    this.lista = null;
   }
 }
 
@@ -209,11 +219,6 @@ export async function versaoCadastro(nome: string, fresco = false): Promise<stri
   return a ? (await a.versao(nome, fresco)) ?? "" : undefined;
 }
 
-/** A próxima leitura confere a versão de agora (depois de uma gravação feita em outro lugar). */
-export function recarregarCadastros(): void {
-  armazem()?.esquecer();
-}
-
 /**
  * Leitura (com cache pela versão do cadastro). fresco=true confere a versão de agora (ex.: a sessão gravada há pouco
  * por outra instância do servidor). Se a leitura falhar, vale o último conteúdo lido por até 10 min.
@@ -225,7 +230,10 @@ export async function lerCadastro(nome: string, opcoes: { fresco?: boolean } = {
   try {
     const versao = await a.versao(nome, opcoes.fresco);
     if (!versao) return {};
-    if (c && c.versao === versao) return c.dados;
+    if (c && c.versao === versao) {
+      c.em = Date.now(); // conferido agora: a reserva conta daqui
+      return c.dados;
+    }
     const lido = await a.ler(nome);
     if (!lido) return {};
     cache.set(nome, { versao: lido.versao, dados: lido.dados, em: Date.now() });

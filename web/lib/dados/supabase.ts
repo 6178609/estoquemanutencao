@@ -19,8 +19,8 @@ export const MARCADOR_MIGRACAO = "__migracao";
 export interface Documento { conteudo: unknown; versao: string }
 
 export interface ClienteSupabase {
-  /** Versão de cada cadastro (uma consulta só). */
-  versoes(): Promise<Map<string, string>>;
+  /** Versão de cada cadastro (uma consulta só); rapido = uma tentativa, sem repetir. */
+  versoes(rapido?: boolean): Promise<Map<string, string>>;
   ler(nome: string): Promise<Documento | null>;
   /** Grava se a versão ainda é `versao` (null = cadastro novo); devolve a versão nova ou null (alguém gravou antes). */
   gravar(nome: string, conteudo: unknown, versao: string | null, por: string): Promise<string | null>;
@@ -38,8 +38,7 @@ class Rest implements ClienteSupabase {
     return h;
   }
 
-  private async pedir(caminho: string, init: RequestInit, leitura: boolean): Promise<Response> {
-    const tentativas = leitura ? 3 : 1;
+  private async pedir(caminho: string, init: RequestInit, leitura: boolean, tentativas = leitura ? 3 : 1): Promise<Response> {
     let ultimo: unknown;
     for (let i = 0; i < tentativas; i++) {
       let r: Response;
@@ -61,8 +60,8 @@ class Rest implements ClienteSupabase {
     throw new FonteErro(`O banco de dados (Supabase) não respondeu: ${ultimo instanceof Error ? ultimo.message : String(ultimo)}`);
   }
 
-  async versoes(): Promise<Map<string, string>> {
-    const r = await this.pedir("cadastros?select=nome,versao", { headers: this.cabecalhos() }, true);
+  async versoes(rapido = false): Promise<Map<string, string>> {
+    const r = await this.pedir("cadastros?select=nome,versao", { headers: this.cabecalhos() }, true, rapido ? 1 : 3);
     const linhas = (await r.json()) as { nome: string; versao: number }[];
     return new Map(linhas.map((l) => [l.nome, String(l.versao)]));
   }
