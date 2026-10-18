@@ -12,3 +12,6 @@
 .env
 .env.*
 !.env.exemplo
+
+# cache do Python das skills
+__pycache__/
