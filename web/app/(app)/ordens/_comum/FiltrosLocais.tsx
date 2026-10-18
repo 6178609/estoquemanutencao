@@ -1,14 +1,17 @@
 "use client";
 
 import clsx from "clsx";
+import { SlidersHorizontal } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
+import { Gaveta } from "@/components/Gaveta";
 
 /**
  * Filtros da página (abaixo da barra global): busca, múltipla escolha, chaves liga/desliga e segmentos. Tudo vai
  * para o endereço (?q=…) e o servidor filtra e pagina — o navegador nunca recebe a base inteira.
+ * No celular (< md) só a busca fica à vista; o resto abre numa gaveta pelo botão "Filtros · N" (N = filtros ligados).
  */
 export type Campo =
   | { tipo: "busca"; chave: string; placeholder: string }
@@ -22,6 +25,7 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
   const rota = usePathname();
   const params = useSearchParams();
   const [pendente, iniciar] = useTransition();
+  const [gaveta, setGaveta] = useState(false);
   useEffect(() => { document.documentElement.toggleAttribute("data-carregando", pendente); }, [pendente]);
 
   function aplicar(chave: string, valor: string, extra: Record<string, string> = {}) {
@@ -33,12 +37,9 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
 
   const busca = campos.filter((c) => c.tipo === "busca");
   const outros = campos.filter((c) => c.tipo !== "busca");
-  return (
-    <div className="space-y-3 rounded-cartao border border-borda bg-superficie p-4">
-      {busca.map((c) => <Busca key={c.chave} placeholder={c.placeholder} inicial={params.get(c.chave) ?? ""} aoMudar={(v) => aplicar(c.chave, v)} />)}
-      {outros.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {outros.map((c) => {
+  const ligados = outros.filter((c) => c.tipo === "datas" ? !!(params.get(c.de) || params.get(c.ate)) : !!params.get(c.chave)).length;
+  const controles = (
+          outros.map((c) => {
             if (c.tipo === "multi") {
               const valor = (params.get(c.chave) || "").split(",").filter(Boolean);
               return <MultiEscolha key={c.chave} rotulo={c.rotulo} opcoes={c.opcoes} valor={valor} aoMudar={(v) => aplicar(c.chave, v.join(","))} />;
@@ -87,10 +88,36 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
               );
             }
             return null;
-          })}
+          })
+  );
+  return (
+    <div className="space-y-3 rounded-cartao border border-borda bg-superficie p-4">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 space-y-3">
+          {busca.map((c) => <Busca key={c.chave} placeholder={c.placeholder} inicial={params.get(c.chave) ?? ""} aoMudar={(v) => aplicar(c.chave, v)} />)}
+        </div>
+        {outros.length > 0 && (
+          <button type="button" onClick={() => setGaveta(true)} aria-haspopup="dialog"
+            className={clsx("flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-[13.5px] font-medium md:hidden",
+              ligados ? "border-transparent bg-tinta text-tinta-texto" : "border-borda bg-superficie-2 text-texto-2")}>
+            <SlidersHorizontal className="size-4" aria-hidden /> Filtros{ligados ? ` · ${ligados}` : ""}
+          </button>
+        )}
+      </div>
+      {outros.length > 0 && (
+        <div className="hidden flex-wrap items-center gap-2 md:flex">
+          {controles}
           {pendente && <span className="text-[12.5px] text-texto-3">Filtrando…</span>}
         </div>
       )}
+      {pendente && <span className="text-[12.5px] text-texto-3 md:hidden">Filtrando…</span>}
+      <Gaveta aberta={gaveta} aoFechar={() => setGaveta(false)} titulo={`Filtros${ligados ? ` · ${ligados}` : ""}`}
+        subtitulo="Cada escolha já filtra a lista; feche para ver o resultado.">
+        <div className="flex flex-col items-stretch gap-3 [&>*]:w-full">{controles}</div>
+        <button type="button" onClick={() => setGaveta(false)} className="flex h-11 w-full items-center justify-center rounded-xl bg-tinta font-medium text-tinta-texto">
+          Ver resultado
+        </button>
+      </Gaveta>
     </div>
   );
 }

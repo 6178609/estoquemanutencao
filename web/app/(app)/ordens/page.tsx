@@ -16,7 +16,7 @@ import { Baixar, query } from "./_comum/Baixar";
 import { FiltrosLocais } from "./_comum/FiltrosLocais";
 import { GavetaUrl } from "./_comum/GavetaUrl";
 import { Numeros } from "./_comum/Numeros";
-import { TabelaDados } from "./_comum/TabelaDados";
+import { TabelaDados, type Linha } from "./_comum/TabelaDados";
 import { eixoTempo } from "./_comum/tempo";
 import { paginar, um, type Params } from "./_comum/url";
 import { COLUNAS, NATUREZAS, type CampoFn, colunasEscolhidas, comCampo, linha, opcoesFiltro, ordenarOrdens, ordensDaPagina } from "./dados";
@@ -89,7 +89,7 @@ export default async function Ordens(props: { searchParams: Promise<Params> }) {
 
         <TabelaDados colunas={colunas} linhas={itens.map(linha)} params={params} ord={ord} desc={desc} pagina={pagina} paginas={paginas}
           total={lista.length} rotulo="ordens" vazio="Nenhuma ordem no filtro."
-          hrefLinha={(l) => `?${query({ ...params, ordem: String(l.ordem) })}`} ativa={(l) => l.ordem === sel} />
+          hrefLinha={(l) => `?${query({ ...params, ordem: String(l.ordem) })}`} ativa={(l) => l.ordem === sel} cartao={CartaoOrdem} />
         <p className="text-[12px] text-texto-3">Mais recentes primeiro · clique no cabeçalho para ordenar · no celular aparecem as colunas principais (escolha outras em “Colunas”).</p>
       </Secao>
 
@@ -139,6 +139,29 @@ function Graficos({ c, xs }: { c: Contexto; xs: OrdemEnriquecida[] }) {
         </Grafico>
       </div>
     </div>
+  );
+}
+
+/** A ordem no celular: equipamento (campo de ordenação) em destaque, prioridade, atraso; ordem · tipo · texto embaixo. */
+function CartaoOrdem(l: Linha) {
+  const titulo = String(l.campoOrdenacao || l.equipamento || l.objeto || "Sem equipamento");
+  const prio = String(l.prioridade ?? "").trim();
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 truncate text-[14px] font-semibold text-texto">{titulo}</span>
+        {prio && <Selo cor={prio === "1" ? "vermelho" : prio === "2" ? "laranja" : "cinza"}>Prioridade {prio}</Selo>}
+        {l.atrasada ? (
+          <span className="ml-auto shrink-0 text-[12.5px] font-semibold text-[var(--selo-critico-texto)]">
+            atrasada{l.diasEmAberto != null ? ` · ${inteiro(Number(l.diasEmAberto))} d` : ""}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-0.5 line-clamp-2 text-[13px] text-texto-2">
+        <span className="num font-mono">{String(l.ordem)}</span> · {String(l.tipoNome || l.tipo || "—")} · {String(l.texto || "")}
+      </div>
+      <div className="mt-1 text-[12px] text-texto-3">{String(l.situacao || "")}{typeof l.inicio === "number" ? ` · início ${dataBr(l.inicio)}` : ""}</div>
+    </>
   );
 }
 
