@@ -32,12 +32,12 @@ async function seguro<T>(fn: () => T | Promise<T>): Promise<T | null> {
 }
 
 /** Equipe da Gestão de HH e as ausências dela (mesmas chamadas da aba Treinamentos e férias). */
-type EquipeInicio = { pes: hh.PessoaHh[]; aus: hh.Ausencia[] };
+type EquipeInicio = { aus: hh.Ausencia[] };
 function equipeDoInicio(c: Contexto): EquipeInicio {
   const pes = hh.pessoas(c.b.equipe.dados ?? [], c.cad.hh, ind.horasSemanaDe(c.cad.metas));
   const np = new Set(pes.map((p) => p.np));
   const aus = hh.ausencias(c.cad.hh).filter((a) => np.has(a.np));
-  return { pes, aus };
+  return { aus };
 }
 
 /** Reciclagens vencidas e as que vencem em até 60 dias (mesma regra da aba Treinamentos e férias). */
@@ -48,7 +48,7 @@ function reciclagensDoInicio(c: Contexto, { aus }: EquipeInicio): EntradaInicio[
 }
 
 /** A semana (segunda a domingo de hoje): aderência, ordens concluídas, HH disponível e quem está fora hoje. */
-async function semanaDoInicio(c: Contexto, u: Usuario, eq: EquipeInicio) {
+async function semanaDoInicio(c: Contexto, u: Usuario, eq: EquipeInicio | null) {
   const hoje = c.b.hoje;
   const seg = hoje - ((partes(hoje).semana + 6) % 7), dom = seg + 6;
   const d = await dadosDo(c);
@@ -63,7 +63,7 @@ async function semanaDoInicio(c: Contexto, u: Usuario, eq: EquipeInicio) {
     const h = ind.hhDisponiveis(d, seg, dom);
     if (h != null) itens.push({ rotulo: "HH disponível", valor: `${inteiro(Math.round(h))} h` });
   }
-  if (podeVer(u, "treinamentos_ferias") && c.b.equipe.dados) {
+  if (podeVer(u, "treinamentos_ferias") && c.b.equipe.dados && eq) {
     itens.push({ rotulo: "Pessoas fora hoje", valor: inteiro(new Set(tr.foraEm(eq.aus, hoje).map((a) => a.np)).size) });
   }
   return { seg, dom, itens };
@@ -88,7 +88,7 @@ export default async function Inicio() {
       return { atrasadas: xs.length, altaPrioridade: xs.filter((o) => o.prioridade.trim() === PRIORIDADE_ALTA).length };
     }) : null,
     verTreinos && c && eq ? seguro(() => (c.b.equipe.dados ? reciclagensDoInicio(c, eq) : null)) : null,
-    verSemana && c && eq ? seguro(() => semanaDoInicio(c, u, eq)) : null,
+    verSemana && c ? seguro(() => semanaDoInicio(c, u, eq)) : null,
   ]);
 
   const estoque = almox?.estoque.dados ? { zerados: almox.itens.filter((i) => i.situacao === "Zerado").length,
