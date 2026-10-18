@@ -43,6 +43,9 @@
   gráficos, stack Next.js/shadcn). Usar ao criar ou mexer em telas do site, junto com o visual atual (cores SIM/
   Alpargatas de `web/app/globals.css`). Busca: `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<consulta>"
   --domain <ux|style|color|typography|chart>` ou `--stack nextjs`.
+- `find-skills` (Vercel, MIT): procura skills prontas no ecossistema (`npx skills find …`, skills.sh) quando o
+  pedido for uma capacidade nova. Instalar só com o OK do usuário, **no projeto** (`.claude/skills/<nome>`, com a
+  LICENSE), depois de ler o código: nada que acesse rede, rode comandos ou peça credenciais sem motivo claro.
 
 ## Informativos (padrão a partir de agora)
 - Texto do informativo (comunicado, boletim, status da manutenção): skill `internal-comms`.
