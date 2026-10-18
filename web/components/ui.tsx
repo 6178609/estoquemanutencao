@@ -16,6 +16,9 @@ export type Tom = keyof typeof ESPECTRO | "neutro";
 
 export const BOTAO_PRIMARIO =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-tinta px-5 font-display text-[15px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] disabled:cursor-not-allowed disabled:opacity-60";
+/** Ação compacta (vincular, incluir numa lista): mesmo visual do primário em 36 px; o toque de 44 px vem do contexto. */
+export const BOTAO_COMPACTO =
+  "inline-flex h-9 min-h-9 items-center justify-center gap-1.5 rounded-lg bg-tinta px-3 text-[13px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] disabled:cursor-not-allowed disabled:opacity-60";
 export const BOTAO_SECUNDARIO =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-borda-forte bg-superficie px-4 font-display text-[15px] font-medium text-texto transition hover:bg-superficie-2";
 /** Ação destrutiva (excluir, cancelar pedido): vermelho da marca Alpargatas, texto branco. */
@@ -25,7 +28,7 @@ export const BOTAO_PERIGO =
 /** Sobretítulo do topo da seção ("4.093 materiais · MB52 de hoje ›"): caixa alta, cor de ação, sem borda. */
 export function Pilula({ children, href }: { children: React.ReactNode; href?: string }) {
   const cls = "inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-acao";
-  return href ? <Link prefetch={false} href={href} className={clsx(cls, "transition hover:text-[var(--acao-forte)]")}>{children}<ChevronRight className="size-3.5" /></Link>
+  return href ? <Link prefetch={false} href={href} className={clsx(cls, "min-h-11 transition hover:text-[var(--acao-forte)]")}>{children}<ChevronRight className="size-3.5" /></Link>
     : <span className={cls}>{children}</span>;
 }
 

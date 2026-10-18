@@ -62,7 +62,7 @@
   --texto: #111311;
   --texto-2: #45494B;
   --texto-3: #6D6E71;          /* o cinza da marca SIM */
-  --texto-4: #a1a1aa;
+  --texto-4: #6B6D70;          /* apoio fraco (placeholder, rótulos): ≥ 4,5:1 sobre fundo e superfícies */
   --tinta: #007A38;            /* botão principal e links: verde de ação (texto branco 5,4:1) */
   --tinta-texto: #FFFFFF;
   --acao: var(--tinta);        /* links e destaque de título */
@@ -95,7 +95,7 @@
   :root:not([data-tema="claro"]) {
     --fundo: #0B110D; --superficie: #121A15; --superficie-2: #18221C; --superficie-3: #1E2A23;
     --borda: #24302A; --borda-forte: #33423A; --texto: #F1F5F2; --texto-2: #B8C4BD; --texto-3: #8D9A92;
-    --texto-4: #5c5c63; --tinta: #22B068; --tinta-texto: #06140B;
+    --texto-4: #8D9A92; --tinta: #22B068; --tinta-texto: #06140B;
     --acao: var(--tinta); --acao-forte: #4CC487;
     --menu: #072A18; --menu-2: #0E3D24; --menu-texto: #E8F3EC; --menu-apoio: #A9D3B9; --menu-marcador: #A8C024;
     --foco: #6CCCF0;
@@ -116,7 +116,7 @@
 :root[data-tema="escuro"] {
   --fundo: #0B110D; --superficie: #121A15; --superficie-2: #18221C; --superficie-3: #1E2A23;
   --borda: #24302A; --borda-forte: #33423A; --texto: #F1F5F2; --texto-2: #B8C4BD; --texto-3: #8D9A92;
-  --texto-4: #5c5c63; --tinta: #22B068; --tinta-texto: #06140B;
+  --texto-4: #8D9A92; --tinta: #22B068; --tinta-texto: #06140B;
   --acao: var(--tinta); --acao-forte: #4CC487;
   --menu: #072A18; --menu-2: #0E3D24; --menu-texto: #E8F3EC; --menu-apoio: #A9D3B9; --menu-marcador: #A8C024;
   --foco: #6CCCF0;

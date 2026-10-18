@@ -7,7 +7,7 @@ import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 
 import { ansi, ARQ_CSV, ARQ_VBS, csvInclusao, operacao4, scriptInclusao, type ItemInclusao, type ListaTarefas } from "./ia06";
 
-const ENTRADA = "h-9 rounded-lg border border-borda bg-superficie-2 px-2.5 text-[13px] outline-none transition focus:border-marca-500 focus:bg-superficie";
+const ENTRADA = "h-9 rounded-lg border border-borda bg-superficie-2 px-2.5 text-[13px] transition focus:border-[var(--acao)] focus:bg-superficie";
 
 function baixar(nome: string, conteudo: string, tipo: string) {
   const blob = new Blob([ansi(conteudo) as BlobPart], { type: tipo });

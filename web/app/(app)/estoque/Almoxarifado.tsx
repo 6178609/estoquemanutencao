@@ -150,7 +150,7 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
           <div className="flex items-center gap-2 text-sm">
             <label className="text-texto-3" htmlFor="ordem">Ordenar</label>
             <select id="ordem" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)}
-              className="h-9 rounded-lg border border-borda bg-superficie px-2 text-sm outline-none">
+              className="h-9 rounded-lg border border-borda bg-superficie px-2 text-sm focus:border-[var(--acao)]">
               <option value="situacao">Situação</option><option value="descricao">Descrição</option>
               <option value="estoque">Maior estoque</option><option value="valor">Maior valor</option>
             </select>
@@ -223,12 +223,12 @@ function Detalhe({ it, edita, aoSalvar }: { it: ItemAlmox; edita: boolean; aoSal
           <label className="text-sm font-semibold" htmlFor="minimo">Estoque mínimo (ponto de reposição)</label>
           <div className="mt-2 flex gap-2">
             <input id="minimo" value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" placeholder="sem mínimo"
-              className="num h-11 w-40 rounded-xl border border-borda bg-superficie px-3 outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-500/15" />
+              className="num h-11 w-40 rounded-xl border border-borda bg-superficie px-3 focus:border-[var(--acao)]" />
             <button onClick={salvar} disabled={estado.gravando} className={BOTAO_PRIMARIO}>
               {estado.gravando ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
             </button>
           </div>
-          {estado.msg && <p className={clsx("mt-2 text-sm", estado.erro ? "text-perigo-500" : "text-marca-700 dark:text-marca-300")}>{estado.msg}</p>}
+          {estado.msg && <p className={clsx("mt-2 rounded-lg px-3 py-2 text-sm", estado.erro ? "bg-[var(--selo-critico-fundo)] text-[var(--selo-critico-texto)]" : "bg-[var(--selo-bom-fundo)] text-[var(--selo-bom-texto)]")}>{estado.msg}</p>}
         </div>
       )}
       <section>

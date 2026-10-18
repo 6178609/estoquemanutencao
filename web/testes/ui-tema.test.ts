@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Activity } from "lucide-react";
-import { BOTAO_PERIGO, BOTAO_PRIMARIO, FaixaMarca, IconeQuadro, Selo } from "@/components/ui";
+import { BOTAO_COMPACTO, BOTAO_PERIGO, BOTAO_PRIMARIO, FaixaMarca, IconeQuadro, Pilula, Selo } from "@/components/ui";
 
 // Os componentes compartilhados levam o tema da marca: cores pelos tokens (não pela escala antiga) e botões de 44 px.
 describe("componentes compartilhados com o tema da marca", () => {
@@ -21,6 +21,19 @@ describe("componentes compartilhados com o tema da marca", () => {
     expect(BOTAO_PRIMARIO).toContain("bg-tinta");
     expect(BOTAO_PRIMARIO).toContain("h-11");
     expect(BOTAO_PRIMARIO).not.toContain("bg-marca-500");
+  });
+
+  it("BOTAO_COMPACTO tem o visual do primário em 36 px (área de toque garantida pelo contexto)", () => {
+    expect(BOTAO_COMPACTO).toContain("bg-tinta");
+    expect(BOTAO_COMPACTO).toContain("h-9");
+    expect(BOTAO_COMPACTO).toContain("min-h-9");
+  });
+
+  it("Pilula com href tem alvo de toque de 44 px", () => {
+    const html = renderToStaticMarkup(createElement(Pilula, { href: "/estoque", children: "4.093 materiais" }));
+    expect(html).toContain("min-h-11");
+    expect(html).toContain("inline-flex");
+    expect(html).toContain("items-center");
   });
 
   it("BOTAO_PERIGO existe com 44 px", () => {

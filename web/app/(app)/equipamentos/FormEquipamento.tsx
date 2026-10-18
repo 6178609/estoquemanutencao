@@ -13,7 +13,7 @@ import { buscarMateriais, salvarEquipamento, sugestaoSap } from "./acoes";
 import { CATEGORIAS, CRITICIDADES, type FormCadastro, type SituacaoPeca } from "./logica";
 import { SeloPeca } from "./SeloPeca";
 
-const ENTRADA = "h-10 w-full rounded-xl border border-borda bg-superficie-2 px-3 text-[14px] outline-none transition placeholder:text-texto-4 focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12";
+const ENTRADA = "h-10 w-full rounded-xl border border-borda bg-superficie-2 px-3 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie";
 
 function Rotulo({ texto, dica, children, className }: { texto: string; dica?: string; children: React.ReactNode; className?: string }) {
   return (
