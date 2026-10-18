@@ -18,7 +18,7 @@ export const BOTAO_PRIMARIO =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-tinta px-5 font-display text-[15px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] disabled:cursor-not-allowed disabled:opacity-60";
 /** Ação compacta (vincular, incluir numa lista): mesmo visual do primário em 36 px; o toque de 44 px vem do contexto. */
 export const BOTAO_COMPACTO =
-  "inline-flex h-9 min-h-9 items-center justify-center gap-1.5 rounded-lg bg-tinta px-3 text-[13px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 min-h-9 items-center justify-center gap-1.5 rounded-lg bg-tinta px-3 font-display text-[13px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] disabled:cursor-not-allowed disabled:opacity-60";
 export const BOTAO_SECUNDARIO =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-borda-forte bg-superficie px-4 font-display text-[15px] font-medium text-texto transition hover:bg-superficie-2";
 /** Ação destrutiva (excluir, cancelar pedido): vermelho da marca Alpargatas, texto branco. */
@@ -70,13 +70,16 @@ export function IconeQuadro({ icone: I, tom = "neutro", grande }: { icone: Lucid
   );
 }
 
-export function Kpi({ rotulo, valor, detalhe, icone, tom = "verde", dica }: { rotulo: string; valor: string;
-  detalhe?: string; icone?: LucideIcon; tom?: Tom; dica?: string }) {
+/** Kpi: `status` é um selo abaixo do valor; `meta` é a linha de meta (ambos opcionais: sem eles, o markup é o de antes). */
+export function Kpi({ rotulo, valor, detalhe, icone, tom = "verde", dica, status, meta }: { rotulo: string; valor: string;
+  detalhe?: string; icone?: LucideIcon; tom?: Tom; dica?: string; status?: { cor: CorSelo; texto: string }; meta?: string }) {
   return (
     <div title={dica} className="rounded-cartao border border-borda bg-superficie p-5 transition hover:border-borda-forte">
       {icone && <IconeQuadro icone={icone} tom={tom} />}
       <div className={clsx("text-[13.5px] font-medium text-texto-2", icone && "mt-4")}>{rotulo}</div>
       <div className="num mt-1.5 font-display text-[32px] font-medium leading-none tracking-[-0.03em]">{valor}</div>
+      {status && <div className="mt-2"><Selo cor={status.cor}>{status.texto}</Selo></div>}
+      {meta && <div className="mt-1.5 text-texto-3 text-[12.5px]">{meta}</div>}
       {detalhe && <div className="mt-2 text-[12.5px] leading-snug text-texto-3">{detalhe}</div>}
     </div>
   );
@@ -102,7 +105,9 @@ const SELO: Record<string, string> = {
   verde: "bom", amarelo: "atencao", laranja: "serio", vermelho: "critico", azul: "info", ciano: "info", cinza: "neutro",
 };
 
-export function Selo({ cor = "cinza", children, className }: { cor?: "verde" | "azul" | "laranja" | "vermelho" | "amarelo" | "ciano" | "cinza";
+export type CorSelo = "verde" | "azul" | "laranja" | "vermelho" | "amarelo" | "ciano" | "cinza";
+
+export function Selo({ cor = "cinza", children, className }: { cor?: CorSelo;
   children: React.ReactNode; className?: string }) {
   const status = SELO[cor];
   return (
