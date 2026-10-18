@@ -159,6 +159,8 @@ body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01
 @layer base {
   main table thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-3); font-weight: 600; }
   main table tbody tr:hover { background: var(--superficie-2); }
+  /* a fonte do corpo carrega só 400, 500 e 600: negrito vira semibold */
+  b, strong { font-weight: 600; }
 }
 
 /* números alinhados nas tabelas e nos indicadores */
