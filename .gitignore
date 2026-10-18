@@ -1,5 +1,5 @@
 # Dados da empresa NUNCA vão para o repositório (ele é público)
-dados/
+/dados/
 *.xlsx
 *.xls
 *.xlsm

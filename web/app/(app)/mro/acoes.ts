@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { soEstoque, veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
-import { fonte } from "@/lib/dados/fonte";
 import { bases } from "@/lib/wcm/dados";
 
 import { baseMateriais } from "./dados";
@@ -38,8 +37,7 @@ export async function alterarPecas(tag: string, adicionar: string[], remover: st
   const add = limparCodigos(adicionar).slice(0, MAX_PECAS), rem = limparCodigos(remover);
   if (!t) return { erro: "Equipamento inválido." };
   if (!add.length && !rem.length) return { erro: "Nenhuma peça informada." };
-  await fonte()?.versoes(true); // o cadastro de agora (para saber se o equipamento existe)
-  const [b, cad] = await Promise.all([bases(), lerCadastro(ARQ)]);
+  const [b, cad] = await Promise.all([bases(), lerCadastro(ARQ, { fresco: true })]); // o cadastro de agora
   const noSap = !!b.equipamentos.dados?.some((x) => x.equipamento === t) || !!b.ordens.dados?.some((o) => o.equipChave === t);
   if (!cad[t] && !noSap) return { erro: `O equipamento ${t} não está na lista de equipamentos (IH08, IW38 ou cadastro do site).` };
   try {

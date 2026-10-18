@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { after } from "next/server";
 
 import { lerBase, manifesto, type Base } from "../dados/bases";
-import { lerCadastro } from "../dados/cadastros";
+import { lerCadastro, versaoCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
 import { DESTINO } from "../leitura/tipos";
 import { basesDemo } from "./demo";
@@ -97,7 +97,6 @@ async function envioRecente(): Promise<number> {
   }
 }
 
-const ARQ_HH = `app/${hh.ARQ}`;
 const ARQUIVOS_WCM = [DESTINO.iw38, DESTINO.iw38op, DESTINO.iw47, DESTINO.iw28, DESTINO.ih08, DESTINO.equipe, DESTINO.requisicoes,
   DESTINO.ip19, DESTINO.af, DESTINO.acoes_af];
 
@@ -111,7 +110,7 @@ const ge = globalThis as unknown as { __cmEquipeCad?: { versao: string; base: Ba
 async function equipeDoCadastro(): Promise<Base<Pessoa[]> | null> {
   const f = fonte();
   // demonstração: o cadastro fica na memória do processo (a versão é o próprio conteúdo)
-  const versao = f ? (await f.versoes()).get(ARQ_HH) ?? "" : `demo:${hashTexto(JSON.stringify(await lerCadastro(hh.ARQ)))}`;
+  const versao = f ? (await versaoCadastro(hh.ARQ)) ?? "" : `demo:${hashTexto(JSON.stringify(await lerCadastro(hh.ARQ)))}`;
   if (!versao) return null;
   if (ge.__cmEquipeCad?.versao === versao) return ge.__cmEquipeCad.base;
   const cad = await lerCadastro(hh.ARQ);

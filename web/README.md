@@ -19,9 +19,13 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
 - **`bases/*.parquet`** no repositório de dados: gravados pela aba **Fontes de dados** (o export é lido no navegador);
   `bases/manifesto.json` guarda a data do export, a origem e, numa base grande, as
   partes. O servidor só lê esses parquets — nunca planilhas soltas.
-- **`app/*.json`**: cadastros (usuários, mínimos de estoque, equipamentos…). As gravações releem o arquivo,
-  aplicam só o que mudou, gravam condicionado à versão (sem perder a gravação de outra pessoa) e fazem
-  a cópia diária em `app/backup/`.
+- **Cadastros** (usuários, Gestão de HH, mínimos de estoque, equipamentos, metas…): no **Supabase** (Postgres em
+  São Paulo, tabela `cadastros`, um documento JSON por cadastro — `lib/dados/supabase.ts`) quando `SUPABASE_URL` e
+  `SUPABASE_SECRET_KEY` estão definidas; sem elas, em `app/*.json` no repositório de dados. Na primeira vez com o
+  Supabase, os `app/*.json` são copiados para lá sozinhos (nunca por cima do que já está no banco). As gravações
+  releem o cadastro, aplicam só o que mudou e gravam condicionado à versão (sem perder a gravação de outra pessoa).
+  Cópias de segurança: `cadastros_historico` no Supabase (a versão anterior, uma por dia, 60 dias) e a cópia diária
+  em `app/backup/` no repositório. Só a chave secreta acessa o banco (RLS ligado, sem acesso público).
 - **Login**: Número Pessoal (NP) + senha (hash PBKDF2). A sessão fica registrada
   em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora. Depois de **30 minutos sem
   uso** (em todas as abas abertas) o site avisa 1 minuto antes e sai sozinho; o servidor também encerra a sessão parada
@@ -55,6 +59,8 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 | `DADOS_GH_REPO` | repositório privado de dados, ex.: `6178609/estoquemanutencao-dados` |
 | `DADOS_GH_TOKEN` | token do GitHub com leitura e escrita **só** nesse repositório (fine-grained, Contents: read/write) |
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
+| `SUPABASE_URL` | endereço do projeto Supabase dos cadastros |
+| `SUPABASE_SECRET_KEY` | chave **secreta** do Supabase (Project Settings › API Keys › Secret keys), marcada como *Sensitive* |
 
 Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
 cada push no `main` publica em produção (https://estoquemanutencao.vercel.app) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para

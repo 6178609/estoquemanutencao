@@ -35,8 +35,8 @@ const globalDemo = globalThis as unknown as { __cmSessoesDemo?: Map<string, numb
 const sessoesDemo = (globalDemo.__cmSessoesDemo ??= new Map<string, number>()); // hash → validade (ms)
 const USUARIO_DEMO: UsuarioSessao = { login: "demo", nome: "Visitante", funcao: "analista", perfil: "editor", demo: true };
 
-async function usuarios(): Promise<Record<string, Registro>> {
-  const todos = await lerCadastro(ARQ);
+async function usuarios(fresco = false): Promise<Record<string, Registro>> {
+  const todos = await lerCadastro(ARQ, { fresco });
   return Object.fromEntries(Object.entries(todos).filter(([, v]) => v && typeof v === "object")) as Record<string, Registro>;
 }
 
@@ -125,10 +125,12 @@ export async function usuarioAtual(): Promise<UsuarioSessao | null> {
     const validade = sessoesDemo.get(h);
     return login === "demo" && validade && validade > Date.now() ? USUARIO_DEMO : null;
   }
-  const u = (await usuarios())[login];
-  if (!u || u.ativo === false) return null;
   const agora = new Date().toISOString();
-  return (u.sessoes || []).some((s) => s.h === h && (s.ate || "") > agora) ? publico(login, u) : null;
+  const valida = (u: Registro | undefined) => !!u && u.ativo !== false && (u.sessoes || []).some((s) => s.h === h && (s.ate || "") > agora);
+  let u = (await usuarios())[login];
+  // sessão criada há pouco em outra instância do servidor: confere a versão de agora antes de recusar
+  if (!valida(u)) u = (await usuarios(true))[login];
+  return valida(u) ? publico(login, u!) : null;
 }
 
 /** Hash do token deste aparelho (para manter só esta sessão ao trocar a senha). */
