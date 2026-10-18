@@ -60,7 +60,7 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
             }
             if (c.tipo === "datas") {
               const de = params.get(c.de) || c.padraoDe, ate = params.get(c.ate) || c.padraoAte;
-              const entrada = "h-9 rounded-lg bg-superficie px-2 text-[13px] text-texto outline-none focus:ring-2 focus:ring-marca-500/30";
+              const entrada = "h-9 rounded-lg bg-superficie px-2 text-[13px] text-texto";
               return (
                 <div key={c.de} className="flex h-11 flex-wrap items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-2 text-[13px] text-texto-3">
                   <span className="pl-1">{c.rotulo}</span>

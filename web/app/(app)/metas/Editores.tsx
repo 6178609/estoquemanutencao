@@ -23,7 +23,7 @@ function ler(t: string): number | null {
 }
 const igual = (a: number | null, b: number | null) => (a == null ? b == null : b != null && Math.abs(a - b) < 1e-9);
 
-const CAMPO = "h-9 w-full min-w-[90px] rounded-lg border border-borda bg-superficie-2 px-2.5 text-[13px] tabular-nums outline-none transition focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12 disabled:border-transparent disabled:bg-transparent";
+const CAMPO = "h-9 w-full min-w-[90px] rounded-lg border border-borda bg-superficie-2 px-2.5 text-[13px] tabular-nums transition focus:border-[var(--acao)] focus:bg-superficie disabled:border-transparent disabled:bg-transparent";
 const CELULA = `${CAMPO} text-right`;
 const TH = "whitespace-nowrap px-3 py-2 font-medium";
 

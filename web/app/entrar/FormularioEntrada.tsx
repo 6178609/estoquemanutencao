@@ -35,7 +35,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
             <UserRound className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
             <input name="login" inputMode="numeric" autoComplete="username" defaultValue={estado.login} required
               placeholder="Ex.: 6178609" disabled={demo}
-              className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-3 text-[15px] outline-none transition placeholder:text-texto-3 focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12 disabled:opacity-50" />
+              className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-3 text-[15px] transition placeholder:text-texto-3 focus:border-[var(--acao)] focus:bg-superficie disabled:opacity-50" />
           </span>
         </label>
         <label className="block">
@@ -43,7 +43,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
           <span className="relative block">
             <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
             <input name="senha" type={ver ? "text" : "password"} autoComplete="current-password" required disabled={demo}
-              className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-11 text-[15px] outline-none transition focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12 disabled:opacity-50" />
+              className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-11 text-[15px] transition focus:border-[var(--acao)] focus:bg-superficie disabled:opacity-50" />
             <button type="button" onClick={() => setVer(!ver)} aria-label={ver ? "Esconder senha" : "Mostrar senha"}
               className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2">
               {ver ? <EyeOff className="size-4" /> : <Eye className="size-4" />}

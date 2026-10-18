@@ -84,7 +84,7 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
             <span className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
               <input name="eq" list="eq-opcoes" defaultValue={sel} placeholder="Selecione na tabela acima ou digite o código…"
-                className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-3 text-[14px] outline-none transition focus:border-marca-500 focus:bg-superficie" />
+                className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-3 text-[14px] transition focus:border-[var(--acao)] focus:bg-superficie" />
             </span>
             <datalist id="eq-opcoes">{opcoesFicha.map((x) => <option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</datalist>
           </label>

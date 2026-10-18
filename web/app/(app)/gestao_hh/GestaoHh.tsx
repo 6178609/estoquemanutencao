@@ -163,7 +163,7 @@ function Pessoas({ vis, edita, horasSemana }: { vis: PessoaLinha[]; edita: boole
           <tbody className="divide-y divide-borda">
             {orden.map((p) => {
               const v = valor(p), alterada = mudou(p);
-              const ent = "h-8 rounded-lg border border-borda bg-superficie-2 px-2 text-[12.5px] outline-none focus:border-marca-500 disabled:border-transparent disabled:bg-transparent";
+              const ent = "h-8 rounded-lg border border-borda bg-superficie-2 px-2 text-[12.5px] focus:border-[var(--acao)] disabled:border-transparent disabled:bg-transparent";
               return (
                 <tr key={p.np} className={alterada ? "bg-marca-500/6" : undefined}>
                   <td className="num px-3 py-1.5 font-mono text-[12px]">{p.np}</td>

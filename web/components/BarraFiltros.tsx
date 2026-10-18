@@ -41,7 +41,7 @@ function Multi({ nome, chave, opcoes, selecionados, aoMudar }: {
             <label className="mb-1.5 flex items-center gap-2 rounded-lg border border-borda px-2.5">
               <Search className="size-3.5 text-texto-3" />
               <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Procurar"
-                className="h-8 w-full bg-transparent text-[13px] outline-none" />
+                className="h-8 w-full bg-transparent text-[13px]" />
             </label>
           )}
           <div className="max-h-72 overflow-y-auto">
@@ -115,10 +115,10 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimens
             <div className="inline-flex h-9 min-w-0 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-2 text-[13px]">
               <CalendarRange className="size-4 shrink-0 text-texto-3" />
               <input type="date" value={ini} max={fim} onChange={(e) => e.target.value && aplicar({ ini: e.target.value })}
-                aria-label="Data inicial" className="w-[6.9rem] min-w-0 bg-transparent outline-none [color-scheme:inherit] sm:w-auto" />
+                aria-label="Data inicial" className="w-[6.9rem] min-w-0 bg-transparent [color-scheme:inherit] sm:w-auto" />
               <span className="text-texto-4">→</span>
               <input type="date" value={fim} min={ini} onChange={(e) => e.target.value && aplicar({ fim: e.target.value })}
-                aria-label="Data final" className="w-[6.9rem] min-w-0 bg-transparent outline-none sm:w-auto" />
+                aria-label="Data final" className="w-[6.9rem] min-w-0 bg-transparent sm:w-auto" />
             </div>
             <button onClick={() => setMenuPeriodo(!menuPeriodo)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
               Atalhos <ChevronDown className="size-3.5" />

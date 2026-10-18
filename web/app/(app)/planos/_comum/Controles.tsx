@@ -54,7 +54,7 @@ function Busca({ c, aplicar }: { c: Extract<Controle, { tipo: "busca" }>; aplica
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
       <input value={v} onChange={(e) => setV(e.target.value)} placeholder={c.placeholder} type="search" enterKeyHint="search"
         onKeyDown={(e) => e.key === "Enter" && aplicar({ [c.chave]: v.trim() || null })}
-        className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-9 text-[14px] outline-none transition placeholder:text-texto-4 focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12" />
+        className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
       {v && (
         <button onClick={() => { setV(""); aplicar({ [c.chave]: null }); }} aria-label="Limpar busca"
           className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-texto-3 hover:bg-superficie-3">
@@ -72,10 +72,10 @@ function Periodo({ c, aplicar }: { c: Extract<Controle, { tipo: "periodo" }>; ap
       {c.rotulo && <span className="text-[13px] text-texto-3">{c.rotulo}</span>}
       <div className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-3 text-[13.5px]">
         <CalendarRange className="size-4 text-texto-3" />
-        <input type="date" value={c.valorDe} max={c.valorAte} aria-label="Data inicial" className="bg-transparent outline-none"
+        <input type="date" value={c.valorDe} max={c.valorAte} aria-label="Data inicial" className="bg-transparent"
           onChange={(e) => e.target.value && aplicar({ [c.de]: e.target.value })} />
         <span className="text-texto-4">→</span>
-        <input type="date" value={c.valorAte} min={c.valorDe} aria-label="Data final" className="bg-transparent outline-none"
+        <input type="date" value={c.valorAte} min={c.valorDe} aria-label="Data final" className="bg-transparent"
           onChange={(e) => e.target.value && aplicar({ [c.ate]: e.target.value })} />
       </div>
       {!!c.atalhos?.length && (
@@ -123,7 +123,7 @@ export function Controles({ controles, limpar = [], className }: { controles: Co
               <label key={c.chave} className="inline-flex h-11 items-center gap-2 rounded-xl border border-borda bg-superficie-2 px-3 text-[13.5px]">
                 <span className="text-texto-3">{c.rotulo}</span>
                 <select value={c.valor} onChange={(e) => aplicar({ [c.chave]: e.target.value })}
-                  className="max-w-[60vw] bg-transparent font-medium outline-none">
+                  className="max-w-[60vw] bg-transparent font-medium">
                   {c.opcoes.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
                 </select>
               </label>

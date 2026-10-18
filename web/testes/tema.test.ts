@@ -57,6 +57,15 @@ describe("tema da marca", () => {
     }
   });
 
+  it("texto de apoio fraco (--texto-4) ≥ 4,5:1 sobre fundo, superfície e superfície-2 (claro e escuro)", () => {
+    for (const [nome, bl] of Object.entries(temas)) {
+      for (const fundo of ["--fundo", "--superficie", "--superficie-2"]) {
+        const c = contraste(cor(bl, "--texto-4"), cor(bl, fundo));
+        expect(c, `${nome}: --texto-4 sobre ${fundo}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
   it("botão principal: --tinta-texto sobre --tinta ≥ 4,5:1", () => {
     for (const [nome, bl] of Object.entries(temas)) {
       const c = contraste(cor(bl, "--tinta-texto"), cor(bl, "--tinta"));

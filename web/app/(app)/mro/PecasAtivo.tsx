@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
-import { BOTAO_PRIMARIO } from "@/components/ui";
+import { BOTAO_COMPACTO } from "@/components/ui";
 
 import { SeloPeca } from "../equipamentos/SeloPeca";
 import { alterarPecas, buscarMateriaisMro } from "./acoes";
 import type { PecaMro } from "./logica";
 
-const ENTRADA = "h-10 w-full rounded-xl border border-borda bg-superficie-2 px-3 pl-9 text-[14px] outline-none transition placeholder:text-texto-4 focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12";
+const ENTRADA = "h-10 w-full rounded-xl border border-borda bg-superficie-2 px-3 pl-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie";
 
 /** Peças de um ativo: lista com a situação no estoque e, para quem edita, buscar na base de material e vincular/desvincular. */
 export function PecasAtivo({ tag, pecas, edita }: { tag: string; pecas: PecaMro[]; edita: boolean }) {
@@ -109,7 +109,7 @@ export function PecasAtivo({ tag, pecas, edita }: { tag: string; pecas: PecaMro[
                       <button type="button" disabled={ocupado || on} onClick={() => mudar(p.codigo, true)}
                         className={on
                           ? "inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] text-[color:var(--st-bom)] transition disabled:cursor-default"
-                          : clsx(BOTAO_PRIMARIO, "shrink-0")}>
+                          : clsx(BOTAO_COMPACTO, "shrink-0")}>
                         {mexendo === p.codigo ? <LoaderCircle className="size-3.5 animate-spin" /> : <Link2 className="size-3.5" />} {on ? "Vinculada" : "Vincular"}
                       </button>
                     </li>

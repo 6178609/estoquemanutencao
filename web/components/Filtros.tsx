@@ -9,7 +9,7 @@ export function CampoBusca({ valor, aoMudar, placeholder }: { valor: string; aoM
     <label className="relative block min-w-0 flex-1">
       <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
       <input value={valor} onChange={(e) => aoMudar(e.target.value)} placeholder={placeholder} type="text" enterKeyHint="search"
-        className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-9 text-[14px] outline-none transition placeholder:text-texto-4 focus:border-marca-500 focus:bg-superficie focus:ring-4 focus:ring-marca-500/12" />
+        className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
       {valor && (
         <button onClick={() => aoMudar("")} aria-label="Limpar busca" className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2">
           <X className="size-4" />
@@ -60,7 +60,7 @@ export function MultiEscolha({ rotulo, opcoes, valor, aoMudar }: { rotulo: strin
           {opcoes.length > 8 && (
             <div className="border-b border-borda p-2">
               <input autoFocus value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Filtrar…"
-                className="h-9 w-full rounded-lg bg-superficie-2 px-3 text-sm outline-none" />
+                className="h-9 w-full rounded-lg bg-superficie-2 px-3 text-sm" />
             </div>
           )}
           <ul className="max-h-72 overflow-y-auto p-1.5">
