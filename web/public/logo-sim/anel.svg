@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 540"><defs>
+  <radialGradient id="verde" cx="38%" cy="32%" r="75%">
+    <stop offset="0" stop-color="#2BC774"/><stop offset=".55" stop-color="#00A652"/><stop offset="1" stop-color="#008541"/>
+  </radialGradient>
+  <clipPath id="disco"><circle cx="278" cy="214" r="118"/></clipPath>
+</defs><path d="M405.2 134.5 A150 150 0 1 1 334.2 74.9" fill="none" stroke="#77787B" stroke-width="26" stroke-linecap="round"/>
+<circle cx="377.0" cy="96.0" r="11" fill="#77787B"/><circle cx="341.5" cy="71.5" r="8" fill="#77787B"/>
+<path d="M112 298 L 132 372 L 214 336" fill="none" stroke="#77787B" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/></svg>
