@@ -29,7 +29,7 @@ def _ops(chave: str, areas: tuple, centros: tuple, tipos: tuple) -> tuple[pd.Dat
     eq = bases.equipe().df
     conf = bases.confirmacoes().df
     # quem fez o quê: a mesma regra de recorte dos indicadores (centro, área pela ordem/equipamento, tipo) e só
-    # as pessoas da planilha de Gestão de HH; a situação das atividades continua vendo todos os apontamentos
+    # as pessoas da equipe da Gestão de HH; a situação das atividades continua vendo todos os apontamentos
     ap = ex.apontamentos(bases.so_da_equipe(contexto.filtrar_conf(conf, f, o), eq), eq)
     return ex.operacoes(op, ordens, conf, eq, pd.Timestamp(hoje_local())), ap
 
@@ -79,7 +79,7 @@ def mostrar(f: contexto.Filtros) -> None:
 
     st.caption("Atividade = operação do IW38OP pela **data programada** (1ª data de início); executada = operação "
                "confirmada; a taxa considera só o que já venceu (até hoje). Quem fez vem dos apontamentos da **IW47** "
-               "(ordem + operação) com o nome da planilha de Gestão de HH.")
+               "(ordem + operação) com o nome da equipe da Gestão de HH.")
 
     def delta(k, pp=True):
         if r.get(k) is None or ra.get(k) is None:

@@ -1,5 +1,5 @@
-import { paraData, type Dia } from "./util";
-import type { Pessoa } from "./preparo";
+import { especialidade, type Pessoa } from "./preparo";
+import { foraDaVisao, paraData, setorDoCentro, type Dia } from "./util";
 
 /**
  * Gerenciador de HH: disponibilidade de cada pessoa da equipe (planilha de Gestão de HH) para a manutenção.
@@ -12,7 +12,11 @@ import type { Pessoa } from "./preparo";
  * - capacidade: se a pessoa conta na capacidade da equipe (vazio = regra pelo cargo: técnicos de execução sim,
  *   apoio/gestão e planejamento não);
  * - obs: observação livre;
- * - ausencias: [{id, tipo, de, ate, obs}] — férias, afastamento, treinamento… (datas inclusivas, aaaa-mm-dd).
+ * - ausencias: [{id, tipo, de, ate, obs}] — férias, afastamento, treinamento… (datas inclusivas, aaaa-mm-dd);
+ *   treinamento também guarda titulo, horas (carga horária), entidade e validade (vencimento da reciclagem);
+ * - a própria pessoa (cadastro manual, sem planilha): nome, cargo, centro, area, turma, supervisor e ativo
+ *   (ativo:false = desligada: sai da equipe e o histórico fica). Enquanto ninguém foi cadastrado, a equipe vem da
+ *   última planilha de Gestão de HH enviada (só leitura) — "Passar a equipe para o cadastro" grava todos.
  *
  * Horas disponíveis no período = (jornada × dias ÷ 7 − horas das ausências) × percentual, nunca negativo; cada dia
  * corrido de ausência dentro do período tira jornada ÷ 7 (a mesma conta de dias corridos da jornada).
@@ -24,8 +28,16 @@ export const TIPOS_AUSENCIA = ["Férias", "Afastamento (atestado / INSS)", "Trei
 /** Especialidades que, por padrão, não contam na capacidade. */
 export const SEM_CAPACIDADE = ["Apoio / gestão", "Planejamento (GPM)"];
 
-export interface AusenciaGravada { id?: string; tipo?: string; de?: string; ate?: string; obs?: string }
-export interface ItemHh {
+export interface AusenciaGravada {
+  id?: string; tipo?: string; de?: string; ate?: string; obs?: string;
+  /** treinamento: nome, carga horária (h), entidade/instrutor e vencimento da reciclagem (aaaa-mm-dd) */
+  titulo?: string; horas?: number | null; entidade?: string; validade?: string;
+}
+/** Dados da pessoa no cadastro manual da equipe. */
+export interface PessoaGravada {
+  nome?: string; cargo?: string; centro?: string; area?: string; turma?: string; supervisor?: string; ativo?: boolean | null;
+}
+export interface ItemHh extends PessoaGravada {
   jornada?: number | null; percentual?: number | null; capacidade?: boolean | null; obs?: string | null;
   ausencias?: AusenciaGravada[] | null;
 }
@@ -89,7 +101,51 @@ export function pessoas(equipe: PessoaEquipe[] | null | undefined, cad: Cadastro
   });
 }
 
-export interface Ausencia { np: string; id: string; tipo: string; de: Dia; ate: Dia; obs: string }
+// ----------------------------------------------------------------------------
+// Equipe por cadastro manual (no lugar da planilha de Gestão de HH)
+// ----------------------------------------------------------------------------
+const txt = (v: unknown) => (v == null ? "" : String(v).trim());
+
+/** Alguém já foi cadastrado (com nome)? Até lá, a equipe vem da última planilha. */
+export function temEquipeCadastrada(cad: CadastroHh | null | undefined): boolean {
+  return Object.keys(cad ?? {}).some((np) => txt(itemDe(cad, np).nome) !== "");
+}
+
+/** A equipe do cadastro (só quem tem nome e não foi desligado), com especialidade e setor deduzidos. */
+export function equipeDoCadastro(cad: CadastroHh | null | undefined,
+  { comDesligados = false, excluirForaDaVisao = false }: { comDesligados?: boolean; excluirForaDaVisao?: boolean } = {}):
+  (Pessoa & { ativo: boolean })[] {
+  const out: (Pessoa & { ativo: boolean })[] = [];
+  for (const np of Object.keys(cad ?? {}).sort()) {
+    const i = itemDe(cad, np), nome = txt(i.nome);
+    const ativo = i.ativo !== false;
+    if (!nome || (!ativo && !comDesligados)) continue;
+    const cargo = txt(i.cargo), centroTrabalho = txt(i.centro);
+    // a mesma regra da planilha: Fábrica Piloto / matrizaria fora da visão de manutenção
+    if (excluirForaDaVisao && foraDaVisao({ "Centro de trabalho": centroTrabalho })) continue;
+    out.push({ np, nome, cargo, centroTrabalho, area: txt(i.area), turma: txt(i.turma), supervisor: txt(i.supervisor),
+      especialidade: especialidade(cargo), setor: setorDoCentro(centroTrabalho), ativo });
+  }
+  return out;
+}
+
+/** Pacote de migração: as pessoas da planilha como itens do cadastro (mesclar=true não mexe na disponibilidade). */
+export function itensDaEquipe(equipe: Pessoa[]): Record<string, PessoaGravada> {
+  const out: Record<string, PessoaGravada> = {};
+  for (const p of equipe) {
+    if (!p.np || !p.nome) continue;
+    out[p.np] = { nome: p.nome, cargo: p.cargo || "", centro: p.centroTrabalho || "", area: p.area || "", turma: p.turma || "",
+      supervisor: p.supervisor || "", ativo: true };
+  }
+  return out;
+}
+
+export interface Ausencia {
+  np: string; id: string; tipo: string; de: Dia; ate: Dia; obs: string;
+  titulo: string; horas: number | null; entidade: string; validade: Dia | null;
+  /** carga horária 0: EAD ou fora do horário — não tira HH */
+  semHh: boolean;
+}
 
 /** Todas as ausências cadastradas, uma por linha (sem data de início válida fica fora; até < de vira um dia só). */
 export function ausencias(cad: CadastroHh | null | undefined): Ausencia[] {
@@ -99,23 +155,39 @@ export function ausencias(cad: CadastroHh | null | undefined): Ausencia[] {
     for (const a of (info as ItemHh).ausencias ?? []) {
       const de = paraData(a?.de), ate = paraData(a?.ate);
       if (de == null) continue;
-      out.push({ np, id: a.id ?? "", tipo: a.tipo ?? "Outro", de, ate: ate != null && ate >= de ? ate : de, obs: a.obs ?? "" });
+      const h = a.horas == null || a.horas === ("" as unknown) ? null : Number(a.horas);
+      out.push({ np, id: a.id ?? "", tipo: a.tipo ?? "Outro", de, ate: ate != null && ate >= de ? ate : de, obs: a.obs ?? "",
+        titulo: a.titulo ?? "", horas: h != null && Number.isFinite(h) && h >= 0 ? h : null, entidade: a.entidade ?? "",
+        validade: paraData(a.validade), semHh: h === 0 });
     }
   }
   return out;
 }
 
-/** {matrícula: dias corridos de ausência dentro de [ini, fim]} — ausências sobrepostas não contam em dobro. */
+/** {matrícula: dias corridos de ausência dentro de [ini, fim]} — ausências sobrepostas não contam em dobro. Ausência
+ * com carga horária (treinamento parcial) não tira o dia inteiro: conta em horasParciais. */
 export function diasAusente(cad: CadastroHh | null | undefined, ini: Dia, fim: Dia): Record<string, number> {
   const cobertos = new Map<string, Set<Dia>>();
   for (const a of ausencias(cad)) {
-    if (a.ate < ini || a.de > fim) continue;
+    if (a.ate < ini || a.de > fim || a.horas != null || a.semHh) continue;
     let s = cobertos.get(a.np);
     if (!s) cobertos.set(a.np, (s = new Set()));
     for (let d = Math.max(a.de, ini); d <= Math.min(a.ate, fim); d++) s.add(d);
   }
   const out: Record<string, number> = {};
   for (const np of [...cobertos.keys()].sort()) out[np] = cobertos.get(np)!.size;
+  return out;
+}
+
+/** {matrícula: horas das ausências com carga horária dentro de [ini, fim]} — proporcional aos dias da ausência no
+ * período (um curso de 16 h em 2 dias tira 8 h de cada dia). */
+export function horasParciais(cad: CadastroHh | null | undefined, ini: Dia, fim: Dia): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const a of ausencias(cad)) {
+    if (a.horas == null || a.semHh || a.ate < ini || a.de > fim) continue;
+    const dentro = Math.min(a.ate, fim) - Math.max(a.de, ini) + 1;
+    out[a.np] = (out[a.np] ?? 0) + (a.horas * dentro) / diasDaAusencia(a);
+  }
   return out;
 }
 
@@ -128,11 +200,11 @@ export function disponibilidade(pes: PessoaHh[], cad: CadastroHh | null | undefi
   const dias = fim - ini + 1;
   if (!pes.length || dias <= 0)
     return pes.map((p) => ({ ...p, horasBrutas: 0, diasAusente: 0, horasAusente: 0, horasDisponiveis: 0 }));
-  const aus = diasAusente(cad, ini, fim);
+  const aus = diasAusente(cad, ini, fim), parc = horasParciais(cad, ini, fim);
   return pes.map((p) => {
     const horasBrutas = (p.jornada * dias) / 7;
     const da = aus[p.np] ?? 0;
-    const horasAusente = (p.jornada * da) / 7;
+    const horasAusente = Math.min((p.jornada * da) / 7 + (parc[p.np] ?? 0), horasBrutas);
     return { ...p, horasBrutas, diasAusente: da, horasAusente,
       horasDisponiveis: (Math.max(horasBrutas - horasAusente, 0) * p.disponivel) / 100 };
   });
@@ -176,10 +248,17 @@ export function situacaoAusencia(a: Pick<Ausencia, "de" | "ate">, hoje: Dia): "E
 
 const iso = (d: Dia) => new Date(d * 86_400_000).toISOString().slice(0, 10);
 
-/** Ausência nova para gravar (id = "<matrícula>-<aaaammdd de>-<aaaammdd até>-<nº>", datas ISO). */
-export function novaAusencia(np: string, tipo: string, de: Dia, ate: Dia, obs: string, existentes: number): Required<AusenciaGravada> {
+/** Ausência nova para gravar (id = "<matrícula>-<aaaammdd de>-<aaaammdd até>-<nº>", datas ISO). Treinamento leva também
+ * nome, carga horária, entidade e validade (só os informados entram). */
+export function novaAusencia(np: string, tipo: string, de: Dia, ate: Dia, obs: string, existentes: number,
+  extra: { titulo?: string; horas?: number | null; entidade?: string; validade?: Dia | null } = {}):
+  AusenciaGravada & { id: string; tipo: string; de: string; ate: string; obs: string } {
+  const titulo = (extra.titulo ?? "").trim(), entidade = (extra.entidade ?? "").trim();
+  const horas = extra.horas != null && Number.isFinite(extra.horas) && extra.horas >= 0 ? Math.round(extra.horas * 10) / 10 : null;
   return { id: `${np}-${iso(de).replace(/-/g, "")}-${iso(ate).replace(/-/g, "")}-${existentes + 1}`, tipo,
-    de: iso(de), ate: iso(ate), obs: obs.trim() };
+    de: iso(de), ate: iso(ate), obs: obs.trim(),
+    ...(titulo ? { titulo } : {}), ...(horas != null ? { horas } : {}), ...(entidade ? { entidade } : {}),
+    ...(extra.validade != null ? { validade: iso(extra.validade) } : {}) };
 }
 
 /**

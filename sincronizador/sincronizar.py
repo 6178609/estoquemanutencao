@@ -144,6 +144,8 @@ def rodada(cfg: dict, gh=None, testar: bool = False) -> list[str]:
     achados = localizar(cfg["pastas"], est)
     mandou, manifesto = [], {}
     for tipo, origens in achados.items():
+        if tipo in leitura.TIPOS_SEM_ENVIO:   # equipe: agora é cadastrada na Gestão de HH (site novo)
+            continue
         chave = ";".join(f"{o.arquivo.assinatura}|{o.aba}|{o.linha}" for o in origens)
         if enviados.get(tipo) == chave:
             continue

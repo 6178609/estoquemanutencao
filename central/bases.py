@@ -600,7 +600,7 @@ def preparar_confirmacoes(cru: pd.DataFrame, excluir_piloto_matriz: bool = True)
 
 
 def so_da_equipe(conf: pd.DataFrame | None, equipe: pd.DataFrame | None) -> pd.DataFrame | None:
-    """Apontamentos (IW47) só das pessoas da planilha de Gestão de HH — a base das visões de HH (horas,
+    """Apontamentos (IW47) só das pessoas da equipe da Gestão de HH — a base das visões de HH (horas,
     utilização, quem fez o quê). Sem a planilha, não há como filtrar: volta tudo."""
     if conf is None or equipe is None or not len(equipe) or "Nº pessoal" not in conf:
         return conf
@@ -893,6 +893,8 @@ def remover_foto_material(codigo: str, usuario: str = "") -> None:
 
 def enviar_arquivo(tipo: str, nome_original: str, conteudo: bytes) -> str:
     """Valida e grava na pasta do app um arquivo exportado, já com o tipo no nome."""
+    if tipo in leitura.TIPOS_SEM_ENVIO:
+        raise leitura.LeituraErro("a equipe agora é cadastrada na aba Gestão de HH do site novo (a planilha não é mais enviada)")
     tipos = {t for t, _, _ in leitura.sondar(nome_original, conteudo)}
     if tipo not in tipos:
         esperado = leitura.NOMES_BASE[tipo]
@@ -1018,7 +1020,40 @@ def confirmacoes() -> Base:
 
 
 def equipe() -> Base:
+    """A equipe: o cadastro manual da Gestão de HH (hh_disponibilidade.json); enquanto ninguém foi cadastrado,
+    a última planilha de Gestão de HH enviada (só leitura). Cadastrar e editar pessoas é feito no site novo."""
+    df = equipe_do_cadastro(ler_cadastro(hh.ARQ), _excluir())
+    if df is not None:
+        return Base(df, None)
+    return equipe_da_planilha()
+
+
+def equipe_da_planilha() -> Base:
     return _carregar(EQUIPE, lambda us: Base(_equipe(us, _excluir()), None))
+
+
+def equipe_do_cadastro(cad: dict | None, excluir: bool = True, com_desligados: bool = False) -> pd.DataFrame | None:
+    """As pessoas do cadastro manual (com nome; desligadas — ativo False — ficam fora), nas mesmas colunas da
+    planilha. None = ninguém cadastrado ainda (vale a planilha)."""
+    linhas = []
+    for np_, i in sorted((cad or {}).items()):
+        if not isinstance(i, dict) or not str(i.get("nome") or "").strip():
+            continue
+        linhas.append({"Nº pessoal": str(np_), "Nome": str(i.get("nome") or "").strip(), "Cargo": str(i.get("cargo") or "").strip(),
+                       "Centro de trabalho": str(i.get("centro") or "").strip(), "Área": str(i.get("area") or "").strip(),
+                       "Turma": str(i.get("turma") or "").strip(), "Supervisor": str(i.get("supervisor") or "").strip(),
+                       "Ativo": i.get("ativo") is not False})
+    if not linhas:
+        return None
+    df = pd.DataFrame(linhas)
+    if not com_desligados:
+        df = df[df["Ativo"]]
+    if excluir and len(df):
+        df = df[~fora_da_visao(df)]
+    df = df.drop(columns="Ativo").copy()
+    df["Especialidade"] = df["Cargo"].map(_especialidade)
+    df["Setor"] = setores(df["Centro de trabalho"]) if len(df) else pd.Series(dtype=str)
+    return df.reset_index(drop=True)
 
 
 def ip19() -> Base:

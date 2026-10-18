@@ -106,7 +106,7 @@ def normalizar_login(login: str) -> str:
 
 
 def pessoa_da_equipe(np_: str) -> dict | None:
-    """O NP na planilha de Gestão de HH (nome, cargo, centro), para conferir o cadastro."""
+    """O NP na equipe da Gestão de HH (nome, cargo, centro), para conferir o cadastro."""
     try:
         eq = bases.equipe().df
     except Exception:  # noqa: BLE001
@@ -858,10 +858,10 @@ def _aprovacoes(eu: dict, pend: dict) -> None:
             st.markdown(f"**{ped.get('nome', alvo)}** · NP `{alvo}`")
             na_equipe = pessoa_da_equipe(alvo)
             if na_equipe:
-                st.caption(f":material/verified: NP na planilha de Gestão de HH: **{na_equipe.get('Nome', '')}** · "
+                st.caption(f":material/verified: NP na equipe da Gestão de HH: **{na_equipe.get('Nome', '')}** · "
                            f"{na_equipe.get('Cargo', '')} · {na_equipe.get('Centro de trabalho', '')}")
             else:
-                st.caption(":material/help: Esse NP não está na planilha de Gestão de HH — confira com a pessoa.")
+                st.caption(":material/help: Esse NP não está na equipe da Gestão de HH — confira com a pessoa.")
             c = st.columns(2)
             funcao = c[0].selectbox("Função", list(FUNCOES), format_func=FUNCOES.get,
                                     index=list(FUNCOES).index(ped["funcao"]) if ped.get("funcao") in FUNCOES else None,

@@ -68,7 +68,8 @@ describe("Gerenciador de HH · disponibilidade", () => {
     expect(hh.disponibilidade(p, cad, D(2026, 10, 5), D(2026, 10, 4)).every((x) => x.horasDisponiveis === 0)).toBe(true);
     // até antes do início vira um dia só; sem início válido fica fora
     const aus = hh.ausencias({ "10": { ausencias: [{ de: "2026-10-05", ate: "2026-10-01" }, { de: "", ate: "2026-10-01" }] } });
-    expect(aus).toEqual([{ np: "10", id: "", tipo: "Outro", de: D(2026, 10, 5), ate: D(2026, 10, 5), obs: "" }]);
+    expect(aus).toEqual([{ np: "10", id: "", tipo: "Outro", de: D(2026, 10, 5), ate: D(2026, 10, 5), obs: "", titulo: "", horas: null,
+      entidade: "", validade: null, semHh: false }]);
     expect(hh.diasAusente({}, D(2026, 10, 1), D(2026, 10, 31))).toEqual({});
   });
 

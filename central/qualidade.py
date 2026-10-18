@@ -140,7 +140,7 @@ def verificar(hoje, *, ordens: pd.DataFrame | None = None, oper: pd.DataFrame | 
         out.append(Checagem(
             "apont_fora_equipe", "Apontamentos de pessoas fora da Gestão de HH", "IW47 / Gestão de HH",
             "Utilização da mão de obra, quem fez o quê",
-            "Incluir a pessoa (matrícula) na planilha de Gestão de HH ou corrigir a matrícula no apontamento.",
+            "Cadastrar a pessoa (matrícula) na Gestão de HH ou corrigir a matrícula no apontamento.",
             resumo.sort_values("HH", ascending=False), int(len(c.groupby(["Nº pessoal", "Centro de trabalho"])))))
     return out
 

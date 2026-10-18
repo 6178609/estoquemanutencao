@@ -1,4 +1,4 @@
-"""Gerenciador de HH: disponibilidade de cada pessoa da equipe (planilha de Gestão de HH) para a manutenção.
+"""Gerenciador de HH: disponibilidade de cada pessoa da equipe (cadastro da Gestão de HH) para a manutenção.
 
 O que fica gravado (cadastro `hh_disponibilidade.json` na pasta do app), por matrícula:
 - jornada: horas por semana (vazio = a jornada padrão de Metas e parâmetros);
@@ -6,7 +6,9 @@ O que fica gravado (cadastro `hh_disponibilidade.json` na pasta do app), por mat
 - capacidade: se a pessoa conta na capacidade da equipe (vazio = regra pelo cargo: técnicos de execução sim,
   apoio/gestão e planejamento não);
 - obs: observação livre;
-- ausencias: [{id, tipo, de, ate, obs}] — férias, afastamento, treinamento… (datas inclusivas).
+- ausencias: [{id, tipo, de, ate, obs}] — férias, afastamento, treinamento… (datas inclusivas); treinamento também
+  guarda titulo, horas (carga horária: tira só essas horas; 0 = EAD/fora do horário), entidade e validade;
+- a própria pessoa (cadastro manual, no lugar da planilha): nome, cargo, centro, area, turma, supervisor, ativo.
 
 Horas disponíveis no período = (jornada × dias ÷ 7 − horas das ausências) × percentual, nunca negativo; cada dia
 corrido de ausência dentro do período tira jornada ÷ 7 (a mesma conta de dias corridos da jornada).
@@ -65,24 +67,46 @@ def ausencias(cad: dict | None) -> pd.DataFrame:
             de, ate = pd.to_datetime(a.get("de"), errors="coerce"), pd.to_datetime(a.get("ate"), errors="coerce")
             if pd.isna(de):
                 continue
+            h = _num(a.get("horas"), float("nan")) if a.get("horas") not in (None, "") else float("nan")
             linhas.append({"Nº pessoal": mat, "id": a.get("id", ""), "Tipo": a.get("tipo", "Outro"), "De": de,
-                           "Até": ate if pd.notna(ate) and ate >= de else de, "Obs": a.get("obs", "")})
-    return pd.DataFrame(linhas, columns=["Nº pessoal", "id", "Tipo", "De", "Até", "Obs"])
+                           "Até": ate if pd.notna(ate) and ate >= de else de, "Obs": a.get("obs", ""),
+                           "Treinamento": a.get("titulo", ""), "Horas": h if h == h and h >= 0 else float("nan"),
+                           "Entidade": a.get("entidade", ""),
+                           "Validade": pd.to_datetime(a.get("validade"), errors="coerce")})
+    return pd.DataFrame(linhas, columns=["Nº pessoal", "id", "Tipo", "De", "Até", "Obs", "Treinamento", "Horas", "Entidade",
+                                         "Validade"])
 
 
 def dias_ausente(cad: dict | None, ini, fim) -> dict[str, int]:
-    """{matrícula: dias corridos de ausência dentro de [ini, fim]} — ausências sobrepostas não contam em dobro."""
+    """{matrícula: dias corridos de ausência dentro de [ini, fim]} — ausências sobrepostas não contam em dobro.
+    Ausência com carga horária (treinamento parcial) não tira o dia inteiro: conta em horas_parciais."""
     aus = ausencias(cad)
     ini, fim = pd.Timestamp(ini).normalize(), pd.Timestamp(fim).normalize()
     if not len(aus):
         return {}
-    aus = aus[(aus["Até"] >= ini) & (aus["De"] <= fim)]
+    aus = aus[(aus["Até"] >= ini) & (aus["De"] <= fim) & aus["Horas"].isna()]
     saida = {}
     for mat, g in aus.groupby("Nº pessoal"):
         cobertos = set()
         for de, ate in zip(g["De"], g["Até"]):
             cobertos |= set(pd.date_range(max(de.normalize(), ini), min(ate.normalize(), fim), freq="D"))
         saida[mat] = len(cobertos)
+    return saida
+
+
+def horas_parciais(cad: dict | None, ini, fim) -> dict[str, float]:
+    """{matrícula: horas das ausências com carga horária dentro de [ini, fim]}, proporcional aos dias no período
+    (um curso de 16 h em 2 dias tira 8 h de cada dia); carga 0 (EAD, fora do horário) não tira HH."""
+    aus = ausencias(cad)
+    ini, fim = pd.Timestamp(ini).normalize(), pd.Timestamp(fim).normalize()
+    saida: dict[str, float] = {}
+    if not len(aus):
+        return saida
+    aus = aus[aus["Horas"].notna() & (aus["Horas"] > 0) & (aus["Até"] >= ini) & (aus["De"] <= fim)]
+    for mat, de, ate, h in zip(aus["Nº pessoal"], aus["De"], aus["Até"], aus["Horas"]):
+        de, ate = de.normalize(), ate.normalize()
+        dentro = (min(ate, fim) - max(de, ini)).days + 1
+        saida[mat] = saida.get(mat, 0.0) + h * dentro / ((ate - de).days + 1)
     return saida
 
 
@@ -94,7 +118,8 @@ def disponibilidade(pes: pd.DataFrame, cad: dict | None, ini, fim) -> pd.DataFra
         return t.assign(**{"Horas brutas": 0.0, "Dias ausente": 0, "Horas ausente": 0.0, "Horas disponíveis": 0.0})
     t["Horas brutas"] = t["Jornada (h/sem)"] * dias / 7
     t["Dias ausente"] = t["Nº pessoal"].map(dias_ausente(cad, ini, fim)).fillna(0).astype(int)
-    t["Horas ausente"] = t["Jornada (h/sem)"] * t["Dias ausente"] / 7
+    parc = t["Nº pessoal"].map(horas_parciais(cad, ini, fim)).fillna(0.0)
+    t["Horas ausente"] = (t["Jornada (h/sem)"] * t["Dias ausente"] / 7 + parc).clip(upper=t["Horas brutas"])
     t["Horas disponíveis"] = (t["Horas brutas"] - t["Horas ausente"]).clip(lower=0) * t["Disponível %"] / 100
     return t
 

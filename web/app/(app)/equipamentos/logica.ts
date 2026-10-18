@@ -67,12 +67,7 @@ export function dataCsv(d: Dia | null | undefined): string {
   return `${String(p.dia).padStart(2, "0")}/${String(p.mes).padStart(2, "0")}/${p.ano}`;
 }
 
-/** Hash curto (FNV-1a) de um texto — chave de cache que muda quando o cadastro muda. */
-export function hashTexto(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
-  return (h >>> 0).toString(36) + ":" + s.length;
-}
+export { hashTexto } from "@/lib/wcm/util";
 
 // ----------------------------------------------------------------------------
 // Inventário (Gestão de ativos)

@@ -76,7 +76,7 @@ async function SecaoCapacidade({ c, edita }: { c: Awaited<ReturnType<typeof cont
         <EditorJornada horas={horas} edita={edita} />
       </Secao>
       <Secao titulo="Capacidade semanal" destaque="por centro de trabalho (HH/semana)"
-        sub={`Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.${d.equipe ? ` Equipe lida da planilha de Gestão de HH: ${n0.format(d.equipe.length)} pessoas, ${n0.format(tec.length)} técnicos de execução.` : ""}`}>
+        sub={`Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.${d.equipe ? ` Equipe da Gestão de HH: ${n0.format(d.equipe.length)} pessoas, ${n0.format(tec.length)} técnicos de execução.` : ""}`}>
         <EditorCapacidade linhas={linhas} edita={edita} />
       </Secao>
     </div>

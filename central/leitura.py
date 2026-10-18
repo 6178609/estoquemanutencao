@@ -30,6 +30,9 @@ NOMES_BASE = {IW38: "Ordens (IW38)", IP19: "Planos de manutenção (IP19)", OPER
               AF: "Análises de falha (Gerenciador de AF)", ACAO_AF: "Ações das análises de falha (Gerenciador de AF)",
               CATMAT: "Catálogo de materiais cadastrados (Sysmat)"}
 TIPOS = (IW38, IP19, OPER, NOTAS, EQUIP, MB52, CATMAT, REQ, CONF, EQUIPE, AF, ACAO_AF)
+# reconhecidas mas não enviadas ao repositório de dados: a equipe agora é cadastrada na Gestão de HH (a planilha
+# continua reconhecida para as outras abas dela não serem confundidas com IW47 etc.)
+TIPOS_SEM_ENVIO = frozenset({EQUIPE})
 
 # Cada base é UM arquivo: vale o export mais recente (o PCM gera um IW38 único com plano
 # de manutenção e backlog, e um IW28 único). O mecanismo abaixo permite que uma base

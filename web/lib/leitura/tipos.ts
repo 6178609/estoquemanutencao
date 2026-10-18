@@ -23,6 +23,13 @@ export const DESTINO: Record<Tipo, string> = {
   catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet",
 };
 
+/**
+ * Bases reconhecidas mas que NÃO são mais enviadas: a equipe agora é cadastrada na Gestão de HH. Continua reconhecida
+ * para a pasta de trabalho de HH não ter outras abas confundidas com IW47 etc. (e para os nomes dos tipos de ordem).
+ */
+export const TIPOS_SEM_ENVIO: ReadonlySet<Tipo> = new Set<Tipo>(["equipe"]);
+export const MOTIVO_SEM_ENVIO = "a equipe agora é cadastrada na aba Gestão de HH (a planilha não é mais enviada)";
+
 export function ehTipo(t: unknown): t is Tipo {
   return typeof t === "string" && (TIPOS as readonly string[]).includes(t);
 }

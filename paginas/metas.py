@@ -103,7 +103,7 @@ elif aba == "Equipe e capacidade":
         ss["_metas_salvas"] = n + 1
         st.rerun()
     if equipe is not None:
-        st.caption(f"Equipe lida da planilha de Gestão de HH: {inteiro(len(equipe))} pessoas, "
+        st.caption(f"Equipe da Gestão de HH: {inteiro(len(equipe))} pessoas, "
                    f"{inteiro(len(tec))} técnicos de execução.")
 
 # ----------------------------------------------------------------------------

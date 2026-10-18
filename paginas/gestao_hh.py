@@ -22,6 +22,11 @@ ss = st.session_state
 base = bases.equipe()
 if not ui.aviso_base(base, EQUIPE):
     st.stop()
+if base.origem is None:
+    st.caption("Equipe: cadastro da Gestão de HH. Cadastrar, editar ou desligar pessoas é feito no site novo.")
+else:
+    st.warning("A equipe ainda vem da última planilha de Gestão de HH. No site novo, abra a Gestão de HH e use "
+               "**Passar a equipe para o cadastro** — depois disso a planilha não precisa mais ser enviada.")
 horas_semana = ind.horas_semana_de(contexto.metas())
 cad = bases.ler_cadastro(hh.ARQ)
 pes = hh.pessoas(base.df, cad, horas_semana)
@@ -168,7 +173,7 @@ elif visao == "Ausências":
     aus = hh.ausencias(cad)
     if len(aus):
         aus = aus.merge(pes[["Nº pessoal", "Nome", "Centro de trabalho"]], on="Nº pessoal", how="left")
-        aus["Nome"] = aus["Nome"].fillna("(fora da planilha de Gestão de HH)")
+        aus["Nome"] = aus["Nome"].fillna("(fora da equipe da Gestão de HH)")
         aus["Centro de trabalho"] = aus["Centro de trabalho"].fillna("")
         filtrado = bool(busca.strip() or sel_ctr or sel_turma or sel_esp)
         if filtrado:

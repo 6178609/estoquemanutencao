@@ -45,7 +45,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
   const jan = ind.janelaApontamentos(d, ini, fim);
   const cob = atual.cobertura_hh;
 
-  // fora da planilha de Gestão de HH
+  // fora da equipe da Gestão de HH
   const daEquipe = new Set((c.b.equipe.dados ?? []).map((p) => p.np));
   const fora = c.b.equipe.dados?.length ? (d.confTodos ?? []).filter((x) => x.data != null && x.data >= ini && x.data <= fim && !daEquipe.has(x.np)) : [];
 
@@ -72,7 +72,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
           <Nota>Só entram as pessoas da planilha de <b className="font-medium text-texto-2">Gestão de HH</b>: {n0.format(fora.reduce((s, x) => s + x.horas, 0))} h
             de {n0.format(new Set(fora.map((x) => x.np)).size)} pessoa(s) fora dela ficaram de fora — a lista está em Qualidade dos dados (inclua a matrícula na planilha para contar).</Nota>
         )}
-        {!c.b.equipe.dados && <Nota>Sem a planilha de Gestão de HH, as horas de todos os apontamentos da IW47 entram.</Nota>}
+        {!c.b.equipe.dados && <Nota>Sem a equipe cadastrada na Gestão de HH, as horas de todos os apontamentos da IW47 entram.</Nota>}
       </Secao>
       <Secao titulo="Detalhe" destaque="por visão">
         <AbasVisao visoes={VISOES} atual={visao} params={params} />

@@ -1,7 +1,7 @@
 # Central de Manutenção · PCM F26
 
 App web de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção Profissional · Alpargatas F26. Junta
-**ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe da planilha de Gestão de
+**ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe cadastrada na Gestão de
 HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52**, o **catálogo de materiais do Sysmat**, **requisições de compra** e o
 **Gerenciador de AF** (análises de falha e plano de ação) numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
 Funciona no computador e no celular, com login, funções (quem vê cada aba) e perfis de acesso.
@@ -216,12 +216,20 @@ Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfi
   esquerda é a pior situação (atrasada, programada, concluída, cancelada) e o ativo abre a lista das ordens. Filtros de
   situação, turno, setor, centro e localização; a busca acha também o campo de ordenação e o nome do ativo.
 - **Planos** — as chamadas de cada plano semana a semana (tabela) a partir da **IP19**, aderência e carga semanal.
-- **Gerenciador de HH** (Planejamento) — disponibilidade de cada pessoa da planilha de Gestão de HH: jornada
-  semanal, % disponível para manutenção, se conta na capacidade, observação e ausências com período (férias,
-  afastamento, treinamento, folga, licença…). Alimenta a utilização da mão de obra, a capacidade do backlog e a
-  carga × capacidade da Programação semanal. Grava em `hh_disponibilidade.json` na pasta do app (editores e
-  administradores; Líder e Analista veem).
-- **Visões de HH** (indicadores de horas, Mão de obra e backlog, quem fez o quê): só as pessoas da planilha de
+- **Gerenciador de HH** (Planejamento) — a **equipe por cadastro manual** (matrícula, nome, cargo, centro, área,
+  turma, supervisor; desligar mantém o histórico) e a disponibilidade de cada pessoa: jornada semanal, % disponível
+  para manutenção, se conta na capacidade, observação e ausências com período (férias, afastamento, treinamento,
+  folga, licença…). A planilha de Gestão de HH **não é mais enviada**: enquanto ninguém foi cadastrado, a equipe vem
+  da última planilha e o botão **Passar a equipe para o cadastro** traz todos (jornada, % e ausências continuam).
+  Alimenta a utilização da mão de obra, a capacidade do backlog e a carga × capacidade da Programação semanal.
+  Grava em `hh_disponibilidade.json` na pasta do app (editores e administradores; Líder e Analista veem).
+- **Treinamentos e férias** (Planejamento) — as férias e os treinamentos da equipe (o mesmo cadastro da Gestão de
+  HH): quem está fora hoje e nos próximos 30 dias, HH perdidas no período, cobertura por centro (alerta quando mais
+  de 30% dos técnicos ficam fora no mesmo dia), férias no ano civil (gozados, programados, contra 30 dias), mapa de
+  férias por mês, reciclagens (o treinamento mais recente de cada nome define a validade: vencido, vence em até 60
+  dias, em dia) e matriz pessoa × treinamento. Treinamento com carga horária tira só essas horas da capacidade
+  (0 = EAD ou fora do horário).
+- **Visões de HH** (indicadores de horas, Mão de obra e backlog, quem fez o quê): só as pessoas da equipe da
   **Gestão de HH** — quem aponta na IW47 sem estar nela aparece em Qualidade dos dados; execução das atividades,
   MTTR e preditiva continuam com todos os apontamentos.
 - **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e

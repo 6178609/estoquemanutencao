@@ -40,7 +40,7 @@ def nomes(equipe: pd.DataFrame | None) -> dict[str, str]:
 
 
 def apontamentos(conf: pd.DataFrame | None, equipe: pd.DataFrame | None = None) -> pd.DataFrame:
-    """IW47 com o nome da pessoa (planilha de Gestão de HH; sem cadastro, a matrícula)."""
+    """IW47 com o nome da pessoa (equipe da Gestão de HH; sem cadastro, a matrícula)."""
     cols = ["Nº pessoal", "Pessoa", "Ordem", "Operação", "Op", "Data", "Horas", "Centro de trabalho"]
     if conf is None or not len(conf):
         return pd.DataFrame(columns=cols)

@@ -51,13 +51,16 @@ with st.container(border=True):
 
 carregadas = {IW38: bases.iw38(), MB52: bases.mb52(), REQ: bases.requisicoes(), IP19: bases.ip19(),
                OPER: bases.operacoes(), NOTAS: bases.notas(), EQUIP: bases.equipamentos(),
-               CONF: bases.confirmacoes(), EQUIPE: bases.equipe(), AF: bases.afs(), ACAO_AF: bases.acoes_af(),
+               CONF: bases.confirmacoes(), EQUIPE: bases.equipe_da_planilha(), AF: bases.afs(), ACAO_AF: bases.acoes_af(),
                CATMAT: bases.catalogo()}
 
 for tipo in TIPOS:
     b = carregadas[tipo]
     with st.container(border=True):
         st.markdown(f"#### {NOMES_BASE[tipo]}")
+        if tipo == EQUIPE:
+            st.info("A equipe agora é **cadastrada na Gestão de HH** (site novo): a planilha não é mais enviada e só "
+                    "serve para passar a equipe para o cadastro na primeira vez.", icon=":material/badge:")
         if b.origem:
             c = st.columns([4, 2, 2])
             if len(b.origens) > 1:

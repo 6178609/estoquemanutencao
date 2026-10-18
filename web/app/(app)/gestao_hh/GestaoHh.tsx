@@ -1,11 +1,11 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarX2, Download, Lock, Save, Trash2, Undo2 } from "lucide-react";
+import { Download, Lock, Save, Trash2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
-import { Campo, Mensagem, Seletor } from "@/components/Campos";
+import { Mensagem } from "@/components/Campos";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { cor, type Cor } from "@/components/graficos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
@@ -15,21 +15,24 @@ import { dataBr, partes } from "@/lib/wcm/util";
 import { GradeTiles, Quadro, Tile } from "../execucao/_ui/Blocos";
 import { horas, int, num } from "../execucao/_ui/fmt";
 import { baixarCsv, type Coluna } from "../execucao/_ui/Tabela";
-import { adicionarAusencia, removerAusencias, salvarDisponibilidade, type EdicaoPessoa } from "./acoes";
+import { removerAusencias, salvarDisponibilidade, type EdicaoPessoa } from "./acoes";
+import { FormAusencia } from "./FormAusencia";
 
 export interface PessoaLinha {
   np: string; nome: string; cargo: string; especialidade: string; centro: string; area: string; turma: string;
   jornada: number; disponivel: number; conta: boolean; obs: string; diasAusente: number;
   horasBrutas: number; horasAusente: number; horasDisp: number;
 }
-export interface AusenciaLinha { np: string; id: string; tipo: string; de: number; ate: number; obs: string }
+export interface AusenciaLinha {
+  np: string; id: string; tipo: string; de: number; ate: number; obs: string; titulo: string; horas: number | null; entidade: string;
+  validade: number | null;
+}
 
 /** Cores dos tipos de ausência (identidade: no máximo 4; o resto em "Outros"). */
 const COR_TIPO: [string, Cor][] = [["Férias", "serie-1"], ["Afastamento (atestado / INSS)", "serie-2"], ["Treinamento", "serie-3"]];
 const OUTROS = "Outros (folga, licença, cedido…)";
 const corTipo = (t: string): Cor => COR_TIPO.find(([n]) => n === t)?.[1] ?? "serie-4";
 const grupoTipo = (t: string) => (COR_TIPO.some(([n]) => n === t) ? t : OUTROS);
-const iso = (d: number) => new Date(d * 86_400_000).toISOString().slice(0, 10);
 
 export function GestaoHh({ visao, pessoas, ausencias, hoje, ini, fim, edita, horasSemana, tipos }: {
   visao: string; pessoas: PessoaLinha[]; ausencias: AusenciaLinha[]; hoje: number; ini: number; fim: number; edita: boolean;
@@ -64,7 +67,7 @@ export function GestaoHh({ visao, pessoas, ausencias, hoje, ini, fim, edita, hor
       </div>
       <GradeTiles colunas={5}>
         <Tile rotulo="Pessoas" valor={int(vis.length)} detalhe={`${int(cap.length)} contam na capacidade`}
-          dica="Pessoas da planilha de Gestão de HH no recorte. Apoio/gestão e planejamento não contam na capacidade, a menos que alguém marque." />
+          dica="Pessoas da equipe da Gestão de HH no recorte. Apoio/gestão e planejamento não contam na capacidade, a menos que alguém marque." />
         <Tile rotulo="HH da jornada" valor={horas(brutas)} detalhe={`${int(fim - ini + 1)} dias corridos`}
           dica="Jornada semanal × dias do período ÷ 7, de quem conta na capacidade." />
         <Tile rotulo="Ausências" valor={horas(cap.reduce((s, p) => s + p.horasAusente, 0))}
@@ -211,53 +214,36 @@ const situacao = (a: AusenciaLinha, hoje: number) => (a.de <= hoje && hoje <= a.
 const COLS_AUS: Coluna[] = [
   { id: "nome", rotulo: "Nome" }, { id: "np", rotulo: "Nº pessoal" }, { id: "centro", rotulo: "Centro de trabalho" }, { id: "tipo", rotulo: "Tipo" },
   { id: "de", rotulo: "De", tipo: "data" }, { id: "ate", rotulo: "Até", tipo: "data" }, { id: "dias", rotulo: "Dias", tipo: "num" },
-  { id: "situacao", rotulo: "Situação" }, { id: "obs", rotulo: "Obs" },
+  { id: "situacao", rotulo: "Situação" }, { id: "titulo", rotulo: "Treinamento" }, { id: "horas", rotulo: "Carga horária (h)", tipo: "num", casas: 1 },
+  { id: "entidade", rotulo: "Entidade" }, { id: "validade", rotulo: "Validade", tipo: "data" }, { id: "obs", rotulo: "Obs" },
 ];
 
-function Ausencias({ pessoas, npsVis, ausencias, hoje, edita, tipos }: { pessoas: PessoaLinha[]; npsVis: Set<string> | null;
-  ausencias: AusenciaLinha[]; hoje: number; edita: boolean; tipos: string[] }) {
+export function Ausencias({ pessoas, npsVis, ausencias, hoje, edita, tipos, tipoInicial, tituloForm, sugestoes, nomeCsv = "ausencias_equipe" }: {
+  pessoas: Pick<PessoaLinha, "np" | "nome" | "centro">[]; npsVis: Set<string> | null; ausencias: AusenciaLinha[]; hoje: number; edita: boolean;
+  tipos: string[]; tipoInicial?: string; tituloForm?: string; sugestoes?: string[]; nomeCsv?: string }) {
   const router = useRouter();
   const [passadas, setPassadas] = useState(false);
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [ocupado, iniciar] = useTransition();
-  const [form, setForm] = useState({ np: "", tipo: tipos[0], de: iso(hoje), ate: iso(hoje), obs: "" });
   const porNp = new Map(pessoas.map((p) => [p.np, p]));
   const linhas = ausencias.filter((a) => (!npsVis || npsVis.has(a.np)) && (passadas || a.ate >= hoje))
-    .map((a) => ({ ...a, nome: porNp.get(a.np)?.nome ?? "(fora da planilha de Gestão de HH)", centro: porNp.get(a.np)?.centro ?? "",
+    .map((a) => ({ ...a, nome: porNp.get(a.np)?.nome ?? "(fora da equipe da Gestão de HH)", centro: porNp.get(a.np)?.centro ?? "",
       dias: a.ate - a.de + 1, situacao: situacao(a, hoje), chave: `${a.np}\u0000${a.id}` }))
     .sort((x, y) => x.de - y.de || x.nome.localeCompare(y.nome));
 
-  const responder = (r: Awaited<ReturnType<typeof adicionarAusencia>>, depois?: () => void) => {
+  const responder = (r: Awaited<ReturnType<typeof removerAusencias>>, depois?: () => void) => {
     if (r.ok) { setMsg({ tipo: "ok", texto: r.msg }); depois?.(); router.refresh(); } else setMsg({ tipo: "erro", texto: r.erro });
-  };
-  const adicionar = (e: React.FormEvent) => {
-    e.preventDefault();
-    iniciar(async () => responder(await adicionarAusencia(form.np, form.tipo, form.de, form.ate, form.obs), () => setForm((f) => ({ ...f, np: "", obs: "" }))));
   };
   const remover = () => {
     const sel = linhas.filter((l) => marcadas.has(l.chave)).map((l) => ({ np: l.np, id: l.id }));
     if (!sel.length || !confirm(`Remover ${sel.length} ausência(s)?`)) return;
     iniciar(async () => responder(await removerAusencias(sel), () => setMarcadas(new Set())));
   };
-  const opcoesPessoa = Object.fromEntries([...pessoas].sort((a, b) => a.nome.localeCompare(b.nome)).map((p) => [p.np, `${p.nome} · ${p.centro} (${p.np})`]));
-
   return (
     <div className="space-y-4">
       {msg && <Mensagem tipo={msg.tipo}>{msg.texto}</Mensagem>}
-      {edita && (
-        <Quadro titulo="Nova ausência" subtitulo="Férias, afastamento, treinamento… — datas inclusivas; cada dia corrido tira jornada ÷ 7 das horas disponíveis">
-          <form onSubmit={adicionar} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1.4fr_1fr_1fr_1.6fr_auto] lg:items-end">
-            <Seletor rotulo="Pessoa" opcoes={opcoesPessoa} vazio="Escolha a pessoa" value={form.np} required
-              onChange={(e) => setForm({ ...form, np: e.target.value })} />
-            <Seletor rotulo="Tipo" opcoes={Object.fromEntries(tipos.map((t) => [t, t]))} value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
-            <Campo rotulo="De" type="date" value={form.de} required onChange={(e) => setForm({ ...form, de: e.target.value, ate: e.target.value > form.ate ? e.target.value : form.ate })} />
-            <Campo rotulo="Até" type="date" value={form.ate} min={form.de} required onChange={(e) => setForm({ ...form, ate: e.target.value })} />
-            <Campo rotulo="Observação" placeholder="opcional" value={form.obs} maxLength={300} onChange={(e) => setForm({ ...form, obs: e.target.value })} />
-            <button type="submit" disabled={ocupado || !form.np} className={BOTAO_PRIMARIO}><CalendarX2 className="size-4" />Adicionar</button>
-          </form>
-        </Quadro>
-      )}
+      {edita && <FormAusencia pessoas={pessoas} tipos={tipos} hoje={hoje} tipoInicial={tipoInicial} titulo={tituloForm} sugestoes={sugestoes} />}
       <Quadro titulo="Ausências cadastradas" subtitulo={`${int(linhas.length)} ausência(s)${passadas ? "" : " em andamento ou futuras"}${npsVis ? " · só das pessoas do recorte" : ""}`}
         acoes={
           <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +252,7 @@ function Ausencias({ pessoas, npsVis, ausencias, hoje, edita, tipos }: { pessoas
               Mostrar também as encerradas
             </label>
             {linhas.length > 0 && (
-              <button onClick={() => baixarCsv("ausencias_equipe", COLS_AUS, linhas)}
+              <button onClick={() => baixarCsv(nomeCsv, COLS_AUS, linhas.map((l) => ({ ...l, horas: l.horas ?? "", validade: l.validade ?? "" })))}
                 className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-2.5 text-[12.5px] text-texto-2 hover:text-texto">
                 <Download className="size-3.5" /> Baixar CSV
               </button>
@@ -301,7 +287,7 @@ function Ausencias({ pessoas, npsVis, ausencias, hoje, edita, tipos }: { pessoas
                     <td className="px-3 py-1.5 font-medium">{l.nome}</td>
                     <td className="num px-3 py-1.5 font-mono text-[12px]">{l.np}</td>
                     <td className="num px-3 py-1.5 font-mono text-[12px]">{l.centro}</td>
-                    <td className="px-3 py-1.5"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: cor(corTipo(l.tipo)) }} />{l.tipo}</span></td>
+                    <td className="px-3 py-1.5"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: cor(corTipo(l.tipo)) }} />{l.tipo}{l.titulo ? ` · ${l.titulo}` : ""}{l.horas != null ? ` (${num(l.horas, 1)} h)` : ""}</span></td>
                     <td className="num px-3 py-1.5 tabular-nums">{dataBr(l.de)}</td>
                     <td className="num px-3 py-1.5 tabular-nums">{dataBr(l.ate)}</td>
                     <td className="num px-3 py-1.5 tabular-nums">{l.dias}</td>

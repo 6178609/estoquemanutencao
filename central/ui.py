@@ -131,6 +131,8 @@ def chip_base(base: bases.Base, nome: str) -> str:
         return f'<span class="cm-chip cm-falta">{nome}: erro</span>'
     if base.df is None:
         return f'<span class="cm-chip cm-falta">{nome}: não encontrada</span>'
+    if base.origem is None:   # cadastro do app (ex.: equipe da Gestão de HH), não um export do SAP
+        return f'<span class="cm-chip cm-ok" title="Cadastro do app">{nome}: cadastro</span>'
     velho = datetime.now(timezone.utc) - base.atualizado > timedelta(days=cfg.dias_alerta)
     classe = "cm-velho" if velho else "cm-ok"
     return f'<span class="cm-chip {classe}" title="{base.origem.rotulo}">{nome}: {idade(base.atualizado)}</span>'
@@ -191,6 +193,8 @@ def aviso_base(base: bases.Base, tipo: str) -> bool:
     if base.erro:
         st.error(f"Não foi possível ler **{base.origem.rotulo}**: {base.erro}")
         return False
+    if base.df is not None and base.origem is None:   # cadastro do app (ex.: equipe da Gestão de HH)
+        return True
     if base.df is None:
         st.info(f"Nenhum arquivo de **{NOMES_BASE[tipo]}** foi encontrado nas pastas monitoradas. "
                 "Salve o export do SAP numa delas (o app acha sozinho) ou envie pela página **Fontes de dados**.",

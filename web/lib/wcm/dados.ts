@@ -13,7 +13,8 @@ import {
   prepararRequisicoes, tiposPorOrdem, type Confirmacao, type Crua, type Equipamento, type Nota, type Operacao, type Ordem,
   type Pessoa, type Requisicao,
 } from "./preparo";
-import { hoje } from "./util";
+import * as hh from "./hh";
+import { hashTexto, hoje } from "./util";
 
 /**
  * As bases do SAP já preparadas, para as páginas (servidor). Cada uma com cache pela versão do arquivo no
@@ -41,6 +42,10 @@ export const COOKIE_ENVIO = "cmw_envio";
 export const ENVIO_VALE_MS = 2 * 60_000;
 
 export async function bases(): Promise<Bases> {
+  return comEquipe(await basesDosExports());
+}
+
+async function basesDosExports(): Promise<Bases> {
   const h = hoje();
   const f = fonte();
   if (!f) return basesDemo(h);
@@ -92,8 +97,47 @@ async function envioRecente(): Promise<number> {
   }
 }
 
+const ARQ_HH = `app/${hh.ARQ}`;
 const ARQUIVOS_WCM = [DESTINO.iw38, DESTINO.iw38op, DESTINO.iw47, DESTINO.iw28, DESTINO.ih08, DESTINO.equipe, DESTINO.requisicoes,
   DESTINO.ip19, DESTINO.af, DESTINO.acoes_af];
+
+export const ORIGEM_CADASTRO = "Cadastro da Gestão de HH";
+
+/**
+ * A equipe do cadastro manual da Gestão de HH (null = ninguém cadastrado ainda: vale a última planilha). Guardada pela
+ * versão do cadastro; `atualizado` leva essa versão, para as assinaturas dos caches mudarem a cada gravação.
+ */
+const ge = globalThis as unknown as { __cmEquipeCad?: { versao: string; base: Base<Pessoa[]> | null } };
+async function equipeDoCadastro(): Promise<Base<Pessoa[]> | null> {
+  const f = fonte();
+  // demonstração: o cadastro fica na memória do processo (a versão é o próprio conteúdo)
+  const versao = f ? (await f.versoes()).get(ARQ_HH) ?? "" : `demo:${hashTexto(JSON.stringify(await lerCadastro(hh.ARQ)))}`;
+  if (!versao) return null;
+  if (ge.__cmEquipeCad?.versao === versao) return ge.__cmEquipeCad.base;
+  const cad = await lerCadastro(hh.ARQ);
+  const base = hh.temEquipeCadastrada(cad)
+    ? { dados: hh.equipeDoCadastro(cad, { excluirForaDaVisao: true }), atualizado: `cadastro:${versao}`, origem: ORIGEM_CADASTRO }
+    : null;
+  ge.__cmEquipeCad = { versao, base };
+  return base;
+}
+
+/** A equipe atual: o cadastro da Gestão de HH; enquanto ninguém foi cadastrado, a última planilha enviada. */
+async function equipeAtual(): Promise<Base<Pessoa[]>> {
+  return (await equipeDoCadastro().catch(() => null)) ?? lerBase(DESTINO.equipe, (l) => prepararEquipe(l));
+}
+
+/** As bases com a equipe do cadastro por cima (sem refazer a montagem a cada gravação de férias ou pessoa). */
+const memoEquipe = new WeakMap<Bases, { equipe: Base<Pessoa[]>; valor: Bases }>();
+async function comEquipe(valor: Bases): Promise<Bases> {
+  const cad = await equipeDoCadastro().catch(() => null);
+  if (!cad) return valor;
+  const m = memoEquipe.get(valor);
+  if (m?.equipe === cad) return m.valor;
+  const novo = { ...valor, equipe: cad };
+  memoEquipe.set(valor, { equipe: cad, valor: novo });
+  return novo;
+}
 
 async function montarBases(h: number, assin: string | null): Promise<Bases> {
   const dia = String(h);
@@ -126,10 +170,16 @@ async function montarBases(h: number, assin: string | null): Promise<Bases> {
   return valor;
 }
 
-/** Só a lista da Gestão de HH (para conferir um pedido de acesso sem ler as outras bases). */
+/** Só a equipe (para conferir um pedido de acesso sem ler as outras bases). */
 export async function equipe(): Promise<Pessoa[]> {
-  if (!fonte()) return basesDemo(hoje()).equipe.dados || [];
-  return (await lerBase(DESTINO.equipe, (l) => prepararEquipe(l))).dados || [];
+  if (!fonte()) return ((await equipeDoCadastro()) ?? basesDemo(hoje()).equipe).dados || [];
+  return (await equipeAtual()).dados || [];
+}
+
+/** A equipe da última planilha de Gestão de HH (origem da migração para o cadastro). */
+export async function equipeDaPlanilha(): Promise<Base<Pessoa[]>> {
+  if (!fonte()) return basesDemo(hoje()).equipe;
+  return lerBase(DESTINO.equipe, (l) => prepararEquipe(l));
 }
 
 /** Os cadastros do app que os indicadores usam (metas, equipamentos, materiais, HH). */

@@ -11,7 +11,7 @@ import * as hh from "./hh";
 import * as ind from "./indicadores";
 import * as planos from "./planos";
 import type { Confirmacao, Ordem } from "./preparo";
-import { SETORES, setorDoCentro, somarMeses, inicioDoMes, type Dia } from "./util";
+import { hashTexto, SETORES, setorDoCentro, somarMeses, inicioDoMes, type Dia } from "./util";
 
 /**
  * Liga as telas WCM aos dados (porta de central/contexto.py): filtros globais em cascata, dados do recorte e os
@@ -132,7 +132,7 @@ export function filtrarConf(c: Contexto, conf: Confirmacao[] | null, areas: stri
 export async function dados(c: Contexto, recorte?: { areas?: string[]; centros?: string[]; tipos?: string[] }): Promise<ind.Dados> {
   const areas = recorte?.areas ?? c.f.areas, centros = recorte?.centros ?? c.centros, tiposF = recorte?.tipos ?? c.f.tipos;
   const est = await lerEstoque();
-  return guardado(`d|${assinatura(c.b)}|${areas}|${centros}|${tiposF}|${JSON.stringify(c.cad.metas).length}|${JSON.stringify(c.cad.hh).length}`, () => {
+  return guardado(`d|${assinatura(c.b)}|${areas}|${centros}|${tiposF}|${hashTexto(JSON.stringify(c.cad.metas))}|${hashTexto(JSON.stringify(c.cad.hh))}`, () => {
     const o = c.b.ordens.dados ?? [];
     const ordens = o.filter((x) => (!areas.length || areas.includes(x.localizacao)) && (!centros.length || centros.includes(x.centroTrabalho))
       && (!tiposF.length || tiposF.includes(x.tipo)));

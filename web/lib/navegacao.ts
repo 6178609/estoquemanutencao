@@ -34,6 +34,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "execucao", titulo: "Execução das atividades", icone: "CircleCheckBig", rota: "/execucao" },
     { id: "mao_de_obra", titulo: "Mão de obra e backlog", icone: "HardHat", rota: "/mao_de_obra" },
     { id: "gestao_hh", titulo: "Gerenciador de HH", icone: "UsersRound", rota: "/gestao_hh" },
+    { id: "treinamentos_ferias", titulo: "Treinamentos e férias", icone: "GraduationCap", rota: "/treinamentos_ferias" },
   ] },
   { titulo: "Custos e suprimentos", abas: [
     { id: "custos", titulo: "Custos", icone: "Wallet", rota: "/custos" },
