@@ -7,7 +7,7 @@ import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
 import * as ind from "@/lib/wcm/indicadores";
 
 /**
- * Gravações da aba Metas e parâmetros — o MESMO metas_wcm.json do app Streamlit (paginas/metas.py):
+ * Gravações da aba Metas e parâmetros — o metas_wcm.json:
  *   "<id do indicador>" → {"meta": x | ""} (mesclar) · "_parametros" → {"horas_semana": x} (mesclar)
  *   "capacidade:<centro>" → {"hh": x} ou removido · "tipo:<código>" → {"descricao": "...", "classe": "..."} (mesclar)
  */
@@ -26,7 +26,7 @@ async function gravar(itens: Record<string, Record<string, unknown> | null>, usu
   return { erro: "", ok };
 }
 
-/** {id: meta | null} — null deixa o indicador sem meta (grava "" como o Streamlit). */
+/** {id: meta | null} — null deixa o indicador sem meta (grava ""). */
 export async function salvarMetas(mudancas: Record<string, number | null>): Promise<Resposta> {
   const u = await autorizar("metas", true);
   if (!u) return NEGADO;

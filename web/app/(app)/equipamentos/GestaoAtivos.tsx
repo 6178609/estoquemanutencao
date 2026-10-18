@@ -16,7 +16,7 @@ import { hrefCom, type Params } from "./_ui/url";
 import { inventarioAtivos } from "./dados";
 import { CampoEq, filtrarInventario, lerFiltroInventario, paginar, param, ROTULO_CAMPO, SEM_CLASSE, V_ANALISE, V_CADASTRO } from "./logica";
 
-/** Visão "Gestão de ativos" (porta de central/ativos_ui.py) — a única que o Manutentor vê, sem editar. */
+/** Visão "Gestão de ativos" — a única que o Manutentor vê, sem editar. */
 
 export const COR_REC: Record<string, Cor> = {
   [ativos.SUBSTITUIR]: "st-critico", [ativos.CRIAR_PLANO]: "st-serio", [ativos.ATACAR]: "st-atencao", [ativos.CLASSIFICAR]: "neutro",

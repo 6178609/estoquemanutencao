@@ -7,8 +7,7 @@ import pandas as pd
 import pytest
 
 from automacao import robo_sap
-from central import calendario as cal
-from central import mudanca_datas as md
+from sincronizador import mudanca_datas as md
 
 T = pd.Timestamp
 
@@ -72,8 +71,6 @@ def test_lote_resultado_desfazer_e_calendario_principal():
     ajustes = md.datas_alteradas({lote_id: feito}, datetime(2026, 10, 6, tzinfo=timezone.utc))
     assert ajustes == {"1": ("2026-10-07", "2026-10-07")}
     assert md.datas_alteradas({lote_id: feito}, datetime(2026, 10, 8, tzinfo=timezone.utc)) == {}
-    o = cal.com_datas_alteradas(_ordens().assign(Data=_ordens()["Início"]), ajustes).set_index("Ordem")
-    assert o.loc["1", "Data"] == o.loc["1", "Início"] == T("2026-10-07") and o.loc["1", "Fim"] == T("2026-10-07") and o.loc["1", "Ajustada"]
     _, volta = md.lote_desfazer(feito, "ANA")
     assert volta["itens"] == [{"ordem": "1", "campo": "M1", "dia": "2026-10-01", "de_inicio": "2026-10-07",
                                "de_fim": "2026-10-07", "para_inicio": "2026-10-01", "para_fim": "2026-10-03",

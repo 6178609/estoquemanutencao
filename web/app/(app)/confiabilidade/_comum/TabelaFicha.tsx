@@ -8,7 +8,7 @@ import { TabelaDados, type Celula, type Coluna } from "./TabelaDados";
 
 /**
  * Tabela em que a 1ª coluna é o código do equipamento: clicar numa linha mostra o atalho para a ficha dele
- * (aba Equipamentos), como o link_ficha do app Streamlit.
+ * (aba Equipamentos).
  */
 export function TabelaFicha({ colunas, linhas, busca, baixar, limite, alturaMax, colunaNome = 1, colunaCodigo = 0 }: {
   colunas: Coluna[]; linhas: Celula[][]; busca?: string; baixar?: string; limite?: number; alturaMax?: number; colunaNome?: number;

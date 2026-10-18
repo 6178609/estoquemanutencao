@@ -53,9 +53,18 @@ describe("treinamentos e férias", () => {
     expect(f[0]).toEqual({ np: "10", gozados: 10, programados: 10, total: 20, restante: 10, proxima: D(2026, 11, 2) });
     expect(f[1]).toMatchObject({ gozados: 0, programados: 0, restante: 30, proxima: null });
   });
-  it("reciclagem pelo mais recente de cada nome (sem acento/maiúsculas); vencida, em breve e em dia", () => {
+  it("reciclagem pelo último realizado de cada nome (sem acento/maiúsculas); vencida, em breve e em dia", () => {
     const r = tr.reciclagens(aus, hoje);
     expect(r.map((x) => [x.np, x.titulo, x.situacao])).toEqual([["20", "NR-35", "Vence em breve"], ["10", "nr-10 Reciclagem", "Em dia"]]);
+    // turma agendada não esconde a vencida; só agendada = "Agendado"
+    const comAgenda = hh.ausencias({ "10": { nome: "ANA", ausencias: [
+      { id: "x", tipo: "Treinamento", de: "2024-01-10", ate: "2024-01-10", titulo: "NR-33", validade: "2026-01-10" },
+      { id: "y", tipo: "Treinamento", de: "2026-11-20", ate: "2026-11-20", titulo: "NR-33", validade: "2028-11-20" },
+      { id: "z", tipo: "Treinamento", de: "2026-12-01", ate: "2026-12-01", titulo: "NR-12" },
+    ] } });
+    const ra = tr.reciclagens(comAgenda, hoje);
+    expect(ra.find((x) => x.titulo === "NR-33")).toMatchObject({ situacao: "Vencido", agendado: D(2026, 11, 20) });
+    expect(ra.find((x) => x.titulo === "NR-12")).toMatchObject({ situacao: "Agendado", realizado: null });
     expect(tr.reciclagens(aus, D(2026, 10, 25)).find((x) => x.np === "20")!.situacao).toBe("Vencido");
     const m = tr.matrizTreinamentos(r);
     expect(m.titulos.map((t) => t.titulo).sort()).toEqual(["NR-35", "nr-10 Reciclagem"]);

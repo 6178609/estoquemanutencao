@@ -1,5 +1,5 @@
 /**
- * Abas do sistema — a MESMA lista de central/navegacao.py (o teste tests/test_web_navegacao.py confere).
+ * Abas do sistema.
  * `rota`: endereço da aba no site novo.
  */
 export interface Aba {

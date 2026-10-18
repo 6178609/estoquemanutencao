@@ -3,7 +3,7 @@ import type { Crua, Ordem } from "./preparo";
 import { dia, foraDaVisao, hoje as hojeLocal, mediana, paraData, partes, setorDoCentro, type Dia } from "./util";
 
 /**
- * Planos de manutenção — porta de central/planos.py. As chamadas da IP19 (programação dos planos) num calendário
+ * Planos de manutenção. As chamadas da IP19 (programação dos planos) num calendário
  * semanal, cruzadas com as ordens do IW38 para saber o que foi executado.
  *
  * Sem IP19, monta a mesma visão a partir das ordens do IW38 que têm plano (só o que já virou ordem; as chamadas
@@ -493,7 +493,7 @@ export function celulas(ch: ChamadaClassificada[], inicio: Dia, fim: Dia, ordemP
 }
 
 // ----------------------------------------------------------------------------
-// O que a página mostra (filtros, indicadores e detalhe do plano) — as contas de paginas/planos.py
+// O que a página mostra (filtros, indicadores e detalhe do plano)
 // ----------------------------------------------------------------------------
 export interface FiltroPlanos {
   inicio: Dia; fim: Dia;

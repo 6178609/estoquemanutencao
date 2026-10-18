@@ -106,7 +106,7 @@ async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel:
   const intervalo = intervaloMedio(corr.map((o) => o.data!));
   const custoTotal = hist.reduce((s, o) => s + (Number.isNaN(o.custoReal) ? 0 : o.custoReal), 0);
 
-  // confiabilidade: quebras da fábrica inteira (como no site atual), deste equipamento
+  // confiabilidade: quebras da fábrica inteira, deste equipamento
   const dF = await dados(c, FABRICA);
   const qEq = ind.quebras(dF).filter((q) => q.equipChave === sel);
   const qPer = qEq.filter((q) => q.data != null && q.data >= c.f.ini && q.data <= c.f.fim);

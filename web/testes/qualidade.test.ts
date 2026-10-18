@@ -51,7 +51,7 @@ describe("qualidade.verificar", () => {
     const i = ql.indice(lista)!;
     expect(i).toBeGreaterThanOrEqual(0);
     expect(i).toBeLessThan(100);
-    // mesma ordem do site atual
+    // ordem das checagens
     expect(lista.map((c) => c.id)).toEqual(["quebras_sem_reparo", "y1_sem_ordem", "notas_sem_ordem", "ordens_sem_equip",
       "prazo_antes_inicio", "ente_sem_conf", "concluidas_sem_fim", "backlog_velho", "equip_sem_criticidade", "ops_sem_trabalho",
       "apont_fora_equipe"]);

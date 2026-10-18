@@ -6,7 +6,7 @@ ramo main e copia por cima da pasta do sistema, arquivo a arquivo:
 
 - só regrava o que mudou; nunca apaga nada;
 - não toca nas configurações deste PC (sincronizador/config.toml, estado.json,
-  automacao/robo_local.toml, .streamlit/secrets.toml…), que não estão no GitHub;
+  automacao/robo_local.toml…), que não estão no GitHub;
 - o automacao/transacoes.toml anterior fica em transacoes.toml.anterior (ajustes de ID
   deste PC para a mudança de datas vão no robo_local.toml, seção [mudanca_datas]);
 - guarda a versão instalada em .versao_instalada.

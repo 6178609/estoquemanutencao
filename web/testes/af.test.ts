@@ -5,7 +5,7 @@ import { identificar } from "@/lib/leitura/tipos";
 import { marcarQuebras, type Nota } from "@/lib/wcm/preparo";
 import { dia } from "@/lib/wcm/util";
 
-/** Gerenciador de AF em miniatura, com dados fictícios (porta de tests/test_af.py). */
+/** Gerenciador de AF em miniatura, com dados fictícios. */
 const HOJE = dia(2026, 6, 30)!;
 const D = (a: number, m: number, d: number) => `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${a}`;
 

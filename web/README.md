@@ -1,8 +1,8 @@
 # Central de Manutenção · site novo (Next.js na Vercel)
 
-Central de Manutenção na Vercel — funciona sozinha, sem o app Streamlit (`../streamlit_app.py`). Lê e grava um
+Central de Manutenção na Vercel — é o site da manutenção (o antigo, em Streamlit, foi apagado). Lê e grava um
 **repositório privado de dados** no GitHub: as bases do SAP (anexadas em **Fontes de dados** ou enviadas pelo
-sincronizador do PC) e os cadastros (usuários, mínimos, equipamentos), no mesmo formato do app Streamlit.
+sincronizador do PC) e os cadastros (usuários, mínimos, equipamentos).
 
 | Onda | Abas | Situação |
 |---|---|---|
@@ -27,10 +27,10 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
 - **`bases/*.parquet`** no repositório de dados: gravados pela aba **Fontes de dados** (o export é lido no navegador)
   ou pelo sincronizador do PC; `bases/manifesto.json` guarda a data do export, a origem e, numa base grande, as
   partes. O servidor só lê esses parquets — nunca planilhas soltas.
-- **`app/*.json`**: cadastros (usuários, mínimos de estoque, equipamentos…). As gravações usam a mesma regra do app
-  Streamlit: relê, aplica só o que mudou, grava condicionado à versão (sem perder a gravação de outra pessoa) e faz
+- **`app/*.json`**: cadastros (usuários, mínimos de estoque, equipamentos…). As gravações releem o arquivo,
+  aplicam só o que mudou, gravam condicionado à versão (sem perder a gravação de outra pessoa) e fazem
   a cópia diária em `app/backup/`.
-- **Login**: Número Pessoal (NP) + senha (hash PBKDF2, o mesmo formato do app Streamlit). A sessão fica registrada
+- **Login**: Número Pessoal (NP) + senha (hash PBKDF2). A sessão fica registrada
   em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora. Depois de **30 minutos sem
   uso** (em todas as abas abertas) o site avisa 1 minuto antes e sai sozinho; o servidor também encerra a sessão parada
   (`proxy.ts`, regra em `lib/auth/inatividade.ts`).
@@ -52,7 +52,7 @@ Nenhum dado da empresa vai para este repositório (ele é público).
    **código de configuração** = os 6 últimos caracteres do token (prova que quem cria configurou o site). Depois,
    a equipe é cadastrada em **Usuários** (senha provisória, trocada no primeiro acesso).
 4. **Fontes de dados**: anexe os exports do SAP (vários de uma vez). O navegador reconhece cada base pelos
-   cabeçalhos (`lib/leitura/`, porta de `central/leitura.py`), gera o parquet e envia — em partes de até 3 MB
+   cabeçalhos (`lib/leitura/`; o sincronizador do PC usa a mesma leitura em `sincronizador/leitura.py`), gera o parquet e envia — em partes de até 3 MB
    quando a base é grande (limite de 4,5 MB por requisição da Vercel). O manifesto só aponta para a base nova quando
    a última parte chega. O sincronizador do PC (`sincronizador/`) continua opcional, gravando o mesmo arquivo.
 
@@ -81,4 +81,4 @@ npm run build
 
 Estrutura: `app/` (telas e rotas de API), `components/` (design system), `lib/dados/` (fonte GitHub/pasta/demo,
 parquet, MB52 e catálogo do Sysmat, cadastros), `lib/auth/` (login, sessões e acesso por função),
-`lib/navegacao.ts` (a mesma lista de abas de `central/navegacao.py` — `tests/test_web_navegacao.py` confere).
+`lib/navegacao.ts` (a lista de abas).

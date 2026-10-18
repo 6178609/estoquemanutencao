@@ -3,7 +3,7 @@ import { foraDaVisao, paraData, setorDoCentro, type Dia } from "./util";
 
 /**
  * Gerenciador de HH: disponibilidade de cada pessoa da equipe (planilha de Gestão de HH) para a manutenção.
- * Porta de central/hh.py — só as regras; ler/gravar o cadastro fica com lib/dados/cadastros.ts
+ * Só as regras; ler/gravar o cadastro fica com lib/dados/cadastros.ts
  * (lerCadastro(ARQ) / gravarCadastroLote(ARQ, …, mesclar)).
  *
  * O que fica gravado (cadastro `hh_disponibilidade.json` na pasta do app), por matrícula:
@@ -57,7 +57,7 @@ export interface PessoaHh {
   observacao: string;
 }
 
-/** Colunas da tabela/planilha baixada (campo → rótulo do site atual). */
+/** Colunas da tabela/planilha baixada (campo → rótulo). */
 export const COLUNAS: [keyof PessoaHh, string][] = [
   ["np", "Nº pessoal"], ["nome", "Nome"], ["cargo", "Cargo"], ["especialidade", "Especialidade"],
   ["centroTrabalho", "Centro de trabalho"], ["area", "Área"], ["turma", "Turma"], ["jornada", "Jornada (h/sem)"],
@@ -237,7 +237,7 @@ export function ausentesEm(pes: PessoaHh[], cad: CadastroHh | null | undefined, 
 }
 
 // ----------------------------------------------------------------------------
-// Apoio à tela (paginas/gestao_hh.py)
+// Apoio à tela
 // ----------------------------------------------------------------------------
 /** Dias corridos da ausência (inclusivo). */
 export const diasDaAusencia = (a: Pick<Ausencia, "de" | "ate">) => a.ate - a.de + 1;

@@ -5,7 +5,7 @@ import { inicioDoMes, type Dia } from "@/lib/wcm/util";
 import { GRUPOS_CLASSE, grupoDaClasse, maiores, mesesEntre, pareto, somarPor } from "../confiabilidade/_comum/agregar";
 
 /**
- * Contas da aba Custos (porta de paginas/custos.py), puras para testar (testes/custos.test.ts).
+ * Contas da aba Custos, puras para testar (testes/custos.test.ts).
  * Base: ordens do IW38 do período, sem as canceladas; custo = custo real total da ordem.
  */
 export interface OrdemCusto extends Ordem { classe: string; tipoNome: string }

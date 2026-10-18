@@ -1,334 +1,43 @@
 # Central de Manutenção · PCM F26
 
-App web de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção Profissional · Alpargatas F26. Junta
-**ordens do IW38** (com as operações do IW38OP), **apontamentos de horas da IW47**, **equipe cadastrada na Gestão de
-HH**, **planos da IP19**, **notas da IW28**, **equipamentos da IH08**, **estoque do MB52**, o **catálogo de materiais do Sysmat**, **requisições de compra** e o
-**Gerenciador de AF** (análises de falha e plano de ação) numa tela só, com indicadores, metas, farol e tendência, e **se atualiza sozinho**: ninguém precisa importar planilha.
-Funciona no computador e no celular, com login, funções (quem vê cada aba) e perfis de acesso.
+Site de gestão da manutenção de nível WCM (pilar **Manutenção Profissional**) da SIM Manutenção Profissional ·
+Alpargatas F26: ordens (IW38/IW38OP), apontamentos (IW47), notas (IW28), planos (IP19), equipamentos (IH08),
+estoque (MB52), catálogo do Sysmat, requisições, Gerenciador de AF, equipe e disponibilidade (Gestão de HH),
+treinamentos e férias — com indicadores, metas, farol e tendência, login e acesso por função.
 
-Substitui o antigo `ESTOQUE MANUTENÇÃO.html` (um HTML de 3 MB com a base embutida e dados salvos só no navegador).
+## O site: [`web/`](web/README.md)
 
-## Indicadores WCM
+Next.js publicado na **Vercel** (cada push no `main` vai para produção). Lê os dados de um repositório **privado** no
+GitHub e é o único site do sistema — o antigo (Streamlit) foi apagado. Tudo sobre telas, dados, login e
+desenvolvimento está no [`web/README.md`](web/README.md).
 
-Cada indicador tem fórmula (passe o mouse no título), meta editável, farol (verde = na meta, amarelo = até 10% pior,
-vermelho = fora), variação contra o período anterior de mesma duração e tendência dos últimos 12 meses. O cálculo está
-em `central/indicadores.py` (pandas puro, com testes).
+## No PC da fábrica (Windows)
 
-| Grupo | Indicadores |
-|---|---|
-| Confiabilidade | Quebras (nota Y1 convertida em ordem YM11 — regra da planta), MTBF, MTTR, disponibilidade (MTBF ÷ (MTBF + MTTR)), reincidência (≤ 30 dias), quebras em classe A; com filtro de tipo sem YM11 os indicadores de quebra ficam sem valor |
-| Preditiva (SEMEQ) | Anomalias detectadas, % com ordem, % tratadas, dias para tratar, anomalias atrasadas (hoje) |
-| Planejamento e controle | Manutenção planejada (% com plano), corretiva emergencial, aderência ao plano (IP19), ordens concluídas no prazo, backlog em semanas, idade do backlog, notas sem ordem > 7 dias |
-| Análise de falhas (AF) | Taxa de análise de quebra crítica (A), execução de AFs, AFs analisadas no prazo, AFs atrasadas, ações de AFs (execução), ações no prazo, ações atrasadas — do Gerenciador de AF; só o período vale (as áreas do gerenciador são outras) |
-| Mão de obra | HH apontadas (IW47), utilização da equipe, % HH em plano, % HH em corretiva emergencial |
-| Custos | Custo médio mensal (meta = orçamento), % custo do backlog, custo médio por ordem |
-| Suprimentos | Itens zerados, peças críticas em falta, dias aguardando aprovação |
-
-**Quebra** = nota **Y1** da IW28 convertida em ordem **YM11**. O tipo da ordem vem do IW38/IW38OP/IW47; enquanto o
-IW38 exportado não trouxer a YM11, a nota Y1 com ordem conta como quebra (ordem de outro tipo não conta).
-
-**Fora do site:** os centros de trabalho FABPILOT, SOFICOM, ELMCPILT, MTZ_PILT, OPER_MTZ, MATR, OPER, TPME e
-ELMC_MTZ, a Fábrica Piloto (local de instalação ou objeto) e o Desenho (localização DESEN) saem de todas as bases
-(ordens, operações, notas, apontamentos, planos, equipamentos e equipe). Regra em `central/util.py` (`fora_da_visao`); desliga com
-`excluir_piloto_matriz = "não"`.
-
-**Setor:** cada centro de trabalho pertence a um setor pelo próprio código — …COMP (e GPA) = Componentes, …MONT =
-Montagem, UTIL = Utilidades, CORT = Corte, PRE = Predial, MATZ = Matrizaria, FERRAMEN = Ferramentaria, LUBRIF =
-Lubrificação, GPM = Planejamento, AUT = Automação, TERC = Terceiros (regra em `central/util.py`, `setor_do_centro`).
-Há filtro de setor na barra lateral (vale para o site todo), na execução do Painel e no calendário, além do
-"Scorecard por setor".
-
-**Regras de período:** o que ainda não aconteceu não conta (um período até 31/12 vale até hoje); mês ou período
-sem a base correspondente (ex.: antes do primeiro export) fica sem valor em vez de zero; a comparação com o período
-anterior só aparece onde a base cobre ao menos metade dele; o mês em andamento aparece com `*` nos gráficos.
-"Hoje" é sempre o horário de Brasília (o servidor na nuvem roda em UTC).
-
-**Filtros globais**: período (de/até), área (localização), setor, centro de trabalho e tipo de ordem — valem para todas
-as abas (no Painel ficam no topo da página; nas outras abas, na barra lateral), e cada cartão do Painel leva à aba
-onde o indicador é detalhado. Os filtros são em cascata: cada opção mostra quantas ordens tem no recorte
-("GAL1 · 15.800"), só aparecem as opções que existem com os outros filtros (escolher o setor Montagem deixa só os
-centros de Montagem) e há um resumo do recorte com o número de ordens e o botão "Limpar filtros".
-
-> O IW38 exportado hoje não traz os tipos YM11/YM12 (corretivas). As horas da IW47 dessas ordens aparecem como
-> "Ordem fora do IW38" e ficam fora dos % de plano e de emergencial. Exportando o IW38 com todos os tipos, o site
-> passa a usá-los sozinho.
-
-## Como os dados se atualizam sozinhos
+Duas peças em Python rodam num PC com as pastas do OneDrive e o SAP GUI. As duas são opcionais: os exports também
+podem ser anexados direto no site (aba **Fontes de dados**).
 
 ```
-SAP (IW38 / MB52 / requisições)
-   │  export manual ou pelo robô do SAP (automacao/robo_sap.py: agendado ou pelo botão do site)
-   ▼
-Pastas do SharePoint sincronizadas pelo OneDrive
-   ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque
-   ~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\0.1 - Indicadores
-   ~\Downloads\SITE  (pasta base do site, com subpastas)
-   ~\Downloads\1.3 - Controle de Estoque  e  ~\Downloads\0.1 - Indicadores  (cópias, com subpastas)
-   ~\Downloads  (só a própria pasta)
-   │  o app varre as pastas a cada 60 s
-   ▼
-Central de Manutenção  →  todas as telas abertas recarregam quando chega arquivo novo
+SAP ──(export manual ou robô do SAP)──▶ pastas do OneDrive / Downloads\SITE
+      ──(sincronizador, a cada 5 min)──▶ repositório privado de dados (bases/*.parquet) ──▶ site na Vercel
 ```
 
-- O app **reconhece cada arquivo pelo conteúdo** (cabeçalhos), não pelo nome: pode ser `.xlsx`, `.xls`,
-  `.csv`, `.txt` (lista do SAP com `|`), `.htm` ("salvar como HTML" do SAP GUI) ou `.parquet`. Também acha
-  a base dentro de uma aba qualquer de uma pasta de trabalho, mesmo com o cabeçalho fora da linha 1.
-- A pasta **Downloads** também é olhada, porque é onde o navegador e o SAP costumam salvar. Planilhas
-  baixadas do próprio site (botão "Baixar Excel") e arquivos com "filtrado" no nome são ignorados, para um
-  recorte nunca substituir a base completa.
-- Cada base é **um arquivo só**: vale o export mais recente. O IW38 traz tudo junto — **número na coluna "Plano de
-  manutenção" = ordem de plano de manutenção; sem número = backlog** — e a IW28 também é um arquivo único.
-- A criticidade dos equipamentos vem do **código ABC da IH08** (A = alta, B = média, C = baixa), a não ser que
-  alguém cadastre outra no site. Se pegar a planilha errada, fixe o arquivo certo em
-  **Configuração › Fontes de dados** (um arquivo fixado continua sendo relido quando é sobrescrito).
-- Base mais velha que 2 dias aparece em laranja, com aviso, em todas as telas.
-- Cadastros feitos no app (equipamentos e seus componentes, estoque mínimo, fotos dos materiais, usuários) ficam em
-  arquivos `.json` na subpasta **`Central de Manutenção (app)`**, dentro da pasta sincronizada — então
-  são compartilhados com toda a equipe. Antes da primeira gravação do dia, cada cadastro ganha uma cópia em
-  `backup/<cadastro>-<data>.json`; se a leitura do cadastro falhar, nada é gravado (para nunca sobrescrever com vazio).
+### Sincronizador (`sincronizador/`)
 
-## Site novo (Vercel)
-
-O site novo em Next.js, publicado na **Vercel** (pasta [`web/`](web/README.md)), funciona **sozinho**, sem este app
-Streamlit: lê o repositório privado de dados no GitHub, tem login, usuários e a aba **Fontes de dados**, onde os
-exports do SAP são anexados direto (lidos e compactados no navegador). O sincronizador do PC continua opcional.
-Já estão no site novo: **Início**, **Estoque**, **Fontes de dados**, **Usuários** e **Minha conta**; as demais abas
-aparecem como "em breve" até serem migradas.
-
-## Site online 24h (nuvem)
-
-O app pode ficar publicado no **Streamlit Community Cloud**, com um endereço que abre de qualquer lugar.
-Na nuvem ele não enxerga o OneDrive, então os dados chegam por um de dois caminhos:
-
-- **Sincronizador no PC (sem TI):** `sincronizador/` roda em segundo plano no PC com as pastas do OneDrive.
-  A cada 5 min envia o export mais novo de cada base para um repositório **privado** de dados no GitHub, de
-  onde o site lê.
-- **SharePoint direto:** o site lê as pastas pela API da Microsoft. Precisa de um aplicativo registrado pela
-  TI (texto pronto em [`docs/PEDIDO_TI_SHAREPOINT.md`](docs/PEDIDO_TI_SHAREPOINT.md)).
-
-Passo a passo dos dois: [`docs/PUBLICAR_NA_NUVEM.md`](docs/PUBLICAR_NA_NUVEM.md). O workflow
-`.github/workflows/manter-app-acordado.yml` visita o app a cada 6 h para ele não entrar em modo de espera.
-
-## Como usar no PC (Windows)
-
-1. Baixe o projeto (botão **Code › Download ZIP** no GitHub) e descompacte, por exemplo em `C:\CentralManutencao`.
-2. Dê **duplo clique em `iniciar.bat`**. Na primeira vez ele instala o Python/dependências (alguns minutos).
-3. O navegador abre em `http://localhost:8501`. No **primeiro acesso** o app pede para criar o
-   **administrador**; depois cadastre a equipe em **Configuração › Usuários**.
-4. Outras pessoas da rede (inclusive pelo celular no Wi-Fi da fábrica) acessam por
-   `http://NOME-DO-PC:8501` — o endereço aparece na janela do `iniciar.bat`. Pode ser preciso liberar a
-   porta 8501 no firewall do Windows.
-
-> O app roda no computador que tem as pastas sincronizadas. Para ficar sempre no ar, deixe-o num PC/servidor
-> ligado (ou coloque o `iniciar.bat` na inicialização do Windows: `Win+R` → `shell:startup`).
+- Acha cada export do SAP **pelo conteúdo** (cabeçalhos), não pelo nome — `.xlsx`, `.xls`, `.csv`, `.txt`,
+  `.htm` ou `.parquet`, até numa aba qualquer de uma pasta de trabalho — e envia o mais recente de cada base em
+  parquet, com a data original no `bases/manifesto.json`.
+- Pastas olhadas: `~\OneDrive - Alpargatas S.A\PCM F26 - Documentos\1.3 - Controle de Estoque` e `…\0.1 -
+  Indicadores`, `~\Downloads\SITE` (com subpastas) e a própria `~\Downloads`. Planilhas baixadas do site e arquivos
+  com "filtrado" no nome são ignorados.
+- A planilha de **Gestão de HH não é mais enviada**: a equipe é cadastrada na aba Gestão de HH do site.
+- Também leva ao robô do SAP os pedidos de mudança de datas e avisa o site que o PC está ligado.
+- Instalar: `sincronizador\configurar.bat` (pede o repositório de dados e o token, que ficam só neste PC).
 
 **Atualizar o PC:** o sincronizador busca o código novo no GitHub a cada 6 h, copia por cima da pasta (só o que
 mudou; as configurações do PC — token, usuário do SAP — ficam) e se reinicia. Para atualizar na hora, dê duplo
 clique em **`atualizar.bat`**. Instalação antiga, sem o `atualizar.bat`: baixe o ZIP de novo, copie por cima da
 pasta do sistema (substituir) e reinicie o computador — daí em diante ele se atualiza sozinho. Para desligar a
 atualização automática: `atualizar_horas = 0` em `sincronizador/config.toml`.
-
-## Login, funções e perfis
-
-Cada usuário tem uma **função**, que define as abas que ele vê, e um **perfil**, que define o que pode alterar.
-
-| Função | Abas |
-|---|---|
-| Líder de manutenção | todas |
-| Analista | todas |
-| Manutentor | **Estoque** e **Equipamentos › Gestão de ativos** (só consulta; as outras visões de Equipamentos e o cadastro ficam para quem tem a aba inteira) |
-
-- A navegação é montada por pessoa: as abas bloqueadas não aparecem e o servidor nem as executa (endereço digitado
-  cai na aba inicial da pessoa). Links e botões para abas bloqueadas somem.
-- Trocou a função de alguém com a tela aberta: a pessoa sai da aba na próxima verificação (até 1 min) e não consegue
-  gravar nada nela no meio-tempo.
-- **Pedido de acesso**: na tela de entrada, a aba **Solicitar acesso** recebe nome, **Número Pessoal (NP)** — que é o login —,
-  função e a senha que a pessoa escolhe (guardada só como hash). O usuário é sempre o NP, só números
-  (ex.: 6178609); logins antigos fora do padrão aparecem em Usuários para trocar pelo NP. Em **Usuários › Solicitações** o administrador
-  aprova (define função, perfil e **quais abas** a pessoa vê — o padrão da função ou uma lista escolhida) ou
-  recusa com motivo; a barra lateral avisa quando há pedidos. Limite de 30 pedidos pendentes e um por navegador
-  a cada 10 min. As abas escolhidas também podem ser alteradas depois em **Editar usuário**.
-- Conta criada antes das funções (sem função): o administrador continua vendo tudo; as demais veem só o Estoque e a Gestão de ativos até
-  um administrador definir a função em **Usuários › Editar usuário** (a tela avisa quem está sem função e mostra a
-  tabela "Quem vê cada aba"). As regras estão em `central/auth.py` e a lista de abas em `central/navegacao.py`.
-
-| Perfil | Pode |
-|---|---|
-| Administrador | tudo, inclusive criar/editar/desativar usuários e redefinir senhas |
-| Editor | editar cadastros (equipamentos, estoque mínimo), fixar arquivos e enviar exports |
-| Leitor | só consultar |
-
-- Senhas guardadas só como hash (PBKDF2-SHA256 com sal); troca obrigatória no primeiro acesso e após redefinição.
-- 5 tentativas erradas bloqueiam o usuário por 5 minutos.
-- "Manter conectado" vale por 30 dias por aparelho; em **Minha conta** dá para desconectar todos.
-- Não há como apagar o último administrador nem tirar o próprio acesso.
-
-## Telas
-
-- **Execução das atividades** (Planejamento) — aba própria, com filtros próprios (período pela data programada,
-  área, tipo de ordem, setor e centro): taxa de execução, executadas, atrasadas, HH real × programada, quem fez o
-  quê e a lista de atividades. O Painel só tem um atalho para ela.
-
-- **Painel WCM** (tela inicial), em três blocos: **Visão geral** — índice WCM do pilar com a variação contra o período
-  anterior, quantos indicadores estão na meta/atenção/fora, os 8 indicadores-chave (manutenção planejada, ordens no
-  prazo, backlog, quebras, MTBF, MTTR, custo, execução de AFs) com mini-tendência, saúde por grupo do pilar, pontos de
-  atenção (fora da meta, do pior para o melhor), tendência de 12 meses e o resumo da preditiva SEMEQ; **Execução das
-  atividades** (IW38/IW38OP × IW47, por setor e centro); **Mais detalhes** — todos os indicadores por grupo,
-  scorecard por área, por setor e por centro de trabalho (com farol), evolução mensal, pontos de atenção completos
-  (bad actors, backlog mais antigo, peças críticas, compras paradas) e scorecard para baixar em Excel.
-- **Buscar** (também na barra lateral) — um número ou palavra procurado de uma vez em ordens (inclusive campo de
-  ordenação), notas, equipamentos, materiais, planos e análises de falha, sem filtro de período; número exato primeiro
-  e detalhe da ordem (operações e apontamentos) ao selecionar.
-- **Saúde dos ativos** — índice de 0 a 100 por equipamento (no estilo do IBM Maximo Health / SAP APM): quebras,
-  falhas registradas no Gerenciador de AF, demanda corretiva, backlog atrasado, preventivas atrasadas (IP19), anomalias
-  preditivas abertas e custo, cada um com peso (soma 100). Faixas Boa ≥ 80, Atenção 60–79, Crítica < 60; **risco** =
-  pontos perdidos × peso da criticidade (Alta 3, Média 2, Baixa 1). Matriz criticidade × saúde, o que mais derruba a
-  saúde, fila de ataque e o detalhe de cada equipamento. Janela própria: últimos 12 meses + pendências de hoje.
-- **Quebras, MTBF e MTTR** — quebras e MTTR por mês, Pareto 80/20 (equipamento, local, centro, área, tipo de nota),
-  confiabilidade por equipamento com link para a ficha, matriz criticidade × frequência, dia da semana e reincidências.
-- **Preditiva (SEMEQ)** — anomalias da preditiva (notas IW28 e ordens IW38 com `SEMEQ-<técnica>-<nº>-<achado>` no
-  texto): situação de cada uma (tratada, em tratativa, atrasada, sem ordem), fila das abertas, técnica (vibração,
-  óleo, termografia), Pareto dos achados, equipamentos reincidentes, quem tratou (IW47) e custo. O Painel mostra o
-  resumo logo no topo.
-- **Equipamentos** — três visões:
-  - **Gestão de ativos** (abre nela): inventário único (IH08 + cadastro do site + equipamentos das ordens) com
-    situação, criticidade, área/local de instalação, saúde, custo de 12 meses, quebras e MTBF, planos preventivos,
-    pendências, idade e garantia; indicadores (cobertura preventiva dos críticos, ativos parados, custo), Pareto dos
-    *bad actors*, ativos por área, ciclo de vida (vida útil vencida, garantia a vencer, reparar × substituir) e lacunas
-    do cadastro. Cada ativo recebe uma recomendação: avaliar substituição (custo de 12 meses ≥ 50% do valor de
-    reposição, ou vida útil vencida com saúde crítica), criar plano preventivo (Alta/Média sem plano), atacar a causa
-    das falhas (saúde crítica), classificar criticidade ou manter. Regras em `central/ativos.py`.
-  - **Cadastro de equipamentos**: o gerenciamento no formato da tela antiga (TAG, nome, categoria, criticidade, visão
-    geral e componentes vinculados da base de material), agora com situação (em operação, parado, reserva, em
-    reforma, desativado), fabricante, modelo, nº de série, ano de instalação, vida útil, garantia e valor de reposição.
-  - **Análise pelas ordens (IW38)**, com ficha (quebras, MTBF, MTTR, HH, histórico).
-- **Notas** — notas da IW28: sem ordem e há quanto tempo, paradas de máquina, notas por semana e reincidência.
-- **Ordens** — busca, filtros (situação, plano/backlog, classe WCM, status), fim real, lead time, prazo, HH apontadas,
-  detalhe com operações, apontamentos da IW47 (com o nome da pessoa) e histórico do equipamento.
-- **Programação semanal** — a semana escolhida (de quinta em diante já abre na próxima): carga (HH das operações
-  programadas) × capacidade por centro de trabalho (configurada; senão técnicos da Gestão de HH × jornada; senão a
-  média apontada), % de ordens liberadas, lista para a reunião de programação (Excel), operações
-  atrasadas que cabem na folga (ordem liberada e equipamento de maior risco primeiro) e a **aderência à programação**
-  das semanas anteriores (concluído dentro da própria semana, em operações e em HH; meta SMRP ≥ 90%).
-- **Calendário de ordens** — o único calendário do site: período "entre" (de/até, com atalhos de semana e mês) com
-  as ordens do IW38 em cada dia da data-base de início. Cada dia mostra **uma linha por ativo**: o campo de ordenação
-  (ou o equipamento, quando a ordem não tem campo) e o equipamento principal, com o número de ordens; a faixa à
-  esquerda é a pior situação (atrasada, programada, concluída, cancelada) e o ativo abre a lista das ordens. Filtros de
-  situação, turno, setor, centro e localização; a busca acha também o campo de ordenação e o nome do ativo.
-- **Planos** — as chamadas de cada plano semana a semana (tabela) a partir da **IP19**, aderência e carga semanal.
-- **Gerenciador de HH** (Planejamento) — a **equipe por cadastro manual** (matrícula, nome, cargo, centro, área,
-  turma, supervisor; desligar mantém o histórico) e a disponibilidade de cada pessoa: jornada semanal, % disponível
-  para manutenção, se conta na capacidade, observação e ausências com período (férias, afastamento, treinamento,
-  folga, licença…). A planilha de Gestão de HH **não é mais enviada**: enquanto ninguém foi cadastrado, a equipe vem
-  da última planilha e o botão **Passar a equipe para o cadastro** traz todos (jornada, % e ausências continuam).
-  Alimenta a utilização da mão de obra, a capacidade do backlog e a carga × capacidade da Programação semanal.
-  Grava em `hh_disponibilidade.json` na pasta do app (editores e administradores; Líder e Analista veem).
-- **Treinamentos e férias** (Planejamento) — as férias e os treinamentos da equipe (o mesmo cadastro da Gestão de
-  HH): quem está fora hoje e nos próximos 30 dias, HH perdidas no período, cobertura por centro (alerta quando mais
-  de 30% dos técnicos ficam fora no mesmo dia), férias no ano civil (gozados, programados, contra 30 dias), mapa de
-  férias por mês, reciclagens (o treinamento mais recente de cada nome define a validade: vencido, vence em até 60
-  dias, em dia) e matriz pessoa × treinamento. Treinamento com carga horária tira só essas horas da capacidade
-  (0 = EAD ou fora do horário).
-- **Visões de HH** (indicadores de horas, Mão de obra e backlog, quem fez o quê): só as pessoas da equipe da
-  **Gestão de HH** — quem aponta na IW47 sem estar nela aparece em Qualidade dos dados; execução das atividades,
-  MTTR e preditiva continuam com todos os apontamentos.
-- **Mão de obra e backlog** — equipe (especialidade, área, turma), horas por pessoa com utilização, % plano e
-  emergencial, HH por semana/centro/classe/atividade, semanas de backlog por centro, idade do backlog e carga das
-  próximas 12 semanas.
-- **Custos** — custo por mês e classe (com orçamento), por tipo, área, centro de trabalho, Pareto por equipamento e
-  ordens mais caras.
-- **Estoque** — três áreas:
-  - **Material do almoxarifado**: saldo do MB52, estoque mínimo editável, alerta de peças críticas e, de cada item, a
-    coluna **Descr Completa** do Sysmat (a informação técnica, quebrando linha dentro da célula), categoria,
-    fabricante / referência e a situação do cadastro (ativo, bloqueado, cancelado, duplicado ou não encontrado no
-    Sysmat). A lista **não tem limite**: todos os itens numa rolagem só, com a altura da linha ajustável (compacta a
-    muito alta) e a **ficha técnica completa** (um atributo por linha) do material escolhido.
-  - **Material cadastrado**: o catálogo inteiro do Sysmat numa rolagem só, sem limite de resultados (busca por código,
-    Sysmat, descrição, Descr Completa, fabricante, referência e NCM; filtros de status, categoria e "no almoxarifado /
-    fora"); clicar numa linha abre a ficha técnica completa.
-  - **Fotos dos materiais**: foto de cada material.
-  A extração do Sysmat (planilha com Código Sysmat, Código Alpargatas, Descr Completa e Status) é reconhecida sozinha
-  pelas colunas — na pasta das bases, em **Fontes de dados** ou no aviso da própria área de material, que deixa o
-  editor enviar o arquivo quando o catálogo não está carregado. O cruzamento com o MB52 é pelo código Alpargatas
-  (= código do material no SAP).
-- **Campo de ordenação em todas as abas** — onde aparece um equipamento (tabelas, fichas, gráficos e planilhas), a
-  coluna "Campo de ordenação" vem antes dele: o campo geral do equipamento, o mais usado nas ordens dele no IW38
-  (`web/lib/wcm/campoGeral.ts`; o mesmo do Calendário de ordens e da Gestão de MRO).
-- **Gestão de MRO** — as peças de reposição de cada ativo da lista de equipamentos (IH08, cadastro do site e IW38):
-  - **Por ativo**: cada equipamento aparece pelo campo de ordenação do IW38 (o código embaixo), com as peças vinculadas com a situação no estoque (MB52 × mínimo); editor/administrador
-    busca na MB52 e no catálogo Sysmat e vincula ou desvincula na hora;
-  - **Por material**: onde cada peça é usada, quantos ativos de criticidade Alta dependem dela, código Sysmat,
-    fabricante/referência e valor em estoque;
-  - **Incluir na lista de tarefas do SAP (IA06)**: na ficha do ativo, editor/administrador escolhe as listas de tarefas
-    (achadas pelos planos do equipamento: IW38 × IP19 "Grupo listas tarefas"/"Numerador de grupos", ou digitadas), a
-    operação, as peças e a quantidade e baixa `SAP_IA06_INCLUIR_materiais.csv` + `SAP_IA06_INCLUIR_materiais.vbs`
-    (mesmo esqueleto do script de remoção; sai em modo teste por padrão). Salvar os dois na mesma pasta e rodar com o
-    SAP aberto. Lista geral usada por vários equipamentos vem desmarcada. Há também a carga geral dos ativos filtrados
-    (EXECUTAR em branco, para revisar);
-  - o vínculo é o mesmo campo `materiais` do cadastro de equipamentos (aba Equipamentos, Almoxarifado e peças críticas
-    do Painel enxergam a mesma coisa); planilhas ativo × peça e por material.
-- **Requisições** — o que aguarda aprovação, com quem está parado e há quantos dias.
-- **Planos de AF** e **Ações de AF** — gestão das análises de falha e do plano de ação (veja abaixo).
-- **Metas e parâmetros** — meta de cada indicador, jornada semanal, capacidade por centro de trabalho e classe WCM de
-  cada tipo de ordem (nomes padrão lidos da planilha de Gestão de HH).
-- **Qualidade dos dados** — checagens automáticas do que distorce os indicadores (notas Y1 sem ordem YM11, quebras
-  sem horas de reparo, notas sem ordem, backlog com mais de 180 dias, ordens sem equipamento, encerradas sem
-  confirmação, operações sem trabalho planejado, apontamentos de pessoas fora da Gestão de HH, equipamentos sem
-  criticidade…), com farol, índice de qualidade, como corrigir no SAP e a lista para baixar.
-- **Fontes de dados** — de onde vem cada base, data do arquivo, troca/fixação de arquivo e envio manual.
-
-Por padrão **todo o site abre no mês atual** (do dia 1º até hoje; Planos e Calendário, o mês inteiro); os
-atalhos "Mês passado", "Últimos 3 meses", "Ano atual", "Últimos 12 meses" e "Tudo" (ou as datas de/até) trazem os
-outros meses; ordens com data-base futura entram em "Tudo" ou num período personalizado.
-
-### IW47 e Gestão de HH
-
-- **IW47** é a base principal de horas: cada apontamento (nº pessoal, ordem, operação, trabalho real, centro de
-  trabalho real, tipo de atividade, data de lançamento). Estornos (trabalho negativo) são somados e anulam o original.
-- A planilha **Gestão de HH** serve só para os dados das pessoas (nº pessoal, nome, cargo, centro de trabalho, área,
-  turma). As outras abas dela (cópias de IW47/IW38) são ignoradas; da aba de apoio vêm os nomes dos tipos de ordem.
-
-## Análise de falhas (Gerenciador de AF)
-
-O site lê o **Gerenciador de AF** (pasta de trabalho do PCM) como qualquer outra base: basta o arquivo estar numa das
-pastas sincronizadas. A leitura e os indicadores estão em `central/af.py` (pandas puro, com testes em
-`tests/test_af.py`).
-
-- **Abas lidas:** **Análise de Falha** (uma linha por AF) e **Plano de ação AF** (uma linha por ação de cada AF).
-  As abas ocultas (cópias de backup, listas de apoio) e a aba de e-mails são ignoradas.
-- **Planos de AF** — situação de cada análise (prazo, atraso, risco), acompanhamento semanal e mensal no formato do
-  resumo corporativo, Pareto de causa raiz, área, pilar, especialidade e turno, e a ficha de cada AF com as suas ações
-  e o link para o equipamento.
-- **Ações de AF** — execução e prazo das ações por data limite, fila de prioridade (atrasadas e que vencem em 7 dias),
-  cumprimento por responsável e supervisor e tipos de ação WCM (causa raiz, TTR, padronização, expansão).
-
-**Legenda de status** (a mesma do gerenciador):
-
-| Código | Significado |
-|---|---|
-| AP | Analisada (ou ação concluída) no prazo |
-| AFP | Analisada (ou ação concluída) fora do prazo |
-| EA | Em andamento |
-| R | Risco de atraso |
-| NA | Não analisada |
-| CANCELADA | Cancelada — não entra em nenhum indicador |
-
-Sem código, a situação é deduzida das datas: com data da análise (ou realizada), compara com a data limite; sem ela e
-com o prazo vencido, fica **atrasada**. Ação sem status e sem data realizada é **não iniciada**.
-
-**Indicadores corporativos** (definições da aba RESUMO CORPORATIVO; canceladas nunca contam):
-
-- **Taxa de análise de quebra crítica (A)** = AFs de criticidade A com data da falha no período já analisadas ÷ AFs
-  de criticidade A com data da falha no período (meta 100%).
-- **Execução de AFs** = AFs com data limite no período (até hoje) analisadas ÷ AFs com data limite no período
-  (meta 100%); **AFs analisadas no prazo** conta só as analisadas até a data limite (meta 90%).
-- **Ações de AFs** = ações com data limite no período (até hoje) realizadas ÷ ações com data limite no período
-  (meta 90%); **ações no prazo** conta só as realizadas até a data limite (meta 90%).
-- **AFs atrasadas** e **ações atrasadas** = retrato de hoje: em aberto com a data limite vencida (meta 0).
-
-Esses indicadores aparecem no Painel WCM (grupo "Análise de falhas (AF)"), com meta editável em Metas e parâmetros.
-Como as áreas do gerenciador não são as localizações do SAP, os filtros de área, centro e tipo não se aplicam a eles —
-só o período.
 
 ## Robô do SAP (exportação automática)
 
@@ -342,9 +51,6 @@ o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior
   conexão no SAP Logon, testa uma exportação e agenda o robô nos dias úteis (padrão 06:30 e 12:30).
 - **Senha:** fica no Gerenciador de Credenciais do Windows, criptografada para o seu usuário. Nunca vai para
   arquivo do projeto nem para o GitHub. Trocou a senha do SAP? Rode o `configurar_robo.bat` de novo.
-- **No site:** quem é editor ou administrador vê o botão **Buscar no SAP agora** (barra lateral e Fontes de
-  dados) quando o site roda nesse mesmo PC. A página Fontes de dados mostra o resultado de cada transação e o
-  registro do robô.
 - **Pré-requisito:** SAP GUI Scripting habilitado (SAP GUI › Opções › Acessibilidade e scripting › Scripting).
 - **Nova transação:** acrescente um bloco `[[transacao]]` em `transacoes.toml`. Se um campo tiver outro ID no seu
   SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
@@ -357,30 +63,15 @@ o **Calendário de ordens** (IW38) é o calendário único do site. O robô (`au
 continuam lendo `mudancas_datas.json`, mas nenhuma tela cria pedidos novos; as datas já alteradas por lotes antigos
 aparecem no calendário com ↻ até o próximo export do IW38.
 
-## Configuração
-
-Tudo tem padrão; só crie `.streamlit/secrets.toml` (modelo em `.streamlit/secrets.toml.exemplo`) se precisar
-mudar pastas, intervalo de verificação, desligar o login ou ligar o **modo SharePoint**. Esse modo lê
-direto da biblioteca pelo Microsoft Graph e é o que o app usa na nuvem.
-
-Visual: verde e grafite do logo SIM e cores do logo Alpargatas (`.streamlit/config.toml`), com tema claro e
-escuro (menu ⋮ › Settings). Para trocar os logos, substitua `assets/logo_sim.png` e `assets/logo_alpargatas.png`.
-
 ## Dados da empresa e este repositório
 
-O repositório é **público**: nenhuma planilha, base ou cadastro vai para o Git (`.gitignore` bloqueia
-`.xlsx`, `.xls`, `.parquet` e a pasta `dados/`). Os dados ficam só nas pastas do OneDrive/SharePoint.
-
-`ferramentas/extrair_base_html.py` tira a base IW38 embutida no HTML antigo, caso o export antigo
-não exista mais.
+O repositório é **público**: nenhuma planilha, base ou cadastro vai para o Git (`.gitignore` bloqueia `.xlsx`,
+`.xls`, `.parquet` e a pasta `dados/`). Os dados ficam no OneDrive e no repositório privado de dados; senhas e
+tokens só no PC (Gerenciador de Credenciais do Windows, `sincronizador/config.toml`).
 
 ## Desenvolvimento
 
 ```bash
-uv sync
-uv run streamlit run streamlit_app.py
-uv run pytest
+cd web && npm ci && npx tsc --noEmit && npx vitest run   # site
+uv sync && uv run pytest                                # sincronizador e robô do SAP
 ```
-
-Estrutura: `central/` (leitura dos arquivos, fontes — pastas, SharePoint ou GitHub —, preparação das
-bases, login, interface), `paginas/` (uma por tela), `sincronizador/` (agente PC → nuvem), `tests/`.

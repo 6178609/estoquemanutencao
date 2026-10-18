@@ -7,7 +7,7 @@ import { dia } from "@/lib/wcm/util";
 
 /**
  * Gerenciador de HH (jornada, % disponível, capacidade e ausências) e as bases que o alimentam (IW47 e Gestão de
- * HH), com dados fictícios — porta de tests/test_hh_disponibilidade.py e tests/test_hh.py.
+ * HH), com dados fictícios.
  */
 const D = (a: number, m: number, d: number) => dia(a, m, d)!;
 
@@ -89,7 +89,7 @@ describe("Gerenciador de HH · disponibilidade", () => {
 });
 
 // ----------------------------------------------------------------------------
-// IW47 e Gestão de HH (tests/test_hh.py) — as linhas como a leitura entrega (texto)
+// IW47 e Gestão de HH — as linhas como a leitura entrega (texto)
 // ----------------------------------------------------------------------------
 const COLS_IW47 = ["Nº pessoal", "Ordem", "Status do sistema", "Operação", "Suboperação", "Trabalho real",
   "Unid.trabalho (real)", "Centro trab.(real)", "Tp.atividade (real)", "Tipo ativid.(plan.)", "Data lançamento",

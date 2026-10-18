@@ -8,7 +8,7 @@ import { baseExecucao, ordensDoRecorte } from "./calculos";
 
 /**
  * Operações (IW38OP) com situação e quem fez + apontamentos (IW47) no recorte de área/tipo (em cache pela versão
- * das bases) e depois no centro de trabalho escolhido — o _ops() + o filtro de setor/centro de central/execucao_ui.py.
+ * das bases) e depois no centro de trabalho escolhido.
  */
 export function execucaoDoRecorte(c: Contexto) {
   const { areas, tipos } = c.f;

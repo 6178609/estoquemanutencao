@@ -27,7 +27,7 @@ export interface ItemPareto { item: string; valor: number; pct: number; acumulad
 
 /**
  * Pareto (80/20): itens do maior para o menor com % e % acumulado; `vital` = está entre os poucos que somam 80%
- * (o item que cruza os 80% conta, como no app Streamlit: nº de itens com acumulado < 80 + 1).
+ * (o item que cruza os 80% conta: nº de itens com acumulado < 80 + 1).
  */
 export function pareto(m: Map<string, number>): { itens: ItemPareto[]; n80: number; total: number } {
   const ord = maiores(new Map([...m].filter(([, v]) => v > 0)));

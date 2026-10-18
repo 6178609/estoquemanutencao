@@ -3,7 +3,7 @@ import { hoje as hojeLocal, inicioDoMes, paraData, partes, somarMeses, type Dia 
 import type { Nota } from "./preparo";
 
 /**
- * Gerenciador de AF (análise de falha) — planos de AF e ações de AF. Porta de central/af.py.
+ * Gerenciador de AF (análise de falha) — planos de AF e ações de AF.
  *
  * Lê as duas abas do "Gerenciador de AF" (Excel mantido pelo PCM): "Análise de Falha" (uma linha por AF) e
  * "Plano de ação AF" (uma linha por ação de cada AF). Testado em testes/af.test.ts.
@@ -291,7 +291,7 @@ export function quebrasAIw28<T extends Pick<Nota, "quebra" | "codigoAbc" | "data
   return (notas ?? []).filter((n) => n.quebra && n.codigoAbc === "A" && n.data != null);
 }
 
-/** Ids iguais aos dos KPIs do site (central/indicadores.py e metas). */
+/** Ids iguais aos dos KPIs (indicadores e metas). */
 export interface IndicadoresAf {
   af_geradas: number; af_geradas_a: number; af_no_prazo: number | null; af_realizadas: number;
   af_execucao: number | null; af_atrasadas: number; af_abertas: number; dias_para_analise: number | null;
@@ -417,7 +417,7 @@ export function acoesDaAf(acoes: AcaoAf[], numero: string): AcaoAf[] {
 }
 
 // ----------------------------------------------------------------------------
-// Apoio às telas (paginas/af_planos.py e paginas/af_acoes.py)
+// Apoio às telas
 // ----------------------------------------------------------------------------
 /** Ordem da fila de AFs: atrasadas primeiro. */
 export const ORDEM_SITUACAO_AF: Record<SituacaoAf, number> = {

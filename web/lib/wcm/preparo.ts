@@ -2,9 +2,9 @@ import { acharColuna, chave, paraNumero, texto } from "../dados/texto";
 import { foraDaVisao, paraData, setorDoCentro, type Dia } from "./util";
 
 /**
- * Preparo das bases do SAP — porta de central/bases.py (preparar_iw38, preparar_notas…). Cada export chega como
- * linhas de texto (o parquet do repositório de dados); aqui viram registros tipados, com as mesmas regras do
- * site atual: colunas achadas pelo cabeçalho, Fábrica Piloto/Desenho fora, situação da ordem, quebras (Y1→YM11).
+ * Preparo das bases do SAP — cada export chega como
+ * linhas de texto (o parquet do repositório de dados); aqui viram registros tipados, com estas regras:
+ * colunas achadas pelo cabeçalho, Fábrica Piloto/Desenho fora, situação da ordem, quebras (Y1→YM11).
  */
 export type Crua = Record<string, unknown>;
 

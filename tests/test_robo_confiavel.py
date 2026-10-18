@@ -9,8 +9,8 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from automacao import robo_sap
-from central import fontes
-from central import mudanca_datas as md
+from sincronizador import fontes
+from sincronizador import mudanca_datas as md
 from sincronizador import atualizar, sincronizar
 from tests.test_mudanca_datas import MD, Lista, _sap
 from tests.test_sincronizador import GitHubFalso

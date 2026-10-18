@@ -5,7 +5,7 @@ import type { LinhaSaude } from "@/lib/wcm/saude";
 import { csv, dataCsv, listaParam, param, type Params } from "../equipamentos/logica";
 
 /**
- * Fila de ataque da Saúde dos ativos (porta do filtro de paginas/saude.py): busca por código/nome/área/centro, faixa
+ * Fila de ataque da Saúde dos ativos: busca por código/nome/área/centro, faixa
  * (padrão: Crítica + Atenção), criticidade e principal causa. Testado em testes/saude-tela.test.ts.
  */
 export const FAIXA_PADRAO = [saude.CRITICA, saude.ATENCAO];

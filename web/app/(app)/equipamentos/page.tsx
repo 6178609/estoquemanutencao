@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Equipamentos · gestão de ativos (porta de paginas/equipamentos.py). Quem tem a aba inteira vê as três visões;
+ * Equipamentos · gestão de ativos. Quem tem a aba inteira vê as três visões;
  * os demais (Manutentor) veem só a Gestão de ativos, sem editar. Cadastrar/editar/remover: editor ou administrador.
  */
 export default async function Equipamentos(props: { searchParams: Promise<Params> }) {

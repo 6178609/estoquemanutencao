@@ -5,9 +5,9 @@ import type { Equipamento, Nota, Ordem } from "@/lib/wcm/preparo";
 import { paraData, partes, type Dia } from "@/lib/wcm/util";
 
 /**
- * Regras puras da aba Equipamentos (porta de paginas/equipamentos.py + central/ativos_ui.py): filtros do inventário e
+ * Regras puras da aba Equipamentos: filtros do inventário e
  * da análise, agregado por equipamento das ordens do IW38, situação das peças vinculadas e a validação do cadastro
- * (as MESMAS chaves do `cadastro_equipamentos.json` que o app Streamlit grava). Testado em testes/equipamentos.test.ts.
+ * (as chaves do `cadastro_equipamentos.json`). Testado em testes/equipamentos.test.ts.
  */
 
 export const CRITICIDADES = ["Alta", "Média", "Baixa"];
@@ -98,7 +98,7 @@ export function filtrarInventario(t: LinhaAtivo[], f: FiltroInventario, campoEq:
   });
 }
 
-/** Colunas da planilha do inventário (a mesma ordem da tabela do site atual, com o ciclo de vida inteiro). */
+/** Colunas da planilha do inventário (a ordem da tabela, com o ciclo de vida inteiro). */
 export function csvInventario(t: LinhaAtivo[], campoEq: CampoEq = semCampo): string {
   const com = campoEq !== semCampo;
   // o campo de ordenação vem IMEDIATAMENTE ANTES do código
@@ -255,7 +255,7 @@ export function intervaloMedio(datas: Dia[]): number | null {
 }
 
 // ----------------------------------------------------------------------------
-// Cadastro de equipamentos: validação do formulário → item do JSON (chaves do app Streamlit)
+// Cadastro de equipamentos: validação do formulário → item do JSON
 // ----------------------------------------------------------------------------
 export interface FormCadastro {
   tag: string; nome: string; categoria: string; criticidade: string; observacoes: string; materiais: string[];

@@ -7,8 +7,8 @@ import { lerArquivo, sondar } from "@/lib/leitura/leitura";
 import { Xlsx } from "@/lib/leitura/xlsx";
 
 /**
- * Paridade com central/leitura.py nos exports REAIS — só roda quando PARIDADE_PASTA aponta para uma pasta local
- * com os arquivos (que nunca vão para o repositório). Grava o resumo em PARIDADE_SAIDA para comparar com o Python.
+ * Paridade nos exports REAIS — só roda quando PARIDADE_PASTA aponta para uma pasta local
+ * com os arquivos (que nunca vão para o repositório). Grava o resumo em PARIDADE_SAIDA para conferência.
  */
 const pasta = process.env.PARIDADE_PASTA;
 

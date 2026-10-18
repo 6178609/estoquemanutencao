@@ -6,7 +6,7 @@ import type { Coluna, Linha } from "../ordens/_comum/TabelaDados";
 import { casa, ligado, lista, ordenar, termos, um, type Params } from "../ordens/_comum/url";
 
 /**
- * Notas (IW28) — porta de paginas/notas.py: recorte global (área e centro), período pela data da nota e os filtros
+ * Notas (IW28) : recorte global (área e centro), período pela data da nota e os filtros
  * da página. Usado pela página e pela exportação (/api/notas).
  */
 export interface FiltroNotas { q: string; tipo: string[]; abc: string[]; sem: boolean; par: boolean }

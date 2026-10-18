@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 /**
- * De onde vêm os dados — o mesmo repositório que o site atual (Streamlit) usa:
+ * De onde vêm os dados — o repositório de dados usado pelo site:
  *
  * - GitHub (produção na Vercel): repositório PRIVADO de dados. O sincronizador do PC grava `bases/*.parquet` e
  *   `bases/manifesto.json`; os cadastros (usuários, mínimos, equipamentos…) ficam em `app/*.json`.

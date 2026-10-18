@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as cal from "@/lib/wcm/calendario";
 import { dia } from "@/lib/wcm/util";
 
-/** Porta de tests/test_calendario.py — calendário de ordens (IW38 por dia e turno) com dados fictícios. */
+/** Calendário de ordens (IW38 por dia e turno) com dados fictícios. */
 const D = (a: number, m: number, d: number) => dia(a, m, d)!;
 const HOJE = D(2026, 10, 7);
 

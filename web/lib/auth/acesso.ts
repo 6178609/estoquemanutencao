@@ -1,6 +1,5 @@
 /**
- * Quem vê cada aba — a mesma regra de central/auth.py (pode_ver / ve_inteira / acesso_total), testada em
- * testes/acesso.test.ts com os mesmos casos de tests/test_acesso.py.
+ * Quem vê cada aba. Regra testada em testes/acesso.test.ts.
  */
 import { TODAS } from "../navegacao";
 

@@ -29,7 +29,7 @@ const IW38 = `<row r="1"><c r="A1" t="inlineStr"><is><t>Relatório IW38</t></is>
 <row r="4"><c r="A4"><v>4001234</v></c><c r="B4" t="inlineStr"><is><t>YM01</t></is></c><c r="C4" t="s"><v>4</v></c><c r="D4" s="1"><v>45659</v></c></row>
 <row r="5"><c r="A5"><v>4001235.5</v></c><c r="B5" t="s"><v>5</v></c><c r="D5" s="2"><v>45659.5</v></c></row>`;
 
-describe("leitor de .xlsx (porta de central/leitura.py)", () => {
+describe("leitor de .xlsx", () => {
   it("acha a base pelo cabeçalho, lê datas pelo formato e textos compartilhados", () => {
     const bytes = xlsxFicticio([{ nome: "Velha", oculta: true, linhas: IW38 }, { nome: "IW38", linhas: IW38 }]);
     const achados = sondar("export.xlsx", bytes);

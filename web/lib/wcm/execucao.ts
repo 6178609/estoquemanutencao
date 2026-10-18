@@ -3,7 +3,7 @@ import type { Confirmacao, Operacao, Ordem, Pessoa } from "./preparo";
 import { hoje as hojeLocal, partes, soma, type Dia } from "./util";
 
 /**
- * Execução das atividades — porta de central/execucao.py: operações do IW38OP × ordens do IW38 × apontamentos da
+ * Execução das atividades — operações do IW38OP × ordens do IW38 × apontamentos da
  * IW47 (quem fez o quê). Convenções:
  * - Atividade = operação do IW38OP; a data programada é a "1ª data de início" (`inicio`).
  * - Executada = operação confirmada (CONF/ENTE/ENCE no status do sistema); cancelada (ELIM/DLFL/MREL) não conta.

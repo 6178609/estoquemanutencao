@@ -1,4 +1,4 @@
-"""Caminho PC → GitHub → site na nuvem, com a API do GitHub simulada em memória."""
+"""Caminho PC → GitHub (o repositório de dados que o site lê), com a API do GitHub simulada em memória."""
 
 import base64
 import hashlib
@@ -12,10 +12,27 @@ from urllib.parse import unquote
 import pandas as pd
 import pytest
 
-from central import bases, fontes, leitura
-from central.leitura import IW38, MB52
-from sincronizador import sincronizar
-from tests.test_dados import iw38_cru
+from sincronizador import fontes, leitura, sincronizar
+from sincronizador.leitura import EQUIPE, IW38, MB52
+
+IW38_COLS = ["Centro", "Denominação do loc.instalação", "Equipamento", "Denominação do objeto técnico", "Centro trab.respons.",
+             "Ordem", "Plano de manutenção", "Texto breve", "Status do sistema", "Data-base do início", "Data-base do fim",
+             "Data de entrada", "Criado por", "Prioridade", "Tipo de ordem", "Status usuário", "Custos tot.reais"]
+
+
+def iw38_cru():
+    """IW38 fictício (5 ordens, uma da Fábrica Piloto)."""
+    linhas = [
+        ["A026", "ACABAMENTO", "41001404", "PRENSA 01", "MECA", "1", "", "VAZAMENTO", "ABER CAPC", "01/09/2026", "02/09/2026",
+         "01/09/2026", "JOAO", "1", "YM01", "PLA", "1.500,00"],
+        ["A026", "ACABAMENTO", "41001404", "PRENSA 01", "MECA", "2", "20976", "PREVENTIVA", "LIB  CAPC", "01/12/2099", "02/12/2099",
+         "01/09/2026", "JOAO", "2", "YM02", "PRO", "0"],
+        ["A026", "UTILIDADES", "41001435", "COMPRESSOR", "ELET", "3", "", "TROCA MOTOR", "ENTE CONF", "01/08/2026", "05/08/2026",
+         "01/08/2026", "ANA", "1", "YM01", "", "300"],
+        ["A026", "FABRICA PILOTO", "41009999", "MAQUINA X", "FABPILOT", "4", "", "PILOTO", "ABER", "01/08/2026", "", "", "", "", "YM01", "", "10"],
+        ["A026", "ACABAMENTO", "41001404", "PRENSA 01", "MECA", "5", "", "CANCELADA", "LIB", "01/08/2026", "", "", "", "", "YM01", "CAN", "0"],
+    ]
+    return pd.DataFrame(linhas, columns=IW38_COLS)
 
 API = "https://api.github.com"
 
@@ -140,55 +157,27 @@ def test_pc_envia_e_site_le(ambiente, monkeypatch):
     assert sincronizar.rodada(cfg) == []
     assert gh.commits == commits
 
-    # o site na nuvem lendo o repositório
-    for k, v in {"GH_REPO": "org/dados", "GH_TOKEN": "t", "EXIGIR_LOGIN": "nao"}.items():
-        monkeypatch.setenv(f"CENTRAL_{k}", v)
-    monkeypatch.delenv("CENTRAL_PASTAS", raising=False)
-    bases._fonte_cacheada.clear()
-    bases.recarregar()
-    try:
-        from central import config
-        assert config.carregar().fonte == "github"
-        df = bases.iw38().df
-        assert len(df) == 3 and df["Custo real"].sum() == pytest.approx(1800.0)
-        assert bases.mb52().df.set_index("Material").loc["100200", "Estoque"] == 4.0  # código sem ".0"
-        assert bases.iw38().atualizado.isoformat().startswith(man["bases/IW38.parquet"]["modificado"][:16])
-
-        # cadastro feito no site vai para app/ no repositório
-        bases.gravar_cadastro(bases.ARQ_CAD_EQUIP, "41001404", {"criticidade": "Alta"}, "ana")
-        assert json.loads(gh.arquivos["app/cadastro_equipamentos.json"])["41001404"]["criticidade"] == "Alta"
-        assert bases.ler_cadastro(bases.ARQ_CAD_EQUIP)["41001404"]["atualizado_por"] == "ana"
-
-        # export novo no PC → nova rodada → site enxerga
-        (ind / "IW38 hoje.xlsx").write_bytes(_xlsx_com_capa(iw38_cru()))  # 5 ordens, 1 da Fábrica Piloto
-        assert sincronizar.rodada(cfg) == [IW38]
-        bases.recarregar()
-        assert len(bases.iw38().df) == 4
-    finally:
-        bases._fonte_cacheada.clear()
-        bases.recarregar()
+    # export novo no PC → nova rodada → o parquet do repositório (que o site lê) é trocado
+    (ind / "IW38 hoje.xlsx").write_bytes(_xlsx_com_capa(iw38_cru()))
+    assert sincronizar.rodada(cfg) == [IW38]
+    assert len(pd.read_parquet(io.BytesIO(gh.arquivos["bases/IW38.parquet"]))) == 5
 
 
-def test_envio_pela_tela_entra_no_manifesto(ambiente, monkeypatch):
-    gh, *_ = ambiente
-    for k, v in {"GH_REPO": "org/dados", "GH_TOKEN": "t"}.items():
-        monkeypatch.setenv(f"CENTRAL_{k}", v)
-    bases._fonte_cacheada.clear()
-    bases.recarregar()
-    try:
-        buf = io.BytesIO()
-        iw38_cru().to_excel(buf, index=False)
-        nome = bases.enviar_arquivo(IW38, "export.xlsx", buf.getvalue())
-        man = json.loads(gh.arquivos["bases/manifesto.json"])
-        assert f"app/{nome}" in man
-        assert bases.inventario().ativos[IW38].arquivo.id == f"app/{nome}"
-    finally:
-        bases._fonte_cacheada.clear()
-        bases.recarregar()
+def test_planilha_de_equipe_nao_e_mais_enviada(ambiente, monkeypatch):
+    """A equipe agora é cadastrada na Gestão de HH do site: a planilha é reconhecida, mas não vai para o repositório."""
+    gh, cfg, estoque, ind = ambiente
+    pd.DataFrame({"Nº pessoal": ["123456"], "Nome": ["PESSOA FICTICIA"], "Cargo": ["MECANICO"],
+                  "Centro trabalho": ["MEC"]}).to_excel(ind / "Gestão de HH.xlsx", index=False)
+    pd.DataFrame({"Material": [100200.0], "Texto breve material": ["ROLAMENTO"], "Utilização livre": [4.0]}).to_excel(
+        estoque / "MB52.XLSX", index=False)
+    assert EQUIPE in sincronizar.localizar(cfg["pastas"], {})
+    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
+    assert sincronizar.rodada(cfg) == [MB52]
+    assert "bases/EQUIPE.parquet" not in gh.arquivos
 
 
 def test_mudanca_de_datas_pedida_na_nuvem_roda_no_pc(ambiente, monkeypatch, tmp_path):
-    from central import mudanca_datas as md
+    from sincronizador import mudanca_datas as md
 
     gh_falso, cfg, _, _ = ambiente
     gh = fontes.GitHub(sincronizar._Cfg(cfg["repo"], cfg["token"], "main"))
@@ -217,7 +206,7 @@ def test_mudanca_de_datas_pedida_na_nuvem_roda_no_pc(ambiente, monkeypatch, tmp_
 
 
 def test_robo_nao_apaga_pedido_feito_no_site_enquanto_grava(ambiente, monkeypatch):
-    from central import mudanca_datas as md
+    from sincronizador import mudanca_datas as md
 
     gh_falso, cfg, _, _ = ambiente
     gh = fontes.GitHub(sincronizar._Cfg(cfg["repo"], cfg["token"], "main"))
@@ -257,23 +246,3 @@ def test_arquivo_ilegivel_nao_segura_as_outras_bases(ambiente, monkeypatch):
     assert sincronizar.rodada(cfg) == [MB52]
     monkeypatch.setattr(sincronizar.leitura, "ler_arquivo", ler)          # fechou o Excel: vai na rodada seguinte
     assert sincronizar.rodada(cfg) == [IW38]
-
-
-def test_envio_pela_tela_tambem_grava_o_parquet_que_o_site_novo_le(ambiente, monkeypatch):
-    """Modo GitHub: o export enviado pela tela vira também bases/<TIPO>.parquet (como o sincronizador grava)."""
-    gh, *_ = ambiente
-    for k, v in {"GH_REPO": "org/dados", "GH_TOKEN": "t"}.items():
-        monkeypatch.setenv(f"CENTRAL_{k}", v)
-    bases._fonte_cacheada.clear()
-    bases.recarregar()
-    try:
-        buf = io.BytesIO()
-        iw38_cru().to_excel(buf, index=False)
-        bases.enviar_arquivo(IW38, "export.xlsx", buf.getvalue())
-        pq = pd.read_parquet(io.BytesIO(gh.arquivos["bases/IW38.parquet"]))
-        assert len(pq) == len(iw38_cru()) and all(pd.api.types.is_string_dtype(pq[c]) for c in pq)
-        man = json.loads(gh.arquivos["bases/manifesto.json"])
-        assert "envio pelo site" in man["bases/IW38.parquet"]["origem"]
-    finally:
-        bases._fonte_cacheada.clear()
-        bases.recarregar()

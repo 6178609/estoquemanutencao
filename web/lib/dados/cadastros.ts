@@ -4,10 +4,10 @@ import { fonte, FonteErro } from "./fonte";
 import { lerJsonDemo, gravarJsonDemo } from "./demo";
 
 /**
- * Cadastros do app (`app/<nome>.json`): os MESMOS arquivos que o site atual grava — mínimos de estoque,
- * usuários, equipamentos… Uma alteração feita aqui aparece lá e vice-versa.
+ * Cadastros do app (`app/<nome>.json`): os arquivos de cadastro do repositório de dados — mínimos de estoque,
+ * usuários, equipamentos… Uma alteração feita aqui vale para todas as telas.
  *
- * Gravação igual à do central/bases.py (gravar_cadastro_lote): relê o arquivo na hora, aplica só os itens
+ * Gravação: relê o arquivo na hora, aplica só os itens
  * alterados e grava condicionado à versão lida; se outra pessoa gravou no meio, relê e aplica de novo.
  * Antes da primeira gravação do dia, uma cópia vai para `app/backup/<cadastro>-<dia>.json`.
  */

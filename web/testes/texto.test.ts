@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { acharColuna, casaBusca, chave, normalizarBusca, paraNumero, texto } from "@/lib/dados/texto";
 
-describe("texto (mesmas regras de central/util.py)", () => {
+describe("texto", () => {
   it("normaliza cabeçalhos", () => {
     expect(chave("Denominação do loc.instalação")).toBe("DENOMINACAO DO LOC INSTALACAO");
     expect(chave("CodigoAlpargatas")).toBe("CODIGOALPARGATAS");

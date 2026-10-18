@@ -1,6 +1,6 @@
 import { createHash, pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
 
-/** Mesmo hash do site atual: PBKDF2-SHA256, 260.000 iterações, sal em hex (central/auth.py). */
+/** Hash do cadastro de usuários: PBKDF2-SHA256, 260.000 iterações, sal em hex. */
 export const ITERACOES = 260_000;
 
 export function hashSenha(senha: string, salHex: string): Promise<string> {
@@ -17,7 +17,7 @@ export async function confere(u: Record<string, unknown> | null, senha: string):
   return !!u?.sal && !!u?.senha_hash && a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Sal novo + hash, nos mesmos campos do site atual (gerar_hash). */
+/** Sal novo + hash, nos campos do cadastro de usuários. */
 export async function gerarHash(senha: string): Promise<{ sal: string; senha_hash: string }> {
   const sal = randomBytes(16).toString("hex");
   return { sal, senha_hash: await hashSenha(senha, sal) };

@@ -14,7 +14,7 @@ import type { Confirmacao, Ordem } from "./preparo";
 import { hashTexto, SETORES, setorDoCentro, somarMeses, inicioDoMes, type Dia } from "./util";
 
 /**
- * Liga as telas WCM aos dados (porta de central/contexto.py): filtros globais em cascata, dados do recorte e os
+ * Liga as telas WCM aos dados: filtros globais em cascata, dados do recorte e os
  * resultados (período, anterior de mesma duração, série mensal e scorecard). Cache por versão das bases + dia.
  */
 type Cadastro = Record<string, Record<string, unknown>>;

@@ -11,7 +11,7 @@ chcp 65001 >nul
 where uv >/dev/null 2>nul
 if errorlevel 1 set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 where uv >/dev/null 2>nul
-if errorlevel 1 (echo O uv nao esta instalado neste PC: rode antes o iniciar.bat. & pause & exit /b 1)
+if errorlevel 1 (echo O uv nao esta instalado neste PC: rode antes o sincronizador\configurar.bat. & pause & exit /b 1)
 echo Buscando a versao nova no GitHub...
 REM tudo numa linha so: o proprio atualizar.bat pode ser trocado durante a atualizacao
 uv run --quiet python sincronizador\atualizar.py --reiniciar & echo. & pause & exit /b

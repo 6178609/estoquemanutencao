@@ -4,7 +4,7 @@ import { acessoTotal, ehAdmin, podeEditar, podeVer, veInteira } from "@/lib/auth
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { TODAS } from "@/lib/navegacao";
 
-describe("acesso por função (os casos de tests/test_acesso.py)", () => {
+describe("acesso por função", () => {
   it("líder e analista veem tudo; manutentor só estoque + gestão de ativos", () => {
     for (const funcao of ["lider", "analista"]) {
       const u = { login: "x", funcao, perfil: "leitor" };
@@ -46,7 +46,7 @@ describe("acesso por função (os casos de tests/test_acesso.py)", () => {
   });
 });
 
-describe("senha e login (compatível com central/auth.py)", () => {
+describe("senha e login", () => {
   it("confere o hash PBKDF2 gerado pelo Python", async () => {
     const u = { sal: "00112233445566778899aabbccddeeff", senha_hash: "1b491ff57c39b5e752f1567e6f946262ab75a354d0d07ad374002b8e617be06a" };
     expect(await confere(u, "Senha-Teste-1")).toBe(true);

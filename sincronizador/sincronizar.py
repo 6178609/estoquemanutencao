@@ -43,23 +43,23 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
-from central import leitura  # noqa: E402
-from central import mudanca_datas as md  # noqa: E402
-from central.config import PASTAS_PADRAO, _caminho  # noqa: E402
-from central.fontes import FonteErro, GitHub, NaoEncontrado, Pastas  # noqa: E402
-from central.leitura import TIPOS  # noqa: E402
+from sincronizador import leitura  # noqa: E402
+from sincronizador import mudanca_datas as md  # noqa: E402
+from sincronizador.config import PASTAS_PADRAO, _caminho  # noqa: E402
+from sincronizador.fontes import FonteErro, GitHub, NaoEncontrado, Pastas  # noqa: E402
+from sincronizador.leitura import TIPOS  # noqa: E402
 from sincronizador import atualizar  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 ARQ_CONFIG = AQUI / "config.toml"
 ARQ_ESTADO = AQUI / "estado.json"
-from central.nuvem import DESTINO, para_parquet  # noqa: E402,F401 — o site também grava parquet ao receber um envio
+from sincronizador.nuvem import DESTINO, para_parquet  # noqa: E402
 
 log = logging.getLogger("sincronizador")
 
 
 class _Cfg:
-    """O mínimo que a fonte GitHub precisa (mesmos nomes do central.config.Config)."""
+    """O mínimo que a fonte GitHub precisa (sincronizador.config.ConfigGitHub)."""
 
     def __init__(self, repo: str, token: str, ramo: str):
         self.gh_repo, self.gh_token, self.gh_branch, self.profundidade = repo, token, ramo, 4

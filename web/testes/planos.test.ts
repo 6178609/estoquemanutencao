@@ -5,7 +5,7 @@ import * as planos from "@/lib/wcm/planos";
 import { prepararIw38, type Crua } from "@/lib/wcm/preparo";
 import { dataBr, dia, type Dia } from "@/lib/wcm/util";
 
-/** Porta de tests/test_planos.py — só dados fictícios. */
+/** Só dados fictícios. */
 const HOJE = dia(2026, 10, 1)!; // quinta-feira da semana ISO 40
 const D = (a: number, m: number, d: number) => dia(a, m, d)!;
 const tabela = (cols: string[], linhas: string[][]): Crua[] => linhas.map((l) => Object.fromEntries(cols.map((c, i) => [c, l[i]])));

@@ -8,7 +8,7 @@ import {
   montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais, type ItemAlmox, type ItemCatalogo, type ItemEstoque,
 } from "./materiais";
 
-/** As bases que o sincronizador (e o envio pela tela do site atual) gravam no repositório de dados. */
+/** As bases gravadas no repositório de dados pelo sincronizador do PC e pelo envio no site. */
 export const ARQUIVOS = {
   mb52: "bases/MB52.parquet",
   catalogo: "bases/CATALOGO_MATERIAIS.parquet",

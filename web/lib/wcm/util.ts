@@ -1,7 +1,7 @@
 import { chave } from "../dados/texto";
 
 /**
- * Regras pequenas usadas em todo o motor — as mesmas de central/util.py.
+ * Regras pequenas usadas em todo o motor.
  *
  * Datas: o SAP só traz o dia, então uma data é um número inteiro de dias desde 01/01/1970 (`Dia`) — comparar,
  * somar e agrupar por mês fica trivial e não há fuso no meio. `null` = sem data.

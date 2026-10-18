@@ -3,7 +3,7 @@ import { partes, type Dia } from "./util";
 
 /**
  * MTBF e MTTR por tipo de ordem — a mesma conta da Confiabilidade (que vale só para a quebra: nota Y1 → ordem YM11),
- * aplicada às ordens do IW38 de outros tipos (corretiva, preventiva, lubrificação…). Porta em central/confiabilidade_tipos.py.
+ * aplicada às ordens do IW38 de outros tipos (corretiva, preventiva, lubrificação…).
  *
  * - Evento = ordem do tipo escolhido, não cancelada, com equipamento, pela data da ordem (início-base; sem ela, entrada).
  * - MTBF (dias) = dias do período × equipamentos com ordem ÷ ordens.

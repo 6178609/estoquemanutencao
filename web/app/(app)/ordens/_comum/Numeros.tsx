@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-/** Faixa de números do filtro (os st.metric da versão Streamlit): rótulo, valor, detalhe; fórmula na dica. */
+/** Faixa de números do filtro: rótulo, valor, detalhe; fórmula na dica. */
 export function Numeros({ itens, colunas = 5 }: { itens: { rotulo: string; valor: string; detalhe?: string; dica?: string; alerta?: boolean }[];
   colunas?: 3 | 4 | 5 }) {
   return (

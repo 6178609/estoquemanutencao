@@ -5,7 +5,7 @@ import type { Dia } from "@/lib/wcm/util";
 import { faixa, GRUPOS_CLASSE, grupoDaClasse, moda, segunda } from "../confiabilidade/_comum/agregar";
 
 /**
- * Contas da aba Mão de obra (porta de paginas/mao_de_obra.py), puras para testar (testes/mao_de_obra.test.ts).
+ * Contas da aba Mão de obra, puras para testar (testes/mao_de_obra.test.ts).
  */
 export interface Exec extends ind.HhExecutada { atividade: string }
 

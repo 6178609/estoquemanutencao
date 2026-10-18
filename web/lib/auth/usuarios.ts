@@ -6,8 +6,8 @@ import { acessoTotal, ehAdmin, FUNCOES, FUNCOES_SO_ESTOQUE, PERFIS, type Usuario
 import { confere, gerarHash, normalizarLogin, validarLogin, validarSenha } from "./senha";
 
 /**
- * Usuários sem depender do site atual: as MESMAS regras e o MESMO arquivo (app/usuarios.json) de central/auth.py —
- * primeiro administrador, novo usuário, editar, excluir e trocar a senha. Uma conta criada aqui entra nos dois sites.
+ * Usuários: primeiro administrador, novo usuário, editar, excluir e trocar a senha (arquivo app/usuarios.json).
+ * Uma conta criada aqui vale para todo o sistema.
  */
 export const ARQ_USUARIOS = "usuarios.json";
 const FUNCOES_ACESSO_TOTAL = new Set(["lider", "analista"]);

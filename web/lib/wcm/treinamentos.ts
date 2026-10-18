@@ -63,24 +63,43 @@ export function feriasNoAno(aus: Ausencia[], nps: string[], hoje: Dia): FeriasAn
   });
 }
 
-export type SituacaoReciclagem = "Vencido" | "Vence em breve" | "Em dia" | "Sem validade";
+export type SituacaoReciclagem = "Vencido" | "Vence em breve" | "Em dia" | "Sem validade" | "Agendado";
 export interface Reciclagem {
-  np: string; titulo: string; chaveTitulo: string; realizado: Dia; validade: Dia | null; situacao: SituacaoReciclagem; dias: number | null;
+  np: string; titulo: string; chaveTitulo: string;
+  /** último realizado (null = só agendado) */
+  realizado: Dia | null; validade: Dia | null; situacao: SituacaoReciclagem; dias: number | null;
+  /** próxima turma já lançada, ainda por acontecer */
+  agendado: Dia | null;
 }
 
-/** O treinamento mais recente de cada pessoa por nome (sem acento/maiúsculas), com a situação da validade. */
+/**
+ * A situação de cada pessoa em cada treinamento (nome sem acento/maiúsculas): a validade vem do último já REALIZADO
+ * (fim até hoje); um agendado para frente não esconde que o atual venceu — aparece em `agendado`. Quem só tem turma
+ * agendada fica "Agendado".
+ */
 export function reciclagens(aus: Ausencia[], hoje: Dia, janela = JANELA_VENCIMENTO): Reciclagem[] {
-  const ultimo = new Map<string, Ausencia>();
+  const feito = new Map<string, Ausencia>(), proximo = new Map<string, Ausencia>();
   for (const a of aus) {
     if (a.tipo !== TREINAMENTO || !a.titulo.trim()) continue;
     const k = `${a.np}|${chave(a.titulo)}`;
-    const atual = ultimo.get(k);
-    if (!atual || a.ate > atual.ate || (a.ate === atual.ate && (a.validade ?? -1) > (atual.validade ?? -1))) ultimo.set(k, a);
+    if (a.ate <= hoje) {
+      const atual = feito.get(k);
+      if (!atual || a.ate > atual.ate || (a.ate === atual.ate && (a.validade ?? -1) > (atual.validade ?? -1))) feito.set(k, a);
+    } else {
+      const atual = proximo.get(k);
+      if (!atual || a.de < atual.de) proximo.set(k, a);
+    }
   }
-  return [...ultimo.values()].map((a) => {
+  const chaves = new Set([...feito.keys(), ...proximo.keys()]);
+  return [...chaves].map((k) => {
+    const a = feito.get(k), p = proximo.get(k);
+    const base = (a ?? p)!;
+    const agendado = p ? p.de : null;
+    if (!a) return { np: base.np, titulo: base.titulo.trim(), chaveTitulo: chave(base.titulo), realizado: null, validade: null,
+      situacao: "Agendado" as const, dias: null, agendado };
     const dias = a.validade != null ? a.validade - hoje : null;
     const situacao: SituacaoReciclagem = dias == null ? "Sem validade" : dias < 0 ? "Vencido" : dias <= janela ? "Vence em breve" : "Em dia";
-    return { np: a.np, titulo: a.titulo.trim(), chaveTitulo: chave(a.titulo), realizado: a.ate, validade: a.validade, situacao, dias };
+    return { np: a.np, titulo: a.titulo.trim(), chaveTitulo: chave(a.titulo), realizado: a.ate, validade: a.validade, situacao, dias, agendado };
   }).sort((x, y) => (x.dias ?? Infinity) - (y.dias ?? Infinity) || x.titulo.localeCompare(y.titulo));
 }
 

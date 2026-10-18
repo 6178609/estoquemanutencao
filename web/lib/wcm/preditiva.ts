@@ -4,7 +4,7 @@ import type { Confirmacao, Nota, Operacao, Ordem, Pessoa } from "./preparo";
 import { hoje as hojeLocal, inicioDoMes, mesBr, soma, type Dia } from "./util";
 
 /**
- * Manutenção preditiva SEMEQ — porta de central/preditiva.py: anomalias apontadas (notas IW28) e a tratativa
+ * Manutenção preditiva SEMEQ — anomalias apontadas (notas IW28) e a tratativa
  * (ordens IW38). As notas e ordens da preditiva trazem no texto o padrão "SEMEQ-<técnica>-<nº>-<achado>"
  * (ex.: SEMEQ-AVB-333-DESBALANCEAMENTO). Uma anomalia é identificada pela técnica + nº; a nota registra a detecção
  * e a ordem é a tratativa. A nota se liga à ordem pelo campo Ordem ou pelo mesmo código no texto.

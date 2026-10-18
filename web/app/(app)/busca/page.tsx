@@ -247,7 +247,7 @@ async function Detalhe({ c, cat, linha, campoEq }: { c: Contexto; cat: busca.Cat
   );
 }
 
-/** Saúde dos ativos da fábrica inteira (como a busca do site atual, sem o recorte). */
+/** Saúde dos ativos da fábrica inteira (sem o recorte). */
 async function saudeFabrica(c: Contexto): Promise<saude.LinhaSaude[]> {
   const d = await dados(c, { areas: [], centros: [], tipos: [] });
   return guardado(`busca-saude|${assinatura(c.b)}`, () => {

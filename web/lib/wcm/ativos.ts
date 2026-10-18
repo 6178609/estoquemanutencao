@@ -3,7 +3,7 @@ import { modaPor, type CadastroEquip, type LinhaSaude } from "./saude";
 import { paraData, partes, type Dia } from "./util";
 
 /**
- * Gestão de ativos — porta de central/ativos.py: o inventário de equipamentos da planta num lugar só, no estilo
+ * Gestão de ativos : o inventário de equipamentos da planta num lugar só, no estilo
  * dos EAM do mercado (SAP EAM, IBM Maximo, Infor): cadastro, criticidade, situação, ciclo de vida, custo,
  * confiabilidade e cobertura de manutenção preventiva — e a recomendação do que fazer com cada ativo.
  *
@@ -79,7 +79,7 @@ export interface LinhaAtivo {
   planosPreventivos: number; cobertoPorPlano: boolean; pecasVinculadas: number; recomendacao: string;
 }
 
-/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel do site atual). */
+/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel). */
 export const COLUNAS: [keyof LinhaAtivo, string][] = [
   ["codigo", "Código"], ["equipamento", "Equipamento"], ["situacao", "Situação"], ["criticidade", "Criticidade"],
   ["abc", "ABC"], ["categoria", "Categoria"], ["area", "Área"], ["localInstalacao", "Local de instalação"],
@@ -307,7 +307,7 @@ export function completude(t: LinhaAtivo[]): LinhaCompletude[] {
 }
 
 // ----------------------------------------------------------------------------
-// Agregados das telas (central/ativos_ui.py)
+// Agregados das telas
 // ----------------------------------------------------------------------------
 /** Quantos ativos (não desativados) em cada recomendação, na ordem de RECOMENDACOES. */
 export function contarRecomendacoes(t: LinhaAtivo[]): { recomendacao: string; ativos: number }[] {

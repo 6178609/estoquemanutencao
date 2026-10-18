@@ -1,6 +1,4 @@
-# Keeps uv.lock fresh so the committed lock (and the Community Cloud demo, which
-# deploys from it) tracks current Streamlit and its dependencies. All updates are
-# batched into one daily PR to keep the noise down for a template repo.
+# Mantém o uv.lock (dependências do Python do PC: sincronizador e robô do SAP) atualizado, num PR por dia.
 version: 2
 updates:
   - package-ecosystem: "uv"

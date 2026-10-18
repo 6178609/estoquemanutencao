@@ -122,15 +122,30 @@ async function equipeDoCadastro(): Promise<Base<Pessoa[]> | null> {
   return base;
 }
 
+/**
+ * A equipe do cadastro sem derrubar a página: se o GitHub falhar na leitura, fica a última equipe lida; sem nenhuma
+ * leitura anterior, uma base vazia com o erro — nunca volta para a planilha antiga por causa de uma falha passageira
+ * (os desligados reapareceriam e os cadastrados novos sumiriam). null = de fato ninguém cadastrado ainda.
+ */
+async function equipeDoCadastroSegura(): Promise<Base<Pessoa[]> | null> {
+  try {
+    return await equipeDoCadastro();
+  } catch (e) {
+    const ant = ge.__cmEquipeCad;
+    if (ant) return ant.base;
+    return { dados: null, atualizado: null, origem: ORIGEM_CADASTRO, erro: (e as Error).message };
+  }
+}
+
 /** A equipe atual: o cadastro da Gestão de HH; enquanto ninguém foi cadastrado, a última planilha enviada. */
 async function equipeAtual(): Promise<Base<Pessoa[]>> {
-  return (await equipeDoCadastro().catch(() => null)) ?? lerBase(DESTINO.equipe, (l) => prepararEquipe(l));
+  return (await equipeDoCadastroSegura()) ?? lerBase(DESTINO.equipe, (l) => prepararEquipe(l));
 }
 
 /** As bases com a equipe do cadastro por cima (sem refazer a montagem a cada gravação de férias ou pessoa). */
 const memoEquipe = new WeakMap<Bases, { equipe: Base<Pessoa[]>; valor: Bases }>();
 async function comEquipe(valor: Bases): Promise<Bases> {
-  const cad = await equipeDoCadastro().catch(() => null);
+  const cad = await equipeDoCadastroSegura();
   if (!cad) return valor;
   const m = memoEquipe.get(valor);
   if (m?.equipe === cad) return m.valor;

@@ -2,7 +2,7 @@ import { desescapar, Xlsx, type Valor } from "./xlsx";
 import { identificar, type Tipo } from "./tipos";
 
 /**
- * Leitura dos exports do SAP e das planilhas — porta de central/leitura.py, para rodar no navegador (o arquivo não
+ * Leitura dos exports do SAP e das planilhas — para rodar no navegador (o arquivo não
  * precisa subir inteiro para o servidor): .xlsx, o "xls" que na verdade é HTML/texto do SAP GUI, .htm/.html,
  * .csv e .txt (lista com |), inclusive o MB52 em árvore. A base é reconhecida pelos cabeçalhos.
  */
@@ -11,7 +11,7 @@ export class LeituraErro extends Error {}
 
 export interface Tabela {
   colunas: string[];
-  linhas: string[][]; // tudo como texto, no mesmo formato que o sincronizador grava (central/nuvem.py)
+  linhas: string[][]; // tudo como texto, no mesmo formato que o sincronizador grava
 }
 
 export interface Achado {
@@ -21,7 +21,7 @@ export interface Achado {
 }
 
 // ----------------------------------------------------------------------------
-// Valores → texto (o _texto de central/nuvem.py)
+// Valores → texto
 // ----------------------------------------------------------------------------
 const p2 = (n: number) => String(n).padStart(2, "0");
 
@@ -226,7 +226,7 @@ function limpar(t: Tabela): Tabela {
   return { colunas: manter.map(([c]) => c), linhas };
 }
 
-// textos que o pandas (read_excel) lê como vazio — o site atual sempre leu assim; mantidos iguais
+// textos que o pandas (read_excel) lê como vazio — sempre lidos assim; mantidos iguais
 const NA_PANDAS = new Set(["", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
   "<NA>", "N/A", "NA", "NULL", "NaN", "None", "n/a", "nan", "null"]);
 const celulaXlsx = (v: Valor | undefined) => (typeof v === "string" && NA_PANDAS.has(v) ? "" : paraTexto(v));

@@ -3,7 +3,7 @@ import type { Confirmacao, Operacao, Ordem, Pessoa } from "./preparo";
 import { hoje as hojeLocal, paraData, partes, setorDoCentro, type Dia } from "./util";
 
 /**
- * Calendário de ordens — porta de central/calendario.py: as ordens do IW38 em cada dia da data-base de início, por
+ * Calendário de ordens : as ordens do IW38 em cada dia da data-base de início, por
  * turno. Cada cartão é uma ordem:
  * - título = objeto técnico (ou local de instalação, ou texto da ordem);
  * - quem = pessoas que apontaram na ordem (IW47, nome/área/cargo da Gestão de HH); sem apontamento, o centro de
@@ -12,7 +12,7 @@ import { hoje as hojeLocal, paraData, partes, setorDoCentro, type Dia } from "./
  * - turno = turma das pessoas que apontaram (1ª, 2ª, 3ª, G); sem apontamento, "Sem executante";
  * - cor = plano de manutenção (azul) ou backlog (amarelo); borda = concluída, atrasada ou programada.
  *
- * O HTML do Streamlit não foi portado: `diasDoCalendario` devolve a grade (dias, turnos, cartões, "+N ordens") para
+ * `diasDoCalendario` devolve a grade (dias, turnos, cartões, "+N ordens") para
  * a página React desenhar. Testado em testes/calendario.test.ts.
  */
 
@@ -181,7 +181,7 @@ export function agenda(ordens: OrdemAgenda[] | null, oper: OperacaoAgenda[] | nu
 }
 
 // ----------------------------------------------------------------------------
-// Grade do calendário (o que o HTML do Streamlit desenhava)
+// Grade do calendário
 // ----------------------------------------------------------------------------
 export interface Cartao {
   item: ItemAgenda;
@@ -279,7 +279,7 @@ export function diasDoCalendario(ag: ItemAgenda[], ini: Dia, fim: Dia, hoje: Dia
 }
 
 // ----------------------------------------------------------------------------
-// O que a página mostra (filtros e indicadores) — as contas de paginas/calendario.py
+// O que a página mostra (filtros e indicadores)
 // ----------------------------------------------------------------------------
 export interface FiltroAgenda {
   busca?: string; situacoes?: string[]; naturezas?: string[]; turnos?: string[]; localizacoes?: string[];

@@ -7,7 +7,7 @@ import * as saude from "@/lib/wcm/saude";
 
 /**
  * Contas da Programação semanal no servidor, com cache pela versão das bases, dia e recorte:
- * - operações do recorte (o operacoes_do_recorte de central/execucao_ui.py: ordens da área/centro/tipo, operações
+ * - operações do recorte (ordens da área/centro/tipo, operações
  *   delas, situação com todos os apontamentos);
  * - saúde dos ativos do recorte (criticidade e risco para priorizar o que completa a folga).
  */

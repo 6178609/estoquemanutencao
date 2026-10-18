@@ -1,7 +1,7 @@
 import { chave } from "../dados/texto";
 
 /**
- * As bases que o site entende — os mesmos tipos, nomes e destinos de central/leitura.py e central/nuvem.py, para o
+ * As bases que o site entende — os mesmos tipos, nomes e destinos, para o
  * envio por aqui e o do sincronizador do PC gravarem o mesmo arquivo no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",

@@ -5,7 +5,7 @@ import type { CadastroEquip } from "./saude";
 import type { Dia } from "./util";
 
 /**
- * Busca global — porta de central/busca.py: um termo procurado de uma vez em ordens, notas, equipamentos,
+ * Busca global : um termo procurado de uma vez em ordens, notas, equipamentos,
  * materiais, planos e AFs. Todas as palavras do termo precisam aparecer (sem acento, maiúsculas); número igual
  * ao da ordem/nota/equipamento/material/campo de ordenação vem primeiro. Testado em testes/busca.test.ts.
  */
@@ -64,7 +64,7 @@ export interface ResultadoBusca {
   "Análises de falha": AfBusca[];
 }
 
-/** Campo → rótulo das colunas que a página mostra em cada categoria (as mesmas do site atual). */
+/** Campo → rótulo das colunas que a página mostra em cada categoria. */
 export const COLUNAS: { [C in Categoria]: [keyof ResultadoBusca[C][number] & string, string][] } = {
   Ordens: [["ordem", "Ordem"], ["tipo", "Tipo"], ["texto", "Texto"], ["situacao", "Situação"], ["data", "Data"], ["fim", "Fim"],
     ["equipChave", "Equip. (chave)"], ["objeto", "Objeto técnico"], ["campoOrdenacao", "Campo de ordenação"],

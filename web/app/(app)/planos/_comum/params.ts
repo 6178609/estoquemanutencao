@@ -27,7 +27,7 @@ export function periodo(p: Params, de: string, ate: string, padrao: [Dia, Dia]):
 type Atalho = { rotulo: string; de: string; ate: string };
 const at = (rotulo: string, a: Dia, b: Dia): Atalho => ({ rotulo, de: iso(a), ate: iso(b) });
 
-/** Atalhos de período usados nas abas (os mesmos nomes do site atual). */
+/** Atalhos de período usados nas abas. */
 export function atalhos(hoje: Dia, quais: string[], minimo?: Dia | null, maximo?: Dia | null): Atalho[] {
   const mes = inicioDoMes(hoje), seg = segundaDe(hoje), dom = domingoDe(hoje);
   const todos: Record<string, () => Atalho> = {

@@ -3,7 +3,7 @@ import { CANCELADA, segundaDe, type Atividade } from "./execucao";
 import { dataBr, dia, hoje as hojeLocal, partes, soma, type Dia } from "./util";
 
 /**
- * Programação semanal — porta de central/semanal.py: carga × capacidade por centro de trabalho, o que entra na
+ * Programação semanal : carga × capacidade por centro de trabalho, o que entra na
  * semana, o que pode completar a folga e a aderência à programação das semanas anteriores (SMRP "schedule
  * compliance"). Convenções:
  * - Semana de segunda a domingo; a atividade é a operação do IW38OP pela data programada (1ª data de início).

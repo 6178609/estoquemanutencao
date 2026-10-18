@@ -45,13 +45,13 @@ describe("primeiro administrador (repositório de dados vazio)", () => {
     expect(r).toEqual({ erro: "", login: "6178609" });
     const us = await usuarios();
     expect(us["6178609"]).toMatchObject({ nome: "Ana Lima", perfil: "admin", funcao: "lider", ativo: true });
-    expect(await confere(us["6178609"], SENHA)).toBe(true); // mesmo hash PBKDF2 do site atual
+    expect(await confere(us["6178609"], SENHA)).toBe(true); // hash PBKDF2 gravado no cadastro
     expect(await precisaPrimeiroAdmin()).toBe(false);
     expect((await criarPrimeiroAdmin({ ...novoAdmin, login: "1234567", codigo: "XYZ789" })).erro).toMatch(/Já existe/);
   });
 });
 
-describe("tela Usuários (mesmas regras de central/auth.py)", () => {
+describe("tela Usuários", () => {
   const eu = { login: "6178609", perfil: "admin", funcao: "lider" };
   beforeEach(async () => { await criarPrimeiroAdmin({ ...novoAdmin, codigo: "XYZ789" }); });
 

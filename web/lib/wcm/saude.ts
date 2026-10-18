@@ -2,7 +2,7 @@ import type { Equipamento, Ordem } from "./preparo";
 import type { Dia } from "./util";
 
 /**
- * Saúde dos ativos — porta de central/saude.py: índice de 0 a 100 por equipamento, no estilo do IBM Maximo
+ * Saúde dos ativos : índice de 0 a 100 por equipamento, no estilo do IBM Maximo
  * Health / SAP APM. Cada contribuinte vira uma penalidade de 0 a 1 (1 = pior caso) com um peso;
  * saúde = 100 − Σ peso × penalidade. Os pesos somam 100.
  *
@@ -57,7 +57,7 @@ export const SEM_CLASSE = "Sem classe";
 export const CRITICIDADES = ["Alta", "Média", "Baixa", SEM_CLASSE];
 export const JANELA_DIAS = 365;
 
-/** Situações da preditiva (as mesmas de central/preditiva.py: ABERTAS e ATRASADA). */
+/** Situações da preditiva (ABERTAS e ATRASADA). */
 export const PREDITIVA_ATRASADA = "Atrasada";
 export const PREDITIVA_ABERTAS = new Set(["Encerrada sem confirmação", "Em tratativa", PREDITIVA_ATRASADA, "Sem ordem"]);
 
@@ -112,7 +112,7 @@ export interface LinhaSaude {
   pts: Record<IdContribuinte, number>;
 }
 
-/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel do site atual). */
+/** Campo → rótulo das colunas (a ordem e os nomes da tabela/Excel). */
 export const COLUNAS: [keyof LinhaSaude, string][] = [
   ["codigo", "Código"], ["equipamento", "Equipamento"], ["criticidade", "Criticidade"], ["abc", "ABC"],
   ["saude", "Saúde"], ["faixa", "Faixa"], ["risco", "Risco"], ["principalCausa", "Principal causa"],

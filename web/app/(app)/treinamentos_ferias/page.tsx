@@ -26,6 +26,7 @@ const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const COR_SITUACAO: Record<tr.SituacaoReciclagem, string> = {
   "Vencido": "var(--st-critico)", "Vence em breve": "var(--st-serio)", "Em dia": "var(--st-bom)", "Sem validade": "var(--superficie-3)",
+  "Agendado": "var(--serie-1)",
 };
 
 const COLS_FERIAS: Coluna[] = [
@@ -38,6 +39,7 @@ const COLS_FERIAS: Coluna[] = [
 const COLS_RECICLAGEM: Coluna[] = [
   { rotulo: "Situação" }, { rotulo: "Treinamento", largo: true }, { rotulo: "Nome", largo: true }, { rotulo: "Centro de trabalho" },
   { rotulo: "Último em", formato: "data" }, { rotulo: "Validade", formato: "data" }, { rotulo: "Dias para vencer", formato: "inteiro" },
+  { rotulo: "Próxima turma", formato: "data", dica: "Treinamento do mesmo nome já lançado para frente (não muda a validade até acontecer)." },
 ];
 const COLS_COBERTURA: Coluna[] = [
   { rotulo: "Semana de", formato: "data" }, { rotulo: "Centro de trabalho" }, { rotulo: "Técnicos", formato: "inteiro" },
@@ -197,10 +199,10 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
         <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
           <div className="font-display text-[15px] font-medium">Reciclagens</div>
           <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">
-            O treinamento mais recente de cada pessoa com o mesmo nome define a validade. {n0.format(prioridade.length)} vencido(s) ou vencendo em até {tr.JANELA_VENCIMENTO} dias.
+            O último treinamento já realizado de cada pessoa com o mesmo nome define a validade (uma turma agendada aparece em Próxima turma). {n0.format(prioridade.length)} vencido(s) ou vencendo em até {tr.JANELA_VENCIMENTO} dias.
           </div>
           <TabelaDados colunas={COLS_RECICLAGEM} baixar="reciclagens" limite={500} busca="Buscar treinamento, nome, centro…"
-            linhas={rec.map((r) => [r.situacao, r.titulo, nome(r.np), centro(r.np), r.realizado, r.validade, r.dias])} vazio="Nenhum treinamento com nome cadastrado." />
+            linhas={rec.map((r) => [r.situacao, r.titulo, nome(r.np), centro(r.np), r.realizado, r.validade, r.dias, r.agendado])} vazio="Nenhum treinamento com nome cadastrado." />
         </div>
         {titulos.length > 0 && (
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
@@ -221,7 +223,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
                       <td className="sticky left-0 z-10 max-w-[220px] truncate bg-superficie pr-2 text-[12px] text-texto-2" title={nome(np)}>{nome(np)} · <span className="font-mono text-[11px] text-texto-3">{centro(np)}</span></td>
                       {titulos.map((t) => {
                         const r = m.celula.get(`${np}|${t.chave}`);
-                        return <td key={t.chave} title={r ? `${t.titulo} · ${r.situacao}${r.validade != null ? ` (validade ${dataBr(r.validade)})` : ""}` : `${t.titulo} · nunca fez`}
+                        return <td key={t.chave} title={r ? `${t.titulo} · ${r.situacao}${r.validade != null ? ` (validade ${dataBr(r.validade)})` : ""}${r.agendado != null ? ` · agendado ${dataBr(r.agendado)}` : ""}` : `${t.titulo} · nunca fez`}
                           className={clsx("h-6 min-w-[44px] rounded-[4px]", !r && "border border-dashed border-borda")} style={{ background: r ? COR_SITUACAO[r.situacao] : undefined }} />;
                       })}
                     </tr>

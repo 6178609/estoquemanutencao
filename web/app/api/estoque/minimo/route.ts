@@ -5,7 +5,7 @@ import { gravarCadastroLote } from "@/lib/dados/cadastros";
 
 export const dynamic = "force-dynamic";
 
-/** Estoque mínimo de um material — grava no mesmo cadastro do site atual (só o mínimo; a foto fica). */
+/** Estoque mínimo de um material — grava no cadastro (só o mínimo; a foto fica). */
 export async function POST(req: NextRequest) {
   const u = await autorizar("estoque", true);
   if (!u) return NextResponse.json({ erro: "Só editor ou administrador altera o mínimo." }, { status: 403 });

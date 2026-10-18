@@ -12,7 +12,7 @@ import { procurarMateriais } from "./dados";
 import { validarCadastro, type FormCadastro, type SituacaoPeca } from "./logica";
 
 /**
- * Escrita do cadastro de equipamentos — o MESMO `cadastro_equipamentos.json` do app Streamlit, com as mesmas chaves
+ * Escrita do cadastro de equipamentos — o `cadastro_equipamentos.json`, com estas chaves
  * (nome, categoria, criticidade, observacoes, materiais, situacao, fabricante, modelo, serie, ano_instalacao,
  * vida_util, garantia_ate, valor_reposicao). Só editor/administrador que vê a aba inteira.
  */

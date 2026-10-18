@@ -4,7 +4,7 @@ import * as md from "@/lib/wcm/programacao";
 import * as cal from "@/lib/wcm/calendario";
 import { dia } from "@/lib/wcm/util";
 
-/** Porta de tests/test_mudanca_datas.py (consultas, estimativa, lotes) — só dados fictícios. */
+/** Consultas, estimativa e lotes — só dados fictícios. */
 const D = (a: number, m: number, d: number) => dia(a, m, d)!;
 const ordens = (): md.OrdemCampo[] => [
   ["1", "M1", "Liberada", D(2026, 10, 1), D(2026, 10, 3)], ["2", "M1", "Aberta", D(2026, 10, 20), D(2026, 10, 20)],

@@ -1,6 +1,5 @@
 /**
- * Programação do mês (previsão manual) e pedidos de mudança de datas ao robô do SAP — porta de
- * central/mudanca_datas.py (as mesmas regras e os MESMOS arquivos do app Streamlit):
+ * Programação do mês (previsão manual) e pedidos de mudança de datas ao robô do SAP. Arquivos usados:
  * - `programacao_maquinas.json`: {"AAAA-MM-DD": {"campos": [...]}} — campos de ordenação das máquinas que param;
  * - `mudancas_datas.json`: os lotes (pedidos) que o sincronizador do PC com o SAP executa (status "solicitada");
  * - `robo_pc.json`: sinal de vida do sincronizador de cada PC.

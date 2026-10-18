@@ -7,7 +7,7 @@ import { PENDENTES, type Confirmacao, type Nota, type Operacao, type Ordem, type
 import { inicioDoMes, partes, somarMeses, type Dia } from "./util";
 
 /**
- * Indicadores WCM do pilar Manutenção Profissional — porta fiel de central/indicadores.py. Cada indicador tem
+ * Indicadores WCM do pilar Manutenção Profissional. Cada indicador tem
  * fórmula, sentido (maior ou menor é melhor), meta padrão (editável em Metas) e farol.
  *
  * - Quebra = nota Y1 da IW28 convertida em ordem YM11.
