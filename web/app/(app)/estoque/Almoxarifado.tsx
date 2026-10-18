@@ -2,13 +2,13 @@
 
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
-import { Download, LoaderCircle, PackageSearch, Save, Wrench } from "lucide-react";
+import { Camera, Download, ImageOff, ImagePlus, LoaderCircle, PackageSearch, Save, Wrench } from "lucide-react";
 import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
-import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
@@ -39,6 +39,49 @@ function baixarCsv(itens: ItemAlmox[]) {
   URL.revokeObjectURL(a.href);
 }
 
+/**
+ * Endereço da foto do material. Foto nova: `?v=` é a versão do conteúdo (cache longo no navegador) e `mini` pede a
+ * miniatura (só quando foi gravada). Foto do site antigo (`fotos_materiais/…`): `v=legado`, sem miniatura.
+ */
+function urlFoto(it: ItemAlmox, mini = false): string | null {
+  const ref = it.foto ?? "";
+  const m = encodeURIComponent(it.material);
+  if (ref.startsWith("app/fotos/materiais/")) {
+    const q = new URLSearchParams(ref.split("?")[1] ?? "");
+    const comMini = mini && q.get("mini") === "1";
+    return `/api/estoque/foto?m=${m}&v=${encodeURIComponent(q.get("v") ?? "")}${comMini ? "&mini=1" : ""}`;
+  }
+  if (/^fotos_materiais\/[0-9A-Za-z_-]+\.jpg$/.test(ref)) return `/api/estoque/foto?m=${m}&v=legado`;
+  return null;
+}
+
+/** Redesenha a foto com no máximo `lado` px, em JPEG (tira também os dados de localização do arquivo). */
+async function reduzir(img: ImageBitmap, lado: number, qualidade: number): Promise<Blob> {
+  const escala = Math.min(1, lado / Math.max(img.width, img.height));
+  const tela = document.createElement("canvas");
+  tela.width = Math.round(img.width * escala);
+  tela.height = Math.round(img.height * escala);
+  tela.getContext("2d")!.drawImage(img, 0, 0, tela.width, tela.height);
+  return new Promise((ok, erro) => tela.toBlob((b) => (b ? ok(b) : erro(new Error("Não consegui ler a foto."))), "image/jpeg", qualidade));
+}
+
+/** A foto (até 1600 px) e a miniatura da lista (240 px), reduzidas no aparelho: sobe rápido mesmo no 4G da fábrica. */
+async function prepararFoto(arquivo: File): Promise<{ foto: Blob; mini: Blob | null }> {
+  let img: ImageBitmap;
+  try {
+    img = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
+  } catch {
+    // o navegador não abre esse formato (ex.: HEIC): envia o original se já for uma imagem comum e pequena
+    if (/^image\/(jpeg|png|webp)$/.test(arquivo.type) && arquivo.size <= 1_500_000) return { foto: arquivo, mini: null };
+    throw new Error("Não consegui abrir esse formato de imagem. Tire a foto pelo botão da câmera ou escolha um JPEG.");
+  }
+  try {
+    return { foto: await reduzir(img, 1600, 0.85), mini: await reduzir(img, 240, 0.8) };
+  } finally {
+    img.close();
+  }
+}
+
 /** Filtros rápidos de um toque (pílulas com contagem); no celular rolam na horizontal. */
 function Pilulas({ opcoes, valor, aoMudar }: { opcoes: { valor: Situacao; rotulo: string; n: number }[]; valor: Situacao;
   aoMudar: (v: Situacao) => void }) {
@@ -60,6 +103,11 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
   return (
     <button onClick={aoAbrir}
       className="group grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_150px]">
+      <div className="flex min-w-0 gap-3">
+      {urlFoto(it, true) && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={urlFoto(it, true)!} alt="" loading="lazy" decoding="async" className="size-14 shrink-0 rounded-xl border border-borda bg-white object-cover" />
+      )}
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="num font-mono text-[13px] font-medium text-alp-azul">{it.material}</span>
@@ -71,6 +119,7 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
           {it.categoria && <Selo>{it.categoria}</Selo>}
           {it.usadoEm && <Selo cor="azul"><Wrench className="size-3" /> {it.usadoEm.split(",").length} equip.</Selo>}
         </div>
+      </div>
       </div>
       <DescrCorrida texto={it.descrCompleta} />
       <div className="flex items-start justify-between gap-4 md:flex-col md:items-end md:text-right">
@@ -191,6 +240,10 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
     }));
     setAberto((a) => (a && a.material === material ? { ...a, minimo } : a));
   }, []);
+  const aoFoto = useCallback((material: string, foto: string) => {
+    setItens((atual) => atual.map((i) => (i.material === material ? { ...i, foto } : i)));
+    setAberto((a) => (a && a.material === material ? { ...a, foto } : a));
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -210,7 +263,7 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
         {ordenar("ordem-celular")}
       </div>
 
-      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a ficha técnica completa{edita ? " e ajustar o mínimo" : ""}.</p>
+      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a visão geral, a ficha técnica e a foto (qualquer pessoa pode pôr ou trocar a foto){edita ? " e ajustar o mínimo" : ""}.</p>
 
       <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {visiveis.length === 0 ? (
@@ -232,13 +285,79 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
       <Gaveta aberta={!!aberto} aoFechar={() => setAberto(null)}
         titulo={aberto && <><span className="num font-mono text-acao-500">{aberto.material}</span> · {aberto.descricao}</>}
         subtitulo={aberto && `${aberto.cadastro === "Ativo" ? "Cadastro ativo" : aberto.cadastro}${aberto.sysmat ? ` · Sysmat ${aberto.sysmat}` : ""}`}>
-        {aberto && <Detalhe it={aberto} edita={edita} aoSalvar={aoSalvar} />}
+        {aberto && <Detalhe it={aberto} edita={edita} aoSalvar={aoSalvar} aoFoto={aoFoto} />}
       </Gaveta>
     </div>
   );
 }
 
-function Detalhe({ it, edita, aoSalvar }: { it: ItemAlmox; edita: boolean; aoSalvar: (m: string, v: number | null) => void }) {
+/** A foto do material na visão geral: qualquer pessoa com acesso ao Estoque tira ou escolhe uma e envia. */
+function FotoMaterial({ it, aoFoto }: { it: ItemAlmox; aoFoto: (m: string, foto: string) => void }) {
+  const camera = useRef<HTMLInputElement>(null);
+  const galeria = useRef<HTMLInputElement>(null);
+  const [estado, setEstado] = useState<{ enviando: boolean; erro: string; ok: string }>({ enviando: false, erro: "", ok: "" });
+  const [falhou, setFalhou] = useState(false);
+  const url = urlFoto(it);
+  const tem = !!url && !falhou;
+  const enviar = async (alvo: HTMLInputElement) => {
+    const arquivo = alvo.files?.[0];
+    if (!arquivo) return;
+    setEstado({ enviando: true, erro: "", ok: "" });
+    try {
+      const { foto, mini } = await prepararFoto(arquivo);
+      const corpo = new FormData();
+      corpo.set("material", it.material);
+      corpo.set("foto", foto, "foto.jpg");
+      if (mini) corpo.set("mini", mini, "mini.jpg");
+      const r = await fetch("/api/estoque/foto", { method: "POST", body: corpo });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || "Não foi possível enviar a foto.");
+      setFalhou(false);
+      aoFoto(it.material, j.foto);
+      setEstado({ enviando: false, erro: "", ok: "Foto enviada." });
+    } catch (e) {
+      setEstado({ enviando: false, erro: (e as Error).message, ok: "" });
+    } finally {
+      alvo.value = "";
+    }
+  };
+  const botao = (rotulo: string, icone: React.ReactNode, principal: boolean, abrir: () => void) => (
+    <button type="button" onClick={abrir} disabled={estado.enviando} aria-busy={estado.enviando}
+      className={clsx(principal ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO, "flex-1")}>
+      {estado.enviando && principal ? <LoaderCircle className="size-4 animate-spin" /> : icone}
+      {estado.enviando && principal ? "Enviando…" : rotulo}
+    </button>
+  );
+  return (
+    <section className="space-y-3">
+      <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl border border-borda bg-superficie-2">
+        {tem ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt={`Foto do material ${it.material}`} className="size-full bg-white object-contain" onError={() => setFalhou(true)} />
+        ) : (
+          <div className="flex flex-col items-center gap-2 px-6 text-center text-[13.5px] text-texto-3">
+            <ImageOff className="size-7" aria-hidden />
+            Este material ainda não tem foto.
+          </div>
+        )}
+      </div>
+      {/* dois campos: com "capture" o celular abre direto a câmera; sem ele, deixa escolher da galeria */}
+      <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden
+        onChange={(e) => enviar(e.currentTarget)} />
+      <input ref={galeria} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden
+        onChange={(e) => enviar(e.currentTarget)} />
+      <div className="flex flex-wrap gap-2">
+        {botao(tem ? "Nova foto" : "Tirar foto", <Camera className="size-4" />, true, () => camera.current?.click())}
+        {botao("Da galeria", <ImagePlus className="size-4" />, false, () => galeria.current?.click())}
+      </div>
+      <p aria-live="polite" className={clsx("text-sm", estado.ok ? "text-[var(--selo-bom-texto)]" : "sr-only")}>{estado.ok}</p>
+      {estado.erro && <p role="alert" className="rounded-lg bg-[var(--selo-critico-fundo)] px-3 py-2 text-sm text-[var(--selo-critico-texto)]">{estado.erro}</p>}
+    </section>
+  );
+}
+
+function Detalhe({ it, edita, aoSalvar, aoFoto }: { it: ItemAlmox; edita: boolean; aoSalvar: (m: string, v: number | null) => void;
+  aoFoto: (m: string, foto: string) => void }) {
   const [valor, setValor] = useState(it.minimo == null ? "" : String(it.minimo).replace(".", ","));
   const [estado, setEstado] = useState<{ gravando: boolean; msg: string; erro: boolean }>({ gravando: false, msg: "", erro: false });
   const salvar = async () => {
@@ -259,6 +378,7 @@ function Detalhe({ it, edita, aoSalvar }: { it: ItemAlmox; edita: boolean; aoSal
   ];
   return (
     <>
+      <FotoMaterial key={it.material} it={it} aoFoto={aoFoto} />
       <div className="grid grid-cols-2 gap-3">
         {cartoes.map((c) => (
           <div key={c.r} className="rounded-2xl bg-superficie-2 p-3.5">
