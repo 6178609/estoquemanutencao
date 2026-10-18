@@ -47,7 +47,7 @@ function Pilulas({ opcoes, valor, aoMudar }: { opcoes: { valor: Situacao; rotulo
       {opcoes.map((o) => (
         <button key={o.valor} type="button" onClick={() => aoMudar(o.valor)} aria-pressed={valor === o.valor}
           className={clsx("inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[13.5px] transition lg:min-h-9",
-            valor === o.valor ? "border-transparent bg-acao font-semibold text-white" : "border-borda bg-superficie text-texto-2 hover:text-texto")}>
+            valor === o.valor ? "border-transparent bg-tinta font-semibold text-tinta-texto" : "border-borda bg-superficie text-texto-2 hover:text-texto")}>
           {o.rotulo}<span className="num">· {o.n.toLocaleString("pt-BR")}</span>
         </button>
       ))}
@@ -146,7 +146,13 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
 
   const listaRef = useRef<HTMLDivElement>(null);
   const [margem, setMargem] = useState(0);
-  useLayoutEffect(() => setMargem(listaRef.current?.offsetTop ?? 0), []);
+  // a altura do que fica acima da lista muda com o tamanho da tela (celular girado, janela redimensionada)
+  useLayoutEffect(() => {
+    const medir = () => setMargem(listaRef.current?.offsetTop ?? 0);
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, []);
   const virt = useWindowVirtualizer({ count: visiveis.length, estimateSize: () => 150, overscan: 6, scrollMargin: margem });
 
   const n = (s: string) => recorte.filter((i) => i.situacao === s).length;
