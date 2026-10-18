@@ -21,7 +21,14 @@
 ## Acesso às abas novas
 - Toda aba nova entra liberada **100% para Líder e Analista** e **bloqueada para as demais funções** até o administrador
   liberar (lista de abas do usuário em Usuários). Regra única em `web/lib/auth/acesso.ts`.
-- Terceiros veem só `PAGINAS_TERCEIRO` (hoje: Estoque e Gestão de MRO), só consulta fora do Estoque.
+- **Terceiro e Manutentor veem só o Estoque** (`FUNCOES_SO_ESTOQUE` / `PAGINAS_SO_ESTOQUE`), mesmo com lista de abas ou perfil
+  administrador (não podem ser administradores); o Início manda direto para o Estoque. Teste em `testes/acesso.test.ts`.
+
+## Avisos por e-mail
+- Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
+  (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET`). Montagem em
+  `lib/wcm/avisoTreinamentos.ts`, envio em `lib/avisos/`. SMTP só nas variáveis da Vercel (`SMTP_HOST`, `SMTP_PORT`,
+  `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE`) — nunca no repositório; e-mails ficam só no cadastro de usuários.
 
 ## Skills e conectores (usar sempre)
 - No início de cada tarefa, conferir as skills e os conectores disponíveis na sessão e usar **todos os que se aplicam**

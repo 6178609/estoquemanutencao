@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 
 import { AbasVisao, PaginaWcm, Secao } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
-import { podeEditar } from "@/lib/auth/acesso";
+import { ehAdmin, podeEditar } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { emailConfigurado } from "@/lib/avisos/email";
+import { destinatarios, ultimoEnvio, type Destinatario, type RegistroEnvio } from "@/lib/avisos/treinamentos";
+import { itensAviso } from "@/lib/wcm/avisoTreinamentos";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as hh from "@/lib/wcm/hh";
@@ -16,6 +19,7 @@ import { Nota, Numeros } from "../confiabilidade/_comum/Numeros";
 import { TabelaDados, type Coluna } from "../confiabilidade/_comum/TabelaDados";
 import { param } from "../execucao/_ui/memo";
 import { Ausencias } from "../gestao_hh/GestaoHh";
+import { EnviarAgora } from "./AvisoSemanal";
 
 export const metadata: Metadata = { title: "Treinamentos e férias" };
 export const dynamic = "force-dynamic";
@@ -82,6 +86,10 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
     );
   }
 
+  // aviso semanal por e-mail aos líderes (só na visão Treinamentos)
+  const aviso = visao === "Treinamentos" ? await Promise.all([destinatarios(), ultimoEnvio()]).catch(() => null) : null;
+  const noAviso = itensAviso(rec, new Map(pes.map((p) => [p.np, { nome: p.nome }]))).length;
+
   return (
     <PaginaWcm barra={barra(c)} dimensoes={false}>
       {cab}
@@ -91,6 +99,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
         {visao === "Férias" && <Ferias />}
         {visao === "Treinamentos" && <Treinamentos />}
       </Secao>
+      {aviso && <AvisoSemanal para={aviso[0]} ultimo={aviso[1]} itens={noAviso} admin={ehAdmin(u) && !u.demo} />}
     </PaginaWcm>
   );
 
@@ -240,4 +249,36 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
       </div>
     );
   }
+}
+
+/** Quadro do aviso semanal por e-mail: quem recebe, quando foi o último e o que vai no desta semana. */
+function AvisoSemanal({ para, ultimo, itens, admin }: { para: Destinatario[]; ultimo: RegistroEnvio | null; itens: number; admin: boolean }) {
+  const configurado = emailConfigurado();
+  const quando = ultimo ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date(ultimo.em)) : null;
+  return (
+    <Secao titulo="Aviso semanal" destaque="aos líderes, por e-mail"
+      sub="Toda segunda, às 8h, os líderes com e-mail no cadastro de usuários recebem a lista de treinamentos vencidos ou vencendo em até 60 dias sem turma lançada, para solicitarem a reciclagem.">
+      <div className="grid gap-4 rounded-cartao border border-borda bg-superficie p-5 md:grid-cols-3">
+        <div>
+          <div className="text-[12px] text-texto-3">Recebem ({para.length})</div>
+          <div className="mt-1 text-[14px] text-texto">{para.length ? para.map((d) => d.nome).join(", ") : "Nenhum líder com e-mail ainda."}</div>
+          {admin && <div className="mt-1 text-[12.5px] text-texto-3">Cadastre o e-mail em Usuários › Editar usuário (função Líder).</div>}
+        </div>
+        <div>
+          <div className="text-[12px] text-texto-3">No aviso desta semana</div>
+          <div className="num mt-1 font-display text-[22px] font-medium">{n0.format(itens)} <span className="text-[13px] font-normal text-texto-3">treinamento(s)</span></div>
+        </div>
+        <div className="space-y-2">
+          <div className="text-[12px] text-texto-3">Último envio</div>
+          <div className="text-[14px] text-texto">{quando ? `${quando} · ${ultimo!.destinatarios} líder(es) · ${ultimo!.itens} item(ns)${ultimo!.falhas?.length ? ` · falhou: ${ultimo!.falhas.join(", ")}` : ""}` : "Ainda não enviado."}</div>
+          {!configurado && (
+            <p className="rounded-lg bg-[var(--selo-atencao-fundo)] px-3 py-2 text-[12.5px] text-[var(--selo-atencao-texto)]">
+              Envio de e-mail ainda não configurado: o administrador cadastra o servidor de e-mail (SMTP) nas variáveis da Vercel.
+            </p>
+          )}
+          {admin && configurado && <EnviarAgora />}
+        </div>
+      </div>
+    </Secao>
+  );
 }

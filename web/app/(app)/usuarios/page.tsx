@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Cabecalho, Pagina, Selo } from "@/components/ui";
-import { ehAdmin, FUNCOES, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
+import { ehAdmin, FUNCOES, FUNCOES_SO_ESTOQUE, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { solicitacoes } from "@/lib/auth/solicitacoes";
 import { adminsAtivos, usuarios } from "@/lib/auth/usuarios";
@@ -16,9 +16,8 @@ export const metadata: Metadata = { title: "Usuários" };
 export const dynamic = "force-dynamic";
 
 function descrever(u: Pessoa): string {
+  if (FUNCOES_SO_ESTOQUE.has(u.funcao)) return "Só Estoque";
   if (Array.isArray(u.abas)) return `${u.abas.filter((a) => TODAS.includes(String(a))).length + 1} aba(s) escolhida(s)`;
-  if (u.funcao === "terceiro") return "Só Estoque";
-  if (u.funcao === "manutentor") return "Estoque + Gestão de ativos";
   if (u.funcao && u.funcao in FUNCOES) return "Todas";
   return u.perfil === "admin" ? "Todas" : "Estoque + Gestão de ativos";
 }
@@ -37,7 +36,7 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
   };
   // para o navegador vai só o que a tela mostra — nunca o hash da senha nem as sessões
   const pessoas: Pessoa[] = Object.entries(us).sort(([a], [b]) => a.localeCompare(b)).map(([login, v]) => ({
-    login, nome: v.nome || "", funcao: v.funcao || "", perfil: v.perfil || "leitor", ativo: v.ativo !== false,
+    login, nome: v.nome || "", funcao: v.funcao || "", perfil: v.perfil || "leitor", ativo: v.ativo !== false, email: v.email || "",
     abas: Array.isArray(v.abas) ? (v.abas as unknown[]).map(String) : null, trocarSenha: !!v.trocar_senha,
     ultimoAcesso: quando(v.ultimo_acesso),
     unicoAdmin: admins.includes(login) && admins.length === 1,

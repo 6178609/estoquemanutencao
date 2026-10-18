@@ -9,7 +9,7 @@ import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Cartao } from "@/components/ui";
 import { acaoAprovar, acaoCriarUsuario, acaoEditarUsuario, acaoExcluirUsuario, acaoRecusar, type EstadoUsuario } from "./acoes";
 
 export interface Pessoa {
-  login: string; nome: string; funcao: string; perfil: string; ativo: boolean; abas: string[] | null;
+  login: string; nome: string; funcao: string; perfil: string; ativo: boolean; abas: string[] | null; email: string;
   trocarSenha: boolean; ultimoAcesso: string; unicoAdmin: boolean;
 }
 
@@ -37,12 +37,16 @@ function NovoUsuario() {
         <Campo rotulo="Nome" name="nome" required />
         <Campo rotulo="Número Pessoal (NP)" name="login" required inputMode="numeric" placeholder="Ex.: 6178609" />
         <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" required
-          dica="Líder e Analista veem todas as abas; Manutentor, Estoque e Gestão de ativos; Terceiro, só o Estoque." />
+          dica="Líder e Analista veem todas as abas; Manutentor e Terceiro, só o Estoque." />
         <Seletor rotulo="Perfil" name="perfil" opcoes={PERFIS} defaultValue="leitor"
           dica="Editor altera cadastros; Administrador também gerencia usuários." />
       </div>
-      <Campo rotulo="Senha provisória" name="senha" type="password" required autoComplete="new-password" className="max-w-sm"
-        dica="Mínimo de 8 caracteres, com letras e números. A pessoa troca no primeiro acesso." />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Campo rotulo="Senha provisória" name="senha" type="password" required autoComplete="new-password"
+          dica="Mínimo de 8 caracteres, com letras e números. A pessoa troca no primeiro acesso." />
+        <Campo rotulo="E-mail (opcional)" name="email" type="email" autoComplete="off" inputMode="email"
+          dica="Líderes com e-mail recebem toda semana o aviso de treinamentos vencendo." />
+      </div>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
       <Botao enviando={enviando}><UserPlus className="size-4" /> Criar usuário</Botao>
@@ -72,7 +76,7 @@ function EscolhaAbas({ abas, marcadas, escolher, setEscolher }: {
               {a.titulo}
             </label>
           ))}
-          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque é sempre liberado; a Gestão de ativos também, mesmo sem marcar Equipamentos. Para Terceiro vale sempre só o Estoque.</p>
+          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque é sempre liberado; a Gestão de ativos também, mesmo sem marcar Equipamentos. Para Manutentor e Terceiro vale sempre só o Estoque.</p>
         </div>
       )}
     </fieldset>
@@ -211,8 +215,12 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
           Ativo {(d.unicoAdmin || proprio) && <span className="text-[12.5px] text-texto-3">({proprio ? "sua conta" : "único administrador ativo"})</span>}
         </label>
         {(d.unicoAdmin || proprio) && <input type="hidden" name="ativo" value="on" />}
-        <Campo rotulo="Redefinir senha (opcional)" name="nova_senha" type="password" autoComplete="new-password" className="max-w-sm"
-          dica="Só se a pessoa esqueceu a senha. Ela terá de trocar no próximo acesso." />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo rotulo="E-mail" name="email" type="email" defaultValue={d.email} autoComplete="off" inputMode="email"
+            dica="Líderes com e-mail recebem toda semana o aviso de treinamentos vencendo. Vazio = sem e-mail." />
+          <Campo rotulo="Redefinir senha (opcional)" name="nova_senha" type="password" autoComplete="new-password"
+            dica="Só se a pessoa esqueceu a senha. Ela terá de trocar no próximo acesso." />
+        </div>
         <EscolhaAbas abas={abas} marcadas={d.abas} escolher={escolher} setEscolher={setEscolher} />
         {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
         {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}

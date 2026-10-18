@@ -79,10 +79,27 @@ describe("tela Usuários", () => {
     expect(await excluirUsuario(eu, "2222222")).toBe("");
   });
 
+  it("e-mail opcional: valida, guarda em minúsculas, mantém quando não vem e apaga quando vem vazio", async () => {
+    const novo = { nome: "Lia", login: "3333333", funcao: "lider", perfil: "leitor", senha: SENHA };
+    expect(await criarUsuario(eu.login, { ...novo, email: "lia@" })).toMatch(/E-mail/);
+    expect(await criarUsuario(eu.login, { ...novo, email: " Lia.Lider@Exemplo.com " })).toBe("");
+    expect((await usuarios())["3333333"].email).toBe("lia.lider@exemplo.com");
+    const e = { novoLogin: "3333333", nome: "Lia", funcao: "lider", perfil: "leitor", ativo: true, novaSenha: "", abas: null };
+    expect((await editarUsuario(eu, "3333333", e)).erro).toBe("");
+    expect((await usuarios())["3333333"].email).toBe("lia.lider@exemplo.com");
+    expect((await editarUsuario(eu, "3333333", { ...e, email: "x y@exemplo.com" })).erro).toMatch(/E-mail/);
+    expect((await editarUsuario(eu, "3333333", { ...e, email: "" })).erro).toBe("");
+    expect((await usuarios())["3333333"].email).toBeUndefined();
+  });
+
   it("não tira de si mesmo o acesso às abas", async () => {
-    const r = await editarUsuario(eu, "6178609", { novoLogin: "6178609", nome: "Ana", funcao: "manutentor", perfil: "admin",
-      ativo: true, novaSenha: "", abas: null });
+    const r = await editarUsuario(eu, "6178609", { novoLogin: "6178609", nome: "Ana", funcao: "lider", perfil: "admin",
+      ativo: true, novaSenha: "", abas: ["ordens"] });
     expect(r.erro).toMatch(/si mesmo/);
+    // e o único administrador não vira Manutentor (que só vê o Estoque e não administra)
+    const m = await editarUsuario(eu, "6178609", { novoLogin: "6178609", nome: "Ana", funcao: "manutentor", perfil: "admin",
+      ativo: true, novaSenha: "", abas: null });
+    expect(m.erro).toMatch(/Manutentor não pode ser administrador/);
   });
 
   it("trocar a senha confere a atual e derruba os outros aparelhos", async () => {

@@ -25,7 +25,7 @@ export async function acaoCriarUsuario(_: EstadoUsuario, f: FormData): Promise<E
   const eu = await admin();
   if (!eu) return { erro: "Só administradores podem cadastrar usuários.", ok: "" };
   const erro = await criarUsuario(eu.login, { nome: campo(f, "nome"), login: campo(f, "login"), funcao: campo(f, "funcao"),
-    perfil: campo(f, "perfil"), senha: campo(f, "senha") });
+    perfil: campo(f, "perfil"), senha: campo(f, "senha"), email: campo(f, "email") });
   if (erro) return { erro, ok: "" };
   revalidatePath("/usuarios");
   return { erro: "", ok: `Usuário ${campo(f, "login").trim()} criado. Passe a senha provisória para a pessoa — ela troca no primeiro acesso.` };
@@ -39,7 +39,7 @@ export async function acaoEditarUsuario(_: EstadoUsuario, f: FormData): Promise<
   const funcao = campo(f, "funcao");
   const r = await editarUsuario(eu, alvo, {
     novoLogin: campo(f, "novo_login"), nome: campo(f, "nome"), funcao: funcao in FUNCOES ? funcao : "",
-    perfil: campo(f, "perfil"), ativo: f.get("ativo") === "on", novaSenha: campo(f, "nova_senha"),
+    perfil: campo(f, "perfil"), ativo: f.get("ativo") === "on", novaSenha: campo(f, "nova_senha"), email: campo(f, "email"),
     abas: escolher ? f.getAll("abas").map(String).filter((a) => TODAS.includes(a)) : null,
   });
   if (r.erro) return { erro: r.erro, ok: "", alvo };

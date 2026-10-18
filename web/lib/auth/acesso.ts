@@ -8,10 +8,18 @@ export const PERFIS: Record<string, string> = { admin: "Administrador", editor: 
 const FUNCOES_ACESSO_TOTAL = new Set(["lider", "analista"]);
 export const PAGINAS_LIVRES = new Set(["estoque"]);
 export const PAGINAS_PARCIAIS: Record<string, string> = { equipamentos: "Gestão de ativos" };
-/** Terceiros: só as abas de PAGINAS_TERCEIRO — nada de parte parcial, lista personalizada ou administração. */
-export const FUNCOES_SO_ESTOQUE = new Set(["terceiro"]);
-/** As únicas abas que o Terceiro vê (fora do Estoque, só consulta). */
-export const PAGINAS_TERCEIRO = new Set(["estoque", "mro"]);
+/**
+ * Terceiro e Manutentor: só o Estoque — nada de parte parcial, lista personalizada de abas ou administração
+ * (mesmo que a lista de abas do usuário diga outra coisa).
+ */
+export const FUNCOES_SO_ESTOQUE = new Set(["terceiro", "manutentor"]);
+/** As únicas abas de quem é "só Estoque". */
+export const PAGINAS_SO_ESTOQUE = new Set(["estoque"]);
+
+/** "Terceiro não pode ser administrador…" (vale para toda função só-Estoque). */
+export function erroAdminSoEstoque(funcao: string): string {
+  return `${FUNCOES[funcao] ?? funcao} não pode ser administrador: escolha Leitor ou Editor.`;
+}
 
 export function soEstoque(u: Usuario | null): boolean {
   return !!u?.funcao && FUNCOES_SO_ESTOQUE.has(u.funcao);
@@ -51,14 +59,14 @@ export function veInteira(u: Usuario | null, pagina: string): boolean {
   if (!u) return false;
   const pid = idPagina(pagina);
   if (PAGINAS_LIVRES.has(pid)) return true;
-  if (soEstoque(u)) return PAGINAS_TERCEIRO.has(pid);
+  if (soEstoque(u)) return PAGINAS_SO_ESTOQUE.has(pid);
   const pers = abasPersonalizadas(u);
   return pers ? pers.has(pid) : acessoTotal(u);
 }
 
 export function podeVer(u: Usuario | null, pagina: string): boolean {
   if (!u) return false;
-  if (soEstoque(u)) return PAGINAS_TERCEIRO.has(idPagina(pagina));
+  if (soEstoque(u)) return PAGINAS_SO_ESTOQUE.has(idPagina(pagina));
   return idPagina(pagina) in PAGINAS_PARCIAIS || veInteira(u, pagina);
 }
 

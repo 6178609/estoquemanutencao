@@ -1,9 +1,10 @@
 import { ChevronRight, CircleCheck, ClipboardList, Database, GraduationCap, Package, Search } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Icone } from "@/components/Icone";
 import { Cartao, IconeQuadro, Pilula, Selo, Titulo, type Tom } from "@/components/ui";
-import { podeVer, type Usuario } from "@/lib/auth/acesso";
+import { podeVer, soEstoque, type Usuario } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
 import { modo } from "@/lib/dados/fonte";
@@ -71,6 +72,7 @@ async function semanaDoInicio(c: Contexto, u: Usuario, eq: EquipeInicio | null) 
 
 export default async function Inicio() {
   const u = await exigir();
+  if (soEstoque(u)) redirect("/estoque");
   const verEstoque = podeVer(u, "estoque"), verOrdens = podeVer(u, "ordens"), verTreinos = podeVer(u, "treinamentos_ferias");
   const verSemana = ["planos", "ordens", "mao_de_obra", "treinamentos_ferias"].some((p) => podeVer(u, p));
   const verBusca = podeVer(u, "busca");
