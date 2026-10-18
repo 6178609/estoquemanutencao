@@ -16,6 +16,9 @@ const TEMPO_LEITURA_MS = 8_000;
 const TEMPO_GRAVACAO_MS = 10_000;
 export const MARCADOR_MIGRACAO = "__migracao";
 
+/** O Supabase recusou a chave (401/403): configuração errada, ex.: a chave publicável no lugar da secreta. */
+export class SupabaseSemAcesso extends FonteErro {}
+
 export interface Documento { conteudo: unknown; versao: string }
 
 export interface ClienteSupabase {
@@ -53,6 +56,8 @@ class Rest implements ClienteSupabase {
       }
       if (r.ok) return r;
       // erro do pedido (4xx): repetir não adianta
+      if (r.status === 401 || r.status === 403)
+        throw new SupabaseSemAcesso(`O Supabase recusou a chave (${r.status}): confira SUPABASE_SECRET_KEY (deve ser a chave secreta, sb_secret_…).`);
       if (r.status < 500 && r.status !== 429) throw new FonteErro(`Supabase respondeu ${r.status}: ${(await r.text()).slice(0, 200)}`);
       ultimo = new Error(`Supabase respondeu ${r.status}`);
       if (i + 1 < tentativas) await new Promise((ok) => setTimeout(ok, 400 * (i + 1)));

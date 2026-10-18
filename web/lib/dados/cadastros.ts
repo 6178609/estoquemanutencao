@@ -4,7 +4,7 @@ import { after } from "next/server";
 
 import { fonte, FonteErro, type Fonte } from "./fonte";
 import { lerJsonDemo, gravarJsonDemo } from "./demo";
-import { MARCADOR_MIGRACAO, supabase, type ClienteSupabase } from "./supabase";
+import { MARCADOR_MIGRACAO, supabase, SupabaseSemAcesso, type ClienteSupabase } from "./supabase";
 
 /**
  * Cadastros do app — mínimos de estoque, usuários, equipamentos, Gestão de HH… Uma alteração feita aqui vale para
@@ -88,6 +88,7 @@ class ArmazemArquivos implements Armazem {
 }
 
 const TEMPO_VERSOES_SB_MS = 5_000;
+const AVISO_MIGRADO = "app/__migrado_supabase.json";
 const RESERVA_MS = 10 * 60_000; // Supabase fora do ar: até 10 min com o último lido
 
 /** Cópia diária no repositório de dados (fora do Supabase): a falha da cópia nunca impede a gravação. */
@@ -131,7 +132,7 @@ class ArmazemSupabase implements Armazem {
     if (this.migracao) return this.migracao;
     const p = (async () => {
       const versoes = await this.origem.versoes(true);
-      const nomes = [...versoes.keys()].filter((c) => /^app\/[^/]+\.json$/.test(c)).map((c) => c.slice(4));
+      const nomes = [...versoes.keys()].filter((c) => /^app\/[^/]+\.json$/.test(c) && c !== AVISO_MIGRADO).map((c) => c.slice(4));
       if (!nomes.includes("usuarios.json"))
         throw new FonteErro("Cópia dos cadastros para o Supabase adiada: a lista do repositório de dados veio sem usuarios.json.");
       const copiados: Record<string, string> = {};
@@ -142,6 +143,9 @@ class ArmazemSupabase implements Armazem {
         copiados[nome] = lido.versao;
       }
       await this.sb.importar([{ nome: MARCADOR_MIGRACAO, conteudo: { em: new Date().toISOString(), copiados } }]);
+      // aviso no repositório: daqui em diante os cadastros de lá estão parados (ver ArmazemSeguro)
+      await this.origem.gravarCondicional(AVISO_MIGRADO, new TextEncoder().encode(JSON.stringify({ em: new Date().toISOString() })),
+        null, "Cadastros passaram para o Supabase").catch(() => false);
       this.lista = null;
     })();
     this.migracao = p;
@@ -192,6 +196,33 @@ class ArmazemSupabase implements Armazem {
   }
 }
 
+/**
+ * O Supabase com rede de segurança: se ele recusar a chave (configuração errada) ANTES da cópia inicial, os cadastros
+ * seguem no repositório como antes — nada foi gravado no banco ainda, então não há divergência — e o Supabase é
+ * tentado de novo a cada 5 min. Depois da cópia (aviso `app/__migrado_supabase.json` no repositório) não há volta:
+ * o erro aparece, para nunca ler/gravar cadastros parados.
+ */
+class ArmazemSeguro implements Armazem {
+  private semAcessoAte = 0;
+  constructor(private sb: ArmazemSupabase, private arq: ArmazemArquivos, private f: Fonte) {}
+  private async usar<T>(op: (a: Armazem) => Promise<T>): Promise<T> {
+    if (Date.now() < this.semAcessoAte) return op(this.arq);
+    try {
+      return await op(this.sb);
+    } catch (e) {
+      if (!(e instanceof SupabaseSemAcesso) || (await this.f.versoes()).has(AVISO_MIGRADO)) throw e;
+      console.error(`${e.message} Cadastros seguem no repositório de dados até corrigir.`);
+      this.semAcessoAte = Date.now() + 5 * 60_000;
+      return op(this.arq);
+    }
+  }
+  versao(nome: string, fresco?: boolean) { return this.usar((a) => a.versao(nome, fresco)); }
+  ler(nome: string) { return this.usar((a) => a.ler(nome)); }
+  gravar(nome: string, dados: Cadastro, versao: string | null, usuario: string, anterior: Lido | null) {
+    return this.usar((a) => a.gravar(nome, dados, versao, usuario, anterior));
+  }
+}
+
 const ga = globalThis as unknown as { __cmArmazem?: { chave: unknown; a: Armazem | null } };
 
 /**
@@ -203,7 +234,7 @@ function armazem(): Armazem | null {
   const sb = f?.modo === "github" ? supabase() : null;
   const chave = sb ?? f;
   if (ga.__cmArmazem && ga.__cmArmazem.chave === chave) return ga.__cmArmazem.a;
-  const a = sb && f ? new ArmazemSupabase(sb, f) : f ? new ArmazemArquivos(f) : null;
+  const a = sb && f ? new ArmazemSeguro(new ArmazemSupabase(sb, f), new ArmazemArquivos(f), f) : f ? new ArmazemArquivos(f) : null;
   ga.__cmArmazem = { chave, a };
   return a;
 }
