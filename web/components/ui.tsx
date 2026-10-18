@@ -117,3 +117,15 @@ export function Cartao({ children, className }: { children: React.ReactNode; cla
 export function Pagina({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-[1240px] space-y-10 px-4 py-8 sm:px-8 sm:py-12">{children}</div>;
 }
+
+/** Cores da marca Alpargatas, na ordem do espectro (vermelho → azul). */
+const CORES_FAIXA = ["#E41824", "#F07818", "#FCB40C", "#A8C024", "#009C48", "#009CD8", "#006CB4"];
+
+/** Faixa decorativa de 7 cores no topo do conteúdo: some na impressão e não é lida por leitores de tela. */
+export function FaixaMarca({ altura = 5 }: { altura?: number }) {
+  return (
+    <div aria-hidden className="nao-imprimir flex w-full" style={{ height: altura }}>
+      {CORES_FAIXA.map((cor) => <span key={cor} className="flex-1" style={{ backgroundColor: cor }} />)}
+    </div>
+  );
+}
