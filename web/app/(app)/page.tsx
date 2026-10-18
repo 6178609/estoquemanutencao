@@ -1,28 +1,100 @@
-import { AlertTriangle, ArrowRight, ChevronRight, Database } from "lucide-react";
+import { ChevronRight, ClipboardList, GraduationCap, Package, Search } from "lucide-react";
 import Link from "next/link";
 
 import { Icone } from "@/components/Icone";
-import { Objeto } from "@/components/Objeto";
-import { BOTAO_PRIMARIO, Cartao, FaixaNumeros, Pilula, Selo, Titulo } from "@/components/ui";
-import { nomeFuncao, podeVer } from "@/lib/auth/acesso";
+import { Cartao, IconeQuadro, Pilula, Selo, Titulo, type Tom } from "@/components/ui";
+import { podeVer, type Usuario } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
-import { modo } from "@/lib/dados/fonte";
-import { brlCurto, dataHora, idade, inteiro, saudacao } from "@/lib/formato";
+import { inteiro, saudacao } from "@/lib/formato";
 import { GRUPOS } from "@/lib/navegacao";
+import { barra, contexto, dados as dadosDo, type Contexto } from "@/lib/wcm/contexto";
+import * as hh from "@/lib/wcm/hh";
+import * as ind from "@/lib/wcm/indicadores";
+import { alertasInicio, type Alerta, type EntradaInicio, type NivelAlerta } from "@/lib/wcm/inicio";
+import * as tr from "@/lib/wcm/treinamentos";
+import { dataBr, partes, type Dia } from "@/lib/wcm/util";
+
+import { doRecorte, noPeriodo } from "./ordens/dados";
 
 export const dynamic = "force-dynamic";
 
+/** Cor do alerta: a borda esquerda (sombra inset) e o ícone seguem o token do nível. */
+const TOM: Record<NivelAlerta, Tom> = { critico: "vermelho", serio: "laranja", atencao: "amarelo" };
+const ICONE_ALERTA: Record<Alerta["id"], typeof Package> = { ordens: ClipboardList, estoque: Package, reciclagens: GraduationCap };
+/** Prioridade alta no IW38 (valor "1", o mesmo que a tela Ordens mostra na coluna Prioridade). */
+const PRIORIDADE_ALTA = "1";
+
+/** Um bloco que falhar (base ausente, erro de leitura) vira null: a página segue sem ele. */
+async function seguro<T>(fn: () => T | Promise<T>): Promise<T | null> {
+  try { return await fn(); } catch { return null; }
+}
+
+/** Equipe da Gestão de HH e as ausências dela (mesmas chamadas da aba Treinamentos e férias). */
+function equipeDoInicio(c: Contexto) {
+  const pes = hh.pessoas(c.b.equipe.dados ?? [], c.cad.hh, ind.horasSemanaDe(c.cad.metas));
+  const np = new Set(pes.map((p) => p.np));
+  const aus = hh.ausencias(c.cad.hh).filter((a) => np.has(a.np));
+  return { pes, aus };
+}
+
+/** Reciclagens vencidas e as que vencem em até 60 dias (mesma regra da aba Treinamentos e férias). */
+function reciclagensDoInicio(c: Contexto): EntradaInicio["reciclagens"] {
+  const { aus } = equipeDoInicio(c);
+  const rec = tr.reciclagens(aus.filter((a) => a.tipo === tr.TREINAMENTO), c.b.hoje);
+  const vencidas = rec.filter((r) => r.situacao === "Vencido"), vencendo = rec.filter((r) => r.situacao === "Vence em breve");
+  return { vencidas: vencidas.length, vencendo: vencendo.length, titulos: [...new Set([...vencidas, ...vencendo].map((r) => r.titulo))] };
+}
+
+/** A semana (segunda a domingo de hoje): aderência, ordens concluídas, HH disponível e quem está fora hoje. */
+async function semanaDoInicio(c: Contexto, u: Usuario) {
+  const hoje = c.b.hoje;
+  const seg = hoje - ((partes(hoje).semana + 6) % 7), dom = seg + 6;
+  const d = await dadosDo(c);
+  const r = ind.calcular(d, seg, dom);
+  const itens: { rotulo: string; valor: string }[] = [];
+  if (podeVer(u, "planos") && r.aderencia != null) itens.push({ rotulo: "Aderência ao plano", valor: ind.formatar(ind.POR_ID.aderencia, r.aderencia) });
+  if (podeVer(u, "ordens")) {
+    const concluidas = doRecorte(c).filter((o) => o.situacao === "Concluída" && o.fimReal != null && o.fimReal >= seg && o.fimReal <= dom).length;
+    itens.push({ rotulo: "Ordens concluídas", valor: inteiro(concluidas) });
+  }
+  if (podeVer(u, "mao_de_obra")) {
+    const h = ind.hhDisponiveis(d, seg, dom);
+    if (h != null) itens.push({ rotulo: "HH disponível", valor: `${inteiro(Math.round(h))} h` });
+  }
+  if (podeVer(u, "treinamentos_ferias")) {
+    const { aus } = equipeDoInicio(c);
+    itens.push({ rotulo: "Pessoas fora hoje", valor: inteiro(new Set(tr.foraEm(aus, hoje).map((a) => a.np)).size) });
+  }
+  return { seg, dom, itens };
+}
+
 export default async function Inicio() {
   const u = await exigir();
-  const verEstoque = podeVer(u, "estoque");
-  const almox = verEstoque ? await almoxarifado() : null;
-  const itens = almox?.itens || [];
-  const zerados = itens.filter((i) => i.situacao === "Zerado").length;
-  const abaixo = itens.filter((i) => i.situacao === "Abaixo do mínimo").length;
-  const valor = itens.reduce((s, i) => s + (i.valor || 0), 0);
-  const revisar = itens.filter((i) => ["Bloqueado", "Cancelado", "Duplicado"].includes(i.cadastro)).length;
-  const criticos = itens.filter((i) => i.situacao !== "OK" && i.usadoEm.includes("(Alta)"));
+  const verEstoque = podeVer(u, "estoque"), verOrdens = podeVer(u, "ordens"), verTreinos = podeVer(u, "treinamentos_ferias");
+  const verSemana = ["planos", "ordens", "mao_de_obra", "treinamentos_ferias"].some((p) => podeVer(u, p));
+  const verBusca = podeVer(u, "busca");
+
+  const [almox, c] = await Promise.all([
+    verEstoque ? seguro(() => almoxarifado()) : null,
+    verOrdens || verTreinos || verSemana ? seguro(() => contexto({})) : null,
+  ]);
+
+  const [ordens, reciclagens, semana] = await Promise.all([
+    verOrdens && c ? seguro(() => {
+      if (!c.b.ordens.dados) return null;
+      const xs = noPeriodo(c, doRecorte(c)).filter((o) => o.atrasada);
+      return { atrasadas: xs.length, altaPrioridade: xs.filter((o) => o.prioridade.trim() === PRIORIDADE_ALTA).length };
+    }) : null,
+    verTreinos && c ? seguro(() => (c.b.equipe.dados ? reciclagensDoInicio(c) : null)) : null,
+    verSemana && c ? seguro(() => semanaDoInicio(c, u)) : null,
+  ]);
+
+  const estoque = almox?.estoque.dados ? { zerados: almox.itens.filter((i) => i.situacao === "Zerado").length,
+    abaixo: almox.itens.filter((i) => i.situacao === "Abaixo do mínimo").length } : null;
+  const alertas = alertasInicio({ ordens, estoque, reciclagens });
+  const algumBloco = [ordens, estoque, reciclagens].some((b) => b != null);
+
   const abas = GRUPOS.flatMap((g) => g.abas.map((a) => ({ ...a, grupo: g.titulo }))).filter((a) => podeVer(u, a.id));
   const primeiroNome = (u.nome || u.login).split(" ")[0];
   const data = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" }).format(new Date());
@@ -30,94 +102,87 @@ export default async function Inicio() {
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-borda">
-        <div aria-hidden className="pontos absolute inset-0" />
-        <div className="relative mx-auto grid max-w-[1240px] items-center gap-8 px-4 py-12 sm:px-8 lg:grid-cols-[1fr_340px] lg:py-16">
-          <div className="space-y-6">
-            <Pilula>{hoje}</Pilula>
-            <Titulo titulo={`${saudacao()}, ${primeiroNome}.`} destaque="Aqui está a manutenção agora." />
-            <p className="max-w-xl text-[15.5px] leading-relaxed text-texto-3">
-              {nomeFuncao(u)} · você tem acesso a {abas.length} aba(s) da Central de Manutenção.
-              {verEstoque && almox?.estoque.atualizado && <> O estoque é do MB52 de {dataHora(almox.estoque.atualizado)}.</>}
-            </p>
-            {verEstoque && (
-              <div className="flex flex-wrap items-center gap-5">
-                <Link prefetch={false} href="/estoque" className={BOTAO_PRIMARIO}>Abrir o estoque <ArrowRight className="size-4" /></Link>
-                <Link prefetch={false} href="/estoque?aba=cadastrado" className="inline-flex items-center gap-1 text-[15px] text-texto-3 transition hover:text-texto">
-                  Material cadastrado <ChevronRight className="size-4" />
-                </Link>
-              </div>
-            )}
-          </div>
-          <div className="hidden justify-center lg:flex"><Objeto tamanho={340} /></div>
+      <section className="border-b border-borda">
+        <div className="mx-auto max-w-[1240px] space-y-6 px-4 py-10 sm:px-8 lg:py-14">
+          <Pilula>{hoje}</Pilula>
+          <Titulo titulo={`${saudacao()}, ${primeiroNome}.`} destaque="Isto pede atenção agora." />
+          {verBusca && (
+            <form role="search" action="/busca" method="get" className="flex max-w-3xl flex-col gap-3 sm:flex-row">
+              <label htmlFor="busca-inicio" className="sr-only">Buscar na Central de Manutenção</label>
+              <input id="busca-inicio" name="q" type="search" enterKeyHint="search"
+                placeholder="Ordem, nota, equipamento, material, plano, AF, texto…"
+                className="h-12 min-w-0 flex-1 rounded-xl border border-borda-forte bg-superficie px-4 text-[15px] text-texto placeholder:text-texto-3" />
+              <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-tinta px-6 font-display text-[15px] font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)]">
+                <Search className="size-4" /> Buscar
+              </button>
+            </form>
+          )}
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-[1240px] space-y-14 px-4 py-12 sm:px-8">
-        {verEstoque && almox && (
-          <section className="space-y-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <Titulo nivel={2} titulo="Almoxarifado" destaque="agora." />
-              {almox.estoque.atualizado && <Pilula href="/estoque">MB52 {idade(almox.estoque.atualizado)}</Pilula>}
-            </div>
-            <FaixaNumeros itens={[
-              { valor: inteiro(itens.length), rotulo: "materiais no almoxarifado" },
-              { valor: inteiro(zerados), rotulo: `zerados · ${inteiro(abaixo)} abaixo do mínimo`, tom: zerados ? "vermelho" : "verde" },
-              { valor: inteiro(revisar), rotulo: "cadastros a revisar no Sysmat", tom: revisar ? "laranja" : "verde" },
-              { valor: valor ? brlCurto(valor) : "—", rotulo: "valor em estoque", tom: "azul" },
-            ]} />
-            {criticos.length > 0 && (
-              <Cartao className="p-5">
-                <div className="flex items-center gap-2 font-display font-medium text-alp-vermelho">
-                  <AlertTriangle className="size-[18px]" strokeWidth={1.75} />
-                  {criticos.length} peça(s) de equipamento crítico sem estoque suficiente
+      <div className="mx-auto w-full max-w-[1240px] space-y-12 px-4 py-10 sm:px-8">
+        {alertas.length > 0 && (
+          <section aria-label="Alertas" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {alertas.map((a) => (
+              <Link prefetch={false} key={a.id} href={a.href}
+                className="group flex min-h-11 items-start gap-4 rounded-cartao border border-borda bg-superficie p-5 transition hover:border-borda-forte"
+                style={{ boxShadow: `inset 4px 0 0 var(--selo-${a.nivel === "critico" ? "critico" : a.nivel === "serio" ? "serio" : "atencao"}-texto)` }}>
+                <IconeQuadro icone={ICONE_ALERTA[a.id]} tom={TOM[a.nivel]} />
+                <div className="min-w-0 flex-1">
+                  <div className="num font-display text-[32px] font-medium leading-none tracking-[-0.03em]">{inteiro(a.numero)}</div>
+                  <div className="mt-2 text-[15px] font-medium text-texto">{a.titulo}</div>
+                  <div className="mt-1 text-[13px] leading-snug text-texto-3">{a.detalhe}</div>
                 </div>
-                <ul className="mt-3 grid gap-1.5 text-[13.5px] text-texto-2 sm:grid-cols-2">
-                  {criticos.slice(0, 8).map((c) => (
-                    <li key={c.material}><span className="num font-mono font-medium text-texto">{c.material}</span> {c.descricao} → {c.usadoEm}</li>
-                  ))}
-                </ul>
-              </Cartao>
-            )}
+                <ChevronRight className="mt-1 size-4 shrink-0 text-texto-3 transition group-hover:text-texto" />
+              </Link>
+            ))}
           </section>
         )}
-
-        <section className="space-y-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <Titulo nivel={2} titulo="Suas abas," destaque="num lugar só." />
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {abas.map((a) => {
-              const conteudo = (
-                <>
-                  <span className="grid size-12 place-items-center rounded-[12px] border border-borda bg-superficie transition group-hover:border-borda-forte">
-                    <Icone nome={a.icone} className="size-5 text-texto-2" strokeWidth={1.75} />
-                  </span>
-                  <span className="mt-3 block text-center text-[13px] leading-snug text-texto-2 group-hover:text-texto">
-                    {a.titulo}
-                  </span>
-                </>
-              );
-              const cls = "group flex flex-col items-center rounded-cartao px-2 py-4 transition hover:bg-superficie-2";
-              return <Link prefetch={false} key={a.id} href={a.rota} className={cls}>{conteudo}</Link>;
-            })}
-          </div>
-        </section>
-
-        <section>
-          <div className="flex items-start gap-4 rounded-cartao border border-borda bg-superficie-2 p-6">
-            <span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-borda bg-superficie text-alp-azul">
-              <Database className="size-[17px]" strokeWidth={1.75} />
-            </span>
+        {alertas.length === 0 && algumBloco && (
+          <Cartao className="flex items-center gap-4 p-5">
+            <IconeQuadro icone={ClipboardList} tom="verde" />
             <div>
-              <div className="font-display text-[15px] font-medium">Fonte de dados</div>
-              <p className="mt-1 text-[13.5px] text-texto-3">
-                {modo() === "demo" ? "Demonstração (dados fictícios). Para os dados reais, preencha DADOS_GH_REPO e DADOS_GH_TOKEN nas variáveis do projeto na Vercel."
-                  : modo() === "github" ? "Repositório privado de dados — atualizado em Fontes de dados." : "Pasta local."}
-              </p>
+              <div className="font-display text-[15px] font-medium">Tudo em dia</div>
+              <p className="mt-1 text-[13.5px] text-texto-3">Nenhuma ordem atrasada, material faltando nem reciclagem vencida no seu acesso.</p>
             </div>
+            <Selo cor="verde" className="ml-auto">Em dia</Selo>
+          </Cartao>
+        )}
+
+        <section className="space-y-5">
+          <Titulo nivel={2} titulo="Suas abas," destaque="num lugar só." />
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
+            {abas.map((a) => (
+              <Link prefetch={false} key={a.id} href={a.rota}
+                className="group flex min-h-11 items-center gap-3 rounded-cartao border border-borda bg-superficie p-4 transition hover:border-borda-forte hover:bg-superficie-2">
+                <span className="grid size-10 shrink-0 place-items-center rounded-[10px] border border-borda bg-superficie-2">
+                  <Icone nome={a.icone} className="size-5 text-texto-2" strokeWidth={1.75} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-medium text-texto-2 group-hover:text-texto">{a.titulo}</span>
+                  <span className="block truncate text-[12px] text-texto-3">{a.grupo}</span>
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
+
+        {semana && semana.itens.length > 0 && (
+          <section className="rounded-cartao bg-menu p-6 text-menu-texto sm:p-8">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-menu-apoio">
+              {dataBr(semana.seg)} a {dataBr(semana.dom)}
+            </div>
+            <h2 className="mt-1 font-display text-[26px] font-semibold tracking-[-0.02em]">A semana em números</h2>
+            <dl className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {semana.itens.map((i) => (
+                <div key={i.rotulo} className="rounded-cartao bg-menu-2 p-4">
+                  <dt className="text-[12.5px] text-menu-apoio">{i.rotulo}</dt>
+                  <dd className="num mt-2 font-display text-[30px] font-medium leading-none">{i.valor}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
       </div>
     </>
   );
