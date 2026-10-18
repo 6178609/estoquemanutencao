@@ -24,6 +24,13 @@ export async function gerarHash(senha: string): Promise<{ sal: string; senha_has
 }
 
 /** Senha válida: 8+ caracteres, com letras e números. */
+/** E-mail opcional (vazio = sem e-mail). Formato simples: algo@dominio.tld, sem espaços. */
+export function validarEmail(email: string): string {
+  const e = email.trim();
+  if (!e) return "";
+  return e.length <= 120 && /^[^\s@<>"(),;:]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(e) ? "" : "E-mail inválido.";
+}
+
 export function validarSenha(senha: string): string {
   if ((senha || "").length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
   if (/^\d+$/.test(senha) || /^\p{L}+$/u.test(senha)) return "Use letras e números na senha.";

@@ -2,7 +2,7 @@ import "server-only";
 
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
-import { FUNCOES, FUNCOES_SO_ESTOQUE, idPagina, PERFIS } from "./acesso";
+import { erroAdminSoEstoque, FUNCOES, FUNCOES_SO_ESTOQUE, idPagina, PERFIS } from "./acesso";
 import { gerarHash, normalizarLogin, validarLogin, validarSenha } from "./senha";
 import { usuarios } from "./usuarios";
 
@@ -68,7 +68,7 @@ export async function aprovar(login: string, funcao: string, perfil: string, aba
   if (!ped) return "Esse pedido não está mais pendente (outro administrador já decidiu?).";
   if (login in (await usuarios())) return "Já existe um usuário com esse login.";
   if (!(funcao in FUNCOES) || !(perfil in PERFIS)) return "Escolha a função e o perfil.";
-  if (FUNCOES_SO_ESTOQUE.has(funcao) && perfil === "admin") return "Terceiro não pode ser administrador: escolha Leitor ou Editor.";
+  if (FUNCOES_SO_ESTOQUE.has(funcao) && perfil === "admin") return erroAdminSoEstoque(funcao);
   if (!ped.sal || !ped.senha_hash) return "O pedido está sem a senha; peça para a pessoa solicitar de novo.";
   await gravarCadastroLote("usuarios.json", { [login]: {
     nome: ped.nome || login, perfil, funcao, ativo: true, trocar_senha: false, sal: ped.sal, senha_hash: ped.senha_hash,

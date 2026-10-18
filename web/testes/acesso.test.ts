@@ -5,38 +5,35 @@ import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { TODAS } from "@/lib/navegacao";
 
 describe("acesso por função", () => {
-  it("líder e analista veem tudo; manutentor só estoque + gestão de ativos", () => {
+  it("líder e analista veem tudo", () => {
     for (const funcao of ["lider", "analista"]) {
       const u = { login: "x", funcao, perfil: "leitor" };
       expect(acessoTotal(u)).toBe(true);
       expect(TODAS.every((p) => podeVer(u, p))).toBe(true);
     }
-    const m = { login: "m", funcao: "manutentor", perfil: "admin" };
-    expect(TODAS.filter((p) => podeVer(m, p))).toEqual(["equipamentos", "estoque"]);
-    expect(TODAS.filter((p) => veInteira(m, p))).toEqual(["estoque"]);
+    expect(podeVer({ login: "l", funcao: "lider" }, "mro") && podeVer({ login: "a", funcao: "analista" }, "mro")).toBe(true);
+    expect(ehAdmin({ login: "a", funcao: "lider", perfil: "admin" })).toBe(true);
   });
   it("conta antiga sem função e abas escolhidas", () => {
     expect(acessoTotal({ login: "a", perfil: "admin" })).toBe(true);
     expect(TODAS.filter((p) => podeVer({ login: "e", perfil: "editor" }, p))).toEqual(["equipamentos", "estoque"]);
-    const pers = { login: "p", funcao: "manutentor", abas: ["ordens", "planos"] };
+    const pers = { login: "p", perfil: "editor", abas: ["ordens", "planos"] };
     expect(podeVer(pers, "ordens") && podeVer(pers, "planos") && podeVer(pers, "estoque")).toBe(true);
     expect(podeVer(pers, "painel")).toBe(false);
-    expect(acessoTotal({ login: "t", funcao: "manutentor", abas: TODAS })).toBe(true);
     expect(podeVer(null, "estoque")).toBe(false);
   });
-  it("terceiro só vê o Estoque e a Gestão de MRO — mesmo com lista de abas ou perfil administrador", () => {
-    for (const t of [{ login: "t", funcao: "terceiro", perfil: "leitor" }, { login: "t", funcao: "terceiro", perfil: "admin" },
-      { login: "t", funcao: "terceiro", abas: TODAS }]) {
-      expect(TODAS.filter((p) => podeVer(t, p))).toEqual(["estoque", "mro"]);
-      expect(TODAS.filter((p) => veInteira(t, p))).toEqual(["estoque", "mro"]);
-      expect(acessoTotal(t)).toBe(false);
+  it("terceiro e manutentor só veem o Estoque — mesmo com lista de abas ou perfil administrador", () => {
+    for (const funcao of ["terceiro", "manutentor"]) {
+      for (const u of [{ login: "t", funcao, perfil: "leitor" }, { login: "t", funcao, perfil: "editor" }, { login: "t", funcao, perfil: "admin" },
+        { login: "t", funcao, abas: TODAS }, { login: "t", funcao, abas: ["ordens", "mro", "equipamentos"] }]) {
+        expect(TODAS.filter((p) => podeVer(u, p))).toEqual(["estoque"]);
+        expect(TODAS.filter((p) => veInteira(u, p))).toEqual(["estoque"]);
+        expect(acessoTotal(u)).toBe(false);
+      }
     }
     expect(ehAdmin({ login: "t", funcao: "terceiro", perfil: "admin" })).toBe(false);
-    // aba nova: líder e analista veem; manutentor só quando o administrador libera
-    expect(podeVer({ login: "m", funcao: "manutentor" }, "mro")).toBe(false);
-    expect(podeVer({ login: "m", funcao: "manutentor", abas: ["mro"] }, "mro")).toBe(true);
-    expect(podeVer({ login: "l", funcao: "lider" }, "mro") && podeVer({ login: "a", funcao: "analista" }, "mro")).toBe(true);
-    expect(ehAdmin({ login: "a", funcao: "lider", perfil: "admin" })).toBe(true);
+    // manutentor que já era administrador segue administrando usuários (o site não fica sem administrador)
+    expect(ehAdmin({ login: "m", funcao: "manutentor", perfil: "admin" })).toBe(true);
   });
   it("perfil de edição", () => {
     expect(podeEditar({ login: "a", perfil: "editor" })).toBe(true);

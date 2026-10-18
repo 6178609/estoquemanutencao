@@ -2,8 +2,8 @@ import "server-only";
 
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
-import { acessoTotal, ehAdmin, FUNCOES, FUNCOES_SO_ESTOQUE, PERFIS, type Usuario } from "./acesso";
-import { confere, gerarHash, normalizarLogin, validarLogin, validarSenha } from "./senha";
+import { acessoTotal, ehAdmin, erroAdminSoEstoque, FUNCOES, FUNCOES_SO_ESTOQUE, PERFIS, type Usuario } from "./acesso";
+import { confere, gerarHash, normalizarLogin, validarEmail, validarLogin, validarSenha } from "./senha";
 
 /**
  * Usuários: primeiro administrador, novo usuário, editar, excluir e trocar a senha (arquivo app/usuarios.json).
@@ -15,6 +15,8 @@ const META = new Set(["atualizado_em", "atualizado_por"]);
 
 export type Registro = Record<string, unknown> & {
   nome?: string; perfil?: string; funcao?: string; ativo?: boolean; abas?: unknown; trocar_senha?: boolean;
+  /** para os avisos por e-mail (ex.: treinamentos vencendo, aos líderes) */
+  email?: string;
   sessoes?: { h?: string; ate?: string }[]; ultimo_acesso?: string;
 };
 
@@ -56,7 +58,7 @@ export async function precisaPrimeiroAdmin(): Promise<boolean> {
 const g = globalThis as unknown as { __cmFalhasCodigo?: { n: number; ate: number } };
 const falhas = (g.__cmFalhasCodigo ??= { n: 0, ate: 0 });
 
-export interface DadosNovo { nome: string; login: string; funcao: string; perfil?: string; senha: string; senha2?: string }
+export interface DadosNovo { nome: string; login: string; funcao: string; perfil?: string; senha: string; senha2?: string; email?: string }
 
 export async function criarPrimeiroAdmin(d: DadosNovo & { codigo: string }): Promise<{ erro: string; login: string }> {
   const login = normalizarLogin(d.login);
@@ -85,18 +87,20 @@ export async function criarPrimeiroAdmin(d: DadosNovo & { codigo: string }): Pro
 export async function criarUsuario(por: string, d: DadosNovo): Promise<string> {
   const login = normalizarLogin(d.login);
   const us = await usuarios();
-  const erro = validarLogin(login) || validarSenha(d.senha) || (!d.nome.trim() ? "Informe o nome." : "")
+  const erro = validarLogin(login) || validarSenha(d.senha) || validarEmail(d.email ?? "") || (!d.nome.trim() ? "Informe o nome." : "")
     || (!(d.funcao in FUNCOES) ? "Escolha a função." : "") || (!((d.perfil || "") in PERFIS) ? "Escolha o perfil." : "")
-    || (FUNCOES_SO_ESTOQUE.has(d.funcao) && d.perfil === "admin" ? "Terceiro não pode ser administrador: escolha Leitor ou Editor." : "")
+    || (FUNCOES_SO_ESTOQUE.has(d.funcao) && d.perfil === "admin" ? erroAdminSoEstoque(d.funcao) : "")
     || (login in us ? "Esse usuário já existe." : "");
   if (erro) return erro;
   await salvar(login, { nome: d.nome.trim(), perfil: d.perfil, funcao: d.funcao, ativo: true, trocar_senha: true,
-    ...(await gerarHash(d.senha)) }, por);
+    ...(d.email?.trim() ? { email: d.email.trim().toLowerCase() } : {}), ...(await gerarHash(d.senha)) }, por);
   return "";
 }
 
 export interface Edicao {
   novoLogin: string; nome: string; funcao: string; perfil: string; ativo: boolean; novaSenha: string;
+  /** undefined = mantém o atual; "" = apaga */
+  email?: string;
   abas: string[] | null; // null = padrão da função
 }
 
@@ -109,19 +113,21 @@ export async function editarUsuario(eu: Usuario, alvo: string, e: Edicao): Promi
   const novoLogin = normalizarLogin(e.novoLogin || alvo);
   const depois: Usuario = { login: novoLogin, perfil: d.perfil, funcao: e.funcao in FUNCOES ? e.funcao : d.funcao,
     ...(e.abas ? { abas: e.abas } : {}) };
-  let erro = (e.novaSenha ? validarSenha(e.novaSenha) : "")
+  let erro = (e.novaSenha ? validarSenha(e.novaSenha) : "") || validarEmail(e.email ?? "")
     || (!(e.funcao in FUNCOES) && (d.funcao || "") in FUNCOES ? "Escolha a função." : "")
     || (!(e.perfil in PERFIS) ? "Escolha o perfil." : "")
-    || (FUNCOES_SO_ESTOQUE.has(depois.funcao || "") && (unicoAdmin ? d.perfil : e.perfil) === "admin" ? "Terceiro não pode ser administrador: escolha Leitor ou Editor." : "");
+    || (FUNCOES_SO_ESTOQUE.has(depois.funcao || "") && (unicoAdmin ? d.perfil : e.perfil) === "admin" ? erroAdminSoEstoque(depois.funcao || "") : "");
   if (!erro && novoLogin !== alvo) erro = validarLogin(novoLogin) || (novoLogin in us ? "Já existe um usuário com esse NP." : "");
   if (!erro && alvo === eu.login && acessoTotal({ login: alvo, ...d }) && !acessoTotal(depois))
     erro = "Você não pode tirar de si mesmo o acesso às abas (peça a outro administrador).";
   if (erro) return { erro, login: alvo };
   const base = semMeta(d);
   delete base.abas;
+  if (e.email !== undefined) delete base.email;
   const dados: Registro = {
     ...base, ...(e.abas ? { abas: e.abas } : {}),
     nome: e.nome.trim() || d.nome || "",
+    ...(e.email?.trim() ? { email: e.email.trim().toLowerCase() } : {}),
     ...(e.funcao in FUNCOES ? { funcao: e.funcao } : {}),
     perfil: unicoAdmin ? d.perfil : e.perfil,
     ativo: unicoAdmin || alvo === eu.login ? true : e.ativo,
