@@ -120,6 +120,8 @@ export function Shell({ grupos, pessoa, sair, children }: {
   const rota = usePathname();
   useEffect(() => setAberto(false), [rota]);
   const caminho = caminhoDe(grupos, rota);
+  // a busca só aparece para quem pode abrir /busca (o layout já filtra os grupos por função)
+  const temBusca = grupos.some((g) => g.itens.some((i) => i.id === "busca"));
 
   // rodapé com a pessoa e o sair: na barra lateral (recolhida em 72px, empilhado) e na gaveta do celular (sempre aberta)
   const rodape = (colapsado: boolean) => (
@@ -166,11 +168,13 @@ export function Shell({ grupos, pessoa, sair, children }: {
       {/* topo (celular) */}
       <header className="nao-imprimir sticky top-0 z-30 flex items-center justify-between bg-menu px-4 py-3 text-white lg:hidden">
         <Marca compacta claro />
-        <div className="flex items-center gap-1">
-          <Link href="/busca" prefetch={false} aria-label="Buscar" title="Buscar"
-            className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
-            <Search className="size-5" />
-          </Link>
+        <div className="flex items-center gap-2">
+          {temBusca && (
+            <Link href="/busca" prefetch={false} aria-label="Buscar" title="Buscar"
+              className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
+              <Search className="size-5" />
+            </Link>
+          )}
           <BotaoTema />
           <button onClick={() => setAberto(true)} aria-label="Abrir menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
             <Menu className="size-5" />
@@ -196,19 +200,21 @@ export function Shell({ grupos, pessoa, sair, children }: {
       <main className="min-w-0 flex-1">
         <FaixaMarca />
         {/* barra do computador: caminho da página à esquerda; busca e tema à direita */}
-        <div className="hidden items-center gap-4 border-b border-borda bg-superficie px-8 py-2.5 lg:flex">
+        <div className="nao-imprimir hidden items-center gap-4 border-b border-borda bg-superficie px-8 py-2.5 lg:flex">
           <nav aria-label="Caminho da página" className="min-w-0 flex-1 truncate text-[13.5px]">
             {caminho?.grupo && (<><span className="text-texto-3">{caminho.grupo}</span><span aria-hidden className="mx-1.5 text-texto-3">›</span></>)}
-            {caminho && <span className="font-medium text-texto">{caminho.aba}</span>}
+            {caminho && <span aria-current="page" className="font-medium text-texto">{caminho.aba}</span>}
           </nav>
-          <form action="/busca" method="get" role="search" className="w-full max-w-[360px]">
-            <label htmlFor="busca-topo" className="sr-only">Buscar</label>
-            <div className="relative">
-              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-              <input id="busca-topo" type="search" name="q" placeholder="Buscar ordem, equipamento ou material"
-                className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-3 text-[13.5px] text-texto placeholder:text-texto-3 focus:border-[var(--acao)]" />
-            </div>
-          </form>
+          {temBusca && (
+            <form action="/busca" method="get" role="search" className="w-full max-w-[360px]">
+              <label htmlFor="busca-topo" className="sr-only">Buscar</label>
+              <div className="relative">
+                <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
+                <input id="busca-topo" type="search" name="q" placeholder="Buscar ordem, equipamento ou material"
+                  className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-3 text-[13.5px] text-texto placeholder:text-texto-3 focus:border-[var(--acao)]" />
+              </div>
+            </form>
+          )}
           <BotaoTema claro />
         </div>
         {pessoa.demo && (
