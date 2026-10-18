@@ -122,3 +122,16 @@ describe("gravação do vínculo", () => {
     expect(s).toContain("Zerado");
   });
 });
+
+describe("campo de ordenação geral do ativo", () => {
+  it("um campo por equipamento: o mais usado nas ordens dele; os outros ficam nas ordens", () => {
+    const campo = new Map([["1", "LINHA-A"], ["2", " linha-a "], ["3", "LINHA-A-MOTOR"], ["4", "X"]]);
+    const g = M.campoGeralPorEquipamento([
+      { ordem: "1", equipChave: "EQ1" }, { ordem: "2", equipChave: "EQ1" }, { ordem: "3", equipChave: "EQ1" },
+      { ordem: "4", equipChave: "" }, { ordem: "5", equipChave: "EQ2" },
+    ], campo);
+    expect(g.get("EQ1")).toBe("LINHA-A");
+    expect(g.has("EQ2")).toBe(false); // sem campo: vale o equipamento
+    expect(g.size).toBe(1);
+  });
+});

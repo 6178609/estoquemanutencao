@@ -123,8 +123,8 @@ export interface AtivoMro {
 
 type AtivoBase = Pick<LinhaAtivo, "codigo" | "equipamento" | "criticidade" | "area" | "localInstalacao" | "situacao">;
 
-/** Campo de ordenação geral de cada equipamento (o mesmo do Calendário de ordens). */
-export { campoGeralPorEquipamento as camposPorEquipamento } from "@/lib/wcm/programacao";
+/** Campo de ordenação geral de cada equipamento. */
+export { campoGeralPorEquipamento as camposPorEquipamento, campoGeralPorEquipamento } from "@/lib/wcm/util";
 
 /** O que aparece no lugar do equipamento: o campo de ordenação (o código vai embaixo); sem campo, o código. */
 export const rotuloAtivo = (a: { codigo: string; campo: string }) => a.campo || a.codigo;

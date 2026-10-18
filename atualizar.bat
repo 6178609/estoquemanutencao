@@ -1,8 +1,7 @@
 @echo off
 REM ==========================================================================
 REM  Central de Manutencao - atualiza o sistema neste PC com a versao publicada
-REM  no GitHub e reinicia o sincronizador (que leva os pedidos do site, como a
-REM  mudanca de datas, ao robo do SAP). As configuracoes deste PC (token do
+REM  no GitHub e reinicia o sincronizador. As configuracoes deste PC (token do
 REM  GitHub, usuario do SAP) nao sao alteradas. O sincronizador tambem faz isto
 REM  sozinho a cada 6 horas; use este arquivo para atualizar na hora.
 REM ==========================================================================

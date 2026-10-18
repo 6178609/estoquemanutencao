@@ -30,7 +30,6 @@ SAP ──(export manual ou robô do SAP)──▶ pastas do OneDrive / Download
   Indicadores`, `~\Downloads\SITE` (com subpastas) e a própria `~\Downloads`. Planilhas baixadas do site e arquivos
   com "filtrado" no nome são ignorados.
 - A planilha de **Gestão de HH não é mais enviada**: a equipe é cadastrada na aba Gestão de HH do site.
-- Também leva ao robô do SAP os pedidos de mudança de datas e avisa o site que o PC está ligado.
 - Instalar: `sincronizador\configurar.bat` (pede o repositório de dados e o token, que ficam só neste PC).
 
 **Atualizar o PC:** o sincronizador busca o código novo no GitHub a cada 6 h, copia por cima da pasta (só o que
@@ -55,13 +54,6 @@ o resultado na pasta do site (`Downloads\SITE`), substituindo o arquivo anterior
 - **Nova transação:** acrescente um bloco `[[transacao]]` em `transacoes.toml`. Se um campo tiver outro ID no seu
   SAP, o robô diz qual passo falhou; grave a transação uma vez em *Alt+F12 › Script Recording and Playback* e copie
   o ID.
-
-### Mudança de datas no SAP
-
-A tela **Programação do mês** (calendário manual por campo de ordenação, pedido ao robô e script VBS) foi retirada:
-o **Calendário de ordens** (IW38) é o calendário único do site. O robô (`automacao/robo_sap.py`) e o sincronizador
-continuam lendo `mudancas_datas.json`, mas nenhuma tela cria pedidos novos; as datas já alteradas por lotes antigos
-aparecem no calendário com ↻ até o próximo export do IW38.
 
 ## Dados da empresa e este repositório
 

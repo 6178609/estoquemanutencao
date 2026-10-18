@@ -39,4 +39,4 @@
 - `web/`: site novo (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer.
 - O site antigo (Streamlit) foi apagado: o site é só o `web/`. Nada de código novo em Python para telas.
 - `automacao/` (robô do SAP) e `sincronizador/` (PC → repositório privado de dados; inclui a leitura dos exports do
-  SAP e os pedidos de mudança de datas do robô).
+  SAP). O robô só exporta do SAP: a mudança de datas e o Calendário de ordens foram apagados.

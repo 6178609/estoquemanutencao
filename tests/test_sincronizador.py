@@ -135,13 +135,8 @@ def test_pc_envia_e_site_le(ambiente, monkeypatch):
     mb = pd.DataFrame({"Material": [100200.0], "Texto breve material": ["ROLAMENTO"], "Utilização livre": [4.0]})
     mb.to_excel(estoque / "MB52.XLSX", index=False)
 
-    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
     assert sorted(sincronizar.rodada(cfg)) == [IW38, MB52]
-    assert set(gh.arquivos) == {"bases/IW38.parquet", "bases/MB52.parquet", "bases/manifesto.json", "app/robo_pc.json"}
-    # sinal de vida para o site: versão do robô e recursos (o site avisa quando o PC está com código antigo)
-    sinal = json.loads(gh.arquivos["app/robo_pc.json"])
-    (pc, info), = sinal.items()
-    assert {"mudar_datas_iw38", "diagnostico"} <= set(info["recursos"]) and info["visto_em"]
+    assert set(gh.arquivos) == {"bases/IW38.parquet", "bases/MB52.parquet", "bases/manifesto.json"}
     man = json.loads(gh.arquivos["bases/manifesto.json"])
     # vale só o export mais recente do IW38
     assert man["bases/IW38.parquet"]["origem"] == "0.1 - Indicadores/2026/Indicadores.xlsx › aba Base"
@@ -171,62 +166,8 @@ def test_planilha_de_equipe_nao_e_mais_enviada(ambiente, monkeypatch):
     pd.DataFrame({"Material": [100200.0], "Texto breve material": ["ROLAMENTO"], "Utilização livre": [4.0]}).to_excel(
         estoque / "MB52.XLSX", index=False)
     assert EQUIPE in sincronizar.localizar(cfg["pastas"], {})
-    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
     assert sincronizar.rodada(cfg) == [MB52]
     assert "bases/EQUIPE.parquet" not in gh.arquivos
-
-
-def test_mudanca_de_datas_pedida_na_nuvem_roda_no_pc(ambiente, monkeypatch, tmp_path):
-    from sincronizador import mudanca_datas as md
-
-    gh_falso, cfg, _, _ = ambiente
-    gh = fontes.GitHub(sincronizar._Cfg(cfg["repo"], cfg["token"], "main"))
-    consultas = [{"dia": "2026-10-07", "campos": ["M1"], "de": "2026-10-01", "ate": "2026-10-31"}]
-    lote = {"status": md.SOLICITADA, "simular": False, "criado_por": "ANA", "consultas": consultas, "itens": []}
-    gh.gravar(md.ARQ_LOTES, json.dumps({"L1": lote, "L0": {**lote, "status": md.CONCLUIDA}}).encode())
-    # sem o robô configurado neste PC, nada acontece
-    monkeypatch.setattr(sincronizar, "ROBO_CONFIGURADO", tmp_path / "nao_existe.toml")
-    assert sincronizar.executar_mudancas(gh) == []
-    pedidos = []
-
-    def robo_falso(pedido, progresso=None):
-        pedidos.append(pedido)
-        salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
-        assert salvo["L1"]["status"] == md.EM_EXECUCAO          # o site vê que o robô pegou o pedido
-        return {"lote": "L1", "consultas": [{"dia": "2026-10-07", "campos": ["M1"], "encontradas": 1, "erro": ""}],
-                "itens": [{"ordem": "100", "dia": "2026-10-07", "campo": "M1", "ok": True, "mensagem": "gravada",
-                           "inicio_sap": "2026-09-30"}]}
-
-    assert sincronizar.executar_mudancas(gh, rodar=robo_falso) == ["L1"]
-    assert pedidos == [{"lote": "L1", "simular": False, "consultas": consultas, "itens": []}]
-    salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
-    assert salvo["L1"]["status"] == md.CONCLUIDA and salvo["L1"]["itens"][0]["de_inicio"] == "2026-09-30"
-    assert salvo["L0"]["status"] == md.CONCLUIDA                # os outros lotes ficam como estavam
-    assert sincronizar.executar_mudancas(gh, rodar=robo_falso) == []   # nada pendente na rodada seguinte
-
-
-def test_robo_nao_apaga_pedido_feito_no_site_enquanto_grava(ambiente, monkeypatch):
-    from sincronizador import mudanca_datas as md
-
-    gh_falso, cfg, _, _ = ambiente
-    gh = fontes.GitHub(sincronizar._Cfg(cfg["repo"], cfg["token"], "main"))
-    lote = {"status": md.SOLICITADA, "consultas": [], "itens": []}
-    gh.gravar(md.ARQ_LOTES, json.dumps({"L1": lote}).encode())
-    ler, vez = gh.ler_versionado, []
-
-    def ler_e_o_site_grava_no_meio(nome):
-        r = ler(nome)
-        if nome == md.ARQ_LOTES and not vez:          # entre a leitura e a gravação do robô, alguém pede outro lote
-            vez.append(1)
-            atual = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
-            gh_falso.arquivos["app/" + md.ARQ_LOTES] = json.dumps({**atual, "L2": lote}).encode()
-        return r
-
-    monkeypatch.setattr(gh, "ler_versionado", ler_e_o_site_grava_no_meio)
-    monkeypatch.setattr(sincronizar.time, "sleep", lambda s: None)
-    sincronizar._gravar_lote(gh, "L1", {**lote, "status": md.EM_EXECUCAO})
-    salvo = json.loads(gh_falso.arquivos["app/" + md.ARQ_LOTES])
-    assert salvo["L1"]["status"] == md.EM_EXECUCAO and salvo["L2"]["status"] == md.SOLICITADA
 
 
 def test_arquivo_ilegivel_nao_segura_as_outras_bases(ambiente, monkeypatch):
@@ -242,7 +183,6 @@ def test_arquivo_ilegivel_nao_segura_as_outras_bases(ambiente, monkeypatch):
         return ler(nome, *a, **kw)
 
     monkeypatch.setattr(sincronizar.leitura, "ler_arquivo", iw38_aberto_no_excel)
-    monkeypatch.setattr(sincronizar, "_ULTIMO_SINAL", [None])
     assert sincronizar.rodada(cfg) == [MB52]
     monkeypatch.setattr(sincronizar.leitura, "ler_arquivo", ler)          # fechou o Excel: vai na rodada seguinte
     assert sincronizar.rodada(cfg) == [IW38]

@@ -5,11 +5,11 @@ import { guardar } from "@/app/(app)/saude/calculo";
 import { camposDeOrdenacao } from "./camposOrdenacao";
 import type { Contexto } from "./contexto";
 import { bases } from "./dados";
-import { campoGeralPorEquipamento } from "./programacao";
+import { campoGeralPorEquipamento } from "./util";
 
 /**
  * Campo de ordenação GERAL de cada equipamento — o que identifica o ativo em todas as abas (o mais usado nas ordens
- * dele no IW38; o mesmo do Calendário de ordens e da Gestão de MRO). Cache pela versão do IW38.
+ * dele no IW38; o mesmo da Gestão de MRO). Cache pela versão do IW38.
  */
 export async function camposGerais(c: Pick<Contexto, "b">): Promise<Map<string, string>> {
   const ordens = c.b.ordens.dados ?? [];

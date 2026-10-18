@@ -4,11 +4,11 @@ Quem instalou pelo "Download ZIP" fica com o código daquele dia: o sincronizado
 robô do SAP não recebem as correções do site. Este script baixa a versão atual do
 ramo main e copia por cima da pasta do sistema, arquivo a arquivo:
 
-- só regrava o que mudou; nunca apaga nada;
+- só regrava o que mudou; apaga só o código que saiu do sistema (OBSOLETOS: o site antigo
+  em Streamlit e a mudança de datas pelo robô);
 - não toca nas configurações deste PC (sincronizador/config.toml, estado.json,
   automacao/robo_local.toml…), que não estão no GitHub;
-- o automacao/transacoes.toml anterior fica em transacoes.toml.anterior (ajustes de ID
-  deste PC para a mudança de datas vão no robo_local.toml, seção [mudanca_datas]);
+- o automacao/transacoes.toml anterior fica em transacoes.toml.anterior;
 - guarda a versão instalada em .versao_instalada.
 
 O sincronizador chama isto sozinho a cada poucas horas e se reinicia quando algo
@@ -24,6 +24,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,7 +37,10 @@ RAMO = "main"
 ARQ_VERSAO = RAIZ / ".versao_instalada"
 # configurações e dados deste PC: nunca são sobrescritos (normalmente nem vêm no ZIP)
 PRESERVAR = {"sincronizador/config.toml", "sincronizador/estado.json", "automacao/robo_local.toml",
-             ".streamlit/secrets.toml", ".versao_instalada"}
+             ".versao_instalada"}
+# código que saiu do sistema e é apagado do PC na atualização (só código; configurações e dados ficam)
+OBSOLETOS = ("central", "paginas", "streamlit_app.py", "iniciar.bat", "sincronizador/mudanca_datas.py",
+             "automacao/mudanca_datas_pedido.json", "automacao/mudanca_datas_pedido_resultado.json")
 PASTAS_IGNORADAS = {".git", ".venv", "__pycache__", "dados"}
 # arquivos que alguém pode ter ajustado no PC: antes de trocar, a versão anterior fica em <arquivo>.anterior
 GUARDAR_ANTERIOR = {"automacao/transacoes.toml"}
@@ -119,6 +123,25 @@ def aplicar(conteudo_zip: bytes, raiz: Path = RAIZ) -> list[str]:
     return alterados
 
 
+def apagar_obsoletos(raiz: Path = RAIZ) -> list[str]:
+    """Apaga deste PC o código que saiu do sistema; devolve o que foi apagado."""
+    apagados = []
+    for rel in OBSOLETOS:
+        alvo = raiz / rel
+        try:
+            if alvo.is_dir():
+                shutil.rmtree(alvo)
+            elif alvo.exists():
+                alvo.unlink()
+            else:
+                continue
+        except OSError as e:
+            log.warning("não deu para apagar %s: %s", rel, e)
+            continue
+        apagados.append(rel)
+    return apagados
+
+
 def atualizar(repo: str = REPO, ramo: str = RAMO, raiz: Path = RAIZ, forcar: bool = False) -> dict:
     """{"atualizado": bool, "de", "para", "arquivos": [...], "dependencias": bool}."""
     para = versao_remota(repo, ramo)
@@ -126,6 +149,7 @@ def atualizar(repo: str = REPO, ramo: str = RAMO, raiz: Path = RAIZ, forcar: boo
     if para == de and not forcar:
         return {"atualizado": False, "de": de, "para": para, "arquivos": [], "dependencias": False}
     arquivos = aplicar(baixar(para, repo), raiz)
+    arquivos += apagar_obsoletos(raiz)
     (raiz / ARQ_VERSAO.name).write_text(para + "\n", encoding="utf-8")
     log.info("código atualizado de %s para %s (%d arquivo(s))", de[:7] or "?", para[:7], len(arquivos))
     return {"atualizado": bool(arquivos), "de": de, "para": para, "arquivos": arquivos,
