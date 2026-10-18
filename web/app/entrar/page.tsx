@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
-import { Marca } from "@/components/Marca";
+import { LogoSim } from "@/components/Marca";
 import { Objeto } from "@/components/Objeto";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
@@ -35,8 +35,9 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
   return (
     <div className="min-h-dvh bg-fundo">
       <header className="border-b border-borda">
-        <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-4 sm:px-8">
-          <Marca />
+        <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-3 px-4 sm:px-8">
+          <span className="font-display text-[15px] font-medium tracking-[-0.02em] text-texto">Central de Manutenção</span>
+          <span className="text-[12px] text-texto-3">PCM · F26</span>
         </div>
       </header>
 
@@ -45,6 +46,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
           <div aria-hidden className="pontos absolute inset-0" />
           <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 py-14 sm:px-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:py-20">
             <div className="max-w-[560px] space-y-6">
+              <LogoSim largura={180} />
               <Pilula>SIM · Manutenção Profissional · F26</Pilula>
               <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[56px]" />
               <p className="text-[15.5px] leading-relaxed text-texto-3">

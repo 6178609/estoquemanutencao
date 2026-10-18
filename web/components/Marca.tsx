@@ -16,3 +16,12 @@ export function Marca({ compacta = false, claro = false }: { compacta?: boolean;
     </div>
   );
 }
+
+/** A logo SIM Manutenção em tamanho grande, num quadro branco (legível também no tema escuro). Tela de entrada. */
+export function LogoSim({ largura = 140 }: { largura?: number }) {
+  return (
+    <div className="flex w-fit rounded-cartao border border-borda bg-white px-4 py-3">
+      <Image src="/logo_sim.png" alt="SIM Manutenção Profissional" width={largura} height={Math.round((largura * 68) / 125)} priority />
+    </div>
+  );
+}
