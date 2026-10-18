@@ -6,10 +6,10 @@ import { Download, LoaderCircle, PackageSearch, Save, Wrench } from "lucide-reac
 import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
-import { CampoBusca, MultiEscolha, Segmentos } from "@/components/Filtros";
+import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
 import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
-import type { ItemAlmox } from "@/lib/dados/materiais";
+import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
@@ -17,6 +17,8 @@ type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
+/** Cor da barra de cobertura do mínimo, a mesma do selo da situação. */
+const BARRA_SITUACAO = { Zerado: "var(--selo-critico-texto)", "Abaixo do mínimo": "var(--selo-serio-texto)", OK: "var(--selo-bom-texto)" } as const;
 const COR_CADASTRO: Record<string, "verde" | "laranja" | "vermelho" | "amarelo" | "cinza"> = {
   Ativo: "verde", Bloqueado: "laranja", Cancelado: "vermelho", Duplicado: "amarelo", "Não encontrado no Sysmat": "cinza",
   "Sem catálogo": "cinza",
@@ -37,7 +39,24 @@ function baixarCsv(itens: ItemAlmox[]) {
   URL.revokeObjectURL(a.href);
 }
 
+/** Filtros rápidos de um toque (pílulas com contagem); no celular rolam na horizontal. */
+function Pilulas({ opcoes, valor, aoMudar }: { opcoes: { valor: Situacao; rotulo: string; n: number }[]; valor: Situacao;
+  aoMudar: (v: Situacao) => void }) {
+  return (
+    <div role="group" aria-label="Situação do material" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:px-0">
+      {opcoes.map((o) => (
+        <button key={o.valor} type="button" onClick={() => aoMudar(o.valor)} aria-pressed={valor === o.valor}
+          className={clsx("inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[13.5px] transition lg:min-h-9",
+            valor === o.valor ? "border-transparent bg-acao font-semibold text-white" : "border-borda bg-superficie text-texto-2 hover:text-texto")}>
+          {o.rotulo}<span className="num">· {o.n.toLocaleString("pt-BR")}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
+  const cob = cobertura(it.estoque, it.minimo);
   return (
     <button onClick={aoAbrir}
       className="group grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_150px]">
@@ -62,6 +81,11 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
         <div className="text-xs text-texto-3">
           mín. <span className="num font-semibold text-texto-2">{it.minimo == null ? "—" : numero(it.minimo)}</span>
           {it.depositos && <div className="mt-0.5 truncate">{it.depositos}</div>}
+          {cob != null && (
+            <div className="mt-2 h-1.5 w-28 rounded-full bg-superficie-3 md:ml-auto" role="img" aria-label={`Cobre ${cob}% do mínimo`}>
+              <div className="h-1.5 rounded-full" style={{ width: `${Math.max(cob, 2)}%`, background: BARRA_SITUACAO[it.situacao] }} />
+            </div>
+          )}
         </div>
       </div>
     </button>
@@ -95,16 +119,21 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
     return [...m.entries()].sort().map(([valor, n]) => ({ valor, n }));
   }, [itens]);
 
-  const visiveis = useMemo(() => {
+  // tudo menos a situação: é sobre este recorte que as pílulas contam
+  const recorte = useMemo(() => {
     const r: ItemAlmox[] = [];
     itens.forEach((i, k) => {
-      if (situacao === "vinculado" ? !i.usadoEm : situacao !== "todos" && i.situacao !== situacao) return;
       if (cadastros.length && !cadastros.includes(i.cadastro)) return;
       if (categorias.length && !categorias.includes(i.categoria)) return;
       if (depositos.length && !i.depositos.split(", ").some((d) => depositos.includes(d))) return;
       if (buscaAdiada && !casaBusca(textoBusca[k], buscaAdiada)) return;
       r.push(i);
     });
+    return r;
+  }, [itens, textoBusca, buscaAdiada, cadastros, categorias, depositos]);
+
+  const visiveis = useMemo(() => {
+    const r = recorte.filter((i) => situacao === "vinculado" ? !!i.usadoEm : situacao === "todos" || i.situacao === situacao);
     const peso = { Zerado: 0, "Abaixo do mínimo": 1, OK: 2 };
     const cmp: Record<Ordem, (a: ItemAlmox, b: ItemAlmox) => number> = {
       situacao: (a, b) => peso[a.situacao] - peso[b.situacao] || a.descricao.localeCompare(b.descricao, "pt-BR"),
@@ -113,14 +142,41 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
       valor: (a, b) => b.valor - a.valor,
     };
     return r.sort(cmp[ordem]);
-  }, [itens, textoBusca, buscaAdiada, situacao, cadastros, categorias, depositos, ordem]);
+  }, [recorte, situacao, ordem]);
 
   const listaRef = useRef<HTMLDivElement>(null);
   const [margem, setMargem] = useState(0);
   useLayoutEffect(() => setMargem(listaRef.current?.offsetTop ?? 0), []);
   const virt = useWindowVirtualizer({ count: visiveis.length, estimateSize: () => 150, overscan: 6, scrollMargin: margem });
 
-  const n = (s: string) => itens.filter((i) => i.situacao === s).length;
+  const n = (s: string) => recorte.filter((i) => i.situacao === s).length;
+  const pilulas = [
+    { valor: "todos" as const, rotulo: "Todos", n: recorte.length },
+    { valor: "Abaixo do mínimo" as const, rotulo: "Abaixo do mínimo", n: n("Abaixo do mínimo") },
+    { valor: "Zerado" as const, rotulo: "Zerados", n: n("Zerado") },
+    { valor: "OK" as const, rotulo: "OK", n: n("OK") },
+    { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: recorte.filter((i) => i.usadoEm).length },
+  ];
+  const filtros = (
+    <div className="flex flex-wrap gap-2">
+      <MultiEscolha rotulo="Cadastro Sysmat" opcoes={opCadastro} valor={cadastros} aoMudar={setCadastros} />
+      <MultiEscolha rotulo="Categoria" opcoes={opCategoria} valor={categorias} aoMudar={setCategorias} />
+      <MultiEscolha rotulo="Depósito" opcoes={opDeposito} valor={depositos} aoMudar={setDepositos} />
+    </div>
+  );
+  const ordenar = (id: string) => (
+    <div className="flex items-center gap-2 text-sm">
+      <label className="text-texto-3" htmlFor={id}>Ordenar</label>
+      <select id={id} value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)}
+        className="h-11 rounded-lg border border-borda bg-superficie px-2 text-sm focus:border-[var(--acao)] lg:h-9">
+        <option value="situacao">Situação</option><option value="descricao">Descrição</option>
+        <option value="estoque">Maior estoque</option><option value="valor">Maior valor</option>
+      </select>
+      <button onClick={() => baixarCsv(visiveis)} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 font-medium text-texto-2 hover:text-texto lg:h-9">
+        <Download className="size-4" /> Excel (CSV)
+      </button>
+    </div>
+  );
   const aoSalvar = useCallback((material: string, minimo: number | null) => {
     setItens((atual) => atual.map((i) => {
       if (i.material !== material) return i;
@@ -132,33 +188,20 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
 
   return (
     <div className="space-y-4">
-      <div className="z-20 -mx-4 space-y-3 border-b border-borda bg-fundo/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:sticky lg:top-0">
+      {/* busca e filtros rápidos ficam presos no topo, logo abaixo do cabeçalho verde do celular */}
+      <div className="sticky top-[68px] z-20 -mx-4 space-y-3 border-b border-borda bg-fundo/95 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:top-0">
         <div className="flex flex-col gap-3 lg:flex-row">
           <CampoBusca valor={busca} aoMudar={setBusca} placeholder="Buscar por código, descrição, Descr Completa, fabricante, referência…" />
-          <div className="flex flex-wrap gap-2">
-            <MultiEscolha rotulo="Cadastro Sysmat" opcoes={opCadastro} valor={cadastros} aoMudar={setCadastros} />
-            <MultiEscolha rotulo="Categoria" opcoes={opCategoria} valor={categorias} aoMudar={setCategorias} />
-            <MultiEscolha rotulo="Depósito" opcoes={opDeposito} valor={depositos} aoMudar={setDepositos} />
-          </div>
+          <div className="hidden lg:block">{filtros}</div>
         </div>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <Segmentos<Situacao> valor={situacao} aoMudar={setSituacao} opcoes={[
-            { valor: "todos", rotulo: "Todos", n: itens.length }, { valor: "Zerado", rotulo: "Zerados", n: n("Zerado") },
-            { valor: "Abaixo do mínimo", rotulo: "Abaixo do mínimo", n: n("Abaixo do mínimo") }, { valor: "OK", rotulo: "OK", n: n("OK") },
-            { valor: "vinculado", rotulo: "Peça de equipamento", n: itens.filter((i) => i.usadoEm).length },
-          ]} />
-          <div className="flex items-center gap-2 text-sm">
-            <label className="text-texto-3" htmlFor="ordem">Ordenar</label>
-            <select id="ordem" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)}
-              className="h-9 rounded-lg border border-borda bg-superficie px-2 text-sm focus:border-[var(--acao)]">
-              <option value="situacao">Situação</option><option value="descricao">Descrição</option>
-              <option value="estoque">Maior estoque</option><option value="valor">Maior valor</option>
-            </select>
-            <button onClick={() => baixarCsv(visiveis)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 font-medium text-texto-2 hover:text-texto">
-              <Download className="size-4" /> Excel (CSV)
-            </button>
-          </div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <Pilulas opcoes={pilulas} valor={situacao} aoMudar={setSituacao} />
+          <div className="hidden lg:block">{ordenar("ordem")}</div>
         </div>
+      </div>
+      <div className="flex flex-col gap-3 lg:hidden">
+        {filtros}
+        {ordenar("ordem-celular")}
       </div>
 
       <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a ficha técnica completa{edita ? " e ajustar o mínimo" : ""}.</p>

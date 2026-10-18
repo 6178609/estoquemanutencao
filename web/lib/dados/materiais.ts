@@ -179,6 +179,12 @@ export function montarAlmox(
   });
 }
 
+/** Quanto do mínimo o estoque cobre, de 0 a 100%. Sem mínimo (ausente ou zero), não há cobertura: null. */
+export function cobertura(estoque: number, minimo: number | null): number | null {
+  if (minimo == null || minimo <= 0) return null;
+  return Math.round(Math.min(1, Math.max(0, estoque / minimo)) * 100);
+}
+
 /** Quais equipamentos (cadastro do site) usam cada material: "TAG (criticidade)". */
 export function usoDosMateriais(cadEq: Record<string, Record<string, unknown>>): Map<string, string[]> {
   const uso = new Map<string, string[]>();
