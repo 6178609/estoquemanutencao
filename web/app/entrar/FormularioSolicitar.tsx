@@ -4,6 +4,7 @@ import { CheckCircle2, LoaderCircle, Send } from "lucide-react";
 import { useActionState } from "react";
 
 import { Campo, ENTRADA, Mensagem, Seletor } from "@/components/Campos";
+import { BOTAO_PRIMARIO } from "@/components/ui";
 import { acaoSolicitar, type EstadoPedido } from "./acoes";
 
 const FUNCOES = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor", terceiro: "Terceiro" };
@@ -40,8 +41,7 @@ export function FormularioSolicitar() {
       </div>
       <p className="-mt-2 text-[12px] text-texto-3">Mínimo de 8 caracteres, com letras e números. Ela vale assim que o pedido for aprovado.</p>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
-      <button disabled={enviando}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-marca-500 font-display text-[15px] font-medium text-white transition hover:bg-marca-600 disabled:cursor-not-allowed disabled:opacity-60">
+      <button disabled={enviando} className={`${BOTAO_PRIMARIO} w-full`}>
         {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><Send className="size-4" /> Enviar pedido</>}
       </button>
     </form>

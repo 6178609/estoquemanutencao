@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
+import { BOTAO_PRIMARIO } from "@/components/ui";
 
 import { SeloPeca } from "../equipamentos/SeloPeca";
 import { alterarPecas, buscarMateriaisMro } from "./acoes";
@@ -106,8 +107,9 @@ export function PecasAtivo({ tag, pecas, edita }: { tag: string; pecas: PecaMro[
                         <span className="block truncate text-[11.5px] text-texto-3">{[p.noMb52 ? p.texto : "só no Sysmat", p.sysmat && `Sysmat ${p.sysmat}`, p.fabricanteRef].filter(Boolean).join(" · ")}</span>
                       </span>
                       <button type="button" disabled={ocupado || on} onClick={() => mudar(p.codigo, true)}
-                        className={clsx("inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] transition disabled:cursor-default",
-                          on ? "text-[color:var(--st-bom)]" : "bg-marca-500 font-medium text-white hover:bg-marca-600 disabled:opacity-50")}>
+                        className={on
+                          ? "inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] text-[color:var(--st-bom)] transition disabled:cursor-default"
+                          : clsx(BOTAO_PRIMARIO, "shrink-0")}>
                         {mexendo === p.codigo ? <LoaderCircle className="size-3.5 animate-spin" /> : <Link2 className="size-3.5" />} {on ? "Vinculada" : "Vincular"}
                       </button>
                     </li>

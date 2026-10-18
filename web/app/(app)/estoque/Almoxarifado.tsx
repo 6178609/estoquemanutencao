@@ -8,7 +8,7 @@ import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useSta
 import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha, Segmentos } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
-import { Selo } from "@/components/ui";
+import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
 import type { ItemAlmox } from "@/lib/dados/materiais";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
@@ -224,8 +224,7 @@ function Detalhe({ it, edita, aoSalvar }: { it: ItemAlmox; edita: boolean; aoSal
           <div className="mt-2 flex gap-2">
             <input id="minimo" value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" placeholder="sem mínimo"
               className="num h-11 w-40 rounded-xl border border-borda bg-superficie px-3 outline-none focus:border-marca-500 focus:ring-4 focus:ring-marca-500/15" />
-            <button onClick={salvar} disabled={estado.gravando}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-marca-600 px-4 font-display text-sm font-semibold text-white hover:bg-marca-700 disabled:opacity-60">
+            <button onClick={salvar} disabled={estado.gravando} className={BOTAO_PRIMARIO}>
               {estado.gravando ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
             </button>
           </div>

@@ -106,13 +106,13 @@ export function Shell({ grupos, pessoa, sair, children }: {
   const rota = usePathname();
   useEffect(() => setAberto(false), [rota]);
 
-  // rodapé com a pessoa e o sair: o mesmo na barra lateral e na gaveta do celular
-  const rodape = (
-    <div className="flex items-center gap-3 rounded-xl bg-menu-2 p-2">
+  // rodapé com a pessoa e o sair: na barra lateral (recolhida em 72px, empilhado) e na gaveta do celular (sempre aberta)
+  const rodape = (colapsado: boolean) => (
+    <div className={clsx("flex gap-3 rounded-xl bg-menu-2 p-2", colapsado ? "flex-col items-center" : "items-center")}>
       <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--menu-marcador)] font-display text-[13px] font-medium text-[#11240F]">
         {iniciais(pessoa.nome) || "?"}
       </div>
-      {!recolhido && (
+      {!colapsado && (
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate text-[13px] font-medium text-white">{pessoa.nome}</div>
           <div className="truncate text-[11.5px] text-menu-apoio">{pessoa.funcao} · {pessoa.perfil}</div>
@@ -145,7 +145,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
               <ChevronsLeft className={clsx("size-4 transition", recolhido && "rotate-180")} />
             </button>
           </div>
-          {rodape}
+          {rodape(recolhido)}
         </div>
       </aside>
 
@@ -170,7 +170,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-4"><Navegacao grupos={grupos} aoNavegar={() => setAberto(false)} /></div>
-            <div className="border-t border-white/10 p-3">{rodape}</div>
+            <div className="border-t border-white/10 p-3">{rodape(false)}</div>
           </div>
         </div>
       )}

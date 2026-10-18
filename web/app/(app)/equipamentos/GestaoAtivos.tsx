@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Barras, Grafico, Legenda, Partes, type Cor } from "@/components/graficos";
 import { Aviso } from "@/components/PaginaWcm";
-import { Selo } from "@/components/ui";
+import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
 import { brl, brlCurto } from "@/lib/formato";
 import * as ativos from "@/lib/wcm/ativos";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
@@ -216,7 +216,7 @@ function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: 
           sub={<span className="inline-flex flex-wrap items-center gap-1.5">{r.situacao} · criticidade {r.criticidade || "sem classe"} · <Selo cor={SELO_REC[r.recomendacao] ?? "cinza"}>{r.recomendacao}</Selo></span>}
           acoes={<div className="flex flex-wrap gap-2">
             {completo && temOrdens && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Abrir ficha (ordens)</Link>}
-            {cadastra && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-marca-500 px-3 text-[13px] font-medium text-white transition hover:bg-marca-600"><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
+            {cadastra && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className={BOTAO_PRIMARIO}><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
             <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-4">

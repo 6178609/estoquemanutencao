@@ -32,7 +32,7 @@ export function Seletor({ rotulo, opcoes, vazio, dica, className, ...p }: {
 export function Mensagem({ tipo = "erro", children }: { tipo?: "erro" | "ok"; children: React.ReactNode }) {
   return (
     <p role={tipo === "erro" ? "alert" : "status"} className={clsx("rounded-xl border px-3.5 py-2.5 text-sm font-medium",
-      tipo === "erro" ? "border-perigo-500/30 bg-perigo-500/10 text-perigo-500" : "border-marca-500/30 bg-marca-500/10 text-marca-600 dark:text-marca-300")}>
+      tipo === "erro" ? "border-transparent bg-[var(--selo-critico-fundo)] text-[var(--selo-critico-texto)]" : "border-transparent bg-[var(--selo-bom-fundo)] text-[var(--selo-bom-texto)]")}>
       {children}
     </p>
   );

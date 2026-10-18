@@ -3,6 +3,7 @@
 import { ArrowRight, Eye, EyeOff, KeyRound, LoaderCircle, Sparkles, UserRound } from "lucide-react";
 import { useActionState, useState } from "react";
 
+import { BOTAO_PRIMARIO } from "@/components/ui";
 import { INATIVIDADE_MIN } from "@/lib/auth/inatividade";
 
 import { acaoDemo, acaoEntrar, type EstadoEntrada } from "./acoes";
@@ -58,7 +59,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
           </p>
         )}
         <button disabled={enviando || demo}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-marca-500 font-display text-[15px] font-medium text-white transition hover:bg-marca-600 disabled:cursor-not-allowed disabled:opacity-60">
+          className={`${BOTAO_PRIMARIO} w-full`}>
           {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <>Entrar <ArrowRight className="size-4" /></>}
         </button>
       </form>

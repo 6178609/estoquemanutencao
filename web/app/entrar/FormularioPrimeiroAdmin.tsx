@@ -4,6 +4,7 @@ import { ArrowRight, LoaderCircle, ShieldCheck } from "lucide-react";
 import { useActionState } from "react";
 
 import { Campo, Mensagem, Seletor } from "@/components/Campos";
+import { BOTAO_PRIMARIO } from "@/components/ui";
 import { acaoPrimeiroAdmin, type EstadoPrimeiro } from "./acoes";
 
 const FUNCOES_ADMIN = { lider: "Líder de manutenção", analista: "Analista" };
@@ -34,8 +35,7 @@ export function FormularioPrimeiroAdmin({ pedeCodigo }: { pedeCodigo: boolean })
           dica="Os 6 últimos caracteres do token do GitHub (github_pat_…) colocado na Vercel. Só quem configurou o site sabe." />
       )}
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
-      <button disabled={enviando}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-marca-500 font-display text-[15px] font-medium text-white transition hover:bg-marca-600 disabled:cursor-not-allowed disabled:opacity-60">
+      <button disabled={enviando} className={`${BOTAO_PRIMARIO} w-full`}>
         {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <>Criar administrador <ArrowRight className="size-4" /></>}
       </button>
     </form>
