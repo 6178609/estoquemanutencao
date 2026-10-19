@@ -10,6 +10,8 @@ import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 import { alocarAutomatico, alterarPecas, desfazerAlocacao } from "./acoes";
 import type { Nivel } from "./alocacao";
 
+const br = (n: unknown) => Number(n).toLocaleString("pt-BR");
+
 /** Botões da alocação automática: alocar em lote por nível de confiança e desfazer a última. */
 export function AlocacaoAcoes({ contagem, temDesfazer }: { contagem: Record<Nivel, number>; temDesfazer: boolean }) {
   const router = useRouter();
@@ -22,21 +24,26 @@ export function AlocacaoAcoes({ contagem, temDesfazer }: { contagem: Record<Nive
       else { setMsg({ texto: sucesso(r), ok: true }); router.refresh(); }
     });
   const alocar = (niveis: Nivel[], total: number) => {
-    if (!confirm(`Vincular ${total.toLocaleString("pt-BR")} material(is) aos ativos sugeridos? Dá para desfazer em seguida.`)) return;
-    rodar(() => alocarAutomatico(niveis), (r) => `${Number(r.pares).toLocaleString("pt-BR")} material(is) vinculado(s) em ${Number(r.ativos).toLocaleString("pt-BR")} ativo(s).`);
+    if (!confirm(`Vincular até ${br(total)} material(is) aos ativos sugeridos?\n\nO botão Desfazer tira só os vínculos desta execução (a anterior deixa de poder ser desfeita).`)) return;
+    rodar(() => alocarAutomatico(niveis), (r) => [
+      `${br(r.pares)} material(is) vinculado(s) em ${br(r.ativos)} ativo(s).`,
+      Number(r.foraDoLimite) ? `${br(r.foraDoLimite)} não couberam (limite de peças por ativo).` : "",
+      Number(r.restantes) ? `Faltam ${br(r.restantes)}: rode de novo para continuar.` : "",
+      r.aviso ? String(r.aviso) : "",
+    ].filter(Boolean).join(" "));
   };
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={pendente || !contagem.alta} onClick={() => alocar(["alta"], contagem.alta)} className={BOTAO_PRIMARIO}>
-          {pendente ? <LoaderCircle className="size-4 animate-spin" /> : <Wand2 className="size-4" />} Alocar as de confiança alta ({contagem.alta.toLocaleString("pt-BR")})
+          {pendente ? <LoaderCircle className="size-4 animate-spin" /> : <Wand2 className="size-4" />} Alocar as de confiança alta (até {br(contagem.alta)})
         </button>
         <button type="button" disabled={pendente || !(contagem.alta + contagem.media)} onClick={() => alocar(["alta", "media"], contagem.alta + contagem.media)} className={BOTAO_SECUNDARIO}>
-          Alocar alta + média ({(contagem.alta + contagem.media).toLocaleString("pt-BR")})
+          Alocar alta + média (até {br(contagem.alta + contagem.media)})
         </button>
         {temDesfazer && (
           <button type="button" disabled={pendente} className={BOTAO_SECUNDARIO}
-            onClick={() => confirm("Desfazer a última alocação automática (tira só os vínculos que ela pôs)?") && rodar(desfazerAlocacao, (r) => `${Number(r.pares).toLocaleString("pt-BR")} vínculo(s) desfeito(s).`)}>
+            onClick={() => confirm("Desfazer a última alocação automática? Tira só os vínculos que ela pôs; as execuções anteriores não são desfeitas.") && rodar(desfazerAlocacao, (r) => `${Number(r.pares).toLocaleString("pt-BR")} vínculo(s) desfeito(s).`)}>
             <Undo2 className="size-4" /> Desfazer a última alocação
           </button>
         )}

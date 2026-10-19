@@ -40,17 +40,18 @@ export function textosParaAlocacao(inv: LinhaAtivo[], bm: BaseMateriais, campos:
   const materiais = new Map<string, MaterialTexto>();
   // o catálogo inteiro (só cadastros ativos) e o que está no MB52 sem catálogo
   for (const c of bm.cat?.values() ?? []) if (c.material && !INATIVOS_SYSMAT.has(c.status))
-    materiais.set(semZeros(c.material), { codigo: c.material, descricao: c.descricaoCurta, descrCompleta: c.descrCompleta });
+    materiais.set(semZeros(c.material), { codigo: semZeros(c.material), descricao: c.descricaoCurta, descrCompleta: c.descrCompleta });
   for (const [cod, e] of bm.est ?? []) if (cod === e.material && !materiais.has(semZeros(cod)))
-    materiais.set(semZeros(cod), { codigo: cod, descricao: e.descricao, descrCompleta: "" });
+    materiais.set(semZeros(cod), { codigo: semZeros(cod), descricao: e.descricao, descrCompleta: "" });
   return { ativos, materiais: [...materiais.values()] };
 }
 
-/** Sugestões da alocação automática (refeitas só quando as bases ou os vínculos mudam). */
+/** Sugestões da alocação automática (refeitas só quando um export do SAP ou o cadastro de equipamentos muda). */
 export async function sugestoesAlocacao(c: Contexto, inv: LinhaAtivo[], bm: BaseMateriais, campos: Map<string, string>,
   jaVinculados: (ativo: string) => Set<string>): Promise<Sugestao[]> {
-  const vinc = hashTexto(JSON.stringify(Object.entries(c.cad.equipamentos).map(([k, v]) => [k, (v as { materiais?: unknown })?.materiais ?? null])));
-  return guardar(`aloc|${inv.length}|${bm.est?.size ?? -1}|${bm.cat?.size ?? -1}|${c.b.equipamentos.atualizado}|${vinc}`, () => {
+  const [e, cat] = await Promise.all([estoque(), catalogo()]);
+  const cad = hashTexto(JSON.stringify(c.cad.equipamentos)); // nomes, modelos e peças vinculadas
+  return guardar(`aloc|${e.atualizado}|${cat.atualizado}|${c.b.equipamentos.atualizado}|${c.b.ordens.atualizado}|${inv.length}|${cad}`, () => {
     const { ativos, materiais } = textosParaAlocacao(inv, bm, campos);
     return sugerirAlocacoes(ativos, materiais, jaVinculados);
   });

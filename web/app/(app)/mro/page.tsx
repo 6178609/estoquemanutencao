@@ -239,7 +239,7 @@ function Alocacao({ t, sugestoes, params, edita, temDesfazer }: { t: M.AtivoMro[
         <Numero rotulo={ROTULO_NIVEL.alta} valor={inteiroBr(contagem.alta)} detalhe="cita o equipamento, a aplicação com o número dele ou fabricante + modelo" tom="bom" />
         <Numero rotulo={ROTULO_NIVEL.media} valor={inteiroBr(contagem.media)} detalhe="aplicação pelo tipo de equipamento ou só o modelo" />
         <Numero rotulo={ROTULO_NIVEL.baixa} valor={inteiroBr(contagem.baixa)} detalhe="a descrição só cita o tipo do equipamento" />
-        <Numero rotulo="Ativos que ganham peças" valor={inteiroBr(ativosComSug)} detalhe={`${inteiroBr(semPecasHoje)} ativo(s) ainda sem peça`} />
+        <Numero rotulo="Ativos que ganham peças (alta + média)" valor={inteiroBr(ativosComSug)} detalhe={`${inteiroBr(semPecasHoje)} ativo(s) ainda sem peça`} />
       </GradeNumeros>
       {edita ? <AlocacaoAcoes contagem={contagem} temDesfazer={temDesfazer} /> : null}
       <FiltrosUrl campos={[
