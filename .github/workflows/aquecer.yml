@@ -1,4 +1,6 @@
-# Mantém o site "quente": a cada 5 minutos chama /api/aquecer, que deixa um servidor da Vercel com as bases do SAP,
+# Mantém o site "quente": chama /api/aquecer depois de cada deploy de produção (o de 5 em 5 minutos é feito pelo
+# próprio banco, pg_cron no Supabase — ver supabase/migrations/*_aquecer_site_agendado.sql; o agendamento abaixo fica
+# só de reserva, porque o do GitHub atrasa ou não roda). A rota deixa um servidor da Vercel com as bases do SAP,
 # os cadastros e os indicadores já baixados e preparados na memória (a primeira tela não espera o download).
 # A rota não devolve dados, só o tempo de cada etapa. Endereço: variável SITE_URL do repositório (se houver).
 name: Aquecer o site
