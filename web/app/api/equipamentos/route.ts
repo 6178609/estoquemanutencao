@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { infoCad, inventarioAtivos, mapaEstoque, pecasDe } from "@/app/(app)/equipamentos/dados";
 import { agregarAnalise, csvAnalise, csvInventario, filtrarAnalise, filtrarInventario, lerFiltroAnalise, lerFiltroInventario } from "@/app/(app)/equipamentos/logica";
+import { registrar } from "@/lib/auditoria";
 import { veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     corpo = csvInventario(filtrarInventario(await inventarioAtivos(c), lerFiltroInventario(params), campoEq), campoEq);
     nome = "gestao_de_ativos.csv";
   }
+  registrar(u.login, "exportacao", nome);
   return new NextResponse(corpo, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${nome}"`, "Cache-Control": "no-store" },
   });

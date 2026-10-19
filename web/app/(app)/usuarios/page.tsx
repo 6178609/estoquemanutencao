@@ -1,8 +1,9 @@
-import { AlertTriangle, Inbox, PartyPopper } from "lucide-react";
+import { AlertTriangle, History, Inbox, PartyPopper } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Cabecalho, Pagina, Selo } from "@/components/ui";
+import { BOTAO_SECUNDARIO, Cabecalho, Pagina, Selo } from "@/components/ui";
 import { ehAdmin, FUNCOES, FUNCOES_SO_ESTOQUE, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { solicitacoes } from "@/lib/auth/solicitacoes";
@@ -63,7 +64,8 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
   return (
     <Pagina>
       <Cabecalho titulo="Usuários," destaque="quem acessa e o que cada um pode fazer."
-        subtitulo="Função define as abas; perfil define o que a pessoa pode alterar." />
+        subtitulo="Função define as abas; perfil define o que a pessoa pode alterar."
+        acoes={<Link href="/usuarios/auditoria" className={BOTAO_SECUNDARIO}><History className="size-4" /> Auditoria</Link>} />
       {pedidos.some((p) => p.status === "pendente") && (
         <div className="flex gap-3 rounded-cartao border border-alp-laranja/40 bg-alp-laranja/10 px-4 py-3 text-[14px] text-texto-2">
           <Inbox className="mt-0.5 size-4 shrink-0 text-alp-laranja" />

@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { cadastrosNoSupabase, gravarCadastroLote, lerCadastro } from "../dados/cadastros";
+import { registrar } from "../auditoria";
 import { fonte } from "../dados/fonte";
 import { podeEditar, podeVer, type Usuario } from "./acesso";
 import { COOKIE_ATIVO, COOKIE_SESSAO, VALIDADE_S } from "./inatividade";
@@ -64,7 +65,9 @@ export async function entrar(loginDigitado: string, senha: string, manter: boole
   const login = normalizarLogin(loginDigitado);
   if (!fonte()) return "Este site ainda está sem a fonte de dados: use “Entrar na demonstração”.";
   const t = tentativas.get(login);
-  if (t && t.ate > Date.now()) return `Muitas tentativas erradas. Tente de novo em ${Math.ceil((t.ate - Date.now()) / 60_000)} min.`;
+  if (t && t.ate > Date.now()) {
+    return `Muitas tentativas erradas. Tente de novo em ${Math.ceil((t.ate - Date.now()) / 60_000)} min.`;
+  }
   const us = await usuarios();
   const u = us[login] || null;
   if (!u) {
@@ -76,6 +79,8 @@ export async function entrar(loginDigitado: string, senha: string, manter: boole
   if (!u || !(await confere(u, senha))) {
     const falhas = (t?.falhas || 0) + 1;
     tentativas.set(login, falhas >= MAX_FALHAS ? { falhas: 0, ate: Date.now() + BLOQUEIO_MS } : { falhas, ate: 0 });
+    // só de usuário cadastrado: um NP inexistente pode ser a senha digitada no campo errado (não vai para o registro)
+    if (u) registrar(login, falhas >= MAX_FALHAS ? "login_bloqueado" : "login_falhou", "", { tentativa: falhas });
     return "Login ou senha incorretos.";
   }
   if (u.ativo === false) return "Usuário desativado. Fale com um administrador.";
@@ -89,6 +94,7 @@ export async function entrar(loginDigitado: string, senha: string, manter: boole
     [login]: { sessoes: [...validas, { h: hashToken(token), ate: iso(ate) }].slice(-10), ultimo_acesso: iso(agora) },
   }, login, true);
   await gravarCookie(login, token, manter);
+  registrar(login, "login", "", { manter_conectado: manter });
   return "";
 }
 
@@ -99,7 +105,7 @@ export async function entrarDemo(): Promise<void> {
   await gravarCookie("demo", token, false);
 }
 
-export async function sair(): Promise<void> {
+export async function sair(inatividade = false): Promise<void> {
   const jar = await cookies();
   const valor = jar.get(COOKIE)?.value;
   jar.delete(COOKIE);
@@ -111,6 +117,7 @@ export async function sair(): Promise<void> {
   if (!u || !token) return;
   const h = hashToken(token);
   await gravarCadastroLote(ARQ, { [login]: { sessoes: (u.sessoes || []).filter((s) => s.h !== h) } }, login, true);
+  registrar(login, inatividade ? "logout_inatividade" : "logout");
 }
 
 /** Quem está usando (null = ninguém). Confere o cadastro de agora: desativado ou sessão revogada sai na hora. */

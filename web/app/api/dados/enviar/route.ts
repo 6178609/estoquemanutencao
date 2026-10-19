@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 
 import { aquecer } from "@/lib/aquecimento";
 
+import { registrar } from "@/lib/auditoria";
 import { autorizar } from "@/lib/auth/sessao";
 import { LIMITE_BYTES, receberParte } from "@/lib/dados/envio";
 import { FonteErro } from "@/lib/dados/fonte";
@@ -38,7 +39,10 @@ export async function POST(req: NextRequest) {
       por: u.login,
     });
     // base completa: prepara tudo de novo em segundo plano, para a próxima tela já abrir com o dado novo pronto
-    if (r.concluido) after(() => aquecer(true).then(() => undefined));
+    if (r.concluido) {
+      registrar(u.login, "base_enviada", tipo, { arquivo: texto("arquivo"), aba: texto("aba") || undefined, linhas: Number(texto("linhas", 10)) || 0 });
+      after(() => aquecer(true).then(() => undefined));
+    }
     const resp = NextResponse.json({ ok: true, ...r });
     // por 2 min as telas de quem enviou esperam a base nova em vez de mostrar a anterior (ver bases())
     resp.cookies.set(COOKIE_ENVIO, String(Date.now()), { httpOnly: true, sameSite: "lax", path: "/", maxAge: ENVIO_VALE_MS / 1000,

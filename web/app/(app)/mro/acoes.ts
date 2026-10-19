@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
 import { soEstoque, veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
@@ -92,6 +93,7 @@ export async function alocarAutomatico(niveis: Nivel[]): Promise<{ erro: string 
   for (const r of ["/mro", "/equipamentos", "/estoque", "/painel"]) revalidatePath(r);
   const resultado: Resultado = { ok: true, pares, ativos: Object.keys(incluidos).length, foraDoLimite, restantes: todas.length - escolhidas.length };
   if (!pares) return resultado;
+  registrar(u.login, "mro_alocacao", "", { niveis: ns, pares, ativos: resultado.ativos });
   try {
     // registro compacto (ativo → materiais) para o desfazer; substitui o da execução anterior
     await gravarCadastroLote(ARQ_LOG, { ultima: { em: new Date().toISOString(), por, niveis: ns, pares, vinculos: incluidos } }, por);
@@ -124,5 +126,7 @@ export async function desfazerAlocacao(): Promise<{ erro: string } | { ok: true;
     return { erro: (e as Error).message };
   }
   for (const r of ["/mro", "/equipamentos", "/estoque", "/painel"]) revalidatePath(r);
-  return { ok: true, pares: Object.values(tirados).reduce((a, b) => a + b, 0) };
+  const pares = Object.values(tirados).reduce((a, b) => a + b, 0);
+  registrar(u.login, "mro_desfazer", "", { pares });
+  return { ok: true, pares };
 }

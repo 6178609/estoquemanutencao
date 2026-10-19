@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
 import { podeEditar, veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote } from "@/lib/dados/cadastros";
@@ -25,6 +26,7 @@ export async function salvarComentarioRoadmap(fabrica: string, maquina: string, 
   } catch (e) {
     return { erro: (e as Error).message };
   }
+  registrar(u.login, "comentario_roadmap", k, { voltou_ao_da_planilha: texto === null });
   revalidatePath("/indicadores_sim");
   return { ok: true };
 }
