@@ -15,6 +15,7 @@ import { mesAnterior, mesesComReal, montarDeck, unidadeKpi, type LinhaDeck } fro
 
 import { AbasParam, GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 import { FiltrosUrl } from "../equipamentos/_ui/FiltrosUrl";
+import { ModosFalha } from "./ModosFalha";
 import { Roadmap } from "./Roadmap";
 import { VisaoGeral } from "./VisaoGeral";
 
@@ -119,12 +120,12 @@ const enviadaEm = (b: { atualizado: string | null; origem: string }) => `Base en
 export default async function IndicadoresSim(props: { searchParams: Promise<Params> }) {
   const u = await exigir("indicadores_sim");
   const params = await props.searchParams;
-  const visao = ["deck", "roadmap"].includes(um(params, "visao")) ? um(params, "visao") : "geral";
+  const visao = ["deck", "roadmap", "causas"].includes(um(params, "visao")) ? um(params, "visao") : "geral";
   const cab = (
-    <Cabecalho titulo="Indicadores SIM," destaque="Manutenção Profissional (MP)." sobre={<Pilula>Visão geral · Deck mensal · Roadmap</Pilula>}
-      subtitulo="A visão gerencial do SIM: os indicadores de manutenção do pilar MP contra a meta (Deck mensal) e os passos de cada máquina contra o previsto (Roadmap). Atualizados pelas planilhas anexadas em Fontes de dados." />
+    <Cabecalho titulo="Indicadores SIM," destaque="Manutenção Profissional (MP)." sobre={<Pilula>Visão geral · Deck mensal · Roadmap · Modos de causa</Pilula>}
+      subtitulo="A visão gerencial do SIM: os indicadores de manutenção do pilar MP contra a meta (Deck mensal) os passos de cada máquina contra o previsto (Roadmap) e os modos de causa das quebras pelo texto da IW47. Atualizados pelas planilhas anexadas em Fontes de dados." />
   );
-  const abas = <AbasParam params={params} param="visao" atual={visao} abas={[{ id: "geral", rotulo: "Visão geral" }, { id: "deck", rotulo: "Deck mensal" }, { id: "roadmap", rotulo: "Roadmap" }]} />;
+  const abas = <AbasParam params={params} param="visao" atual={visao} abas={[{ id: "geral", rotulo: "Visão geral" }, { id: "deck", rotulo: "Deck mensal" }, { id: "roadmap", rotulo: "Roadmap" }, { id: "causas", rotulo: "Modos de causa (YM11)" }]} />;
   const verDados = podeVer(u, "dados");
   const comComentarios = async (ms: MaquinaRoadmap[]) => aplicarComentarios(ms, ms.length ? await lerCadastro(ARQ_COMENTARIOS) : {});
 
@@ -137,6 +138,16 @@ export default async function IndicadoresSim(props: { searchParams: Promise<Para
         {abas}
         <VisaoGeral linhas={linhas} maquinas={maquinas} params={params} verSap={podeVer(u, "painel")} />
         <p className="text-[12px] text-texto-3">Indicadores do SIM: {linhas.length ? enviadaEm(base) : "planilha ainda não enviada."} Roadmap: {maquinas.length ? enviadaEm(rm) : "ainda não enviado."}</p>
+      </Pagina>
+    );
+  }
+
+  if (visao === "causas") {
+    return (
+      <Pagina>
+        {cab}
+        {abas}
+        <ModosFalha params={params} />
       </Pagina>
     );
   }
