@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { entrarNaDemo, telaAbriu } from "./apoio";
 
 // as telas mais usadas: cada uma abre, sem erro na página e sem bloqueio da CSP
-const TELAS = ["/", "/painel", "/estoque", "/ordens", "/equipamentos", "/mro", "/indicadores_sim", "/indicadores_sim?visao=roadmap",
+const TELAS = ["/", "/painel", "/estoque", "/ordens", "/equipamentos", "/mro", "/indicadores_sim", "/indicadores_sim?visao=roadmap", "/indicadores_sim?visao=causas",
   "/confiabilidade", "/saude", "/planos", "/semanal", "/custos", "/dados", "/metas"];
 
 test("telas principais abrem sem erro", async ({ page }) => {
@@ -18,6 +18,14 @@ test("busca no estoque filtra a lista", async ({ page }) => {
   const busca = page.getByPlaceholder(/Buscar por código/i);
   await busca.fill("ROLAMENTO");
   await expect(page.getByText(/ROLAMENTO/i).first()).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
+test("modos de causa: a nuvem de palavras abre os apontamentos da palavra clicada", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/indicadores_sim?visao=causas");
+  await page.getByRole("link", { name: /^rolamento:/i }).click();
+  await expect(page.getByRole("heading", { name: /Apontamentos com/ })).toBeVisible();
   expect(erros).toEqual([]);
 });
 

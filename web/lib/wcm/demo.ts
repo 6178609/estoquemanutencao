@@ -42,6 +42,10 @@ function gerar(hoje: Dia) {
   const equipeCrua: Crua[] = equipe.map((p, i) => ({ "Nº pessoal": p.np, Nome: p.nome, Cargo: p.cargo, "Centro trabalho": p.centro,
     "Área": AREAS[i % 4], Turma: ["A", "B", "C"][i % 3], Supervisor: equipe[0].nome }));
 
+  // textos fictícios de quebra (sem sorteio: não muda o resto da demonstração)
+  const CAUSAS_DEMO = ["Troca do rolamento travado", "Correia rompida substituída", "Sensor indutivo com defeito trocado",
+    "Vazamento de ar no cilindro pneumático, troca da mangueira", "Falta de lubrificação na corrente, lubrificado", "Ajuste do fim de curso desregulado",
+    "Motor queimado substituído", "Fusível queimado no painel trocado", "Rolamento com folga, troca do mancal", "Correia desgastada, ajuste da tensão"];
   const iw38: Crua[] = [], iw38op: Crua[] = [], iw47: Crua[] = [], iw28: Crua[] = [], ip19: Crua[] = [];
   let numOrdem = 4_100_000, numNota = 10_500_000;
   const inicio = hoje - 470;
@@ -82,7 +86,7 @@ function gerar(hoje: Dia) {
             iw47.push({ "Nº pessoal": pes.np, "Nome do empregado": pes.nome, Ordem: ordem, "Operação": String(o * 10).padStart(4, "0"),
               "Status do sistema": "CONF", "Trabalho real": (horas * (0.8 + g.r() * 0.5)).toFixed(1).replace(".", ","), "Unid.trabalho real": "H",
               "Centro trab.real": e.centro, "Tp.atividade real": "MANUT", "Data lançamento": dataBr(fimReal), "Tipo ordem": tipo,
-              Equipamento: e.codigo, "Texto de confirmação": "Serviço executado" });
+              Equipamento: e.codigo, "Texto de confirmação": tipo === "YM11" ? CAUSAS_DEMO[(Number(ordem) + o + p) % CAUSAS_DEMO.length] : "Serviço executado" });
           }
         }
       }
