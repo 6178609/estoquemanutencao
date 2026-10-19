@@ -10,6 +10,7 @@ import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
+import { urlFotoMaterial } from "@/lib/fotoMaterial";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
@@ -39,21 +40,7 @@ function baixarCsv(itens: ItemAlmox[]) {
   URL.revokeObjectURL(a.href);
 }
 
-/**
- * Endereço da foto do material. Foto nova: `?v=` é a versão do conteúdo (cache longo no navegador) e `mini` pede a
- * miniatura (só quando foi gravada). Foto do site antigo (`fotos_materiais/…`): `v=legado`, sem miniatura.
- */
-function urlFoto(it: ItemAlmox, mini = false): string | null {
-  const ref = it.foto ?? "";
-  const m = encodeURIComponent(it.material);
-  if (ref.startsWith("app/fotos/materiais/")) {
-    const q = new URLSearchParams(ref.split("?")[1] ?? "");
-    const comMini = mini && q.get("mini") === "1";
-    return `/api/estoque/foto?m=${m}&v=${encodeURIComponent(q.get("v") ?? "")}${comMini ? "&mini=1" : ""}`;
-  }
-  if (/^fotos_materiais\/[0-9A-Za-z_-]+\.jpg$/.test(ref)) return `/api/estoque/foto?m=${m}&v=legado`;
-  return null;
-}
+const urlFoto = (it: ItemAlmox, mini = false) => urlFotoMaterial(it.material, it.foto, mini);
 
 /** Redesenha a foto com no máximo `lado` px, em JPEG (tira também os dados de localização do arquivo). */
 async function reduzir(img: ImageBitmap, lado: number, qualidade: number): Promise<Blob> {
