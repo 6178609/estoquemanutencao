@@ -4,7 +4,7 @@
  * de causa por um dicionário de termos de manutenção. Testado em testes/modosFalha.test.ts.
  */
 import type { Confirmacao } from "./preparo";
-import { partes, type Dia } from "./util";
+import type { Dia } from "./util";
 
 export const TIPO_QUEBRA = "YM11";
 
@@ -51,8 +51,9 @@ export const MODOS: { modo: string; termos: string[] }[] = [
   { modo: "Temperatura e aquecimento", termos: ["AQUEC", "TEMPERAT", "RESISTENCIA", "TERMOPAR", "TERMOSTAT", "REFRIGER", "ARREFEC", "SUPERAQUEC"] },
 ];
 
-/** Vazio = todo o histórico; senão, só os lançamentos daquele ano ("2026"). */
-const doAno = (d: Dia | null, ano: string) => !ano || (d != null && String(partes(d).ano) === ano);
+/** O período dos filtros (de/até, inclusive); sem período = todo o histórico. */
+export interface Periodo { ini: Dia; fim: Dia }
+const noPeriodo = (d: Dia | null, p?: Periodo) => !p || (d != null && d >= p.ini && d <= p.fim);
 
 const modosDa = (ps: string[]): string[] =>
   MODOS.filter((m) => ps.some((p) => m.termos.some((t) => p.startsWith(t)))).map((m) => m.modo);
@@ -73,15 +74,15 @@ export interface AnaliseModos {
 
 /**
  * Junta os textos das confirmações de cada ordem de quebra (YM11) e conta. `tipos` completa o tipo da ordem quando a
- * IW47 não traz (vem da IW38/IW38 operações). `ano` limita ao ano da data de lançamento (vazio = todo o histórico).
+ * IW47 não traz (vem da IW38/IW38 operações). `periodo` limita pela data de lançamento (sem ele = todo o histórico).
  */
-export function analisarModos(conf: Confirmacao[], tipos: Map<string, string>, ano = "", max = 60): AnaliseModos {
+export function analisarModos(conf: Confirmacao[], tipos: Map<string, string>, periodo?: Periodo, max = 60): AnaliseModos {
   const porOrdem = new Map<string, { textos: string[]; datas: Dia[] }>();
   let apontamentos = 0;
   for (const c of conf) {
     const tipo = (c.tipo || tipos.get(c.ordem) || "").toUpperCase();
     if (tipo !== TIPO_QUEBRA) continue;
-    if (!doAno(c.data, ano)) continue;
+    if (!noPeriodo(c.data, periodo)) continue;
     const o = porOrdem.get(c.ordem) ?? { textos: [], datas: [] };
     if (c.texto.trim()) { o.textos.push(c.texto.trim()); apontamentos++; }
     if (c.data != null) o.datas.push(c.data);
@@ -143,10 +144,10 @@ export function analisarModos(conf: Confirmacao[], tipos: Map<string, string>, a
 }
 
 /** As confirmações YM11 cujo texto tem a palavra (sem acento; plural incluído), mais recentes primeiro. */
-export function comPalavra(conf: Confirmacao[], tipos: Map<string, string>, palavra: string, ano = "", max = 50): Confirmacao[] {
+export function comPalavra(conf: Confirmacao[], tipos: Map<string, string>, palavra: string, periodo?: Periodo, max = 50): Confirmacao[] {
   const alvo = palavras(palavra)[0];
   if (!alvo) return [];
-  return conf.filter((c) => (c.tipo || tipos.get(c.ordem) || "").toUpperCase() === TIPO_QUEBRA && doAno(c.data, ano)
+  return conf.filter((c) => (c.tipo || tipos.get(c.ordem) || "").toUpperCase() === TIPO_QUEBRA && noPeriodo(c.data, periodo)
       && palavras(c.texto).some((p) => p === alvo || p === `${alvo}S`))
     .sort((a, b) => (b.data ?? 0) - (a.data ?? 0)).slice(0, max);
 }

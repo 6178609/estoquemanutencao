@@ -23,7 +23,7 @@ test("busca no estoque filtra a lista", async ({ page }) => {
 
 test("modos de causa: a nuvem de palavras abre os apontamentos da palavra clicada", async ({ page }) => {
   const erros = await entrarNaDemo(page);
-  await telaAbriu(page, "/indicadores_sim?visao=causas");
+  await telaAbriu(page, "/indicadores_sim?visao=causas&atalho=Tudo");
   await page.getByRole("link", { name: /^rolamento:/i }).click();
   await expect(page.getByRole("heading", { name: /Apontamentos com/ })).toBeVisible();
   expect(erros).toEqual([]);
