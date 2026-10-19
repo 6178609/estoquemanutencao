@@ -7,12 +7,14 @@ import { Sparkline } from "@/components/graficos";
 import { Cabecalho, Pagina, Pilula } from "@/components/ui";
 import { podeVer } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
-import { indicadoresSim } from "@/lib/dados/indicadoresSim";
+import { indicadoresSim, roadmapSim } from "@/lib/dados/indicadoresSim";
 import { dataHora } from "@/lib/formato";
 import { mesAnterior, mesesComReal, montarDeck, unidadeKpi, type LinhaDeck } from "@/lib/wcm/indicadoresSim";
 
 import { AbasParam, GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 import { FiltrosUrl } from "../equipamentos/_ui/FiltrosUrl";
+import { Roadmap } from "./Roadmap";
+import { VisaoGeral } from "./VisaoGeral";
 
 export const metadata: Metadata = { title: "Indicadores SIM (MP)" };
 export const dynamic = "force-dynamic";
@@ -101,24 +103,65 @@ function TabelaArea({ area, linhas, mes }: { area: string; linhas: LinhaDeck[]; 
   );
 }
 
+function Vazio({ texto, erro, verDados }: { texto: string; erro?: string; verDados: boolean }) {
+  return (
+    <div className="rounded-cartao border border-dashed border-borda-forte p-8 text-center text-[14px] text-texto-2">
+      <p>{erro ? `Não foi possível ler a base agora (${erro}).` : texto}</p>
+      {verDados && <Link href="/dados" className="mt-4 inline-flex items-center gap-1.5 font-medium text-alp-azul hover:underline"><FolderOpen className="size-4" /> Ir para Fontes de dados</Link>}
+    </div>
+  );
+}
+
+const enviadaEm = (b: { atualizado: string | null; origem: string }) => `Base enviada ${b.atualizado ? `em ${dataHora(b.atualizado)}` : ""} · ${b.origem}.`;
+
 export default async function IndicadoresSim(props: { searchParams: Promise<Params> }) {
   const u = await exigir("indicadores_sim");
   const params = await props.searchParams;
-  const base = await indicadoresSim();
+  const visao = ["deck", "roadmap"].includes(um(params, "visao")) ? um(params, "visao") : "geral";
   const cab = (
-    <Cabecalho titulo="Indicadores SIM," destaque="Manutenção Profissional (MP)." sobre={<Pilula>Deck mensal · Dashboard F26</Pilula>}
-      subtitulo="Os indicadores do pilar MP por área, como no Deck mensal da Comissão Executiva: mês anterior, mês, acumulado do ano, próximo mês e ano. Vem da aba BASE MENSAL da planilha, enviada em Fontes de dados." />
+    <Cabecalho titulo="Indicadores SIM," destaque="Manutenção Profissional (MP)." sobre={<Pilula>Visão geral · Deck mensal · Roadmap</Pilula>}
+      subtitulo="A visão gerencial do SIM: os indicadores de manutenção do pilar MP contra a meta (Deck mensal) e os passos de cada máquina contra o previsto (Roadmap). Atualizados pelas planilhas anexadas em Fontes de dados." />
   );
+  const abas = <AbasParam params={params} param="visao" atual={visao} abas={[{ id: "geral", rotulo: "Visão geral" }, { id: "deck", rotulo: "Deck mensal" }, { id: "roadmap", rotulo: "Roadmap" }]} />;
+  const verDados = podeVer(u, "dados");
+
+  if (visao === "geral") {
+    const [base, rm] = await Promise.all([indicadoresSim(), roadmapSim()]);
+    const linhas = base.dados ?? [], maquinas = rm.dados ?? [];
+    return (
+      <Pagina>
+        {cab}
+        {abas}
+        {linhas.length || maquinas.length ? (
+          <>
+            <VisaoGeral linhas={linhas} maquinas={maquinas} params={params} />
+            <p className="text-[12px] text-texto-3">Indicadores: {enviadaEm(base)} Roadmap: {enviadaEm(rm)}</p>
+          </>
+        ) : <Vazio erro={base.erro || rm.erro} verDados={verDados} texto="Nenhuma planilha do SIM foi enviada ainda: anexe a planilha de indicadores e o export do Roadmap em Fontes de dados." />}
+      </Pagina>
+    );
+  }
+
+  if (visao === "roadmap") {
+    const rm = await roadmapSim();
+    return (
+      <Pagina>
+        {cab}
+        {abas}
+        {rm.dados?.length ? <Roadmap maquinas={rm.dados} params={params} enviada={enviadaEm(rm)} />
+          : <Vazio erro={rm.erro} verDados={verDados} texto="O roadmap ainda não foi enviado: exporte a tabela do roadmap (Prev/Rel por mês) para Excel e anexe em Fontes de dados." />}
+      </Pagina>
+    );
+  }
+
+  const base = await indicadoresSim();
   const linhas = base.dados ?? [];
   if (!linhas.length) {
     return (
       <Pagina>
         {cab}
-        <div className="rounded-cartao border border-dashed border-borda-forte p-8 text-center text-[14px] text-texto-2">
-          <p>{base.erro ? `Não foi possível ler a base agora (${base.erro}).` : "A planilha de indicadores ainda não foi enviada."}</p>
-          <p className="mt-1 text-texto-3">Baixe a planilha de indicadores do SIM (.xlsx) e anexe em Fontes de dados: o site guarda só as linhas do pilar MP.</p>
-          {podeVer(u, "dados") && <Link href="/dados" className="mt-4 inline-flex items-center gap-1.5 font-medium text-alp-azul hover:underline"><FolderOpen className="size-4" /> Ir para Fontes de dados</Link>}
-        </div>
+        {abas}
+        <Vazio erro={base.erro} verDados={verDados} texto="A planilha de indicadores ainda não foi enviada: baixe a planilha de indicadores do SIM (.xlsx) e anexe em Fontes de dados (o site guarda só as linhas do pilar MP)." />
       </Pagina>
     );
   }
@@ -141,11 +184,12 @@ export default async function IndicadoresSim(props: { searchParams: Promise<Para
   return (
     <Pagina>
       {cab}
+      {abas}
       <div className="space-y-3">
         <AbasParam params={params} param="mes" atual={escolhido} abas={[...meses.slice(0, 12)].reverse().map((m) => ({ id: m, rotulo: rotuloMes(m) }))} />
         <FiltrosUrl campos={[{ tipo: "pilulas", param: "area", rotulo: "Área", opcoes: deck.map((a) => a.area) }]} />
         <p className="text-[12.5px] text-texto-3">
-          Base enviada {base.atualizado ? `em ${dataHora(base.atualizado)}` : ""} · {base.origem}. Mês mostrado: <b className="text-texto-2">{rotuloMes(escolhido)}</b>
+          {enviadaEm(base)} Mês mostrado: <b className="text-texto-2">{rotuloMes(escolhido)}</b>
           {" "}(o último com real lançado, se nenhum for escolhido).
         </p>
       </div>

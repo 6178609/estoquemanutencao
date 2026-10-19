@@ -2,6 +2,7 @@ import "server-only";
 
 import { DESTINO } from "../leitura/tipos";
 import { ORDEM_KPIS, prepararIndicadoresSim, type LinhaSim } from "../wcm/indicadoresSim";
+import { prepararRoadmap, type MaquinaRoadmap } from "../wcm/roadmapSim";
 import { lerBase, type Base } from "./bases";
 import { fonte } from "./fonte";
 
@@ -38,4 +39,26 @@ function demoSim(): LinhaSim[] {
     }
   }
   return (cacheDemo = saida);
+}
+
+/** Roadmap SIM (passos por máquina), enviado em Fontes de dados. */
+export async function roadmapSim(): Promise<Base<MaquinaRoadmap[]>> {
+  if (!fonte()) return { dados: demoRoadmap(), atualizado: new Date().toISOString(), origem: "demonstração" };
+  return lerBase(DESTINO.roadmap_sim, prepararRoadmap);
+}
+
+function demoRoadmap(): MaquinaRoadmap[] {
+  let s = 11;
+  const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const ultimo = Math.max(0, new Date().getMonth() - 1);
+  const saida: MaquinaRoadmap[] = [];
+  for (const fam of ["MÁQUINA A", "MÁQUINA B", "LINHA C"]) for (let n = 1; n <= 6; n++) {
+    const inicio = Math.floor(r() * 4), alvo = 3 + (r() > 0.8 ? 1 : 0);
+    const previsto = Array.from({ length: 12 }, (_, i) => Math.min(alvo, Math.max(0, Math.floor((i - inicio + 2) / 2))));
+    const realizado = previsto.map((p, i) => (i > ultimo ? null : r() < 0.15 ? Math.max(0, p - 1) : p));
+    const atrasada = realizado[ultimo] != null && realizado[ultimo]! < previsto[ultimo];
+    saida.push({ fabrica: "F00", maquina: `${fam} ${String(n).padStart(2, "0")}`, previsto, realizado,
+      comentario: atrasada ? "EXEMPLO: EXECUÇÃO DE ETIQUETAS ABAIXO DA META" : "" });
+  }
+  return saida;
 }

@@ -34,6 +34,15 @@ export function desescapar(s: string): string {
       : ENTIDADES[e] ?? ENTIDADES[e.toLowerCase()] ?? todo);
 }
 
+/**
+ * Planilhas exportadas pelo Power BI (e outros geradores .NET) escrevem as tags com prefixo de namespace
+ * (<x:sheetData>, <x:row>, <x:c>…). Tira o prefixo das tags para o resto do leitor valer igual (atributos como r:id ficam).
+ */
+export function semPrefixo(xml: string): string {
+  const raiz = /<([A-Za-z_][\w.-]*):(workbook|worksheet|sst|styleSheet)\b/.exec(xml.slice(0, 2000));
+  return raiz ? xml.replace(new RegExp(`<(/?)${raiz[1].replace(/[.-]/g, "\\$&")}:`, "g"), "<$1") : xml;
+}
+
 /** Atributo de uma tag ("r", "t", "s"…). */
 function atributo(tag: string, nome: string): string | null {
   const m = new RegExp(`\\s${nome}="([^"]*)"`).exec(tag);
@@ -122,7 +131,7 @@ export class Xlsx {
 
   private texto(caminho: string): string | null {
     const b = this.arquivos[caminho];
-    return b ? dec.decode(b) : null;
+    return b ? semPrefixo(dec.decode(b)) : null;
   }
 
   private carregarAuxiliares() {
@@ -146,7 +155,7 @@ export class Xlsx {
     this.carregarAuxiliares();
     const bytes = (this.arquivos[aba.arquivo] ??= unzipSync(this.bytes, { filter: (f) => f.name === aba.arquivo })[aba.arquivo]);
     // só o começo do XML quando bastam as primeiras linhas (o IW38OP tem 150 MB de XML)
-    const xml = max ? dec.decode(bytes.subarray(0, Math.min(bytes.length, 400_000 + max * 20_000))) : dec.decode(bytes);
+    const xml = semPrefixo(max ? dec.decode(bytes.subarray(0, Math.min(bytes.length, 400_000 + max * 20_000))) : dec.decode(bytes));
     const dados = xml.indexOf("<sheetData");
     const fim = xml.lastIndexOf("</sheetData>");
     const corpo = dados < 0 ? "" : xml.slice(dados, fim < 0 ? undefined : fim);

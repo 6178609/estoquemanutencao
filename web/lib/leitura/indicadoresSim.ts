@@ -17,3 +17,20 @@ export function recortarPilarMp(t: Tabela): Tabela {
   const linhas = t.linhas.filter((l) => chave(l[iPilar]) === PILAR && String(l[iKpi] ?? "").trim());
   return { colunas: manter.map((i) => t.colunas[i]), linhas: linhas.map((l) => manter.map((i) => l[i] ?? "")) };
 }
+
+/**
+ * Roadmap (export do Power BI): uma linha por máquina, com o passo previsto e o realizado de cada mês. Fica só o que é
+ * máquina (sai o rodapé "Filtros aplicados" e as linhas vazias) e só as colunas do roadmap.
+ */
+const COLUNAS_ROADMAP = /^(FABRICA|MAQUINA|(PREV|REL) (JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)|COMENTARIOS?)$/;
+
+export function recortarRoadmap(t: Tabela): Tabela {
+  const ks = t.colunas.map(chave);
+  const iMaq = ks.indexOf("MAQUINA");
+  const manter = ks.map((k, i) => (COLUNAS_ROADMAP.test(k) ? i : -1)).filter((i) => i >= 0);
+  const linhas = t.linhas.filter((l) => {
+    const m = String(l[iMaq] ?? "").trim();
+    return m && !/^FILTROS APLICADOS/.test(chave(m));
+  });
+  return { colunas: manter.map((i) => t.colunas[i]), linhas: linhas.map((l) => manter.map((i) => l[i] ?? "")) };
+}
