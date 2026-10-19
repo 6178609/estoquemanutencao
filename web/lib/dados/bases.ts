@@ -37,6 +37,17 @@ const cache = (g.__cmBases ??= new Map()); // uma cópia por processo (páginas 
 const gl = globalThis as unknown as { __cmLendo?: Map<string, Promise<unknown>> };
 const lendo = (gl.__cmLendo ??= new Map());
 
+/** Quanto custou a última leitura de cada base neste servidor (para achar onde está a lentidão): tamanho e milissegundos. */
+export interface TempoBase { kb: number; linhas: number; baixar_ms: number; ler_ms: number; preparar_ms: number; em: string }
+const gt = globalThis as unknown as { __cmTemposBases?: Map<string, TempoBase> };
+const tempos = (gt.__cmTemposBases ??= new Map());
+export function anotarTempo(nome: string, t: TempoBase) {
+  tempos.set(nome, t);
+}
+export function temposBases(): Record<string, TempoBase> {
+  return Object.fromEntries([...tempos].sort(([a], [b]) => a.localeCompare(b)));
+}
+
 export async function manifesto(): Promise<Record<string, InfoBase>> {
   const f = fonte();
   if (!f) return {};
@@ -81,10 +92,17 @@ export async function lerBase<T>(caminho: string, preparar: (linhas: Record<stri
 async function lerEPreparar<T>(f: NonNullable<ReturnType<typeof fonte>>, caminho: string, arquivos: string[], versao: string,
   preparar: (linhas: Record<string, unknown>[]) => T, meta: { atualizado: string | null; origem: string }): Promise<Base<T>> {
   try {
+    const t0 = Date.now();
     const lidos = await Promise.all(arquivos.map((a) => f.ler(a)));
     if (lidos.some((l) => !l)) return { dados: null, ...meta };
+    const t1 = Date.now();
     const linhas = (await Promise.all(lidos.map((l) => lerParquet(l!.bytes)))).flat();
+    const t2 = Date.now();
     const valor = preparar(linhas);
+    const t = { kb: Math.round(lidos.reduce((s, l) => s + l!.bytes.byteLength, 0) / 1024), linhas: linhas.length,
+      baixar_ms: t1 - t0, ler_ms: t2 - t1, preparar_ms: Date.now() - t2, em: new Date().toISOString() };
+    anotarTempo(caminho.replace(/^bases\//, "").replace(/\.parquet$/, ""), t);
+    console.info(`[dados] ${caminho}: ${t.kb} KB, ${t.linhas} linhas — baixar ${t.baixar_ms} ms, ler ${t.ler_ms} ms, preparar ${t.preparar_ms} ms`);
     cache.set(caminho, { versao, valor, atualizado: meta.atualizado });
     return { dados: valor, ...meta };
   } catch (e) {

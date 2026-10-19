@@ -3,7 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { after } from "next/server";
 
-import { lerBase, manifesto, type Base } from "../dados/bases";
+import { anotarTempo, lerBase, manifesto, type Base } from "../dados/bases";
 import { lerCadastro, versaoCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
 import { DESTINO } from "../leitura/tipos";
@@ -176,8 +176,10 @@ async function montarBases(h: number, assin: string | null): Promise<Bases> {
     return gb.__cmBasesWcm.valor;
   }
   // quebra = Y1 convertida em YM11: o tipo da ordem vem das três bases que têm ordem
+  const t0 = Date.now();
   const tipos = tiposPorOrdem(iw38.dados || [], oper.dados || [], conf.dados || []);
   const notas = { ...iw28, dados: iw28.dados ? marcarQuebras(iw28.dados, tipos) : null };
+  anotarTempo("_cruzamento_quebras", { kb: 0, linhas: iw28.dados?.length ?? 0, baixar_ms: 0, ler_ms: 0, preparar_ms: Date.now() - t0, em: new Date().toISOString() });
   const valor: Bases = { ordens: iw38, notas, operacoes: oper, confirmacoes: conf, equipamentos: ih08, equipe, requisicoes: req,
     cruas: { ip19, af, acoesAf }, hoje: h };
   gb.__cmBasesWcm = { chave, valor, assin: semErro ? assin : null };

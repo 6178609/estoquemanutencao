@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { estoque, MANIFESTO } from "@/lib/dados/bases";
+import { estoque, MANIFESTO, temposBases } from "@/lib/dados/bases";
 import { caminhoParte, receberParte } from "@/lib/dados/envio";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
 import { paraParquet } from "@/lib/leitura/parquet";
@@ -39,6 +39,9 @@ describe("envio de bases pela tela Fontes de dados", () => {
     expect(mem.arquivos.has("bases/MB52.parquet")).toBe(true);
     expect(manifesto()["bases/MB52.parquet"]).toMatchObject({ origem: "MB52.htm", linhas: 3, enviado_por: "1234567" });
     expect((await estoque()).dados?.length).toBe(3);
+    // a leitura fica medida (tamanho, linhas e o tempo de cada etapa) para o /api/aquecer
+    expect(temposBases().MB52).toMatchObject({ linhas: 3 });
+    expect(temposBases().MB52.kb).toBeGreaterThanOrEqual(0);
 
     // envio em 2 partes: depois da 1ª ainda vale a versão anterior
     const r1 = await receberParte({ ...base, envio: "bbbbbbbb", parte: 1, total: 2, linhas: 10, bytes: paraParquet(mb52(100, 105)) });
