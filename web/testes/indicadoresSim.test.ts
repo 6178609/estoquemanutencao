@@ -1,8 +1,11 @@
+import { zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 
-import { recortarPilarMp } from "@/lib/leitura/indicadoresSim";
+import { recortarPilarMp, recortarRoadmap } from "@/lib/leitura/indicadoresSim";
 import { identificar } from "@/lib/leitura/tipos";
-import { ehPercentual } from "@/lib/leitura/xlsx";
+import { ehPercentual, semPrefixo, Xlsx } from "@/lib/leitura/xlsx";
+import { evolucao, pct, pontosAtencao, porArea, porIndicador, resumoSim } from "@/lib/wcm/visaoGeralSim";
+import { familia, prepararRoadmap, resumir, situacao, ultimoMesComReal } from "@/lib/wcm/roadmapSim";
 import { atinge, mesAnterior, mesesComReal, montarDeck, prepararIndicadoresSim } from "@/lib/wcm/indicadoresSim";
 
 // dados fictícios, no formato da aba BASE MENSAL do Dashboard
@@ -61,5 +64,94 @@ describe("Indicadores SIM (pilar MP)", () => {
     expect(ehPercentual("0.00%")).toBe(true);
     expect(ehPercentual('0.00" %"')).toBe(false);
     expect(ehPercentual("#,##0.00")).toBe(false);
+  });
+});
+
+describe("Roadmap SIM (passos por máquina)", () => {
+  const MES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const CAB = ["FABRICA", "Máquina", ...MES.flatMap((m) => [`Prev ${m}`, `Rel ${m}`]), "COMENTARIO"];
+
+  it("lê o export do Power BI (tags com prefixo x:) e reconhece o roadmap", () => {
+    const tag = (t: string) => `<x:c t="inlineStr"><x:is><x:t>${t}</x:t></x:is></x:c>`;
+    const num = (n: number) => `<x:c><x:v>${n}</x:v></x:c>`;
+    const ns = 'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+    const enc = (s: string) => new TextEncoder().encode(s);
+    const zip = zipSync({
+      "xl/workbook.xml": enc(`<?xml version="1.0"?><x:workbook ${ns}><x:sheets><x:sheet name="Export" sheetId="1" r:id="R1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" /></x:sheets></x:workbook>`),
+      "xl/_rels/workbook.xml.rels": enc(`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="worksheet" Target="/xl/worksheets/sheet1.xml" Id="R1" /></Relationships>`),
+      "xl/worksheets/sheet1.xml": enc(`<?xml version="1.0"?><x:worksheet ${ns}><x:sheetData><x:row>${CAB.map(tag).join("")}</x:row><x:row>${tag("F00")}${tag("MAQUINA TESTE 01")}${num(3)}${num(2)}</x:row></x:sheetData></x:worksheet>`),
+    });
+    const x = new Xlsx(zip);
+    const l = x.linhas(x.abas[0]);
+    expect(x.abas[0].nome).toBe("Export");
+    expect(identificar(l[0] as string[])).toBe("roadmap_sim");
+    expect(l[1].slice(0, 4)).toEqual(["F00", "MAQUINA TESTE 01", 3, 2]);
+    expect(semPrefixo("<a><b/></a>")).toBe("<a><b/></a>");
+  });
+
+  it("recorta (sem o rodapé de filtros), prepara e resume o mês", () => {
+    const vazio = () => CAB.map(() => "");
+    const linha = (maq: string, prev: (number | "")[], rel: (number | "")[], com = "") => {
+      const l = vazio();
+      l[0] = "F00"; l[1] = maq; l[CAB.length - 1] = com;
+      prev.forEach((v, i) => { l[2 + i * 2] = String(v); });
+      rel.forEach((v, i) => { l[3 + i * 2] = String(v); });
+      return l;
+    };
+    const t = recortarRoadmap({ colunas: [...CAB, "Column28"], linhas: [
+      [...linha("MAQUINA X 01", [1, 2, 3], [1, 2, 2], "ATRASO DE TESTE"), "x"],
+      [...linha("MAQUINA X 02", [1, 2, 3], [1, 2, 3]), "x"],
+      [...linha("LINHA Y 1 (TESTE)", [0, 1], [0, 1]), ""],
+      [...vazio(), ""],
+      ["", "Filtros aplicados:\nAlgo é X", ...vazio().slice(2), ""],
+    ] });
+    expect(t.colunas).not.toContain("Column28");
+    expect(t.linhas).toHaveLength(3);
+    const ms = prepararRoadmap(t.linhas.map((r) => Object.fromEntries(t.colunas.map((c, i) => [c, r[i]]))));
+    expect(ms[0].previsto.slice(0, 4)).toEqual([1, 2, 3, null]);
+    expect(ms[0].comentario).toBe("ATRASO DE TESTE");
+    expect(ultimoMesComReal(ms)).toBe(2);
+    expect(situacao(3, 2)).toBe("atrasada");
+    expect(situacao(3, 3)).toBe("ok");
+    expect(situacao(3, null)).toBe("sem");
+    expect(resumir(ms, 2)).toMatchObject({ total: 3, ok: 1, atrasadas: 1, semDado: 1 });
+    expect(familia("MAQUINA X 02")).toBe("MAQUINA X");
+    expect(familia("LINHA Y 1 (TESTE)")).toBe("LINHA Y");
+  });
+});
+
+describe("Visão geral do SIM", () => {
+  const L = (area: string, kpi: string, tipo: "A" | "B", mes: string, meta: number, real: number | null, ytdMeta: number | null = null, ytdReal: number | null = null) =>
+    ({ area, kpi, tipo, mes, metaMes: meta, fcstMes: null, realMes: real, ytdMeta, ytdReal, fyMeta: null, fyEstimativa: null, fyAnterior: null, semanas: [] });
+  const linhas = [
+    L("Area 1", "MTTR", "B", "2026-01", 1, 1.5), L("Area 1", "MTTR", "B", "2026-02", 1, 0.9, 1, 1.2),
+    L("Area 1", "MTBF", "A", "2026-02", 100, 120, 100, 90),
+    L("Area 2", "MTTR", "B", "2026-02", 1, 2, 1, 1.1),
+  ];
+  const M = (maquina: string, prev: number[], real: (number | null)[], comentario = "") =>
+    ({ fabrica: "F00", maquina, previsto: [...prev, ...Array(12 - prev.length).fill(null)], realizado: [...real, ...Array(12 - real.length).fill(null)], comentario });
+  const maquinas = [M("MAQ 1", [1, 2], [1, 1], "ATRASO"), M("MAQ 2", [1, 2], [1, 2]), M("MAQ 3", [0, 1], [0, 1])];
+
+  it("resume o mês juntando indicadores e roadmap", () => {
+    const r = resumoSim(linhas, maquinas, "2026-02");
+    expect(r.deck).toEqual({ na: 2, de: 3 });
+    expect(r.ytd).toEqual({ na: 0, de: 3 });
+    expect(r.roadmap).toEqual({ na: 2, de: 3 });
+    expect(r.geral).toEqual({ na: 4, de: 6 });
+    expect(r.melhoraram).toBe(1); // MTTR da Area 1: 1,5 → 0,9 (tipo B)
+    expect(pct(r.geral)).toBeCloseTo(66.67, 1);
+    expect(resumoSim(linhas, maquinas, "2026-02", "2025").roadmap).toEqual({ na: 0, de: 0 }); // roadmap de outro ano não entra
+  });
+  it("evolução, por indicador, por área e pontos de atenção", () => {
+    const ev = evolucao(linhas, maquinas, "2026-02");
+    expect(ev.map((p) => [p.mes, p.deck, p.roadmap])).toEqual([
+      ["2026-01", { na: 0, de: 1 }, { na: 3, de: 3 }], ["2026-02", { na: 2, de: 3 }, { na: 2, de: 3 }]]);
+    const ind = porIndicador(linhas, "2026-02");
+    expect(ind.map((x) => [x.kpi, x.mes, x.foraDaMeta])).toEqual([["MTTR", { na: 1, de: 2 }, ["Area 2"]], ["MTBF", { na: 1, de: 1 }, []]]);
+    expect(ind[0].serie).toEqual([0, 50]);
+    expect(porArea(linhas, "2026-02").map((a) => a.area)).toEqual(["Area 2", "Area 1"]); // a pior primeiro
+    const at = pontosAtencao(linhas, maquinas, "2026-02");
+    expect(at.indicadores.map((x) => `${x.area}|${x.kpi}`)).toEqual(["Area 2|MTTR"]);
+    expect(at.maquinas.map((m) => m.maquina)).toEqual(["MAQ 1"]);
   });
 });
