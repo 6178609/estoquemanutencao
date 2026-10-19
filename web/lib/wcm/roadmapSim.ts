@@ -76,3 +76,32 @@ export function resumir(ms: MaquinaRoadmap[], mes: number): ResumoRoadmap {
     metaFimAno: dez.length ? dez.reduce((a, b) => a + b, 0) / dez.length : null,
   };
 }
+
+// ----------------------------------------------------------------------------
+// Comentário manual: por máquina, no cadastro `roadmap_comentarios.json` ({ "F26|MAQUINA": { comentario } }).
+// Vale o manual (até alguém voltar ao da planilha); o da planilha continua guardado para comparar.
+// ----------------------------------------------------------------------------
+export const ARQ_COMENTARIOS = "roadmap_comentarios.json";
+export const MAX_COMENTARIO = 500;
+const RESERVADAS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** Chave da máquina no cadastro de comentários. */
+export const chaveMaquina = (fabrica: string, maquina: string) => `${fabrica.trim()}|${maquina.trim()}`.slice(0, 160);
+export const chaveValida = (k: string) => !!k.replace("|", "").trim() && k.length <= 160 && !RESERVADAS.has(k) && !/[\u0000-\u001f]/.test(k);
+
+/** Texto limpo: uma linha, sem caracteres invisíveis, até 500 caracteres. */
+export const limparComentario = (t: unknown) =>
+  String(t ?? "").replace(/[\u0000-\u001f\u007f​-‏‪-‮⁦-⁩]/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_COMENTARIO);
+
+export interface ComentarioManual { texto: string; por: string; em: string }
+export type MaquinaComComentario = MaquinaRoadmap & { comentarioPlanilha: string; manual: ComentarioManual | null };
+
+/** O comentário que vale em cada máquina: o manual, se houver; senão, o da planilha. */
+export function aplicarComentarios(ms: MaquinaRoadmap[], cad: Record<string, unknown>): MaquinaComComentario[] {
+  return ms.map((m) => {
+    const item = cad[chaveMaquina(m.fabrica, m.maquina)] as Record<string, unknown> | undefined;
+    const texto = item && typeof item.comentario === "string" ? limparComentario(item.comentario) : null;
+    const manual = texto != null ? { texto, por: String(item!.atualizado_por ?? ""), em: String(item!.atualizado_em ?? "") } : null;
+    return { ...m, comentario: manual ? manual.texto : m.comentario, comentarioPlanilha: m.comentario, manual };
+  });
+}

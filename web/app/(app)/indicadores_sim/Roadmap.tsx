@@ -1,9 +1,10 @@
 import clsx from "clsx";
 
-import { MESES_ROADMAP, familia, resumir, situacao, ultimoMesComReal, type MaquinaRoadmap } from "@/lib/wcm/roadmapSim";
+import { MESES_ROADMAP, familia, resumir, situacao, ultimoMesComReal, type MaquinaComComentario } from "@/lib/wcm/roadmapSim";
 
 import { AbasParam, GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 import { FiltrosUrl } from "../equipamentos/_ui/FiltrosUrl";
+import { ComentarioEditavel } from "./ComentarioEditavel";
 
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
@@ -28,7 +29,7 @@ function Mes({ prev, real, destaque }: { prev: number | null; real: number | nul
   );
 }
 
-export function Roadmap({ maquinas, params, enviada }: { maquinas: MaquinaRoadmap[]; params: Params; enviada: string }) {
+export function Roadmap({ maquinas, params, enviada, edita }: { maquinas: MaquinaComComentario[]; params: Params; enviada: string; edita: boolean }) {
   const ultimo = ultimoMesComReal(maquinas);
   const pedido = MESES_ROADMAP.indexOf(um(params, "rmes").toUpperCase());
   const mes = pedido >= 0 ? pedido : Math.max(0, ultimo);
@@ -79,7 +80,10 @@ export function Roadmap({ maquinas, params, enviada }: { maquinas: MaquinaRoadma
                 <tr key={`${m.fabrica}|${m.maquina}`} className="border-b border-borda last:border-0">
                   <th scope="row" className="sticky left-0 z-10 max-w-56 bg-superficie px-3 py-1.5 text-left text-[13px] font-medium leading-snug">{m.maquina}</th>
                   {MESES_ROADMAP.map((_, i) => <Mes key={i} prev={m.previsto[i]} real={m.realizado[i]} destaque={i === mes} />)}
-                  <td className="min-w-64 border-l border-borda px-3 py-1.5 text-[12.5px] leading-snug text-texto-2">{m.comentario || <span className="text-texto-4">—</span>}</td>
+                  <td className="min-w-64 border-l border-borda px-3 py-1.5 text-[12.5px] leading-snug text-texto-2">
+                    <ComentarioEditavel fabrica={m.fabrica} maquina={m.maquina} comentario={m.comentario} planilha={m.comentarioPlanilha}
+                      manual={m.manual && { por: m.manual.por, em: m.manual.em }} edita={edita} />
+                  </td>
                 </tr>
               ))}
               {!vis.length && <tr><td colSpan={14} className="px-3 py-6 text-center text-[13.5px] text-texto-3">Nenhuma máquina com estes filtros.</td></tr>}
@@ -89,7 +93,7 @@ export function Roadmap({ maquinas, params, enviada }: { maquinas: MaquinaRoadma
       </section>
       <p className="text-[12px] text-texto-3">
         Em cada mês: o passo previsto em cima e o realizado embaixo — verde quando chegou no previsto, vermelho quando ficou abaixo. Meses sem
-        realizado ainda aparecem com “–”.
+        realizado ainda aparecem com “–”. O comentário vem da planilha; quem edita pode reescrever no lápis (vale o manual até voltar ao da planilha).
       </p>
     </div>
   );

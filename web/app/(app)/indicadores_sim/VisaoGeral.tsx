@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { Grafico, Linhas, Sparkline } from "@/components/graficos";
@@ -8,6 +9,7 @@ import { evolucao, indiceMes, pct, pontosAtencao, porArea, porIndicador, resumoS
 
 import { AbasParam, GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 import { hrefCom } from "../equipamentos/_ui/url";
+import { IndicadoresSap } from "./IndicadoresSap";
 
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
@@ -45,13 +47,15 @@ function Faixa({ c }: { c: Conta }) {
 const TH = "px-3 py-2 text-left text-[11.5px] font-semibold uppercase tracking-wide text-texto-3";
 const TD = "px-3 py-2 text-[13px]";
 
-export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; maquinas: MaquinaRoadmap[]; params: Params }) {
+export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: LinhaSim[]; maquinas: MaquinaRoadmap[]; params: Params; verSap: boolean }) {
   // meses com dado no Deck ou no Roadmap (o roadmap não traz o ano: vale o do Deck, ou o atual)
   const ano = mesesComReal(linhas)[0]?.slice(0, 4) ?? String(new Date().getFullYear());
   const doRoadmap = Array.from({ length: ultimoMesComReal(maquinas) + 1 }, (_, i) => `${ano}-${String(i + 1).padStart(2, "0")}`);
   const meses = [...new Set([...mesesComReal(linhas), ...doRoadmap])].sort();
-  const mes = meses.find((m) => m === um(params, "gmes")) ?? meses[meses.length - 1];
-  if (!mes) return <p className="text-[14px] text-texto-3">Ainda não há meses com resultado lançado nas planilhas.</p>;
+  // sem nenhuma planilha do SIM, a visão segue só com os indicadores do SAP, no mês corrente
+  if (!meses.length) { const h = new Date(); meses.push(`${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}`); }
+  const pedido = um(params, "gmes");
+  const mes = meses.find((m) => m === pedido) ?? (/^\d{4}-(0[1-9]|1[0-2])$/.test(pedido) ? pedido : meses[meses.length - 1]);
 
   const r = resumoSim(linhas, maquinas, mes, ano);
   const ev = evolucao(linhas, maquinas, mes, ano);
@@ -68,6 +72,7 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
         {!linhas.length && " A planilha de indicadores ainda não foi enviada — só o Roadmap entra."}
         {!maquinas.length && " O Roadmap ainda não foi enviado — só os indicadores entram."}
       </p>
+      <h2 className="font-display text-[18px] font-medium">Resumo do SIM em {rotuloMes(mes)}</h2>
       <GradeNumeros colunas={4}>
         <Numero rotulo="Aderência geral do SIM" valor={fmtPct(r.geral)} tom={tom(r.geral)}
           detalhe={`${r.geral.na} de ${r.geral.de} itens no alvo (indicadores na meta + máquinas no passo previsto)`} />
@@ -88,6 +93,19 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
           ]} />
       </Grafico>
 
+      <section className="space-y-3">
+        <div>
+          <h2 className="font-display text-[18px] font-medium">Indicadores de manutenção do SIM — calculados pelas fontes de dados</h2>
+          <p className="text-[12.5px] text-texto-3">No formato do SIM (tipo A/B, meta, mês anterior, mês e acumulado): os KPIs do pilar MP contra a planilha, e os demais por tema — {rotuloMes(mes)}.</p>
+        </div>
+        {verSap ? (
+          <Suspense fallback={<div className="h-64 animate-pulse rounded-cartao border border-borda bg-superficie-2" aria-label="Calculando os indicadores do SAP" />}>
+            <IndicadoresSap mes={mes} rotulo={rotuloMes(mes)} deck={linhas} />
+          </Suspense>
+        ) : <p className="text-[13px] text-texto-3">Os indicadores do SAP aparecem para quem tem acesso ao Painel WCM.</p>}
+      </section>
+
+      <h2 className="font-display text-[18px] font-medium">Deck do pilar MP — por indicador e por área</h2>
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
           <h2 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por indicador de manutenção</h2>
