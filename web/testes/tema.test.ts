@@ -17,10 +17,7 @@ function bloco(padrao: RegExp): Record<string, string> {
 }
 
 const claro = bloco(/^:root\s*\{([^}]*)\}/m);
-const escuroSistema = bloco(/:root:not\(\[data-tema="claro"\]\)\s*\{([^}]*)\}/);
-const escuroManual = bloco(/:root\[data-tema="escuro"\]\s*\{([^}]*)\}/);
-
-const temas = { claro: claro, "escuro (sistema)": escuroSistema, "escuro (manual)": escuroManual };
+const temas = { claro };
 
 function canal(v: number): number {
   const s = v / 255;
@@ -106,7 +103,9 @@ describe("tema da marca", () => {
     expect(claro["--tinta"].toLowerCase()).toBe("#007a38");
   });
 
-  it("os dois blocos escuros têm os mesmos valores", () => {
-    expect(escuroSistema).toEqual(escuroManual);
+  it("site sempre claro: fundo branco e nenhum tema escuro", () => {
+    expect(claro["--fundo"].toUpperCase()).toBe("#FFFFFF");
+    expect(css).not.toMatch(/prefers-color-scheme:\s*dark/);
+    expect(css).not.toMatch(/:root\[data-tema="escuro"\]/);
   });
 });

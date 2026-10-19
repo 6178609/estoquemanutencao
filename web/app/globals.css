@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* tema escuro pelo atributo (o script do <head> já põe o certo antes de pintar a tela) */
+/* o site é sempre claro: sem [data-tema=escuro], as classes dark: não têm efeito */
 @custom-variant dark (&:where([data-tema=escuro], [data-tema=escuro] *));
 
 /*
@@ -53,7 +53,7 @@
 }
 
 :root {
-  --fundo: #F4F6F4;
+  --fundo: #FFFFFF;            /* site sempre claro: fundo branco */
   --superficie: #FFFFFF;
   --superficie-2: #F1F4F2;
   --superficie-3: #E9EEEA;
@@ -89,49 +89,6 @@
   --icone-amarelo: #7A5600; --icone-laranja: #9A4705; --icone-vermelho: #A4111A; --icone-celeste: #005E84;
   --grade: #E2E7E3; --eixo: #a1a1aa;
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) {
-    --fundo: #0B110D; --superficie: #121A15; --superficie-2: #18221C; --superficie-3: #1E2A23;
-    --borda: #24302A; --borda-forte: #33423A; --texto: #F1F5F2; --texto-2: #B8C4BD; --texto-3: #8D9A92;
-    --texto-4: #8D9A92; --tinta: #22B068; --tinta-texto: #06140B;
-    --acao: var(--tinta); --acao-forte: #4CC487;
-    --menu: #072A18; --menu-2: #0E3D24; --menu-texto: #E8F3EC; --menu-apoio: #A9D3B9; --menu-marcador: #A8C024;
-    --foco: #6CCCF0;
-    --selo-bom-fundo: #0E3D24;     --selo-bom-texto: #6FD79C;
-    --selo-atencao-fundo: #3A2E07; --selo-atencao-texto: #FCD26A;
-    --selo-serio-fundo: #3D2209;   --selo-serio-texto: #F8A867;
-    --selo-critico-fundo: #3F1013; --selo-critico-texto: #FF8A90;
-    --selo-info-fundo: #0F2A44;    --selo-info-texto: #8CC4F2;
-    --selo-neutro-fundo: #24302A;  --selo-neutro-texto: #B8C4BD;
-    --serie-1: #3384d6; --serie-2: #d8620e; --serie-3: #0a90c8; --serie-4: #869f18;
-    --st-bom: #22b068; --st-atencao: #fcb40c; --st-serio: #f08a3c; --st-critico: #ff4d55;
-    --seq-1: #0f2236; --seq-2: #143654; --seq-3: #1a4f7a; --seq-4: #2468a3; --seq-5: #3a86cf; --seq-6: #6aa8e2; --seq-7: #a9ccef;
-    --icone-verde: #6FD79C; --icone-azul: #8CC4F2; --icone-ciano: #7FD3F2; --icone-lima: #CFE36A;
-    --icone-amarelo: #FCD26A; --icone-laranja: #F8A867; --icone-vermelho: #FF8A90; --icone-celeste: #A5DEF5;
-    --grade: #24302A; --eixo: #5c5c63; color-scheme: dark;
-  }
-}
-:root[data-tema="escuro"] {
-  --fundo: #0B110D; --superficie: #121A15; --superficie-2: #18221C; --superficie-3: #1E2A23;
-  --borda: #24302A; --borda-forte: #33423A; --texto: #F1F5F2; --texto-2: #B8C4BD; --texto-3: #8D9A92;
-  --texto-4: #8D9A92; --tinta: #22B068; --tinta-texto: #06140B;
-  --acao: var(--tinta); --acao-forte: #4CC487;
-  --menu: #072A18; --menu-2: #0E3D24; --menu-texto: #E8F3EC; --menu-apoio: #A9D3B9; --menu-marcador: #A8C024;
-  --foco: #6CCCF0;
-  --selo-bom-fundo: #0E3D24;     --selo-bom-texto: #6FD79C;
-  --selo-atencao-fundo: #3A2E07; --selo-atencao-texto: #FCD26A;
-  --selo-serio-fundo: #3D2209;   --selo-serio-texto: #F8A867;
-  --selo-critico-fundo: #3F1013; --selo-critico-texto: #FF8A90;
-  --selo-info-fundo: #0F2A44;    --selo-info-texto: #8CC4F2;
-  --selo-neutro-fundo: #24302A;  --selo-neutro-texto: #B8C4BD;
-  --serie-1: #3384d6; --serie-2: #d8620e; --serie-3: #0a90c8; --serie-4: #869f18;
-    --st-bom: #22b068; --st-atencao: #fcb40c; --st-serio: #f08a3c; --st-critico: #ff4d55;
-    --seq-1: #0f2236; --seq-2: #143654; --seq-3: #1a4f7a; --seq-4: #2468a3; --seq-5: #3a86cf; --seq-6: #6aa8e2; --seq-7: #a9ccef;
-  --icone-verde: #6FD79C; --icone-azul: #8CC4F2; --icone-ciano: #7FD3F2; --icone-lima: #CFE36A;
-  --icone-amarelo: #FCD26A; --icone-laranja: #F8A867; --icone-vermelho: #FF8A90; --icone-celeste: #A5DEF5;
-    --grade: #24302A; --eixo: #5c5c63; color-scheme: dark;
 }
 
 @utility bg-fundo { background-color: var(--fundo); }
