@@ -4,7 +4,7 @@ import { chave } from "../dados/texto";
  * As bases que o site entende — tipos, nomes e destinos no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",
-  "equipe", "af", "acoes_af"] as const;
+  "equipe", "af", "acoes_af", "indicadores_sim"] as const;
 export type Tipo = (typeof TIPOS)[number];
 
 export const NOMES_BASE: Record<Tipo, string> = {
@@ -13,13 +13,14 @@ export const NOMES_BASE: Record<Tipo, string> = {
   catalogo_materiais: "Catálogo de materiais cadastrados (Sysmat)", requisicoes: "Requisições de compra",
   iw47: "Apontamentos de horas (IW47)", equipe: "Equipe de manutenção (Gestão de HH)",
   af: "Análises de falha (Gerenciador de AF)", acoes_af: "Ações das análises de falha (Gerenciador de AF)",
+  indicadores_sim: "Indicadores SIM — pilar MP (Dashboard F26)",
 };
 
 export const DESTINO: Record<Tipo, string> = {
   iw38: "bases/IW38.parquet", mb52: "bases/MB52.parquet", requisicoes: "bases/REQUISICOES.parquet",
   ip19: "bases/IP19.parquet", iw38op: "bases/IW38OP.parquet", iw28: "bases/IW28.parquet", ih08: "bases/IH08.parquet",
   iw47: "bases/IW47.parquet", equipe: "bases/EQUIPE.parquet", af: "bases/AF.parquet", acoes_af: "bases/AF_ACOES.parquet",
-  catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet",
+  catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet", indicadores_sim: "bases/INDICADORES_SIM.parquet",
 };
 
 /**
@@ -42,6 +43,7 @@ export function identificar(colunas: unknown[]): Tipo | null {
   const tem = (rx: RegExp) => [...ks].some((k) => rx.test(k));
 
   if (tem(COLUNAS_DO_APP)) return null;
+  if (tem(/^PILAR$/) && tem(/^KPIS? INDUSTRIA/) && tem(/^REAL MES$/) && tem(/^META MES$/)) return "indicadores_sim";
   if (tem(/^CODIGO SYSMAT$|^CODIGOSYSMAT$/) && tem(/CODIGO ?ALPARGATAS/) && tem(/DESCR(ICAO)? COMPLETA/)) return "catalogo_materiais";
   if (tem(/^N DA ANALISE$/) && tem(/^N DA ACAO$/) && tem(/^ACAO$/)) return "acoes_af";
   if (tem(/^N DA ANALISE$/) && tem(/^STATUS DA ANALISE$/) && tem(/^DATA DA FALHA$/)) return "af";

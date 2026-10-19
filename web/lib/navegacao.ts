@@ -13,6 +13,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Visão geral", abas: [
     { id: "painel", titulo: "Painel WCM", icone: "LayoutDashboard", rota: "/painel" },
     { id: "busca", titulo: "Buscar", icone: "Search", rota: "/busca" },
+    { id: "indicadores_sim", titulo: "Indicadores SIM (MP)", icone: "Gauge", rota: "/indicadores_sim" },
   ] },
   { titulo: "Confiabilidade", abas: [
     { id: "confiabilidade", titulo: "Quebras, MTBF e MTTR", icone: "ShieldCheck", rota: "/confiabilidade" },

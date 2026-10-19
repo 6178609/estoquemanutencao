@@ -278,7 +278,8 @@ export function lerArquivo(nome: string, bytes: Uint8Array, aba: string | null =
 /**
  * Quais bases existem no arquivo (uma pasta de trabalho pode ter mais de uma, uma por aba): [{tipo, aba, linha do
  * cabeçalho}]. Uma aba por base: a visível vence a oculta. Planilhas de gestão trazem cópias de outras bases: da
- * Gestão de HH só vale a equipe e do Gerenciador de AF só as análises e as ações.
+ * Gestão de HH só vale a equipe, do Gerenciador de AF só as análises e as ações e do Dashboard de Indicadores SIM só a
+ * base mensal.
  */
 export function sondar(nome: string, bytes: Uint8Array, xlsx?: Xlsx): Achado[] {
   if (ehRecorte(nome)) return [];
@@ -295,7 +296,7 @@ export function sondar(nome: string, bytes: Uint8Array, xlsx?: Xlsx): Achado[] {
     }
     const vistos = new Set<string>();
     achados = [...achados].sort((a, b) => Number(!a.visivel) - Number(!b.visivel)).filter((a) => !vistos.has(a.tipo) && !!vistos.add(a.tipo));
-    for (const proprios of [new Set<Tipo>(["equipe"]), new Set<Tipo>(["af", "acoes_af"])])
+    for (const proprios of [new Set<Tipo>(["equipe"]), new Set<Tipo>(["af", "acoes_af"]), new Set<Tipo>(["indicadores_sim"])])
       if (achados.some((a) => proprios.has(a.tipo))) achados = achados.filter((a) => proprios.has(a.tipo));
     return achados.map(({ tipo, aba, linhaCab }) => ({ tipo, aba, linhaCab }));
   }

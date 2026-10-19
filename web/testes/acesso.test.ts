@@ -55,3 +55,13 @@ describe("senha e login", () => {
     expect(validarLogin("abc")).not.toBe("");
   });
 });
+
+describe("aba nova Indicadores SIM (MP)", () => {
+  it("liberada para Líder e Analista, bloqueada para Terceiro, Manutentor e lista de abas antiga", () => {
+    expect(podeVer({ login: "a", funcao: "lider", perfil: "leitor" }, "indicadores_sim")).toBe(true);
+    expect(podeVer({ login: "b", funcao: "analista", perfil: "leitor" }, "indicadores_sim")).toBe(true);
+    expect(podeVer({ login: "c", funcao: "terceiro", perfil: "editor" }, "indicadores_sim")).toBe(false);
+    expect(podeVer({ login: "d", funcao: "manutentor", perfil: "admin" }, "indicadores_sim")).toBe(false);
+    expect(podeVer({ login: "e", funcao: "analista", perfil: "leitor", abas: ["painel", "ordens"] }, "indicadores_sim")).toBe(false);
+  });
+});
