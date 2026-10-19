@@ -1,0 +1,26 @@
+# Mantém o site "quente": a cada 5 minutos chama /api/aquecer, que deixa um servidor da Vercel com as bases do SAP,
+# os cadastros e os indicadores já baixados e preparados na memória (a primeira tela não espera o download).
+# A rota não devolve dados, só o tempo de cada etapa. Endereço: variável SITE_URL do repositório (se houver).
+name: Aquecer o site
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  # logo depois de cada deploy de produção (todas as instâncias novas começam frias)
+  deployment_status:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  aquecer:
+    if: github.event_name != 'deployment_status' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Chamar /api/aquecer
+        env:
+          SITE: ${{ vars.SITE_URL || 'https://estoquemanutencao.vercel.app' }}
+        run: |
+          curl -sS --max-time 150 --retry 2 --retry-delay 10 -o resposta.json -w "HTTP %{http_code} em %{time_total}s\n" "$SITE/api/aquecer" || true
+          cat resposta.json || true
