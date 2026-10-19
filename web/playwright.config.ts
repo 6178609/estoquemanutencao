@@ -18,7 +18,7 @@ export default defineConfig({
     ...(process.env.PW_CHROMIUM ? { launchOptions: { executablePath: process.env.PW_CHROMIUM } } : {}),
   },
   projects: [
-    { name: "computador", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
+    { name: "computador", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } }, testIgnore: /celular/ },
     { name: "celular", use: { ...devices["Pixel 7"] }, testMatch: /celular/ },
   ],
   webServer: {

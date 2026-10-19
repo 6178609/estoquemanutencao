@@ -18,9 +18,9 @@ const seguranca = [
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://vercel.live",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline' https://vercel.live",
+  "img-src 'self' data: blob: https://vercel.live https://vercel.com",
+  "font-src 'self' data: https://vercel.live https://assets.vercel.com",
   "connect-src 'self' https://vercel.live wss://ws-us3.pusher.com",
   "worker-src 'self' blob:",
   "frame-src https://vercel.live",

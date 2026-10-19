@@ -15,7 +15,7 @@ const g = globalThis as unknown as { __cmAquecerChamadas?: number[] };
 export async function GET() {
   const agora = Date.now();
   const recentes = (g.__cmAquecerChamadas ?? []).filter((t) => agora - t < 60_000);
-  if (recentes.length >= 30) return NextResponse.json({ ok: false, erro: "Muitas chamadas; tente em 1 minuto." }, { status: 429 });
+  if (recentes.length >= 30) return NextResponse.json({ ok: false, erro: "Muitas chamadas; tente em 1 minuto." }, { status: 429, headers: { "Cache-Control": "no-store" } });
   g.__cmAquecerChamadas = [...recentes, agora];
   const etapas = await aquecer();
   return NextResponse.json({ ok: Object.values(etapas).every((v) => typeof v === "number"), etapas }, { headers: { "Cache-Control": "no-store" } });
