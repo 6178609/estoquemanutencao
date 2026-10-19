@@ -6,7 +6,13 @@ import type { Contexto } from "@/lib/wcm/contexto";
 
 import { guardar } from "../saude/calculo";
 import { listasPorEquipamento, listasPorPlano, type ListaTarefas } from "./ia06";
-import { indexarMateriais, type BaseMateriais } from "./logica";
+import { DESATIVADO, type LinhaAtivo } from "@/lib/wcm/ativos";
+import { hashTexto } from "@/lib/wcm/util";
+
+import { sugerirAlocacoes, type AtivoTexto, type MaterialTexto, type Sugestao } from "./alocacao";
+import { indexarMateriais, semZeros, type BaseMateriais } from "./logica";
+
+const INATIVOS_SYSMAT = new Set(["BLOQUEADO", "CANCELADO", "DUPLICADO"]);
 
 /** MB52 + catálogo Sysmat indexados por código (refeito só quando um dos dois exports muda). */
 export async function baseMateriais(): Promise<BaseMateriais> {
@@ -25,4 +31,27 @@ export async function listasDosAtivos(c: Contexto): Promise<Map<string, ListaTar
   const ordens = c.b.ordens.dados ?? [], ip19 = c.b.cruas.ip19;
   return guardar(`mro-listas|${c.b.ordens.atualizado}:${ordens.length}|${ip19.atualizado}:${ip19.dados?.length ?? -1}`,
     () => listasPorEquipamento(ordens, listasPorPlano(ip19.dados)));
+}
+
+/** Ativos e materiais (MB52 + catálogo Sysmat) no formato da alocação automática. */
+export function textosParaAlocacao(inv: LinhaAtivo[], bm: BaseMateriais, campos: Map<string, string>): { ativos: AtivoTexto[]; materiais: MaterialTexto[] } {
+  const ativos: AtivoTexto[] = inv.map((a) => ({ codigo: a.codigo, nome: a.equipamento, campo: campos.get(a.codigo) ?? "", fabricante: a.fabricante,
+    modelo: a.modelo, desativado: a.situacao === DESATIVADO }));
+  const materiais = new Map<string, MaterialTexto>();
+  // o catálogo inteiro (só cadastros ativos) e o que está no MB52 sem catálogo
+  for (const c of bm.cat?.values() ?? []) if (c.material && !INATIVOS_SYSMAT.has(c.status))
+    materiais.set(semZeros(c.material), { codigo: c.material, descricao: c.descricaoCurta, descrCompleta: c.descrCompleta });
+  for (const [cod, e] of bm.est ?? []) if (cod === e.material && !materiais.has(semZeros(cod)))
+    materiais.set(semZeros(cod), { codigo: cod, descricao: e.descricao, descrCompleta: "" });
+  return { ativos, materiais: [...materiais.values()] };
+}
+
+/** Sugestões da alocação automática (refeitas só quando as bases ou os vínculos mudam). */
+export async function sugestoesAlocacao(c: Contexto, inv: LinhaAtivo[], bm: BaseMateriais, campos: Map<string, string>,
+  jaVinculados: (ativo: string) => Set<string>): Promise<Sugestao[]> {
+  const vinc = hashTexto(JSON.stringify(Object.entries(c.cad.equipamentos).map(([k, v]) => [k, (v as { materiais?: unknown })?.materiais ?? null])));
+  return guardar(`aloc|${inv.length}|${bm.est?.size ?? -1}|${bm.cat?.size ?? -1}|${c.b.equipamentos.atualizado}|${vinc}`, () => {
+    const { ativos, materiais } = textosParaAlocacao(inv, bm, campos);
+    return sugerirAlocacoes(ativos, materiais, jaVinculados);
+  });
 }
