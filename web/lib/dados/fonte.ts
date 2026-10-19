@@ -41,6 +41,7 @@ const TEMPO_VERSOES_MS = 30_000;
 const TEMPO_MAX_VERSOES_MS = 10 * 60_000;
 const TEMPO_PEDIDO_MS = 30_000; // gravação
 const TEMPO_LEITURA_MS = 40_000; // leitura de um arquivo, até o fim do download
+const PRAZO_LEITURA_MS = 60_000; // todas as tentativas de ler um arquivo juntas (a tela não espera mais que isso)
 const TEMPO_LISTA_MS = 15_000; // lista de versões
 
 // ----------------------------------------------------------------------------
@@ -59,15 +60,18 @@ class GitHub implements Fonte {
    * Chamada à API com tempo limite (uma resposta travada não segura a página até o fim do prazo da função) e novas
    * tentativas em erro de rede, 429 e 5xx. Gravações (tentativas = 1) nunca repetem: o resultado poderia ser incerto.
    */
-  private async pedir(caminho: string, init: RequestInit = {}, tentativas = 3, limiteMs = TEMPO_PEDIDO_MS): Promise<Response> {
+  private async pedir(caminho: string, init: RequestInit = {}, tentativas = 3, limiteMs = TEMPO_PEDIDO_MS, prazo = Infinity): Promise<Response> {
     let ultimoErro: unknown = null;
     for (let i = 0; i < tentativas; i++) {
       if (i) await new Promise((ok) => setTimeout(ok, 2 ** (i - 1) * 600 + Math.random() * 300));
+      // com prazo total (leituras): cada tentativa só usa o tempo que sobrou; sem tempo, desiste
+      const resta = prazo - Date.now();
+      if (resta < 1_000) { ultimoErro = ultimoErro ?? Object.assign(new Error("prazo"), { name: "TimeoutError" }); break; }
       try {
         const r = await fetch(`https://api.github.com${caminho}`, {
           ...init,
           cache: "no-store",
-          signal: AbortSignal.timeout(limiteMs),
+          signal: AbortSignal.timeout(Math.min(limiteMs, resta)),
           headers: {
             Authorization: `Bearer ${this.token}`,
             Accept: "application/vnd.github+json",
@@ -149,16 +153,17 @@ class GitHub implements Fonte {
     if (!versao) return null;
     // "raw" serve arquivos de até 100 MB (o JSON do contents só traz o conteúdo até 1 MB). O tempo limite vale até o
     // fim do download: se cair no meio, tenta mais uma vez.
+    const prazo = Date.now() + PRAZO_LEITURA_MS;
     for (let i = 0; ; i++) {
       const r = await this.pedir(`${this.url(caminho)}?ref=${encodeURIComponent(this.ramo)}`, {
         headers: { Accept: "application/vnd.github.raw" },
-      }, 3, TEMPO_LEITURA_MS);
+      }, 3, TEMPO_LEITURA_MS, prazo);
       if (r.status === 404) return null;
       if (!r.ok) throw new FonteErro(`Erro ${r.status} ao ler ${caminho}.`);
       try {
         return { bytes: new Uint8Array(await r.arrayBuffer()), versao };
       } catch (e) {
-        if (i >= 1) throw new FonteErro(`O download de ${caminho} não terminou (${(e as Error).name === "TimeoutError" ? "demorou demais" : "conexão caiu"}).`);
+        if (i >= 1 || prazo - Date.now() < 1_000) throw new FonteErro(`O download de ${caminho} não terminou (${(e as Error).name === "TimeoutError" ? "demorou demais" : "conexão caiu"}).`);
       }
     }
   }
