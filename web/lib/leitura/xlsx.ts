@@ -71,6 +71,13 @@ export function formatoDeData(codigo: string): boolean {
   return /[dmyhs]/i.test(limpo.split(";")[0]);
 }
 
+// formatos numéricos embutidos do Excel (os que não vêm escritos no styles.xml)
+const FORMATOS_EMBUTIDOS: Record<number, string> = { 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 9: "0%", 10: "0.00%",
+  11: "0.00E+00", 37: "#,##0", 38: "#,##0", 39: "#,##0.00", 40: "#,##0.00" };
+
+/** O formato mostra porcentagem? (o "%" fora de aspas) */
+export const ehPercentual = (formato: string) => formato.split(";")[0].replace(/"[^"]*"/g, "").includes("%");
+
 function serialParaData(serial: number, data1904: boolean): DataCelula {
   // dias desde 30/12/1899 (o Excel conta o 29/02/1900 que não existiu; os seriais modernos já descontam)
   const ms = Math.round((serial + (data1904 ? 1462 : 0)) * 86_400_000) + Date.UTC(1899, 11, 30);
@@ -84,6 +91,9 @@ export class Xlsx {
   private arquivos: Record<string, Uint8Array>;
   private compartilhados: string[] | null = null;
   private estilosData: boolean[] | null = null;
+  private estilosFormato: string[] | null = null;
+  /** Números com formato de porcentagem saem em pontos (0,0285 → 2,85), como aparecem na tela. */
+  percentualEmPontos = false;
   private data1904 = false;
   readonly abas: AbaXlsx[];
 
@@ -126,10 +136,9 @@ export class Xlsx {
     for (const m of blocoFormatos.matchAll(/<numFmt\b[^>]*>/g))
       formatos.set(Number(atributo(m[0], "numFmtId")), desescapar(atributo(m[0], "formatCode") || ""));
     const xfs = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(estilos)?.[1] || "";
-    this.estilosData = [...xfs.matchAll(/<xf\b[^>]*>/g)].map((m) => {
-      const id = Number(atributo(m[0], "numFmtId") || 0);
-      return formatos.has(id) ? formatoDeData(formatos.get(id)!) : DATAS_EMBUTIDAS.has(id);
-    });
+    const ids = [...xfs.matchAll(/<xf\b[^>]*>/g)].map((m) => Number(atributo(m[0], "numFmtId") || 0));
+    this.estilosData = ids.map((id) => (formatos.has(id) ? formatoDeData(formatos.get(id)!) : DATAS_EMBUTIDAS.has(id)));
+    this.estilosFormato = ids.map((id) => formatos.get(id) ?? FORMATOS_EMBUTIDOS[id] ?? "");
   }
 
   /** Linhas da aba (índice = nº da linha − 1). `max` lê só o começo (para descobrir a base sem ler tudo). */
@@ -179,6 +188,7 @@ export class Xlsx {
     const n = Number(v);
     if (Number.isNaN(n)) return desescapar(v);
     const s = Number(atributo(attrs, "s") || 0);
-    return this.estilosData![s] ? serialParaData(n, this.data1904) : n;
+    if (this.estilosData![s]) return serialParaData(n, this.data1904);
+    return this.percentualEmPontos && ehPercentual(this.estilosFormato![s] ?? "") ? Number((n * 100).toPrecision(12)) : n;
   }
 }
