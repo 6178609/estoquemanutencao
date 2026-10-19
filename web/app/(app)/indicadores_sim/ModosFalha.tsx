@@ -1,14 +1,16 @@
 import clsx from "clsx";
 import { X } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
+import { BarraFiltros } from "@/components/BarraFiltros";
 import { Barras, Grafico, Tabela, type Cor } from "@/components/graficos";
 import { analisarModos, comPalavra, palavras as normalizar, tamanhoNuvem, TIPO_QUEBRA } from "@/lib/wcm/modosFalha";
 import { tiposPorOrdem } from "@/lib/wcm/preparo";
-import { bases } from "@/lib/wcm/dados";
-import { dataBr, partes } from "@/lib/wcm/util";
+import { barra, contexto } from "@/lib/wcm/contexto";
+import { dataBr } from "@/lib/wcm/util";
 
-import { AbasParam, GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
+import { GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
@@ -20,41 +22,45 @@ const COR = ["var(--seq-4)", "var(--seq-5)", "var(--seq-6)", "var(--seq-7)"];
 /**
  * Modos de causa das quebras: nuvem com as palavras que mais aparecem no texto de confirmação (IW47) das ordens YM11,
  * as expressões mais comuns, os modos de causa (dicionário em lib/wcm/modosFalha.ts) e, ao clicar numa palavra, os
- * apontamentos que a citam. Todo o histórico enviado, ou um ano.
+ * apontamentos que a citam. No período da barra de filtros (a mesma das outras abas, com os atalhos).
  */
 export async function ModosFalha({ params }: { params: Params }) {
-  const b = await bases();
+  const c = await contexto(params);
+  const b = c.b;
   const conf = b.confirmacoes.dados ?? [];
   const tipos = tiposPorOrdem(b.ordens.dados ?? [], b.operacoes.dados ?? [], conf);
-  const anos = [...new Set(conf.filter((c) => c.data != null && (c.tipo || tipos.get(c.ordem) || "").toUpperCase() === TIPO_QUEBRA)
-    .map((c) => String(partes(c.data!).ano)))].sort().reverse();
-  const ano = anos.includes(um(params, "ano")) ? um(params, "ano") : "";
-  const a = analisarModos(conf, tipos, ano);
+  const periodo = { ini: c.f.ini, fim: c.f.fim };
+  const a = analisarModos(conf, tipos, periodo);
   const palavra = normalizar(um(params, "palavra"))[0] ?? "";
+  // links da nuvem: mantêm o período e os demais parâmetros do endereço, trocando só a palavra
   const qs = (mudar: Record<string, string>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ visao: "causas", ano, palavra, ...mudar })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries(params)) if (k !== "palavra" && v != null) for (const x of Array.isArray(v) ? v : [v]) p.append(k, x);
+    p.set("visao", "causas");
+    for (const [k, v] of Object.entries(mudar)) if (v) p.set(k, v); else p.delete(k);
+    if (!("palavra" in mudar) && palavra) p.set("palavra", palavra);
     return `?${p.toString()}`;
   };
+  const filtros = <Suspense><BarraFiltros {...barra(c)} dimensoes={false} /></Suspense>;
 
   if (!conf.length) {
-    return <p className="rounded-cartao border border-dashed border-borda-forte p-8 text-center text-[14px] text-texto-2">
-      A IW47 (confirmações) ainda não foi enviada em Fontes de dados.</p>;
+    return <div className="space-y-4">{filtros}<p className="rounded-cartao border border-dashed border-borda-forte p-8 text-center text-[14px] text-texto-2">
+      A IW47 (confirmações) ainda não foi enviada em Fontes de dados.</p></div>;
   }
   const maior = a.palavras[0]?.ordens ?? 1, menor = a.palavras[a.palavras.length - 1]?.ordens ?? 1;
   // nuvem em ordem alfabética (a frequência fica no tamanho), como um bloco de palavras
   const nuvem = [...a.palavras].sort((x, y) => x.rotulo.localeCompare(y.rotulo, "pt-BR"));
   const nomeEq = new Map((b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
-  const lista = palavra ? comPalavra(conf, tipos, palavra, ano) : [];
-  const periodo = a.periodo ? `${dataBr(a.periodo.de)} a ${dataBr(a.periodo.ate)}` : "—";
+  const lista = palavra ? comPalavra(conf, tipos, palavra, periodo) : [];
+  const apontados = a.periodo ? ` (com apontamento de ${dataBr(a.periodo.de)} a ${dataBr(a.periodo.ate)})` : "";
 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <AbasParam params={{ ...params, palavra: undefined }} param="ano" atual={ano}
-          abas={[{ id: "", rotulo: "Todo o histórico" }, ...anos.map((x) => ({ id: x, rotulo: x }))]} />
+        {filtros}
         <p className="text-[12.5px] text-texto-3">
-          Texto de confirmação da IW47 das ordens de quebra ({TIPO_QUEBRA}), de {periodo}. Cada palavra conta uma vez por ordem.
+          Texto de confirmação da IW47 das ordens de quebra ({TIPO_QUEBRA}) lançado de {dataBr(periodo.ini)} a {dataBr(periodo.fim)}{apontados}.
+          Cada palavra conta uma vez por ordem. Use “Tudo” no período para ver todo o histórico.
         </p>
       </div>
 

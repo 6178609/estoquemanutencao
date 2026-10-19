@@ -39,15 +39,18 @@ describe("modos de causa das quebras (YM11, texto da IW47)", () => {
     expect(a.modos[0].pct).toBeGreaterThan(0);
   });
 
-  it("usa o tipo da IW38 quando a IW47 não traz e filtra pelo ano", () => {
+  it("usa o tipo da IW38 quando a IW47 não traz e filtra pelo período (de/até)", () => {
     const conf = [c("7", "Sensor indutivo trocado", ""), c("8", "Motor queimado", "YM11", dia(2025, 6, 1))];
     const tipos = new Map([["7", "YM11"]]);
     expect(analisarModos(conf, tipos).ordens).toBe(2);
-    const a26 = analisarModos(conf, tipos, "2026");
+    const ano26 = { ini: dia(2026, 1, 1)!, fim: dia(2026, 12, 31)! };
+    const a26 = analisarModos(conf, tipos, ano26);
     expect(a26.ordens).toBe(1);
     expect(a26.modos.map((m) => m.modo)).toEqual(["Sensores e automação"]);
     expect(comPalavra(conf, tipos, "motor").map((x) => x.ordem)).toEqual(["8"]);
-    expect(comPalavra(conf, tipos, "motor", "2026")).toEqual([]);
+    expect(comPalavra(conf, tipos, "motor", ano26)).toEqual([]);
+    // de/até inclusive
+    expect(analisarModos(conf, tipos, { ini: dia(2025, 6, 1)!, fim: dia(2025, 6, 1)! }).ordens).toBe(1);
   });
 
   it("tamanho da nuvem cresce com a frequência, entre 12 e 40 px", () => {
