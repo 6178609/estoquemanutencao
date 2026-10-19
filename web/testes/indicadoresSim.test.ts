@@ -192,6 +192,9 @@ describe("indicadores do SAP no formato do SIM", () => {
     expect(por["Número de quebras totais"]).toMatchObject({ sap: 9, metaPlanilha: 8, realPlanilha: 6, sapYtd: 30, ok: false }); // soma
     expect(por["Número de quebras MP"].sap).toBeNull(); // não há no SAP
     expect(por["Plano de Manutenção"].sap).toBe(90);
+    // com a área "Geral" na planilha, vale só ela (não soma duas vezes)
+    const comGeral = [...deck, { ...deck[2], area: "Geral", metaMes: 8, realMes: 6 }];
+    expect(kpisMp({ quebras: 9 }, {}, comGeral, "2026-02").find((x) => x.kpi === "Número de quebras totais")).toMatchObject({ metaPlanilha: 8, realPlanilha: 6 });
   });
   it("demais indicadores: tipo pelo sentido e farol pela meta", () => {
     const ls = linhasSap({ mttr: 5, quebras: 3 }, { mttr: 3 }, { mttr: 4 }, {});

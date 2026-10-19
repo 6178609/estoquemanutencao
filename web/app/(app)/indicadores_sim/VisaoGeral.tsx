@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { Grafico, Linhas, Sparkline } from "@/components/graficos";
@@ -46,7 +47,7 @@ function Faixa({ c }: { c: Conta }) {
 const TH = "px-3 py-2 text-left text-[11.5px] font-semibold uppercase tracking-wide text-texto-3";
 const TD = "px-3 py-2 text-[13px]";
 
-export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; maquinas: MaquinaRoadmap[]; params: Params }) {
+export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: LinhaSim[]; maquinas: MaquinaRoadmap[]; params: Params; verSap: boolean }) {
   // meses com dado no Deck ou no Roadmap (o roadmap não traz o ano: vale o do Deck, ou o atual)
   const ano = mesesComReal(linhas)[0]?.slice(0, 4) ?? String(new Date().getFullYear());
   const doRoadmap = Array.from({ length: ultimoMesComReal(maquinas) + 1 }, (_, i) => `${ano}-${String(i + 1).padStart(2, "0")}`);
@@ -97,7 +98,11 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
           <h2 className="font-display text-[18px] font-medium">Indicadores de manutenção do SIM — calculados pelas fontes de dados</h2>
           <p className="text-[12.5px] text-texto-3">No formato do SIM (tipo A/B, meta, mês anterior, mês e acumulado): os KPIs do pilar MP contra a planilha, e os demais por tema — {rotuloMes(mes)}.</p>
         </div>
-        <IndicadoresSap mes={mes} rotulo={rotuloMes(mes)} deck={linhas} />
+        {verSap ? (
+          <Suspense fallback={<div className="h-64 animate-pulse rounded-cartao border border-borda bg-superficie-2" aria-label="Calculando os indicadores do SAP" />}>
+            <IndicadoresSap mes={mes} rotulo={rotuloMes(mes)} deck={linhas} />
+          </Suspense>
+        ) : <p className="text-[13px] text-texto-3">Os indicadores do SAP aparecem para quem tem acesso ao Painel WCM.</p>}
       </section>
 
       <h2 className="font-display text-[18px] font-medium">Deck do pilar MP — por indicador e por área</h2>

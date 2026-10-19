@@ -135,7 +135,7 @@ export default async function IndicadoresSim(props: { searchParams: Promise<Para
       <Pagina>
         {cab}
         {abas}
-        <VisaoGeral linhas={linhas} maquinas={maquinas} params={params} />
+        <VisaoGeral linhas={linhas} maquinas={maquinas} params={params} verSap={podeVer(u, "painel")} />
         <p className="text-[12px] text-texto-3">Indicadores do SIM: {linhas.length ? enviadaEm(base) : "planilha ainda não enviada."} Roadmap: {maquinas.length ? enviadaEm(rm) : "ainda não enviado."}</p>
       </Pagina>
     );

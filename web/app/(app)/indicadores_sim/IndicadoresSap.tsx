@@ -41,11 +41,19 @@ function Ok({ ok, children }: { ok: boolean | null; children: React.ReactNode })
  * Deck (tipo A/B, meta, mês anterior, mês, acumulado e farol).
  */
 export async function IndicadoresSap({ mes, rotulo, deck }: { mes: string; rotulo: string; deck: LinhaSim[] }) {
-  const [cMes, cAnt, cYtd] = await Promise.all([contexto(periodo(mes)), contexto(periodo(mesAnterior(mes))), contexto(periodo(mes, true))]);
-  if (!cMes.b.ordens.dados?.length) {
-    return <p className="rounded-cartao border border-dashed border-borda-forte p-6 text-center text-[13.5px] text-texto-3">As bases do SAP ainda não foram enviadas em Fontes de dados.</p>;
+  const aviso = (t: string) => <p className="rounded-cartao border border-dashed border-borda-forte p-6 text-center text-[13.5px] text-texto-3">{t}</p>;
+  let calc;
+  try {
+    const [cMes, cAnt, cYtd] = await Promise.all([contexto(periodo(mes)), contexto(periodo(mesAnterior(mes))), contexto(periodo(mes, true))]);
+    if (!cMes.b.ordens.dados?.length) return aviso("As bases do SAP ainda não foram enviadas em Fontes de dados.");
+    calc = { cMes, r: await Promise.all([resultados(cMes), resultados(cAnt), resultados(cYtd)]) };
+  } catch (e) {
+    // o bloco do SAP falhar não derruba a visão geral (as planilhas do SIM continuam aparecendo)
+    console.warn(`[sim] indicadores do SAP: ${(e as Error).message}`);
+    return aviso("Não foi possível calcular os indicadores do SAP agora; tente atualizar a página em instantes.");
   }
-  const [[rMes], [rAnt], [rYtd]] = await Promise.all([resultados(cMes), resultados(cAnt), resultados(cYtd)]);
+  const { cMes } = calc;
+  const [[rMes], [rAnt], [rYtd]] = calc.r;
   const mp = kpisMp(rMes, rYtd, deck, mes);
   const linhas = linhasSap(rMes, rAnt, rYtd, cMes.cad.metas);
   const comMeta = linhas.filter((l) => l.farol !== "neutro"), verdes = comMeta.filter((l) => l.farol === "verde").length;

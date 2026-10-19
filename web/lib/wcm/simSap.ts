@@ -1,3 +1,4 @@
+import { chave } from "../dados/texto";
 import * as ind from "./indicadores";
 import { montarDeck, type LinhaSim, type TipoKpi } from "./indicadoresSim";
 
@@ -35,7 +36,10 @@ export interface LinhaMp {
 export function kpisMp(mes: ind.Resultado, ytd: ind.Resultado, deck: LinhaSim[], mesSim: string): LinhaMp[] {
   const linhas = montarDeck(deck, mesSim).flatMap((a) => a.linhas);
   return KPIS_MP.map((x) => {
-    const daPlanilha = linhas.filter((l) => l.kpi === x.kpi);
+    // a área "Geral" já é o total da fábrica: com ela, só ela (somar com as outras contaria duas vezes)
+    const doKpi = linhas.filter((l) => l.kpi === x.kpi);
+    const geral = doKpi.filter((l) => chave(l.area) === "GERAL");
+    const daPlanilha = geral.length ? geral : doKpi;
     const metaPlanilha = somaOuMedia(x.kpi, daPlanilha.map((l) => l.atual.meta));
     const sap = x.de ? x.de(mes) : null;
     const ok = sap == null || metaPlanilha == null ? null : x.tipo === "A" ? sap >= metaPlanilha : sap <= metaPlanilha;

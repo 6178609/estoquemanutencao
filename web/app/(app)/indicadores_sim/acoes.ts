@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { podeEditar, veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote } from "@/lib/dados/cadastros";
+import { roadmapSim } from "@/lib/dados/indicadoresSim";
 import { ARQ_COMENTARIOS, chaveMaquina, chaveValida, limparComentario } from "@/lib/wcm/roadmapSim";
 
 /**
@@ -16,6 +17,9 @@ export async function salvarComentarioRoadmap(fabrica: string, maquina: string, 
   if (!u || !veInteira(u, "indicadores_sim") || !podeEditar(u)) return { erro: "Seu acesso não permite alterar os comentários (só editor ou administrador)." };
   const k = chaveMaquina(String(fabrica ?? ""), String(maquina ?? ""));
   if (!chaveValida(k)) return { erro: "Máquina inválida." };
+  // só máquina que está no roadmap enviado (nada de chave solta no cadastro)
+  const rm = await roadmapSim();
+  if (!rm.dados?.some((m) => chaveMaquina(m.fabrica, m.maquina) === k)) return { erro: "Essa máquina não está no roadmap enviado." };
   try {
     await gravarCadastroLote(ARQ_COMENTARIOS, { [k]: texto === null ? null : { comentario: limparComentario(texto) } }, u.nome || u.login);
   } catch (e) {

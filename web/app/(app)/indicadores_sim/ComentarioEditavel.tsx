@@ -2,7 +2,7 @@
 
 import { LoaderCircle, Pencil, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 
 import { salvarComentarioRoadmap } from "./acoes";
 
@@ -20,6 +20,7 @@ export function ComentarioEditavel({ fabrica, maquina, comentario, planilha, man
   const [texto, setTexto] = useState(comentario);
   const [erro, setErro] = useState("");
   const [pendente, iniciar] = useTransition();
+  const id = useId();
   const salvar = (valor: string | null) => iniciar(async () => {
     setErro("");
     const r = await salvarComentarioRoadmap(fabrica, maquina, valor);
@@ -31,8 +32,8 @@ export function ComentarioEditavel({ fabrica, maquina, comentario, planilha, man
   if (editando) {
     return (
       <form className="space-y-1.5" onSubmit={(e) => { e.preventDefault(); salvar(texto); }}>
-        <label className="sr-only" htmlFor={`com-${fabrica}-${maquina}`}>Comentário de {maquina}</label>
-        <textarea id={`com-${fabrica}-${maquina}`} value={texto} maxLength={MAX} rows={2} autoFocus
+        <label className="sr-only" htmlFor={id}>Comentário de {maquina}</label>
+        <textarea id={id} value={texto} maxLength={MAX} rows={2} autoFocus
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Escape") { setEditando(false); setTexto(comentario); } }}
           className="w-full min-w-56 rounded-lg border border-borda-forte bg-superficie px-2 py-1.5 text-[12.5px] focus:border-marca-500 focus:outline-none" />
@@ -44,7 +45,7 @@ export function ComentarioEditavel({ fabrica, maquina, comentario, planilha, man
             className="min-h-8 rounded-lg px-2 text-[12px] text-texto-3 hover:text-texto">Cancelar</button>
           <span className="text-[11px] text-texto-4">{texto.length}/{MAX}</span>
         </div>
-        {erro && <p className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</p>}
+        {erro && <p role="alert" className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</p>}
       </form>
     );
   }
@@ -72,7 +73,7 @@ export function ComentarioEditavel({ fabrica, maquina, comentario, planilha, man
           )}
         </div>
       )}
-      {erro && <p className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</p>}
+      {erro && <p role="alert" className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</p>}
     </div>
   );
 }
