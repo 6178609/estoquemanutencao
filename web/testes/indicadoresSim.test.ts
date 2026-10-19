@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 import { recortarPilarMp, recortarRoadmap } from "@/lib/leitura/indicadoresSim";
 import { identificar } from "@/lib/leitura/tipos";
 import { ehPercentual, semPrefixo, Xlsx } from "@/lib/leitura/xlsx";
+import { kpisMp, linhasSap } from "@/lib/wcm/simSap";
 import { evolucao, pct, pontosAtencao, porArea, porIndicador, resumoSim } from "@/lib/wcm/visaoGeralSim";
-import { familia, prepararRoadmap, resumir, situacao, ultimoMesComReal } from "@/lib/wcm/roadmapSim";
+import { aplicarComentarios, chaveMaquina, chaveValida, familia, limparComentario, prepararRoadmap, resumir, situacao, ultimoMesComReal } from "@/lib/wcm/roadmapSim";
 import { atinge, mesAnterior, mesesComReal, montarDeck, prepararIndicadoresSim } from "@/lib/wcm/indicadoresSim";
 
 // dados fictícios, no formato da aba BASE MENSAL do Dashboard
@@ -153,5 +154,50 @@ describe("Visão geral do SIM", () => {
     const at = pontosAtencao(linhas, maquinas, "2026-02");
     expect(at.indicadores.map((x) => `${x.area}|${x.kpi}`)).toEqual(["Area 2|MTTR"]);
     expect(at.maquinas.map((m) => m.maquina)).toEqual(["MAQ 1"]);
+  });
+});
+
+describe("comentário do Roadmap: planilha ou manual", () => {
+  const maq = (maquina: string, comentario: string) => ({ fabrica: "F00", maquina, previsto: [], realizado: [], comentario });
+  it("vale o manual quando existe; senão, o da planilha", () => {
+    const ms = aplicarComentarios([maq("MAQ 1", "DA PLANILHA"), maq("MAQ 2", "OUTRO")], {
+      [chaveMaquina("F00", "MAQ 1")]: { comentario: "  ajustado\nà mão ", atualizado_por: "Pessoa Teste", atualizado_em: "2026-01-02T10:00:00+00:00" },
+    });
+    expect(ms[0]).toMatchObject({ comentario: "ajustado à mão", comentarioPlanilha: "DA PLANILHA", manual: { texto: "ajustado à mão", por: "Pessoa Teste" } });
+    expect(ms[1]).toMatchObject({ comentario: "OUTRO", manual: null });
+    // manual vazio apaga o da planilha na tela
+    expect(aplicarComentarios([maq("MAQ 1", "X")], { [chaveMaquina("F00", "MAQ 1")]: { comentario: "" } })[0].comentario).toBe("");
+  });
+  it("limpa o texto e recusa chaves perigosas", () => {
+    expect(limparComentario("a​ b".repeat(300)).length).toBe(500);
+    expect(chaveValida("__proto__")).toBe(false);
+    expect(chaveValida("|")).toBe(false);
+    expect(chaveValida(chaveMaquina("F00", "MAQ 1"))).toBe(true);
+  });
+});
+
+describe("indicadores do SAP no formato do SIM", () => {
+  it("KPIs do pilar MP: converte do SAP e compara com a meta da planilha", () => {
+    const deck = [
+      { area: "A1", kpi: "MTTR", tipo: "B" as const, mes: "2026-02", metaMes: 1, fcstMes: null, realMes: 1.2, ytdMeta: null, ytdReal: null, fyMeta: null, fyEstimativa: null, fyAnterior: null, semanas: [] },
+      { area: "A2", kpi: "MTTR", tipo: "B" as const, mes: "2026-02", metaMes: 2, fcstMes: null, realMes: 1, ytdMeta: null, ytdReal: null, fyMeta: null, fyEstimativa: null, fyAnterior: null, semanas: [] },
+      { area: "A1", kpi: "Número de quebras totais", tipo: "B" as const, mes: "2026-02", metaMes: 5, fcstMes: null, realMes: 4, ytdMeta: null, ytdReal: null, fyMeta: null, fyEstimativa: null, fyAnterior: null, semanas: [] },
+      { area: "A2", kpi: "Número de quebras totais", tipo: "B" as const, mes: "2026-02", metaMes: 3, fcstMes: null, realMes: 2, ytdMeta: null, ytdReal: null, fyMeta: null, fyEstimativa: null, fyAnterior: null, semanas: [] },
+    ];
+    const mp = kpisMp({ disponibilidade: 97, mttr: 1.4, mtbf: 10, quebras: 9, aderencia: 90 }, { quebras: 30 }, deck, "2026-02");
+    const por = Object.fromEntries(mp.map((x) => [x.kpi, x]));
+    expect(por.Indisponibilidade.sap).toBe(3);
+    expect(por.MTBF.sap).toBe(240); // dias → horas
+    expect(por.MTTR).toMatchObject({ sap: 1.4, metaPlanilha: 1.5, realPlanilha: 1.1, ok: true }); // média das áreas
+    expect(por["Número de quebras totais"]).toMatchObject({ sap: 9, metaPlanilha: 8, realPlanilha: 6, sapYtd: 30, ok: false }); // soma
+    expect(por["Número de quebras MP"].sap).toBeNull(); // não há no SAP
+    expect(por["Plano de Manutenção"].sap).toBe(90);
+  });
+  it("demais indicadores: tipo pelo sentido e farol pela meta", () => {
+    const ls = linhasSap({ mttr: 5, quebras: 3 }, { mttr: 3 }, { mttr: 4 }, {});
+    const mttr = ls.find((l) => l.kpi.id === "mttr")!;
+    expect(mttr).toMatchObject({ tipo: "B", meta: 4, real: 5, anterior: 3, ytd: 4, farol: "vermelho", farolYtd: "verde" });
+    expect(ls.find((l) => l.kpi.id === "mtbf")!.tipo).toBe("A");
+    expect(ls).toHaveLength(35);
   });
 });

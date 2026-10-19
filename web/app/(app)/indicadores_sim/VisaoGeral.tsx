@@ -8,6 +8,7 @@ import { evolucao, indiceMes, pct, pontosAtencao, porArea, porIndicador, resumoS
 
 import { AbasParam, GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 import { hrefCom } from "../equipamentos/_ui/url";
+import { IndicadoresSap } from "./IndicadoresSap";
 
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
@@ -50,8 +51,10 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
   const ano = mesesComReal(linhas)[0]?.slice(0, 4) ?? String(new Date().getFullYear());
   const doRoadmap = Array.from({ length: ultimoMesComReal(maquinas) + 1 }, (_, i) => `${ano}-${String(i + 1).padStart(2, "0")}`);
   const meses = [...new Set([...mesesComReal(linhas), ...doRoadmap])].sort();
-  const mes = meses.find((m) => m === um(params, "gmes")) ?? meses[meses.length - 1];
-  if (!mes) return <p className="text-[14px] text-texto-3">Ainda não há meses com resultado lançado nas planilhas.</p>;
+  // sem nenhuma planilha do SIM, a visão segue só com os indicadores do SAP, no mês corrente
+  if (!meses.length) { const h = new Date(); meses.push(`${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}`); }
+  const pedido = um(params, "gmes");
+  const mes = meses.find((m) => m === pedido) ?? (/^\d{4}-(0[1-9]|1[0-2])$/.test(pedido) ? pedido : meses[meses.length - 1]);
 
   const r = resumoSim(linhas, maquinas, mes, ano);
   const ev = evolucao(linhas, maquinas, mes, ano);
@@ -68,6 +71,7 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
         {!linhas.length && " A planilha de indicadores ainda não foi enviada — só o Roadmap entra."}
         {!maquinas.length && " O Roadmap ainda não foi enviado — só os indicadores entram."}
       </p>
+      <h2 className="font-display text-[18px] font-medium">Resumo do SIM em {rotuloMes(mes)}</h2>
       <GradeNumeros colunas={4}>
         <Numero rotulo="Aderência geral do SIM" valor={fmtPct(r.geral)} tom={tom(r.geral)}
           detalhe={`${r.geral.na} de ${r.geral.de} itens no alvo (indicadores na meta + máquinas no passo previsto)`} />
@@ -88,6 +92,15 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
           ]} />
       </Grafico>
 
+      <section className="space-y-3">
+        <div>
+          <h2 className="font-display text-[18px] font-medium">Indicadores de manutenção do SIM — calculados pelas fontes de dados</h2>
+          <p className="text-[12.5px] text-texto-3">No formato do SIM (tipo A/B, meta, mês anterior, mês e acumulado): os KPIs do pilar MP contra a planilha, e os demais por tema — {rotuloMes(mes)}.</p>
+        </div>
+        <IndicadoresSap mes={mes} rotulo={rotuloMes(mes)} deck={linhas} />
+      </section>
+
+      <h2 className="font-display text-[18px] font-medium">Deck do pilar MP — por indicador e por área</h2>
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
           <h2 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por indicador de manutenção</h2>

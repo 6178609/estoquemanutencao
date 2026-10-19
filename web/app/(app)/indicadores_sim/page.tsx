@@ -5,7 +5,9 @@ import Link from "next/link";
 
 import { Sparkline } from "@/components/graficos";
 import { Cabecalho, Pagina, Pilula } from "@/components/ui";
-import { podeVer } from "@/lib/auth/acesso";
+import { podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
+import { lerCadastro } from "@/lib/dados/cadastros";
+import { aplicarComentarios, ARQ_COMENTARIOS, type MaquinaRoadmap } from "@/lib/wcm/roadmapSim";
 import { exigir } from "@/lib/auth/sessao";
 import { indicadoresSim, roadmapSim } from "@/lib/dados/indicadoresSim";
 import { dataHora } from "@/lib/formato";
@@ -124,20 +126,17 @@ export default async function IndicadoresSim(props: { searchParams: Promise<Para
   );
   const abas = <AbasParam params={params} param="visao" atual={visao} abas={[{ id: "geral", rotulo: "Visão geral" }, { id: "deck", rotulo: "Deck mensal" }, { id: "roadmap", rotulo: "Roadmap" }]} />;
   const verDados = podeVer(u, "dados");
+  const comComentarios = async (ms: MaquinaRoadmap[]) => aplicarComentarios(ms, ms.length ? await lerCadastro(ARQ_COMENTARIOS) : {});
 
   if (visao === "geral") {
     const [base, rm] = await Promise.all([indicadoresSim(), roadmapSim()]);
-    const linhas = base.dados ?? [], maquinas = rm.dados ?? [];
+    const linhas = base.dados ?? [], maquinas = await comComentarios(rm.dados ?? []);
     return (
       <Pagina>
         {cab}
         {abas}
-        {linhas.length || maquinas.length ? (
-          <>
-            <VisaoGeral linhas={linhas} maquinas={maquinas} params={params} />
-            <p className="text-[12px] text-texto-3">Indicadores: {enviadaEm(base)} Roadmap: {enviadaEm(rm)}</p>
-          </>
-        ) : <Vazio erro={base.erro || rm.erro} verDados={verDados} texto="Nenhuma planilha do SIM foi enviada ainda: anexe a planilha de indicadores e o export do Roadmap em Fontes de dados." />}
+        <VisaoGeral linhas={linhas} maquinas={maquinas} params={params} />
+        <p className="text-[12px] text-texto-3">Indicadores do SIM: {linhas.length ? enviadaEm(base) : "planilha ainda não enviada."} Roadmap: {maquinas.length ? enviadaEm(rm) : "ainda não enviado."}</p>
       </Pagina>
     );
   }
@@ -148,7 +147,8 @@ export default async function IndicadoresSim(props: { searchParams: Promise<Para
       <Pagina>
         {cab}
         {abas}
-        {rm.dados?.length ? <Roadmap maquinas={rm.dados} params={params} enviada={enviadaEm(rm)} />
+        {rm.dados?.length ? <Roadmap maquinas={await comComentarios(rm.dados)} params={params} enviada={enviadaEm(rm)}
+            edita={podeEditar(u) && veInteira(u, "indicadores_sim")} />
           : <Vazio erro={rm.erro} verDados={verDados} texto="O roadmap ainda não foi enviado: exporte a tabela do roadmap (Prev/Rel por mês) para Excel e anexe em Fontes de dados." />}
       </Pagina>
     );
