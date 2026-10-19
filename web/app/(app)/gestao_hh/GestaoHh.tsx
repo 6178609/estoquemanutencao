@@ -327,7 +327,7 @@ function Calendario({ pessoas, ausencias, ini, fim }: { pessoas: PessoaLinha[]; 
       if (n > 0) cont.set(a.tipo, (cont.get(a.tipo) ?? 0) + n);
     }
     if (!cont.size) return null;
-    const [tipo, dias] = [...cont.entries()].sort((x, y) => y[1] - x[1])[0];
+    const [tipo] = [...cont.entries()].sort((x, y) => y[1] - x[1])[0];
     return { tipo, dias: Math.min([...cont.values()].reduce((s, v) => s + v, 0), c.ate - c.de + 1) };
   };
   const tiposUsados = [...new Set(aus.map((a) => grupoTipo(a.tipo)))];

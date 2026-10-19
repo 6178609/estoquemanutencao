@@ -119,7 +119,7 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
     const chaves = f.ordem ? [...f.ordem.filter((v) => m.has(v)), ...[...m.keys()].filter((v) => !f.ordem!.includes(v)).sort()]
       : [...m.keys()].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
     return chaves.map((valor) => ({ valor, n: m.get(valor)! }));
-  }), [linhas, facetas]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [linhas, facetas]);
 
   const visiveis = useMemo(() => {
     const r: Linha[] = [];
@@ -134,7 +134,7 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
     });
     if (ord) r.sort((a, b) => { const x = comparar(a[ord.campo], b[ord.campo]); return ord.desc && a[ord.campo] != null && b[ord.campo] != null ? -x : x; });
     return r;
-  }, [linhas, indice, textoAdiado, sel, liga, ord, alternancias, facetas, busca]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [linhas, indice, textoAdiado, sel, liga, ord, alternancias, facetas, busca]);
 
   const maximos = useMemo(() => Object.fromEntries(colunas.filter((c) => c.tipo === "barra").map((c) =>
     [c.id, c.max ?? Math.max(1e-9, ...visiveis.map((l) => (typeof l[c.id] === "number" ? (l[c.id] as number) : 0)))])), [colunas, visiveis]);

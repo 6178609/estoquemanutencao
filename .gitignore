@@ -15,3 +15,7 @@
 
 # cache do Python das skills
 __pycache__/
+
+# relatórios dos testes de ponta a ponta (Playwright)
+web/test-results/
+web/playwright-report/
