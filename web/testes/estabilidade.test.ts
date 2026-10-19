@@ -43,6 +43,19 @@ describe("fonte GitHub", () => {
     expect(chamadas).toHaveLength(4);
   }, 15_000);
 
+  it("leitura tem prazo total: depois de 60 s sem conseguir, desiste em vez de repetir (a tela não fica presa)", async () => {
+    let agora = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => agora);
+    const { f, chamadas } = comGitHub([
+      () => resposta(ARVORE),
+      () => { agora += 61_000; throw Object.assign(new Error("demorou"), { name: "TimeoutError" }); },
+      () => resposta('{"a":1}'), // não chega a ser pedida
+    ]);
+    await expect(f.ler("app/x.json")).rejects.toThrow(/demorou a responder/);
+    expect(chamadas).toHaveLength(2);
+    vi.restoreAllMocks();
+  }, 15_000);
+
   it("403 sem ser limite de taxa não repete", async () => {
     const { f, chamadas } = comGitHub([() => resposta(ARVORE), () => resposta("", 403)]);
     await expect(f.ler("app/x.json")).rejects.toThrow(/403/);
