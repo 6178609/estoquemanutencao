@@ -4,7 +4,9 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { registrar } from "@/lib/auditoria";
 import { entrar, entrarDemo } from "@/lib/auth/sessao";
+import { normalizarLogin } from "@/lib/auth/senha";
 import { solicitar } from "@/lib/auth/solicitacoes";
 import { criarPrimeiroAdmin } from "@/lib/auth/usuarios";
 
@@ -41,6 +43,7 @@ export async function acaoPrimeiroAdmin(_: EstadoPrimeiro, form: FormData): Prom
     senha2: campo("senha2"), codigo: campo("codigo") };
   const r = await criarPrimeiroAdmin(d);
   if (r.erro) return { erro: r.erro, nome: d.nome, login: d.login, funcao: d.funcao };
+  registrar(r.login, "primeiro_admin", r.login);
   const erro = await entrar(r.login, d.senha, true);
   if (erro) return { erro, nome: d.nome, login: d.login, funcao: d.funcao };
   redirect("/usuarios?primeiro=1");
@@ -68,5 +71,6 @@ export async function acaoSolicitar(_: EstadoPedido, form: FormData): Promise<Es
     jar.set("cm_nav", origem, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 86400 });
   }
   const erro = await solicitar(d, origem);
+  if (!erro) registrar(normalizarLogin(d.login), "pedido_acesso", normalizarLogin(d.login), { funcao: d.funcao });
   return { erro, ok: !erro, nome: d.nome, login: d.login, funcao: d.funcao, motivo: d.motivo };
 }

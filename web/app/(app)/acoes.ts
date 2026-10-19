@@ -11,5 +11,5 @@ export async function acaoSair() {
 
 /** Saída por inatividade: encerra a sessão sem redirecionar (o navegador vai para a entrada com o aviso do motivo). */
 export async function acaoSairPorInatividade() {
-  await sair();
+  await sair(true);
 }

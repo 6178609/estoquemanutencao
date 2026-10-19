@@ -1,5 +1,6 @@
-import { Lock, MonitorSmartphone } from "lucide-react";
+import { Download, Lock, MonitorSmartphone, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { BOTAO_SECUNDARIO, Cabecalho, Cartao, IconeQuadro, Pagina } from "@/components/ui";
 import { abasPersonalizadas, acessoTotal, nomeFuncao, PAGINAS_PARCIAIS, PAGINAS_SO_ESTOQUE, PERFIS, soEstoque } from "@/lib/auth/acesso";
@@ -56,6 +57,18 @@ export default async function MinhaConta() {
           )}
         </Cartao>
       </div>
+      <Cartao className="flex flex-wrap items-center gap-4 p-6">
+        <IconeQuadro icone={ShieldCheck} tom="verde" />
+        <div className="min-w-60 flex-1">
+          <div className="font-display text-[17px] font-medium">Seus dados (LGPD)</div>
+          <p className="mt-1 text-[13.5px] text-texto-3">
+            Veja o que o site guarda sobre você em <Link href="/privacidade" className="underline">Privacidade</Link>. Para corrigir ou excluir, peça a um administrador.
+          </p>
+        </div>
+        {!u.demo && (
+          <a href="/api/conta/meus-dados" className={BOTAO_SECUNDARIO} download><Download className="size-4" /> Baixar meus dados</a>
+        )}
+      </Cartao>
     </Pagina>
   );
 }

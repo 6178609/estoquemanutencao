@@ -31,14 +31,25 @@ export interface ClienteSupabase {
   importar(docs: { nome: string; conteudo: unknown }[]): Promise<void>;
 }
 
+/** Cabeçalhos da API REST: chaves novas (sb_secret_…) vão só no apikey; a service_role antiga (JWT) também no Authorization. */
+export function cabecalhosSupabase(chave: string, extra: Record<string, string> = {}): Record<string, string> {
+  const h: Record<string, string> = { apikey: chave, "Content-Type": "application/json", ...extra };
+  if (!chave.startsWith("sb_")) h.Authorization = `Bearer ${chave}`;
+  return h;
+}
+
+/** Endereço e chave do Supabase (null = não configurado), para outras tabelas além dos cadastros (ex.: auditoria). */
+export function configSupabase(): { url: string; chave: string } | null {
+  const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+  const chave = process.env.SUPABASE_SECRET_KEY?.trim();
+  return url && chave ? { url, chave } : null;
+}
+
 class Rest implements ClienteSupabase {
   constructor(private url: string, private chave: string) {}
 
   private cabecalhos(extra: Record<string, string> = {}): Record<string, string> {
-    // chaves novas (sb_secret_…) vão só no apikey; a service_role antiga (JWT) também no Authorization
-    const h: Record<string, string> = { apikey: this.chave, "Content-Type": "application/json", ...extra };
-    if (!this.chave.startsWith("sb_")) h.Authorization = `Bearer ${this.chave}`;
-    return h;
+    return cabecalhosSupabase(this.chave, extra);
   }
 
   private async pedir(caminho: string, init: RequestInit, leitura: boolean, tentativas = leitura ? 3 : 1): Promise<Response> {
@@ -101,9 +112,8 @@ const g = globalThis as unknown as { __cmSupabase?: ClienteSupabase | null };
 /** O cliente configurado (null = sem Supabase: os cadastros ficam na fonte de dados). */
 export function supabase(): ClienteSupabase | null {
   if (g.__cmSupabase !== undefined) return g.__cmSupabase;
-  const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
-  const chave = process.env.SUPABASE_SECRET_KEY?.trim();
-  g.__cmSupabase = url && chave ? new Rest(url, chave) : null;
+  const cfg = configSupabase();
+  g.__cmSupabase = cfg ? new Rest(cfg.url, cfg.chave) : null;
   return g.__cmSupabase;
 }
 

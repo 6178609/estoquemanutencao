@@ -5,6 +5,7 @@ import { baseMateriais, camposDosAtivos, listasDosAtivos, sugestoesAlocacao } fr
 import { csv } from "@/app/(app)/equipamentos/logica";
 import { ansi, csvInclusao, identificarAtivo } from "@/app/(app)/mro/ia06";
 import * as M from "@/app/(app)/mro/logica";
+import { registrar } from "@/lib/auditoria";
 import { podeEditar, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { contexto } from "@/lib/wcm/contexto";
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
       grupo: l.grupo, numerador: l.numerador, operacao: "0010", material: p.codigo, quantidade: 1, um: p.um, texto: p.descricao,
       equipamento: identificarAtivo(a), usoLista: l.equipamentos,
     }))));
+    registrar(u.login, "exportacao", "SAP_IA06_INCLUIR_materiais.csv", { linhas: itens.length });
     return new NextResponse(ansi(csvInclusao(itens)) as BodyInit, {
       headers: { "Content-Type": "text/csv; charset=windows-1252", "Content-Disposition": 'attachment; filename="SAP_IA06_INCLUIR_materiais.csv"',
         "Cache-Control": "no-store" },
@@ -42,6 +44,7 @@ export async function GET(req: NextRequest) {
     const porCodigo = new Map(t.map((a) => [a.codigo, a]));
     const corpo = csv(["Equipamento", "Campo de ordenação", "Nome do equipamento", "Material", "Descrição do material", "Confiança", "Motivo"],
       sug.map((s) => [s.ativo, porCodigo.get(s.ativo)?.campo ?? "", porCodigo.get(s.ativo)?.nome ?? "", s.material, s.descricao, s.nivel, s.motivo]));
+    registrar(u.login, "exportacao", "mro_alocacao_sugerida.csv", { linhas: sug.length });
     return new NextResponse(corpo, {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="mro_alocacao_sugerida.csv"', "Cache-Control": "no-store" },
     });
@@ -49,6 +52,7 @@ export async function GET(req: NextRequest) {
   const materiais = params.planilha === "materiais";
   const corpo = materiais ? M.csvMateriais(M.filtrarMateriais(M.linhasPorMaterial(t), M.lerFiltroMateriais(params)))
     : M.csvAtivos(M.filtrarAtivos(t, M.lerFiltroAtivos(params)));
+  registrar(u.login, "exportacao", materiais ? "mro_materiais.csv" : "mro_ativos.csv");
   return new NextResponse(corpo, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${materiais ? "mro_materiais" : "mro_ativos"}.csv"`,
       "Cache-Control": "no-store" },

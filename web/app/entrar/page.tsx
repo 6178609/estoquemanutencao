@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
@@ -81,7 +82,9 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
               </div>
             ))}
           </div>
-          <p className="mt-12 text-center text-[12.5px] text-texto-4">Alpargatas · Fábrica 26 · Central de Manutenção</p>
+          <p className="mt-12 text-center text-[12.5px] text-texto-4">
+            Alpargatas · Fábrica 26 · Central de Manutenção · <Link href="/privacidade" className="underline hover:text-texto-2">Privacidade</Link>
+          </p>
         </section>
       </main>
     </div>

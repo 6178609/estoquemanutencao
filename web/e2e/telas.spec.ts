@@ -26,6 +26,17 @@ test("sem login, as telas mandam para a entrada", async ({ page }) => {
   await expect(page).toHaveURL(/\/entrar/);
 });
 
+test("a página de privacidade abre sem login e a entrada aponta para ela", async ({ page }) => {
+  await page.goto("/entrar");
+  await page.getByRole("link", { name: "Privacidade" }).click();
+  await expect(page).toHaveURL(/\/privacidade$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Privacidade/);
+});
+
+test("baixar meus dados exige login", async ({ request }) => {
+  expect((await request.get("/api/conta/meus-dados")).status()).toBe(401);
+});
+
 test("a rota de aquecimento responde sem dados", async ({ request }) => {
   const r = await request.get("/api/aquecer");
   expect(r.ok()).toBeTruthy();
