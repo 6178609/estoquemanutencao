@@ -30,6 +30,9 @@ const FAMILIAS: { pdm: string; cat: string; sub: string; um: string; attrs: (r: 
   { pdm: "LUVA", cat: "SEGURANCA PESSOAL E PATRIMONIAL", sub: "EPI", um: "PAR", fabs: ["DANNY", "VOLK"],
     attrs: (r) => ["LUVA DE SEGURANCA", `MATERIAL: ${r() > 0.5 ? "VAQUETA" : "NITRILICA"}`, `TAMANHO: ${["P", "M", "G", "GG"][Math.floor(r() * 4)]}`, "CA: 00000"] },
 ];
+/** Os tipos de equipamento da demonstração (lib/wcm/demo.ts), como apareceriam na APLICAÇÃO do Sysmat. */
+const APLICACOES = ["PRENSA HIDRAULICA", "INJETORA", "ESTEIRA DE MONTAGEM", "COMPRESSOR", "CALDEIRA", "MAQUINA DE CORTE",
+  "ROBO DE COLA", "FORNO DE VULCANIZACAO", "TORRE DE RESFRIAMENTO", "BOMBA DE RECALQUE"];
 const STATUS = ["APROVADO", "APROVADO", "APROVADO", "APROVADO", "BLOQUEADO", "CANCELADO", "DUPLICADO"];
 
 let memo: { estoque: ItemEstoque[]; catalogo: ItemCatalogo[] } | null = null;
@@ -42,7 +45,10 @@ export function dadosDemo() {
     const f = FAMILIAS[Math.floor(r() * FAMILIAS.length)];
     const fab = f.fabs[Math.floor(r() * f.fabs.length)];
     const ref = `${f.pdm.slice(0, 2)}-${Math.floor(r() * 9000 + 1000)}`;
-    const attrs = [...f.attrs(r), `FAB: ${fab} - REF: ${ref}`];
+    // APLICAÇÃO (como no Sysmat): parte cita o equipamento com o número, parte só o tipo, o resto não diz ("*****")
+    const tipo = APLICACOES[Math.floor(r() * APLICACOES.length)], sorte = r();
+    const aplicacao = sorte < 0.15 ? `${tipo} ${String(1 + Math.floor(r() * 5)).padStart(2, "0")}` : sorte < 0.3 ? tipo : "*****";
+    const attrs = [...f.attrs(r), `APLICACAO: ${aplicacao}`, `FAB: ${fab} - REF: ${ref}`];
     const material = String(900000 + i * 7);
     catalogo.push({
       material, sysmat: String(30000000 + i), substituto: "", ncm: String(84000000 + Math.floor(r() * 99999)),

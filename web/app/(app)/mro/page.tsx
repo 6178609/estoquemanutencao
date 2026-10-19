@@ -1,4 +1,4 @@
-import { Boxes, Factory, Pencil } from "lucide-react";
+import { Boxes, Factory, Pencil, Wand2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -15,7 +15,11 @@ import { hrefCom, type Params } from "../equipamentos/_ui/url";
 import { infoCad, inventarioAtivos, materiaisDe } from "../equipamentos/dados";
 import { paginar, param, SEM_CLASSE, V_CADASTRO } from "../equipamentos/logica";
 import { SeloPeca } from "../equipamentos/SeloPeca";
-import { baseMateriais, camposDosAtivos, listasDosAtivos } from "./dados";
+import { lerCadastro } from "@/lib/dados/cadastros";
+
+import { AlocacaoAcoes, AlocarUm } from "./AlocacaoAcoes";
+import { NIVEIS, ROTULO_NIVEL, type Nivel, type Sugestao } from "./alocacao";
+import { baseMateriais, camposDosAtivos, listasDosAtivos, sugestoesAlocacao } from "./dados";
 import * as M from "./logica";
 import { InclusaoIa06 } from "./InclusaoIa06";
 import { identificarAtivo, type ListaTarefas } from "./ia06";
@@ -30,6 +34,7 @@ const SELO_CRIT: Record<string, "vermelho" | "laranja" | "verde"> = { Alta: "ver
 const ABAS = [
   { id: M.V_ATIVOS, rotulo: "Por ativo", icone: <Factory className="size-4" strokeWidth={1.75} /> },
   { id: M.V_MATERIAIS, rotulo: "Por material (onde é usado)", icone: <Boxes className="size-4" strokeWidth={1.75} /> },
+  { id: M.V_ALOCACAO, rotulo: "Alocação automática", icone: <Wand2 className="size-4" strokeWidth={1.75} /> },
 ];
 const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v)}%`);
 const crit = (c: string) => (c ? <Selo cor={SELO_CRIT[c] ?? "cinza"}>{c}</Selo> : <span className="text-texto-3">sem classe</span>);
@@ -49,7 +54,8 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
   const t = M.linhasPorAtivo(inv, (k) => materiaisDe(infoCad(c, k)), (m) => M.pecaMro(m, bm, c.cad.materiais),
     (k) => campos.get(k) ?? "");
   const r = M.resumo(t);
-  const visao = param(params, "visao") === M.V_MATERIAIS ? M.V_MATERIAIS : M.V_ATIVOS;
+  const pedida = param(params, "visao");
+  const visao = pedida === M.V_MATERIAIS || pedida === M.V_ALOCACAO ? pedida : M.V_ATIVOS;
 
   return (
     <PaginaWcm barra={barra(c)} periodo={false} dimensoes={false}>
@@ -81,7 +87,10 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
           <div id="abas" className="scroll-mt-24 space-y-4">
             <AbasParam params={params} param="visao" abas={ABAS} atual={visao} ancora="abas" />
             {visao === M.V_ATIVOS ? <PorAtivo t={t} params={params} edita={edita} listas={edita ? await listasDosAtivos(c) : null} />
-              : <PorMaterial t={t} params={params} />}
+              : visao === M.V_MATERIAIS ? <PorMaterial t={t} params={params} />
+              : <Alocacao t={t} params={params} edita={edita}
+                  sugestoes={await sugestoesAlocacao(c, inv, bm, campos, (k) => new Set(materiaisDe(infoCad(c, k))))}
+                  temDesfazer={!!(await lerCadastro("alocacao_automatica.json")).ultima} />}
           </div>
         </div>
       )}
@@ -196,6 +205,60 @@ function PorMaterial({ t, params }: { t: M.AtivoMro[]; params: Params }) {
             </span>],
         }))} />
       <Paginacao params={params} {...pg} mostrados={pg.itens.length} rotulo="material(is)" baixar={`/api/mro${hrefCom(params, { planilha: "materiais", pag: null })}`} />
+    </div>
+  );
+}
+
+const SELO_NIVEL: Record<Nivel, "verde" | "amarelo" | "cinza"> = { alta: "verde", media: "amarelo", baixa: "cinza" };
+const COLS_ALOC = [
+  { rotulo: "Equipamento" }, { rotulo: "Nome", larga: true }, { rotulo: "Material" }, { rotulo: "Descrição do material", larga: true },
+  { rotulo: "Confiança" }, { rotulo: "Por quê", larga: true },
+];
+
+/**
+ * Alocação automática: cada material do catálogo/MB52 casado com os ativos pelo texto (lib: ./alocacao.ts), com o nível
+ * de confiança e o motivo. Alta e média vão em lote; baixa, uma a uma. Só sugere o que ainda não está vinculado.
+ */
+function Alocacao({ t, sugestoes, params, edita, temDesfazer }: { t: M.AtivoMro[]; sugestoes: Sugestao[]; params: Params; edita: boolean; temDesfazer: boolean }) {
+  const porCodigo = new Map(t.map((a) => [a.codigo, a]));
+  const nivel = param(params, "anivel");
+  const q = param(params, "aq").trim().toUpperCase();
+  const contagem = Object.fromEntries(NIVEIS.map((n) => [n, sugestoes.filter((s) => s.nivel === n).length])) as Record<Nivel, number>;
+  const vis = sugestoes.filter((s) => (!nivel || ROTULO_NIVEL[s.nivel] === nivel) && (!q || [s.ativo, s.material, s.motivo, porCodigo.get(s.ativo)?.nome ?? "", porCodigo.get(s.ativo)?.campo ?? ""]
+    .join(" ").toUpperCase().includes(q)));
+  const pg = paginar(vis, Number(param(params, "pag")) || 1);
+  const ativosComSug = new Set(sugestoes.filter((s) => s.nivel !== "baixa").map((s) => s.ativo)).size;
+  const semPecasHoje = t.filter((a) => !a.desativado && !a.pecas.length).length;
+  return (
+    <div className="space-y-4">
+      <p className="text-[13.5px] text-texto-2">
+        Compara a descrição de cada material (curta + Descr Completa do Sysmat, com o campo <b>APLICAÇÃO</b>) com o nome, o código, o campo de ordenação,
+        o fabricante e o modelo de cada ativo. Material genérico (parafuso, EPI…) não casa com nada e fica sem ativo. Só aparece o que ainda não está vinculado.
+      </p>
+      <GradeNumeros colunas={4}>
+        <Numero rotulo={ROTULO_NIVEL.alta} valor={inteiroBr(contagem.alta)} detalhe="cita o equipamento, a aplicação com o número dele ou fabricante + modelo" tom="bom" />
+        <Numero rotulo={ROTULO_NIVEL.media} valor={inteiroBr(contagem.media)} detalhe="aplicação pelo tipo de equipamento ou só o modelo" />
+        <Numero rotulo={ROTULO_NIVEL.baixa} valor={inteiroBr(contagem.baixa)} detalhe="a descrição só cita o tipo do equipamento" />
+        <Numero rotulo="Ativos que ganham peças (alta + média)" valor={inteiroBr(ativosComSug)} detalhe={`${inteiroBr(semPecasHoje)} ativo(s) ainda sem peça`} />
+      </GradeNumeros>
+      {edita ? <AlocacaoAcoes contagem={contagem} temDesfazer={temDesfazer} /> : null}
+      <FiltrosUrl campos={[
+        { tipo: "busca", param: "aq", placeholder: "Buscar equipamento, nome, material ou motivo…" },
+        { tipo: "pilulas", param: "anivel", rotulo: "Confiança", opcoes: NIVEIS.map((n) => ROTULO_NIVEL[n]) },
+      ]} />
+      <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} sugestão(ões).</p>
+      <TabelaT colunas={edita ? [...COLS_ALOC, { rotulo: "" }] : COLS_ALOC} vazio={sugestoes.length ? "Nenhuma sugestão com estes filtros." : "Nenhuma sugestão: os materiais não citam os ativos na descrição (ou já estão todos vinculados)."}
+        linhas={pg.itens.map((s) => {
+          const a = porCodigo.get(s.ativo);
+          return {
+            chave: `${s.ativo}|${s.material}`,
+            celulas: [a ? <Equip key="e" a={a} /> : s.ativo, a?.nome || "—", <span key="m" className="font-mono text-[12.5px] text-alp-azul">{s.material}</span>,
+              s.descricao || "—", <Selo key="n" cor={SELO_NIVEL[s.nivel]}>{ROTULO_NIVEL[s.nivel].replace("Confiança ", "")}</Selo>,
+              <span key="p" className="text-[12.5px] text-texto-2">{s.motivo}</span>,
+              ...(edita ? [<AlocarUm key="a" ativo={s.ativo} material={s.material} />] : [])],
+          };
+        })} />
+      <Paginacao params={params} {...pg} mostrados={pg.itens.length} rotulo="sugestão(ões)" baixar={`/api/mro${hrefCom(params, { planilha: "alocacao", pag: null })}`} />
     </div>
   );
 }

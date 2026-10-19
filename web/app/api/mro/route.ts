@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { infoCad, inventarioAtivos, materiaisDe } from "@/app/(app)/equipamentos/dados";
-import { baseMateriais, camposDosAtivos, listasDosAtivos } from "@/app/(app)/mro/dados";
+import { baseMateriais, camposDosAtivos, listasDosAtivos, sugestoesAlocacao } from "@/app/(app)/mro/dados";
+import { csv } from "@/app/(app)/equipamentos/logica";
 import { ansi, csvInclusao, identificarAtivo } from "@/app/(app)/mro/ia06";
 import * as M from "@/app/(app)/mro/logica";
 import { podeEditar, soEstoque, veInteira } from "@/lib/auth/acesso";
@@ -34,6 +35,15 @@ export async function GET(req: NextRequest) {
     return new NextResponse(ansi(csvInclusao(itens)) as BodyInit, {
       headers: { "Content-Type": "text/csv; charset=windows-1252", "Content-Disposition": 'attachment; filename="SAP_IA06_INCLUIR_materiais.csv"',
         "Cache-Control": "no-store" },
+    });
+  }
+  if (params.planilha === "alocacao") {
+    const sug = await sugestoesAlocacao(c, inv, bm, campos, (k) => new Set(materiaisDe(infoCad(c, k))));
+    const porCodigo = new Map(t.map((a) => [a.codigo, a]));
+    const corpo = csv(["Equipamento", "Campo de ordenação", "Nome do equipamento", "Material", "Descrição do material", "Confiança", "Motivo"],
+      sug.map((s) => [s.ativo, porCodigo.get(s.ativo)?.campo ?? "", porCodigo.get(s.ativo)?.nome ?? "", s.material, s.descricao, s.nivel, s.motivo]));
+    return new NextResponse(corpo, {
+      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="mro_alocacao_sugerida.csv"', "Cache-Control": "no-store" },
     });
   }
   const materiais = params.planilha === "materiais";

@@ -13,7 +13,7 @@ import { csv, listaParam, param, SEM_CLASSE, type Params, type SituacaoPeca } fr
  * Testado em testes/mro.test.ts.
  */
 
-export const V_ATIVOS = "ativos", V_MATERIAIS = "materiais";
+export const V_ATIVOS = "ativos", V_MATERIAIS = "materiais", V_ALOCACAO = "alocacao";
 /** Item do cadastro criado só para guardar as peças (some sozinho quando a última peça é desvinculada). */
 export const MARCA_MRO = "criado_pelo_mro";
 export const SEM_PECAS = "Sem peças vinculadas", COM_FALTA = "Com peça em falta", EM_DIA = "Peças em dia";
