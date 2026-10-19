@@ -41,5 +41,8 @@ test("a rota de aquecimento responde sem dados", async ({ request }) => {
   const r = await request.get("/api/aquecer");
   expect(r.ok()).toBeTruthy();
   const j = await r.json();
-  expect(Object.keys(j)).toEqual(["ok", "etapas"]);
+  expect(Object.keys(j)).toEqual(["ok", "etapas", "bases"]);
+  // por base, só tamanho, linhas, tempos e a hora da leitura — nenhum dado
+  for (const t of Object.values(j.bases as Record<string, Record<string, unknown>>))
+    expect(Object.keys(t).sort()).toEqual(["baixar_ms", "em", "kb", "ler_ms", "linhas", "preparar_ms"]);
 });
