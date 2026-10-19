@@ -16,6 +16,8 @@ const somar = (a: Conta, b: Conta): Conta => ({ na: a.na + b.na, de: a.de + b.de
 
 /** Índice do mês ("2026-09" → 8) para cruzar com o roadmap (que não traz o ano: é o do Deck). */
 export const indiceMes = (mes: string) => Number(mes.slice(5, 7)) - 1;
+/** O roadmap só vale para o ano dele (`ano`, "2026"); outro ano da base mensal fica sem roadmap. */
+const doAno = (ms: MaquinaRoadmap[], mes: string, ano?: string) => (!ano || mes.startsWith(ano) ? ms : []);
 
 export function contaRoadmap(ms: MaquinaRoadmap[], i: number): Conta {
   return contar(ms.map((m) => {
@@ -27,11 +29,11 @@ export function contaRoadmap(ms: MaquinaRoadmap[], i: number): Conta {
 export interface PontoMes { mes: string; deck: Conta; roadmap: Conta }
 
 /** Evolução de janeiro até o mês: % dos indicadores na meta e % das máquinas no previsto. */
-export function evolucao(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string): PontoMes[] {
+export function evolucao(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string, ano?: string): PontoMes[] {
   const saida: PontoMes[] = [];
   for (let m = `${mes.slice(0, 4)}-01`; m <= mes; m = mesAnterior(m, 1)) {
     const deck = contar(montarDeck(l, m).flatMap((a) => a.linhas.map((x) => x.atual.ok)));
-    saida.push({ mes: m, deck, roadmap: contaRoadmap(ms, indiceMes(m)) });
+    saida.push({ mes: m, deck, roadmap: contaRoadmap(doAno(ms, m, ano), indiceMes(m)) });
   }
   return saida;
 }
@@ -71,20 +73,20 @@ export function porArea(l: LinhaSim[], mes: string): LinhaArea[] {
 export interface Resumo { deck: Conta; ytd: Conta; roadmap: Conta; geral: Conta; melhoraram: number; pioraram: number }
 
 /** O retrato do mês. "Geral" = itens na meta (indicadores + máquinas no previsto) sobre todos os itens com dado. */
-export function resumoSim(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string): Resumo {
+export function resumoSim(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string, ano?: string): Resumo {
   const deck = montarDeck(l, mes).flatMap((a) => a.linhas);
-  const d = contar(deck.map((x) => x.atual.ok)), r = contaRoadmap(ms, indiceMes(mes));
+  const d = contar(deck.map((x) => x.atual.ok)), r = contaRoadmap(doAno(ms, mes, ano), indiceMes(mes));
   return { deck: d, ytd: contar(deck.map((x) => x.ytd.ok)), roadmap: r, geral: somar(d, r),
     melhoraram: deck.filter((x) => x.atual.melhorou === true).length, pioraram: deck.filter((x) => x.atual.melhorou === false).length };
 }
 
 /** Pontos de atenção: indicadores fora da meta no mês (os que pioraram primeiro) e máquinas abaixo do passo previsto. */
-export function pontosAtencao(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string): { indicadores: LinhaDeck[]; maquinas: MaquinaRoadmap[] } {
+export function pontosAtencao(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string, ano?: string): { indicadores: LinhaDeck[]; maquinas: MaquinaRoadmap[] } {
   const i = indiceMes(mes);
   return {
     indicadores: montarDeck(l, mes).flatMap((a) => a.linhas).filter((x) => x.atual.ok === false)
       .sort((a, b) => Number(b.atual.melhorou === false) - Number(a.atual.melhorou === false)),
-    maquinas: ms.filter((m) => situacao(m.previsto[i], m.realizado[i]) === "atrasada")
+    maquinas: doAno(ms, mes, ano).filter((m) => situacao(m.previsto[i], m.realizado[i]) === "atrasada")
       .sort((a, b) => ((b.previsto[i] ?? 0) - (b.realizado[i] ?? 0)) - ((a.previsto[i] ?? 0) - (a.realizado[i] ?? 0)) || a.maquina.localeCompare(b.maquina)),
   };
 }

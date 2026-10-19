@@ -53,16 +53,16 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
   const mes = meses.find((m) => m === um(params, "gmes")) ?? meses[meses.length - 1];
   if (!mes) return <p className="text-[14px] text-texto-3">Ainda não há meses com resultado lançado nas planilhas.</p>;
 
-  const r = resumoSim(linhas, maquinas, mes);
-  const ev = evolucao(linhas, maquinas, mes);
+  const r = resumoSim(linhas, maquinas, mes, ano);
+  const ev = evolucao(linhas, maquinas, mes, ano);
   const ind = porIndicador(linhas, mes);
   const areas = porArea(linhas, mes);
-  const atencao = pontosAtencao(linhas, maquinas, mes);
+  const atencao = pontosAtencao(linhas, maquinas, mes, ano);
   const i = indiceMes(mes);
 
   return (
     <div className="space-y-6">
-      <AbasParam params={params} param="gmes" atual={mes} abas={meses.slice(-12).map((m) => ({ id: m, rotulo: rotuloMes(m) }))} />
+      <AbasParam params={params} param="gmes" atual={mes} abas={[...new Set([...meses.slice(-12), mes])].sort().map((m) => ({ id: m, rotulo: rotuloMes(m) }))} />
       <p className="text-[13px] text-texto-2">
         Retrato de <b>{rotuloMes(mes)}</b>: os indicadores de manutenção do pilar MP (Deck) contra a meta e o Roadmap de passos por máquina contra o previsto.
         {!linhas.length && " A planilha de indicadores ainda não foi enviada — só o Roadmap entra."}
@@ -165,7 +165,7 @@ export function VisaoGeral({ linhas, maquinas, params }: { linhas: LinhaSim[]; m
                 <li key={`${m.fabrica}|${m.maquina}`} className="py-1.5 text-[13px]">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <b className="font-medium">{m.maquina}</b>
-                    <span className="num text-texto-2">passo {m.realizado[i]} de {m.previsto[i]} previsto</span>
+                    <span className="num text-texto-2">passo {m.realizado[i]?.toLocaleString("pt-BR")} de {m.previsto[i]?.toLocaleString("pt-BR")} previsto</span>
                   </div>
                   {m.comentario && <div className="text-[12px] text-texto-3">{m.comentario}</div>}
                 </li>

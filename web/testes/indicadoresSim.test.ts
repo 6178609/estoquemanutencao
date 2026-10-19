@@ -140,6 +140,7 @@ describe("Visão geral do SIM", () => {
     expect(r.geral).toEqual({ na: 4, de: 6 });
     expect(r.melhoraram).toBe(1); // MTTR da Area 1: 1,5 → 0,9 (tipo B)
     expect(pct(r.geral)).toBeCloseTo(66.67, 1);
+    expect(resumoSim(linhas, maquinas, "2026-02", "2025").roadmap).toEqual({ na: 0, de: 0 }); // roadmap de outro ano não entra
   });
   it("evolução, por indicador, por área e pontos de atenção", () => {
     const ev = evolucao(linhas, maquinas, "2026-02");
