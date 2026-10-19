@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: "Mão de obra e backlog" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const VISOES = ["Equipe e pessoas", "Distribuição das horas", "Backlog e carga futura"];
+const VISOES = ["Equipe e pessoas", "Distribuição das horas", "Apontamentos (IW47)", "Backlog e carga futura"];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const ddmm = (d: Dia) => { const p = partes(d); return `${String(p.dia).padStart(2, "0")}/${String(p.mes).padStart(2, "0")}`; };
@@ -78,6 +78,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {visao === "Equipe e pessoas" ? <Equipe c={c} d={d} ex={ex} jan={jan} />
           : visao === "Distribuição das horas" ? <Distribuicao d={d} ex={ex} />
+          : visao === "Apontamentos (IW47)" ? <Apontamentos c={c} d={d} campoEq={campoEq} />
             : <Backlog d={d} atual={atual} metas={metas} campoEq={campoEq} />}
       </Secao>
     </PaginaWcm>
@@ -187,6 +188,66 @@ function Distribuicao({ d, ex }: { d: ind.Dados; ex: Exec[] }) {
           <Tabela colunas={["Ordem", "Tipo", "Texto", "HH"]} linhas={topOrd.map(([o, h]) => [o, ref.get(o)?.tipo ?? "", ref.get(o)?.texto ?? "", n1.format(h)])} />
         </Grafico>
       </div>
+    </div>
+  );
+}
+
+const COL_AP: Coluna[] = [
+  // o que se quer ler primeiro: onde (ordem, equipamento, centro), quanto (HH) e o que foi escrito (texto de confirmação)
+  { rotulo: "Data", formato: "data" }, { rotulo: "Ordem", formato: "codigo" }, { rotulo: "Tipo" }, { rotulo: "Campo de ordenação" },
+  { rotulo: "Denominação" }, { rotulo: "Centro de trabalho" }, { rotulo: "HH", formato: "num1" }, { rotulo: "Texto de confirmação", largo: true },
+  { rotulo: "NP", formato: "codigo" }, { rotulo: "Nome" }, { rotulo: "Texto da ordem", largo: true }, { rotulo: "Equipamento", formato: "codigo" },
+  { rotulo: "Atividade" }, { rotulo: "Na Gestão de HH" },
+];
+
+/**
+ * Onde as horas foram apontadas: cada lançamento da IW47 no período (todas as pessoas, com os filtros de área, centro e
+ * tipo), com a ordem, o equipamento, o centro de trabalho e o texto de confirmação que a pessoa escreveu.
+ */
+function Apontamentos({ c, d, campoEq }: { c: Ctx; d: ind.Dados; campoEq: (codigo: string | null | undefined) => string }) {
+  const todos = d.confTodos ?? d.conf;
+  if (!todos) return <SemDados base="IW47 (apontamentos)" />;
+  const { ini, fim } = c.f;
+  const ap = todos.filter((x) => x.data != null && x.data >= ini && x.data <= fim).sort((a, b) => (b.data ?? 0) - (a.data ?? 0));
+  const ref = new Map(d.ordens.map((o) => [o.ordem, o]));
+  const nomeEq = new Map((c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
+  const daEquipe = c.b.equipe.dados?.length ? new Set(c.b.equipe.dados.map((p) => p.np)) : null;
+  const total = ap.reduce((s, x) => s + x.horas, 0);
+  const comTexto = ap.filter((x) => x.texto.trim());
+  const hhTexto = comTexto.reduce((s, x) => s + x.horas, 0);
+  const equipDe = (x: (typeof ap)[number]) => x.equipamento || ref.get(x.ordem)?.equipChave || "";
+  const porEq = maiores(somarPor(ap, (x) => equipDe(x), (x) => x.horas, "Sem equipamento"), 14);
+  const rotEq = (k: string) => (k === "Sem equipamento" ? k : [campoEq(k), nomeEq.get(k) || k].filter(Boolean).join(" · "));
+  const porCentro = maiores(somarPor(ap, (x) => x.centroTrabalho, (x) => x.horas, "Sem centro"), 14);
+  return (
+    <div className="space-y-4">
+      <Numeros itens={[
+        { rotulo: "HH apontadas no período", valor: `${n0.format(total)} h`, detalhe: `${n0.format(ap.length)} apontamento(s) · ${n0.format(new Set(ap.map((x) => x.np)).size)} pessoa(s)` },
+        { rotulo: "Com texto de confirmação", valor: ap.length ? `${n0.format((comTexto.length / ap.length) * 100)}%` : "—",
+          detalhe: `${n0.format(comTexto.length)} apontamento(s) · ${total ? n0.format((hhTexto / total) * 100) : 0}% das horas` },
+        { rotulo: "Ordens com horas", valor: n0.format(new Set(ap.map((x) => x.ordem)).size) },
+        { rotulo: "Equipamentos com horas", valor: n0.format(new Set(ap.map(equipDe).filter(Boolean)).size) },
+      ]} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Grafico titulo="Onde as horas foram apontadas — equipamentos" subtitulo="14 com mais horas no período"
+          tabela={{ colunas: ["Equipamento", "HH"], linhas: porEq.map(([k, v]) => [rotEq(k), n1.format(v)]) }}>
+          <Barras formato="h" larguraRotulo={210} itens={porEq.map(([k, v]) => ({ rotulo: rotEq(k), valor: v, cor: "serie-1" as Cor, detalhe: k }))} />
+        </Grafico>
+        <Grafico titulo="Onde as horas foram apontadas — centros de trabalho" subtitulo="14 com mais horas no período"
+          tabela={{ colunas: ["Centro de trabalho", "HH"], linhas: porCentro.map(([k, v]) => [k, n1.format(v)]) }}>
+          <Barras formato="h" larguraRotulo={170} itens={porCentro.map(([k, v]) => ({ rotulo: k, valor: v, cor: "serie-3" as Cor }))} />
+        </Grafico>
+      </div>
+      {ap.length ? (
+        <TabelaDados colunas={COL_AP} baixar="apontamentos_iw47" busca="Buscar pessoa, ordem, equipamento, texto de confirmação…" limite={1000}
+          linhas={ap.map((x) => {
+            const o = ref.get(x.ordem), eq = equipDe(x);
+            return [x.data, x.ordem, x.tipo || o?.tipo || "", campoEq(eq), nomeEq.get(eq) ?? "", x.centroTrabalho, x.horas, x.texto,
+              x.np, x.nome, o?.texto ?? "", eq, x.atividade, daEquipe ? (daEquipe.has(x.np) ? "Sim" : "Não") : ""];
+          })} />
+      ) : <p className="text-[14px] text-texto-3">Nenhum apontamento da IW47 no período.</p>}
+      <Nota>Todos os apontamentos da IW47 lançados no período, de todas as pessoas (a coluna “Na Gestão de HH” mostra quem entra nos indicadores), com os
+        filtros de área, centro e tipo da barra. A busca procura em todas as colunas; “Baixar” leva a lista inteira para o Excel. Estornos aparecem com horas negativas.</Nota>
     </div>
   );
 }
