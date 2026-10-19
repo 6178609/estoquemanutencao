@@ -16,16 +16,10 @@ export const viewport: Viewport = {
   themeColor: "#06331F", // a barra do navegador no celular acompanha o cabeçalho verde
 };
 
-// tema antes da primeira pintura (sem piscar claro → escuro)
-// padrão claro; o escuro só quando a pessoa escolhe no botão de tema
-const TEMA = `try{document.documentElement.dataset.tema=localStorage.getItem("tema")==="escuro"?"escuro":"claro"}catch(e){}`;
-
+// o site é sempre claro (fundo branco): sem tema escuro
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${texto.variable} ${titulo.variable}`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: TEMA }} />
-      </head>
+    <html lang="pt-BR" data-tema="claro" className={`${texto.variable} ${titulo.variable}`}>
       <body className="min-h-dvh font-sans">{children}</body>
     </html>
   );

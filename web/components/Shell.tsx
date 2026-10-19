@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ChevronsLeft, LoaderCircle, LogOut, Menu, Moon, Search, Sun, X } from "lucide-react";
+import { ChevronsLeft, LoaderCircle, LogOut, Menu, Search, X } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -85,30 +85,6 @@ function caminhoDe(grupos: { titulo: string; itens: ItemMenu[] }[], rota: string
   return melhor ? { grupo: melhor.grupo, aba: melhor.aba } : null;
 }
 
-function BotaoTema({ claro }: { claro?: boolean }) {
-  const [escuro, setEscuro] = useState<boolean | null>(null);
-  useEffect(() => {
-    let salvo: string | null = null;
-    try { salvo = localStorage.getItem("tema"); } catch { /* sem armazenamento */ }
-    const e = salvo === "escuro"; // padrão claro, mesmo com o aparelho no modo escuro
-    document.documentElement.dataset.tema = e ? "escuro" : "claro";
-    setEscuro(e);
-  }, []);
-  const trocar = () => {
-    const e = !escuro;
-    document.documentElement.dataset.tema = e ? "escuro" : "claro";
-    try { localStorage.setItem("tema", e ? "escuro" : "claro"); } catch { /* sem armazenamento */ }
-    setEscuro(e);
-  };
-  return (
-    <button onClick={trocar} aria-label="Alternar tema claro/escuro"
-      className={clsx("grid size-11 shrink-0 place-items-center rounded-lg transition",
-        claro ? "text-texto-2 hover:bg-superficie-2" : "text-menu-texto hover:bg-white/8")}>
-      {escuro ? <Sun className="size-4" strokeWidth={1.75} /> : <Moon className="size-4" strokeWidth={1.75} />}
-    </button>
-  );
-}
-
 export function Shell({ grupos, pessoa, sair, children }: {
   grupos: { titulo: string; itens: ItemMenu[] }[];
   pessoa: Pessoa;
@@ -175,7 +151,6 @@ export function Shell({ grupos, pessoa, sair, children }: {
               <Search className="size-5" />
             </Link>
           )}
-          <BotaoTema />
           <button onClick={() => setAberto(true)} aria-label="Abrir menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
             <Menu className="size-5" />
           </button>
@@ -199,7 +174,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
 
       <main className="min-w-0 flex-1">
         <FaixaMarca />
-        {/* barra do computador: caminho da página à esquerda; busca e tema à direita */}
+        {/* barra do computador: caminho da página à esquerda; busca à direita */}
         <div className="nao-imprimir hidden items-center gap-4 border-b border-borda bg-superficie px-8 py-2.5 lg:flex">
           <nav aria-label="Caminho da página" className="min-w-0 flex-1 truncate text-[13.5px]">
             {caminho?.grupo && (<><span className="text-texto-3">{caminho.grupo}</span><span aria-hidden className="mx-1.5 text-texto-3">›</span></>)}
@@ -215,7 +190,6 @@ export function Shell({ grupos, pessoa, sair, children }: {
               </div>
             </form>
           )}
-          <BotaoTema claro />
         </div>
         {pessoa.demo && (
           <div className="nao-imprimir border-b border-borda bg-superficie-2 px-4 py-2 text-center text-[13px] text-texto-2">

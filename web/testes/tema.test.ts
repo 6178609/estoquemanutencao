@@ -17,9 +17,7 @@ function bloco(padrao: RegExp): Record<string, string> {
 }
 
 const claro = bloco(/^:root\s*\{([^}]*)\}/m);
-const escuro = bloco(/:root\[data-tema="escuro"\]\s*\{([^}]*)\}/);
-
-const temas = { claro, escuro };
+const temas = { claro };
 
 function canal(v: number): number {
   const s = v / 255;
@@ -105,13 +103,9 @@ describe("tema da marca", () => {
     expect(claro["--tinta"].toLowerCase()).toBe("#007a38");
   });
 
-  it("o escuro só vem por escolha (não segue o modo escuro do aparelho) e não é quase preto", () => {
+  it("site sempre claro: fundo branco e nenhum tema escuro", () => {
+    expect(claro["--fundo"].toUpperCase()).toBe("#FFFFFF");
     expect(css).not.toMatch(/prefers-color-scheme:\s*dark/);
-    expect(luminancia(cor(escuro, "--fundo"))).toBeGreaterThan(luminancia("#0B110D") * 2);
-  });
-
-  it("links e textos de ação no escuro ≥ 4,5:1 sobre fundo e superfícies", () => {
-    for (const fundo of ["--fundo", "--superficie", "--superficie-2", "--superficie-3"])
-      expect(contraste(cor(escuro, "--acao"), cor(escuro, fundo)), fundo).toBeGreaterThanOrEqual(4.5);
+    expect(css).not.toMatch(/:root\[data-tema="escuro"\]/);
   });
 });
