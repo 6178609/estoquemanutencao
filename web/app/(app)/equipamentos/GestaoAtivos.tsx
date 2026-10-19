@@ -1,4 +1,4 @@
-import { Boxes, ClipboardList, Hourglass, ListChecks, Network, Pencil } from "lucide-react";
+import { Boxes, ClipboardList, Hourglass, Library, ListChecks, Network, Pencil } from "lucide-react";
 import Link from "next/link";
 
 import { Barras, Grafico, Legenda, Partes, type Cor } from "@/components/graficos";
@@ -22,7 +22,7 @@ export const COR_REC: Record<string, Cor> = {
   [ativos.SUBSTITUIR]: "st-critico", [ativos.CRIAR_PLANO]: "st-serio", [ativos.ATACAR]: "st-atencao", [ativos.CLASSIFICAR]: "neutro",
   [ativos.MANTER]: "st-bom",
 };
-const SELO_REC: Record<string, "vermelho" | "laranja" | "amarelo" | "cinza" | "verde"> = {
+export const SELO_REC: Record<string, "vermelho" | "laranja" | "amarelo" | "cinza" | "verde"> = {
   [ativos.SUBSTITUIR]: "vermelho", [ativos.CRIAR_PLANO]: "laranja", [ativos.ATACAR]: "amarelo", [ativos.CLASSIFICAR]: "cinza", [ativos.MANTER]: "verde",
 };
 const CRITS = ["Alta", "Média", "Baixa", SEM_CLASSE];
@@ -210,11 +210,12 @@ function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: 
         { tipo: "alternar", param: "isite", rotulo: "Só cadastrados no site" },
         { tipo: "pilulas", param: "irec", rotulo: "Recomendação", opcoes: ativos.RECOMENDACOES },
       ]} />
-      <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} de {inteiroBr(t.length)} ativo(s){f.sits.length ? "" : " (sem os desativados)"} · clique no código para ver o resumo{completo ? ", abrir a ficha ou editar o cadastro" : ""}.</p>
+      <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} de {inteiroBr(t.length)} ativo(s){f.sits.length ? "" : " (sem os desativados)"} · clique no código para ver o resumo e abrir a biblioteca do ativo (componentes e manuais){completo ? ", a ficha ou o cadastro" : ""}.</p>
       {r && (
         <Cartao className="border-borda-forte" titulo={`${campoEq(r.codigo) ? `${campoEq(r.codigo)} · ` : ""}${r.codigo} · ${r.equipamento || "—"}`}
           sub={<span className="inline-flex flex-wrap items-center gap-1.5">{r.situacao} · criticidade {r.criticidade || "sem classe"} · <Selo cor={SELO_REC[r.recomendacao] ?? "cinza"}>{r.recomendacao}</Selo></span>}
           acoes={<div className="flex flex-wrap gap-2">
+            <Link prefetch={false} href={`/equipamentos/biblioteca?${new URLSearchParams({ eq: r.codigo })}`} className={BOTAO_COMPACTO}><Library className="size-3.5" /> Biblioteca do ativo</Link>
             {completo && temOrdens && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Abrir ficha (ordens)</Link>}
             {cadastra && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className={BOTAO_COMPACTO}><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
             <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
