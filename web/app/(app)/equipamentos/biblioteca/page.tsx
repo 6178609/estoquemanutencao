@@ -35,19 +35,27 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const eq = typeof params.eq === "string" ? params.eq.trim() : "";
   const completo = veInteira(u, "equipamentos");
   const edita = completo && podeEditar(u);
-  const c = await contexto({});
-  const [inv, est, campoEq, docs] = await Promise.all([inventarioAtivos(c), mapaEstoque(), campoDoEquipamento(c), documentosDe(eq)]);
-  const r = inv.find((x) => x.codigo === eq);
   const voltar = (
-    <Link prefetch={false} href={`/equipamentos?${new URLSearchParams(eq ? { at: eq } : {})}`} className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
+    <Link prefetch={false} href={`/equipamentos?${new URLSearchParams(eq ? { at: eq } : {})}${eq ? "#abas" : ""}`} className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
       <ArrowLeft className="size-4" /> Equipamentos
     </Link>
   );
-  if (!eq || !r) {
+  if (!eq) {
     return (
       <Pagina>
         {voltar}
-        <Cabecalho titulo="Biblioteca do ativo" subtitulo={eq ? `O equipamento ${eq} não está no inventário (IH08, IW38 ou cadastro do site).` : "Escolha um equipamento na Gestão de ativos para abrir a biblioteca dele."} />
+        <Cabecalho titulo="Biblioteca do ativo" subtitulo="Escolha um equipamento na Gestão de ativos para abrir a biblioteca dele." />
+      </Pagina>
+    );
+  }
+  const c = await contexto({});
+  const [inv, est, campoEq, docs] = await Promise.all([inventarioAtivos(c), mapaEstoque(), campoDoEquipamento(c), documentosDe(eq)]);
+  const r = inv.find((x) => x.codigo === eq);
+  if (!r) {
+    return (
+      <Pagina>
+        {voltar}
+        <Cabecalho titulo="Biblioteca do ativo" subtitulo={`O equipamento ${eq} não está no inventário (IH08, IW38 ou cadastro do site).`} />
       </Pagina>
     );
   }
@@ -55,7 +63,8 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const info = infoCad(c, r.codigo);
   const pecas = pecasDe(c, r.codigo, est);
   const verEstoque = podeVer(u, "estoque");
-  const ordens = c.b.ordens.dados ? ordensEnriquecidas(c).filter((o) => o.equipChave === r.codigo).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
+  const verOrdens = podeVer(u, "ordens");
+  const ordens = c.b.ordens.dados && (verOrdens || completo) ? ordensEnriquecidas(c).filter((o) => o.equipChave === r.codigo).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
   const obs = typeof info.observacoes === "string" ? info.observacoes : "";
 
   return (
@@ -141,7 +150,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       </section>
 
       {/* 4. últimas ordens */}
-      {ordens.length > 0 && podeVer(u, "ordens") && (
+      {ordens.length > 0 && verOrdens && (
         <section aria-labelledby="ordens" className="space-y-4">
           <h2 id="ordens" className="font-display text-[20px] font-medium">Últimas ordens <span className="text-texto-3">({inteiroBr(ordens.length)} no IW38)</span></h2>
           <ul className="divide-y divide-borda overflow-hidden rounded-cartao border border-borda bg-superficie">

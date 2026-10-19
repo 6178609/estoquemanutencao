@@ -30,12 +30,16 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
       setEstado({ enviando: false, erro: "Escolha o arquivo (PDF ou imagem).", ok: "" });
       return;
     }
+    if (modo === "arquivo" && (form.get("arquivo") as File).size > 4_000_000) {
+      setEstado({ enviando: false, erro: "O arquivo passou de 4 MB. Para manuais maiores, use “Adicionar link”.", ok: "" });
+      return;
+    }
     if (modo === "arquivo") form.delete("url"); else form.delete("arquivo");
     setEstado({ enviando: true, erro: "", ok: "" });
     const r = await fetch("/api/equipamentos/documento", { method: "POST", body: form }).catch(() => null);
     const j = await r?.json().catch(() => ({})) ?? {};
     if (!r?.ok) {
-      setEstado({ enviando: false, erro: j.erro || "Não foi possível enviar.", ok: "" });
+      setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo passou de 4 MB. Para manuais maiores, use “Adicionar link”." : "Não foi possível enviar."), ok: "" });
       return;
     }
     (e.target as HTMLFormElement).reset();
@@ -43,11 +47,14 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
     router.refresh();
   };
 
+  const [removendo, setRemovendo] = useState("");
   const remover = async (d: DocTela) => {
     if (!confirm(`Remover "${d.titulo}" da biblioteca?`)) return;
+    setRemovendo(d.id);
     const r = await fetch(`/api/equipamentos/documento?${new URLSearchParams({ eq, id: d.id })}`, { method: "DELETE" }).catch(() => null);
     if (!r?.ok) setEstado({ enviando: false, erro: "Não foi possível remover.", ok: "" });
     else router.refresh();
+    setRemovendo("");
   };
 
   return (
@@ -66,16 +73,16 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
                 <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--selo-info-fundo)] text-[var(--selo-info-texto)]"><Icone className="size-5" aria-hidden /></span>
                 <div className="min-w-0 flex-1">
                   <a href={href} target="_blank" rel="noopener noreferrer" className="line-clamp-2 font-medium text-texto hover:text-acao">
-                    {d.titulo} <ExternalLink className="inline size-3.5 align-[-1px] text-texto-3" aria-hidden />
+                    {d.titulo} <ExternalLink className="inline size-3.5 align-[-1px] text-texto-3" aria-hidden /><span className="sr-only"> (abre em nova aba)</span>
                   </a>
                   <div className="mt-1 text-[12px] text-texto-3">
                     {d.tipo === "link" ? "Link" : d.tipo === "application/pdf" ? "PDF" : "Imagem"}{d.tamanho ? ` · ${tamanho(d.tamanho)}` : ""} · {data(d.em)} · {d.por}
                   </div>
                 </div>
                 {edita && (
-                  <button type="button" onClick={() => remover(d)} aria-label={`Remover ${d.titulo}`}
+                  <button type="button" onClick={() => remover(d)} aria-label={`Remover ${d.titulo}`} disabled={removendo === d.id} aria-busy={removendo === d.id}
                     className="grid size-11 shrink-0 place-items-center rounded-lg text-texto-3 transition hover:bg-superficie-2 hover:text-[var(--selo-critico-texto)]">
-                    <Trash2 className="size-4" />
+                    {removendo === d.id ? <LoaderCircle className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                   </button>
                 )}
               </li>

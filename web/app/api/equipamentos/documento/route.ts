@@ -4,6 +4,7 @@ import { veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { FonteErro } from "@/lib/dados/fonte";
 import { gravarDocumento, gravarLink, LIMITE_DOCUMENTO, lerDocumento, removerDocumento } from "@/lib/dados/documentos";
+import { podeEnviar } from "@/lib/dados/fotos";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": r.tipo,
       "Content-Disposition": `inline; filename="${nome}"`,
-      "Cache-Control": "private, max-age=86400",
+      "Cache-Control": "private, max-age=31536000, immutable", // o id é único e o arquivo nunca muda
       "X-Content-Type-Options": "nosniff",
       // o tipo vem da assinatura do arquivo (só PDF ou imagem); a imagem ainda abre isolada
       ...(r.tipo === "application/pdf" ? {} : { "Content-Security-Policy": "default-src 'none'; sandbox" }),
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
   }
   const eq = String(form.get("eq") ?? ""), titulo = String(form.get("titulo") ?? ""), url = String(form.get("url") ?? "");
   const arquivo = form.get("arquivo");
+  if (!podeEnviar(`doc:${u.login}`)) return NextResponse.json({ erro: "Muitos envios em pouco tempo. Espere alguns minutos e tente de novo." }, { status: 429 });
   try {
     if (url) return NextResponse.json({ ok: true, doc: await gravarLink(eq, { titulo, url }, u.nome || u.login) });
     if (!(arquivo instanceof File)) return NextResponse.json({ erro: "Escolha um arquivo ou informe um link." }, { status: 400 });

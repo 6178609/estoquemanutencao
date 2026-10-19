@@ -23,6 +23,7 @@ describe("biblioteca do ativo", () => {
     expect(linkValido("data:text/html,x")).toBe(false);
     expect(linkValido("https://exemplo.test/a b")).toBe(false);
     expect(limparTitulo("  Manual\r\nde operação  ")).toBe("Manual de operação");
+    expect(limparTitulo("Manual\u202Efdp.exe")).toBe("Manual fdp.exe");
   });
   it("grava, lista, lê e remove documentos de um equipamento (TAG com barra também)", async () => {
     const tag = "PRENSA/03";
@@ -30,6 +31,7 @@ describe("biblioteca do ativo", () => {
     expect(pdf).toMatchObject({ titulo: "Manual de operação", tipo: "application/pdf", tamanho: PDF.length });
     const link = await gravarLink(tag, { titulo: "Catálogo do fabricante", url: "https://exemplo.test/catalogo" }, "Teste");
     await expect(gravarLink(tag, { titulo: "x", url: "ftp://exemplo.test" }, "Teste")).rejects.toThrow(/Link inválido/);
+    await expect(gravarLink("__proto__", { titulo: "x", url: "https://exemplo.test" }, "Teste")).rejects.toThrow(/Equipamento inválido/);
     await expect(gravarDocumento(tag, { titulo: "x", nome: "x.exe", bytes: new Uint8Array([77, 90, 0, 0, 0, 0]) }, "Teste")).rejects.toThrow(/PDF/);
     expect((await documentosDe(tag)).map((d) => d.id).sort()).toEqual([pdf.id, link.id].sort());
     expect((await lerDocumento(tag, pdf.id))?.tipo).toBe("application/pdf");
