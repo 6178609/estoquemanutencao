@@ -17,10 +17,9 @@ function bloco(padrao: RegExp): Record<string, string> {
 }
 
 const claro = bloco(/^:root\s*\{([^}]*)\}/m);
-const escuroSistema = bloco(/:root:not\(\[data-tema="claro"\]\)\s*\{([^}]*)\}/);
-const escuroManual = bloco(/:root\[data-tema="escuro"\]\s*\{([^}]*)\}/);
+const escuro = bloco(/:root\[data-tema="escuro"\]\s*\{([^}]*)\}/);
 
-const temas = { claro: claro, "escuro (sistema)": escuroSistema, "escuro (manual)": escuroManual };
+const temas = { claro, escuro };
 
 function canal(v: number): number {
   const s = v / 255;
@@ -106,7 +105,13 @@ describe("tema da marca", () => {
     expect(claro["--tinta"].toLowerCase()).toBe("#007a38");
   });
 
-  it("os dois blocos escuros têm os mesmos valores", () => {
-    expect(escuroSistema).toEqual(escuroManual);
+  it("o escuro só vem por escolha (não segue o modo escuro do aparelho) e não é quase preto", () => {
+    expect(css).not.toMatch(/prefers-color-scheme:\s*dark/);
+    expect(luminancia(cor(escuro, "--fundo"))).toBeGreaterThan(luminancia("#0B110D") * 2);
+  });
+
+  it("links e textos de ação no escuro ≥ 4,5:1 sobre fundo e superfícies", () => {
+    for (const fundo of ["--fundo", "--superficie", "--superficie-2", "--superficie-3"])
+      expect(contraste(cor(escuro, "--acao"), cor(escuro, fundo)), fundo).toBeGreaterThanOrEqual(4.5);
   });
 });

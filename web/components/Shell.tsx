@@ -90,7 +90,7 @@ function BotaoTema({ claro }: { claro?: boolean }) {
   useEffect(() => {
     let salvo: string | null = null;
     try { salvo = localStorage.getItem("tema"); } catch { /* sem armazenamento */ }
-    const e = salvo ? salvo === "escuro" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const e = salvo === "escuro"; // padrão claro, mesmo com o aparelho no modo escuro
     document.documentElement.dataset.tema = e ? "escuro" : "claro";
     setEscuro(e);
   }, []);

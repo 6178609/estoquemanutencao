@@ -13,14 +13,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F4F6F4" },
-    { media: "(prefers-color-scheme: dark)", color: "#072A18" },
-  ],
+  themeColor: "#06331F", // a barra do navegador no celular acompanha o cabeçalho verde
 };
 
 // tema antes da primeira pintura (sem piscar claro → escuro)
-const TEMA = `try{var t=localStorage.getItem("tema");document.documentElement.dataset.tema=t||(matchMedia("(prefers-color-scheme: dark)").matches?"escuro":"claro")}catch(e){}`;
+// padrão claro; o escuro só quando a pessoa escolhe no botão de tema
+const TEMA = `try{document.documentElement.dataset.tema=localStorage.getItem("tema")==="escuro"?"escuro":"claro"}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
