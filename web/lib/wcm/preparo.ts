@@ -118,14 +118,36 @@ export function prepararIw38(cru: Crua[], hoje: Dia, excluir = true): { ordens: 
 // ----------------------------------------------------------------------------
 // Requisições de compra
 // ----------------------------------------------------------------------------
+/** Fase no orçamento: aprovada (entra no gasto), pendente (a entrar, aguarda aprovação) ou fora. */
+export type FaseReq = "aprovada" | "pendente" | "fora";
+export type TipoReq = "material" | "servico";
+
+/** Material ou serviço pelo texto da coluna; vazio ou não reconhecido = null. */
+export function tipoDaRequisicao(texto: string): TipoReq | null {
+  const k = chave(texto);
+  if (!k) return null;
+  if (k.includes("SERVI")) return "servico";
+  if (k.includes("MAT")) return "material";
+  return null;
+}
+
+/** Fase pelo prefixo do status (o sufixo " (Enviado para RFQ)" não muda a fase). */
+export function faseDaRequisicao(status: string): FaseReq {
+  const k = chave(status);
+  if (k.startsWith("APROVACAO PENDENTE")) return "pendente";
+  if (["SOLICITADO", "ACAO DE COMPRADOR", "RECEBIDO", "PARCIALMENTE RECEBIDO"].some((p) => k.startsWith(p))) return "aprovada";
+  return "fora";
+}
+
 export interface Requisicao {
   requisicao: string; po: string; status: string; aprovador: string; proprietario: string; solicitante: string;
   itens: string; justificativa: string; enviadoEm: Dia | null; ultimoEnvio: Dia | null; total: number;
-  pendente: boolean; diasAguardando: number | null;
+  pendente: boolean; diasAguardando: number | null; tipo: TipoReq | null; fase: FaseReq;
 }
 
 export function prepararRequisicoes(cru: Crua[], hoje: Dia): Requisicao[] {
   const c = mapear(colunasDe(cru), {
+    Tipo: ["MATERIAL OU SERVI", "SERVI.O.{0,3}MATERIAL", "TIPO DE (ITEM|COMPRA|REQ)", "^TIPO$"],
     Requisicao: ["N(UMERO)? DA REQ", "REQUISI"], PO: ["NUMERO DA PO", "PEDIDO", "\\bPO\\b"], Status: ["^STATUS$", "STATUS"],
     Aprovador: ["APROVADOR ATUAL", "APROVADOR"], Proprietario: ["PROPRIETARIO"],
     Solicitante: ["SOLICITADO POR", "SOLICITANTE", "REQUISITANTE"], Itens: ["^ITENS$", "ITENS", "DESCRICAO"],
@@ -142,6 +164,7 @@ export function prepararRequisicoes(cru: Crua[], hoje: Dia): Requisicao[] {
       proprietario: pega(l, c.Proprietario), solicitante: pega(l, c.Solicitante), itens: pega(l, c.Itens),
       justificativa: pega(l, c.Justificativa), enviadoEm, ultimoEnvio, total: num0(c.Total ? l[c.Total] : ""), pendente,
       diasAguardando: pendente && ref != null ? hoje - ref : null,
+      tipo: tipoDaRequisicao(pega(l, c.Tipo)), fase: faseDaRequisicao(status),
     };
   });
 }

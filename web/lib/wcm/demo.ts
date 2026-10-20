@@ -145,8 +145,10 @@ function gerar(hoje: Dia) {
   const req: Crua[] = Array.from({ length: 60 }, (_, i) => {
     const env = hoje - ((i * 11) % 75);
     const pend = i % 3 !== 0;
-    return { "Número da requisição": String(1_200_000 + i), "Número da PO": pend ? "" : String(4_500_000 + i),
-      Status: pend ? "Pendente de aprovação" : "Aprovado", "Aprovador atual": pend ? `Aprovador ${(i % 4) + 1}` : "",
+    const status = pend ? (i % 2 ? "Aprovação pendente" : "Aprovação pendente (Enviado para RFQ)")
+      : ["Solicitado", "Recebido", "Rascunho"][Math.floor(i / 3) % 3];
+    return { "Número da requisição": String(1_200_000 + i), "Número da PO": pend || status === "Rascunho" ? "" : String(4_500_000 + i),
+      Status: status, "Material ou serviço": i % 2 ? "Serviço" : "Material", "Aprovador atual": pend ? `Aprovador ${(i % 4) + 1}` : "",
       "Solicitado por": equipe[i % equipe.length].nome, Itens: `${g.um(SERVICOS)} - peças`, Justificativa: "Reposição de estoque",
       "Enviado em": dataBr(env), "Último envio": dataBr(env + (i % 2)), Total: (800 + ((i * 937) % 24_000)).toFixed(2).replace(".", ",") };
   });
