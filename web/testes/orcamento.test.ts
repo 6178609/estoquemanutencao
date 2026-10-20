@@ -133,3 +133,17 @@ describe("demonstração do orçamento", () => {
     expect(orcamentoDe(cad).get(mesHoje)).toBe(50000);
   });
 });
+
+describe("validação do valor disponível", () => {
+  it("aceita 12 posições vazias ou com valores, e rejeita o resto", async () => {
+    const { validarOrcamento } = await import("@/app/(app)/custos/validacao");
+    expect(validarOrcamento(2026, Array(12).fill(null))).toBe("");
+    expect(validarOrcamento(2026, [5000, ...Array(11).fill(null)])).toBe("");
+    expect(validarOrcamento(1999, Array(12).fill(null))).not.toBe("");
+    expect(validarOrcamento(2101, Array(12).fill(null))).not.toBe("");
+    expect(validarOrcamento(2026, Array(11).fill(null))).not.toBe("");
+    expect(validarOrcamento(2026, [-1, ...Array(11).fill(null)])).toMatch(/janeiro/);
+    expect(validarOrcamento(2026, [NaN, ...Array(11).fill(null)])).not.toBe("");
+    expect(validarOrcamento(2026, [2e9, ...Array(11).fill(null)])).not.toBe("");
+  });
+});
