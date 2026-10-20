@@ -25,7 +25,8 @@ em Metas e parâmetros (Corretiva, Emergencial, Preventiva…).
    - Custo total — soma do custo; variação contra o período anterior de mesma duração.
    - Custo por ativo / mês — total ÷ equipamentos ativos (IH08, não desativados) ÷ meses do período.
    - Custo médio por ordem — total ÷ ordens com custo > 0.
-   - Peso da corretiva — % do custo em Corretiva + Emergencial; régua com a meta do indicador `pct_custo_corr`.
+   - Peso do backlog (corretiva) — indicador já existente `pct_custo_corr` (custo das ordens sem plano ÷ total), com a
+     régua da meta dele; o detalhe mostra a preventiva hoje.
    - Total travado — soma do bloco 8.
 2. **Iceberg do custo** (cartão escuro)
    - Acima d'água: custo das ordens (o que vira nota).
@@ -36,8 +37,8 @@ em Metas e parâmetros (Corretiva, Emergencial, Preventiva…).
    setas de mês (`?cmes=AAAA-MM`), alternância Mensal/Anual (`?cvis=anual`: 12 meses em mosaico); total do mês e
    variação contra o mesmo mês do ano anterior.
 4. **Para onde vai o dinheiro** — blocos por classe agrupada (Corretiva, Preventiva/planejada, Emergencial/avaria,
-   Outras): valor, % do total, nº de ordens e R$/ordem; régua "planejada hoje × meta" (meta de `pct_custo_corr` ou do
-   plano) e alerta com o valor em emergencial.
+   Outras): valor, % do total, nº de ordens e R$/ordem; régua "custo planejado hoje × meta" (meta = 100% − meta de
+   `pct_custo_corr`) e alerta com o valor em emergencial.
 5. **DNA do custo** — mosaico (treemap simples em grade) do custo por família de máquina (nome do equipamento sem o
    número final, a mesma regra de `familia()` do Roadmap SIM); 5 maiores + "demais".
 6. **Custo por máquina × classe** — custo médio por equipamento em cada criticidade ABC da IH08 (A, B, C, sem classe):
