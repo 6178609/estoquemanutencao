@@ -134,12 +134,14 @@ export type ClasseAbc = "A" | "B" | "C" | "Sem classe";
 
 /**
  * Custo por classe de criticidade (A/B/C do cadastro de equipamentos ativos): médio por ativo da classe.
- * "Sem classe" = ordens de equipamento fora do cadastro ou sem código; seus ativos são os códigos distintos.
+ * "Sem classe" = ordens de equipamento com código fora do cadastro; seus ativos são os códigos distintos.
+ * Custo de ordem sem código de equipamento não entra em linha nem em médias: vem em `semCodigo`.
  * `mediaGeral` = custo ÷ ativos de todas as linhas com ativo. Linha sem dado some.
  */
 export function porCriticidade(o: OrdemCusto[], eqs: Equipamento[]): {
   linhas: { classe: ClasseAbc; medio: number | null; ativos: number; acimaDaMedia: boolean }[];
   mediaGeral: number | null;
+  semCodigo: number;
 } {
   const abc = new Map<string, "A" | "B" | "C">();
   const ativos: Record<ClasseAbc, number> = { A: 0, B: 0, C: 0, "Sem classe": 0 };
@@ -150,13 +152,14 @@ export function porCriticidade(o: OrdemCusto[], eqs: Equipamento[]): {
   }
   const custo: Record<ClasseAbc, number> = { A: 0, B: 0, C: 0, "Sem classe": 0 };
   const semClasse = new Set<string>();
+  let semCodigo = 0;
   for (const x of o) {
     const c = x.equipamento ? abc.get(x.equipamento) : undefined;
     if (c) custo[c] += x.custoReal;
-    else {
+    else if (x.equipamento) {
       custo["Sem classe"] += x.custoReal;
-      if (x.equipamento) semClasse.add(x.equipamento);
-    }
+      semClasse.add(x.equipamento);
+    } else semCodigo += x.custoReal; // sem código de equipamento: fora das médias
   }
   ativos["Sem classe"] = semClasse.size;
   const classes: ClasseAbc[] = ["A", "B", "C", "Sem classe"];
@@ -168,7 +171,7 @@ export function porCriticidade(o: OrdemCusto[], eqs: Equipamento[]): {
     const medio = ativos[c] ? custo[c] / ativos[c] : null;
     return { classe: c, medio, ativos: ativos[c], acimaDaMedia: medio != null && mediaGeral != null && medio > mediaGeral };
   });
-  return { linhas, mediaGeral };
+  return { linhas, mediaGeral, semCodigo };
 }
 
 /**

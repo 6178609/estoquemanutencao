@@ -160,6 +160,19 @@ describe("porCriticidade", () => {
     expect(r.linhas.find((x) => x.classe === "C")).toBeUndefined();
     expect(r.mediaGeral).toBeCloseTo(750 / 4);
   });
+  it("ordem sem código não entra na média: vai para semCodigo", () => {
+    const misto = [...o, ordem({ equipamento: "", equipChave: "Objeto solto", custoReal: 500 })];
+    const r = porCriticidade(misto, eqs);
+    expect(r.semCodigo).toBe(500);
+    expect(r.linhas.find((x) => x.classe === "Sem classe")).toMatchObject({ medio: 50, ativos: 1 });
+    expect(r.mediaGeral).toBeCloseTo(750 / 4);
+  });
+  it("só ordens sem código: sem linha Sem classe e média geral null", () => {
+    const r = porCriticidade([ordem({ equipamento: "", equipChave: "Objeto solto", custoReal: 500 })], []);
+    expect(r.linhas.find((x) => x.classe === "Sem classe")).toBeUndefined();
+    expect(r.semCodigo).toBe(500);
+    expect(r.mediaGeral).toBeNull();
+  });
   it("equipamento desativado não conta como ativo", () => {
     const r = porCriticidade([], [equip("X9", "A", true)]);
     expect(r.linhas.find((x) => x.classe === "A")).toBeUndefined();
