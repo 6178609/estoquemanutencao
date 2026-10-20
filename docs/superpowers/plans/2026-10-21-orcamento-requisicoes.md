@@ -116,3 +116,28 @@ gravação do disponível em `metas_wcm.json` (`orcamento:AAAA-MM`) por ação d
 - [ ] **Step 4: E2E:** em `e2e/telas.spec.ts`, `/custos` mostra o texto "Orçamento" e o resumo "Lançar valor disponível" (demo).
 - [ ] **Step 5: Verificar:** comandos das Global Constraints; capturas `/custos` 1280 e 390 px (scrollWidth ≤ 390), salvando no scratchpad.
 - [ ] **Step 6: Commit** `feat(custos): orçamento do mês × ordens e requisições`.
+
+---
+
+## Ajustes da revisão (Opus) — valem sobre as tarefas acima
+
+1. **Coluna de tipo (Task 1):** `chave()` (`lib/dados/texto.ts`) troca não-letras por espaço — usar `SERVI.O.{0,3}MATERIAL`
+   no lugar de `SERVI.O.?/.?MATERIAL`; pôr `Tipo` **antes** de `Requisicao` no `mapear` (para "Tipo de requisição" não cair em `REQUISI`).
+2. **Teste do total (Task 1):** `totais.saldo` = soma dos saldos dos meses com disponível = **6000** (não 5500).
+   `totais.disponivel` = soma dos disponíveis cadastrados (null se nenhum); `totais.gasto` = ordens + requisições de todos os meses.
+3. **Demo (Task 1):** manter `pend = i % 3 !== 0` com status "Aprovação pendente" (alternando "Aprovação pendente (Enviado para RFQ)")
+   — `testes/demo-wcm.test.ts` espera 40 pendentes; nas demais linhas revezar "Solicitado", "Recebido", "Rascunho".
+   Semear em `cadastrosDemo` (`lib/dados/demo.ts`) itens `orcamento:AAAA-MM` fictícios (valores redondos) para os meses da demo.
+4. **Tipos (Task 1):** acrescentar `tipo: null, fase: "aprovada"` ao `Requisicao` montado à mão em `testes/requisicoes.test.ts`.
+   `FaseReq`, `TipoReq`, `faseDaRequisicao`, `tipoDaRequisicao` ficam em `preparo.ts` (usam `chave` de `lib/dados/texto`);
+   `orcamento.ts` só faz `import type` de `preparo.ts` e de `app/(app)/custos/calculo.ts` e reexporta as duas funções.
+5. **Ordens (Task 1):** somar `x.custoReal` no mês de `x.data` (`OrdemCusto`); ordem sem data fica fora.
+6. **Casos (Task 1):** `semTipo` = `false` com lista vazia ou `null`; teste de `prepararRequisicoes` com "Ação de comprador pendente" → `fase "aprovada"`.
+   `pendente` antigo continua `includes("PENDENTE")` (aba Requisições e etapa 1 do travado não mudam) — por isso "Ação de comprador
+   pendente" aparece como pendente no travado e como aprovada no orçamento; a nota do cartão diz "a entrar = aguardando aprovação".
+7. **Ação (Task 2):** `gravarCadastroLote(ind.ARQ_METAS, itens, nome, false)` (o `mesclar` é da chamada inteira); a ação chama
+   `validarOrcamento`; o teste confere `nome "metas_wcm.json"` e `mesclar false`, como `metas.test.ts`.
+8. **Meses da tabela (Task 3):** de `inicioDoMes(ini)` até `max(fim, fim do mês de hoje + 2)` **quando** `fim ≥ início do mês de hoje`;
+   senão até `fim`. Ordens futuras não existem (`fimEf`), as requisições projetadas sim.
+9. **Usuário (Task 3):** `const u = await exigir("custos")` e `podeEditar(u)`; conferir que o usuário da demo/E2E pode editar
+   (senão o E2E testa só o cartão, não o editor).
