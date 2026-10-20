@@ -6,7 +6,7 @@ import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto } from "@/lib/formato";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
-import { custoParadaDe, iceberg, kpis360, mesDoTermometro, mesNoIntervalo, porDia, porGrupo, porMesAno, travado } from "@/lib/wcm/custo360";
+import { concentracao, custoParadaDe, dnaPorFamilia, iceberg, kpis360, mesDoTermometro, mesNoIntervalo, porCriticidade, porDia, porGrupo, porMesAno, travado } from "@/lib/wcm/custo360";
 import { barra, contexto, dados, resultados } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { dia, inicioDoMes, partes, somarMeses, type Dia } from "@/lib/wcm/util";
@@ -16,10 +16,14 @@ import { Nota, Numeros } from "../confiabilidade/_comum/Numeros";
 import { TabelaDados, type Coluna } from "../confiabilidade/_comum/TabelaDados";
 import { TabelaFicha } from "../confiabilidade/_comum/TabelaFicha";
 import { custoPor, ordensDoPeriodo, porEquipamento, porMes, resumo } from "./calculo";
+import { Concentracao } from "./_ui/Concentracao";
+import { Dna } from "./_ui/Dna";
 import { Iceberg } from "./_ui/Iceberg";
+import { PorClasse } from "./_ui/PorClasse";
 import { Kpis360 } from "./_ui/Kpis360";
 import { ParaOnde } from "./_ui/ParaOnde";
 import { Termometro } from "./_ui/Termometro";
+import { Travado } from "./_ui/Travado";
 
 export const metadata: Metadata = { title: "Custos" };
 export const dynamic = "force-dynamic";
@@ -60,8 +64,11 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   // ---- topo: KPIs, iceberg, termômetro e para onde vai ----
   const r = resumo(o, ini, fimEf);
   const comCentroOuTipo = c.f.centros.length > 0 || c.f.setores.length > 0 || c.f.tipos.length > 0;
-  const nAtivos = (c.b.equipamentos.dados ?? [])
-    .filter((e) => !e.desativado && (!c.f.areas.length || c.f.areas.includes(e.localizacao))).length;
+  // ativos = IH08 sem desativado, da área do filtro quando há área (mesma base do custo por ativo e da classe)
+  const eqsAtivos = (c.b.equipamentos.dados ?? [])
+    .filter((e) => !e.desativado && (!c.f.areas.length || c.f.areas.includes(e.localizacao)));
+  const nAtivos = eqsAtivos.length;
+  const nomeEq = new Map((c.b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
   const k = kpis360(o, comCentroOuTipo ? 0 : nAtivos, r.meses);
 
   const [ant0, ant1] = ind.periodoAnterior(ini, fimEf);
@@ -72,7 +79,8 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const grupos = porGrupo(o);
   const pctCorr = atual.pct_custo_corr ?? null;
   const metaCorr = ind.meta(ind.POR_ID.pct_custo_corr, metas);
-  const travados = travado(o, d.requisicoes).filter((e) => e.valor != null);
+  const etapasTravado = travado(o, d.requisicoes);
+  const travados = etapasTravado.filter((e) => e.valor != null);
   const totalTravado = travados.length ? travados.reduce((s, e) => s + (e.valor ?? 0), 0) : null;
 
   const conf = d.confTodos ?? d.conf;
@@ -163,7 +171,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
         <Termometro {...termometro} />
         <ParaOnde
           grupos={grupos}
-          planejadaPct={r.total ? (r.comPlano / r.total) * 100 : null}
+          planejadaPct={pctCorr != null ? 100 - pctCorr : null}
           metaPlanejada={metaCorr != null ? 100 - metaCorr : null}
           emergencial={r.emergencial}
           emergencialPct={r.total ? (r.emergencial / r.total) * 100 : null}
@@ -172,6 +180,13 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
       <p className="-mt-6 text-[12px] text-texto-3">
         O termômetro segue área, centro e tipo do filtro; o período do filtro vale só para os cartões de custo e o iceberg.
       </p>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Dna familias={dnaPorFamilia(o, nomeEq, 5)} />
+        <PorClasse dados={porCriticidade(o, eqsAtivos)} semIh08={c.b.equipamentos.dados == null} comFiltroCentroTipo={comCentroOuTipo} />
+        <Concentracao conc={concentracao(o)} nomeEq={nomeEq} campoEq={campoEq} />
+        <Travado etapas={etapasTravado} />
+      </div>
 
       <details className="rounded-cartao border border-borda bg-superficie">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-display text-[16px] font-medium [&::-webkit-details-marker]:hidden">

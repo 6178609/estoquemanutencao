@@ -3,9 +3,9 @@ import { brlCurto } from "@/lib/formato";
 /** Para onde vai: a maior classe de manutenção em destaque, as outras em blocos menores, e a régua da planejada. */
 export interface ParaOndeProps {
   grupos: { grupo: string; valor: number; pct: number }[];
-  /** planejada hoje (ordens com plano ÷ custo total), em % */
+  /** custo com plano hoje = 100% − custo sem plano (backlog, pct_custo_corr), em % */
   planejadaPct: number | null;
-  /** meta da planejada = 100% − meta do custo do backlog; null sem meta */
+  /** meta = 100% − meta do custo sem plano (backlog); null sem meta */
   metaPlanejada: number | null;
   emergencial: number;
   emergencialPct: number | null;
@@ -59,7 +59,7 @@ export function ParaOnde({ grupos, planejadaPct, metaPlanejada, emergencial, eme
       {planejadaPct != null && (
         <div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-[12.5px] text-texto-2">
-            <span>Planejada hoje × meta</span>
+            <span>Custo com plano hoje × meta</span>
             <span className="num">
               <b className="font-medium text-texto">{nf1.format(planejadaPct)}%</b>
               {metaPlanejada != null && <> · meta {nf1.format(metaPlanejada)}%</>}
