@@ -48,7 +48,7 @@ export function PorClasse({ dados, semIh08, comFiltroCentroTipo }: { dados: Crit
         )}
         {linhas.map((l) => (
           <div key={l.classe} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
-            <span className="num mb-1 text-[12px] text-texto-2">{brlCurto(l.medio)}</span>
+            <span className="num relative z-10 mb-1 rounded bg-superficie px-1 text-[12px] text-texto-2">{brlCurto(l.medio)}</span>
             <div className="w-full max-w-[56px] rounded-t-md" style={{ height: alt(l.medio), background: l.acimaDaMedia ? "var(--st-serio)" : "var(--serie-1)" }} />
           </div>
         ))}

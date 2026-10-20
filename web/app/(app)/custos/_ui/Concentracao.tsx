@@ -32,7 +32,7 @@ export function Concentracao({ conc, nomeEq, campoEq }: {
         <p className="mt-2 text-[13px] leading-snug text-texto-2">
           {poucos
             ? <>{nf1.format(pct)}% do custo <b className="font-medium text-texto">está no equipamento de maior custo</b>.</>
-            : <>{nf1.format(pct)}% do custo <b className="font-medium text-texto">está em apenas 10% dos ativos ({n0.format(conc.nAtivos)})</b>.</>}
+            : <>{nf1.format(pct)}% do custo <b className="font-medium text-texto">está em apenas 10% dos equipamentos com custo ({n0.format(conc.nAtivos)})</b>.</>}
         </p>
       </div>
 
@@ -58,15 +58,13 @@ export function Concentracao({ conc, nomeEq, campoEq }: {
             const campo = campoEq(t.equip);
             const nome = nomeEq.get(t.equip) ?? "";
             return (
-              <li key={t.equip} className="flex items-baseline justify-between gap-3 border-t border-borda py-2 text-[13px]">
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{campo || nome || t.equip}</div>
-                  <div className="truncate text-[12px] text-texto-3">{campo ? `${t.equip}${nome ? ` · ${nome}` : ""}` : t.equip}</div>
+              <li key={t.equip} className="border-t border-borda py-2 text-[13px]">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate font-medium">{campo || t.equip}</span>
+                  <span className="num shrink-0 font-medium">{brlCurto(t.custo)}</span>
                 </div>
-                <div className="shrink-0 text-right">
-                  <div className="num font-medium">{brlCurto(t.custo)}</div>
-                  <div className="num text-[12px] text-texto-3">{brlCurto(t.porOrdem)} por ordem</div>
-                </div>
+                {nome && <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-texto-3">{nome}</div>}
+                <div className="num mt-0.5 text-[12px] text-texto-3">{brlCurto(t.porOrdem)} por ordem</div>
               </li>
             );
           })}

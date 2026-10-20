@@ -46,12 +46,14 @@ describe("metas", () => {
 
     expect((await acoes.salvarCustoParada(12.567, 150)).erro).toBe("");
     expect((await acoes.salvarCustoParada(null, null)).erro).toBe("");
+    expect((await acoes.salvarCustoParada(0, 0)).erro).toBe("");
     expect(gravados.map((g) => [g.nome, g.itens, g.mesclar])).toEqual([
       ["metas_wcm.json", { _parametros: { custo_par: 12.57, pares_hora: 150 } }, true],
       ["metas_wcm.json", { _parametros: { custo_par: null, pares_hora: null } }, true],
+      ["metas_wcm.json", { _parametros: { custo_par: null, pares_hora: null } }, true],
     ]);
     expect((await acoes.salvarCustoParada(-1, 10)).erro).not.toBe("");
-    expect(gravados).toHaveLength(2);
+    expect(gravados).toHaveLength(3);
   });
   it("leitor não grava", async () => {
     editor = false;

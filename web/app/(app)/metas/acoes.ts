@@ -65,8 +65,11 @@ export async function salvarCustoParada(custoPar: number | null, paresHora: numb
   if (!u) return NEGADO;
   const erro = validarCustoParada(custoPar, paresHora);
   if (erro) return { erro, ok: "" };
-  const custo = custoPar == null ? null : Math.round(custoPar * 100) / 100;
-  return gravar({ _parametros: { custo_par: custo, pares_hora: paresHora } }, u.nome || u.login, true, "Custo da produção parada salvo.");
+  // 0 não é um valor: grava null (o leitor trata 0 como vazio), então zero apaga o campo
+  const custo = custoPar ? Math.round(custoPar * 100) / 100 || null : null;
+  const pares = paresHora || null;
+  return gravar({ _parametros: { custo_par: custo, pares_hora: pares } }, u.nome || u.login, true,
+    "Custo da produção parada salvo. Zero (ou vazio) deixa o campo sem valor.");
 }
 
 /** {centro: HH/semana | null} — null volta a usar a média apontada. */

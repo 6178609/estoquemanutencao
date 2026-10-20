@@ -15,7 +15,7 @@ export interface Kpis360Props {
   ativoAplica: boolean;
   medioOrdem: number | null;
   ordensComCusto: number;
-  backlog: { pct: number | null; meta: number | null; farol: Farol; preventivaPct: number | null; dica: string };
+  backlog: { pct: number | null; meta: number | null; farol: Farol; comPlanoPct: number | null; dica: string };
   travado: number | null;
 }
 
@@ -66,7 +66,7 @@ export function Kpis360(p: Kpis360Props) {
           <SeloFarol farol={backlog.farol} compacto />
           <span>meta {backlog.meta != null ? pctTxt(backlog.meta) : "—"}</span>
         </span>
-        <span className="mt-1 block">preventiva hoje {pctTxt(backlog.preventivaPct)}</span>
+        <span className="mt-1 block">com plano hoje {pctTxt(backlog.comPlanoPct)}</span>
         <span aria-hidden className="relative mt-2 block h-1.5 rounded-full bg-superficie-3">
           <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${limita(backlog.pct ?? 0)}%`, background: "var(--st-serio)" }} />
           {backlog.meta != null && (
@@ -76,7 +76,7 @@ export function Kpis360(p: Kpis360Props) {
       </Cartao>
 
       <Cartao filete="var(--st-serio)" rotulo="Total travado" valor={brlCurto(p.travado)}>
-        <span>pendente de aprovação, aberto ou sem confirmação</span>
+        <span>pendente de aprovação, aberto ou sem confirmação; inclui requisições da fábrica inteira</span>
       </Cartao>
     </div>
   );

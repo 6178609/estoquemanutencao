@@ -29,7 +29,7 @@ export function Dna({ familias }: { familias: Familias }) {
           <div key={f.familia} title={`${f.familia} · ${brl(f.valor)}`}
             className={clsx("flex min-w-0 flex-col justify-between rounded-md p-2.5", i === 0 && "row-span-2")}
             style={{ background: FUNDO[i] ?? FUNDO[FUNDO.length - 1], color: TEXTO[i] ?? TEXTO[TEXTO.length - 1] }}>
-            <span className="truncate text-[12.5px] font-medium">{f.familia}</span>
+            <span className="line-clamp-2 break-words text-[12.5px] font-medium leading-tight">{f.familia}</span>
             <span>
               <span className="num block font-display text-[18px] font-medium leading-none">{nf1.format(f.pct)}%</span>
               <span className="num mt-1 block text-[11.5px] opacity-90">{brlCurto(f.valor)}</span>

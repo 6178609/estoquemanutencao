@@ -160,7 +160,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
           ordensComCusto={k.ordensComCusto}
           backlog={{
             pct: pctCorr, meta: metaCorr, farol: ind.farol(ind.POR_ID.pct_custo_corr, pctCorr, metaCorr),
-            preventivaPct: grupos.find((g) => g.grupo === "Planejada")?.pct ?? null, dica: ind.POR_ID.pct_custo_corr.formula,
+            comPlanoPct: pctCorr != null ? 100 - pctCorr : null, dica: ind.POR_ID.pct_custo_corr.formula,
           }}
           travado={totalTravado}
         />
