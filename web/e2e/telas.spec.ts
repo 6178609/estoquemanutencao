@@ -4,11 +4,21 @@ import { entrarNaDemo, telaAbriu } from "./apoio";
 
 // as telas mais usadas: cada uma abre, sem erro na página e sem bloqueio da CSP
 const TELAS = ["/", "/painel", "/estoque", "/ordens", "/equipamentos", "/mro", "/indicadores_sim", "/indicadores_sim?visao=roadmap", "/indicadores_sim?visao=causas",
-  "/confiabilidade", "/mao_de_obra?visao=Apontamentos (IW47)", "/saude", "/planos", "/semanal", "/custos", "/dados", "/metas"];
+  "/confiabilidade", "/mao_de_obra?visao=Apontamentos (IW47)", "/saude", "/planos", "/semanal", "/custos", "/custos?cmes=2026-01", "/dados", "/metas"];
 
 test("telas principais abrem sem erro", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   for (const t of TELAS) await telaAbriu(page, t);
+  expect(erros).toEqual([]);
+});
+
+test("termômetro do custo: a seta de mês anterior troca o mês", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/custos");
+  const mesDoTermometro = page.getByText(/^[A-ZÇ][a-zç]+ de \d{4}$/).first();
+  const antes = await mesDoTermometro.textContent();
+  await page.getByRole("link", { name: "Mês anterior" }).click();
+  await expect(mesDoTermometro).not.toHaveText(antes ?? "");
   expect(erros).toEqual([]);
 });
 

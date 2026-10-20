@@ -6,6 +6,8 @@ import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
 import * as ind from "@/lib/wcm/indicadores";
 
+import { validarCustoParada } from "./validacao";
+
 /**
  * Gravações da aba Metas e parâmetros — o metas_wcm.json:
  *   "<id do indicador>" → {"meta": x | ""} (mesclar) · "_parametros" → {"horas_semana": x} (mesclar)
@@ -55,6 +57,19 @@ export async function salvarJornada(horas: number): Promise<Resposta> {
   if (!u) return NEGADO;
   if (!numeroValido(horas, 80) || horas < 1) return { erro: "A jornada deve ficar entre 1 e 80 horas por semana.", ok: "" };
   return gravar({ _parametros: { horas_semana: horas } }, u.nome || u.login, true, "Jornada salva.");
+}
+
+/** Custo da produção parada: R$ por par e pares por hora (null apaga). Mescla: não mexe em horas_semana. */
+export async function salvarCustoParada(custoPar: number | null, paresHora: number | null): Promise<Resposta> {
+  const u = await autorizar("metas", true);
+  if (!u) return NEGADO;
+  const erro = validarCustoParada(custoPar, paresHora);
+  if (erro) return { erro, ok: "" };
+  // 0 não é um valor: grava null (o leitor trata 0 como vazio), então zero apaga o campo
+  const custo = custoPar ? Math.round(custoPar * 100) / 100 || null : null;
+  const pares = paresHora || null;
+  return gravar({ _parametros: { custo_par: custo, pares_hora: pares } }, u.nome || u.login, true,
+    "Custo da produção parada salvo. Zero (ou vazio) deixa o campo sem valor.");
 }
 
 /** {centro: HH/semana | null} — null volta a usar a média apontada. */

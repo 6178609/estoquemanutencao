@@ -8,7 +8,8 @@ import { useMemo, useState, useTransition } from "react";
 import { Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 
-import { restaurarMetas, salvarCapacidades, salvarJornada, salvarMetas, salvarTipos, type Resposta } from "./acoes";
+import { restaurarMetas, salvarCapacidades, salvarCustoParada, salvarJornada, salvarMetas, salvarTipos, type Resposta } from "./acoes";
+import { validarCustoParada } from "./validacao";
 
 /** Editores da aba Metas e parâmetros: tabelas com a coluna editável, contagem do que mudou e "Salvar". */
 
@@ -125,6 +126,41 @@ export function EditorJornada({ horas, edita }: { horas: number; edita: boolean 
         )}
         {!valido && <span className="pb-3 text-[12.5px] text-[var(--st-critico)]">Entre 1 e 80 horas.</span>}
       </div>
+      {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+export function EditorCustoParada({ custoPar, paresHora, edita }: { custoPar: number | null; paresHora: number | null; edita: boolean }) {
+  const [txt, setTxt] = useState({ custo: mostrar(custoPar), pares: mostrar(paresHora) });
+  const { pend, msg, rodar } = useSalvar();
+  const custo = ler(txt.custo), pares = ler(txt.pares);
+  const erro = validarCustoParada(custo, pares);
+  const mudou = !igual(custo, custoPar) || !igual(pares, paresHora);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Custo do par (R$)</span>
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} inputMode="decimal" placeholder="não definido"
+            disabled={!edita} value={txt.custo} onChange={(e) => setTxt({ ...txt, custo: e.target.value })} />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Pares por hora</span>
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} inputMode="decimal" placeholder="não definido"
+            disabled={!edita} value={txt.pares} onChange={(e) => setTxt({ ...txt, pares: e.target.value })} />
+        </label>
+        {edita && (
+          <button className={BOTAO_PRIMARIO} disabled={pend || !!erro || !mudou} onClick={() => rodar(() => salvarCustoParada(custo, pares))}>
+            {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
+          </button>
+        )}
+      </div>
+      <p className="text-[13px] leading-relaxed text-texto-3">
+        Custo da produção parada = horas paradas × pares por hora × custo do par. Usado no iceberg da aba Custos.
+      </p>
+      {erro && <p className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
   );

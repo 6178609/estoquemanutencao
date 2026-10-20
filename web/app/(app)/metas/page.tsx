@@ -6,9 +6,10 @@ import { Cabecalho } from "@/components/ui";
 import { podeEditar } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { contexto, dados } from "@/lib/wcm/contexto";
+import { custoParadaDe } from "@/lib/wcm/custo360";
 import * as ind from "@/lib/wcm/indicadores";
 
-import { EditorCapacidade, EditorJornada, EditorMetas, EditorTipos, type LinhaCapacidade, type LinhaMeta, type LinhaTipo } from "./Editores";
+import { EditorCapacidade, EditorCustoParada, EditorJornada, EditorMetas, EditorTipos, type LinhaCapacidade, type LinhaMeta, type LinhaTipo } from "./Editores";
 
 export const metadata: Metadata = { title: "Metas e parâmetros" };
 export const dynamic = "force-dynamic";
@@ -59,6 +60,7 @@ function SecaoMetas({ cad, edita }: { cad: Record<string, Record<string, unknown
 
 async function SecaoCapacidade({ c, edita }: { c: Awaited<ReturnType<typeof contexto>>; edita: boolean }) {
   const horas = ind.horasSemanaDe(c.cad.metas);
+  const { custoPar, paresHora } = custoParadaDe(c.cad.metas);
   // sem filtros: a fábrica toda; média apontada sem a capacidade configurada
   const d = await dados(c, { areas: [], centros: [], tipos: [] });
   const semCfg: ind.Dados = { ...d, capacidade: {}, memo: new Map() };
@@ -74,6 +76,9 @@ async function SecaoCapacidade({ c, edita }: { c: Awaited<ReturnType<typeof cont
     <div className="space-y-10">
       <Secao titulo="Jornada semanal" destaque="por técnico" sub="Base da utilização da mão de obra e da capacidade sugerida (o Gerenciador de HH pode ter jornada própria por pessoa).">
         <EditorJornada horas={horas} edita={edita} />
+      </Secao>
+      <Secao titulo="Custo da produção parada" destaque="por hora parada" sub="Valor de cada hora de produção perdida. Sem os dois parâmetros, o iceberg da aba Custos não mostra a linha de parada.">
+        <EditorCustoParada custoPar={custoPar} paresHora={paresHora} edita={edita} />
       </Secao>
       <Secao titulo="Capacidade semanal" destaque="por centro de trabalho (HH/semana)"
         sub={`Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.${d.equipe ? ` Equipe da Gestão de HH: ${n0.format(d.equipe.length)} pessoas, ${n0.format(tec.length)} técnicos de execução.` : ""}`}>
