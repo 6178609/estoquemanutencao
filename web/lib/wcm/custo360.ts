@@ -64,6 +64,14 @@ export function mesDoTermometro(param: string, ini: Dia, fim: Dia): { ano: numbe
   return { ano, mes };
 }
 
+/** Mês (ano, mês) limitado aos meses de [ini, fim]: links do termômetro nunca apontam para fora do IW38. */
+export function mesNoIntervalo(ano: number, mes: number, ini: Dia, fim: Dia): { ano: number; mes: number } {
+  const a = partes(ini), b = partes(fim);
+  const lo = a.ano * 12 + (a.mes - 1), hi = b.ano * 12 + (b.mes - 1);
+  const k = Math.min(Math.max(ano * 12 + (mes - 1), lo), hi);
+  return { ano: Math.floor(k / 12), mes: (k % 12) + 1 };
+}
+
 /** Custo de cada dia do mês (todos os dias; dia sem custo = 0). Estorno fica negativo: o componente aplica o mínimo. */
 export function porDia(o: OrdemCusto[], ano: number, mes: number): { dia: number; valor: number }[] {
   const porData = new Map<Dia, number>();

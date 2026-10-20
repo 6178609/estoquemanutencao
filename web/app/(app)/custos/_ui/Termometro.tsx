@@ -102,7 +102,7 @@ export function Termometro(p: TermometroProps) {
           {p.dias.map((d) => {
             const f = d.valor > 0 ? faixaDia(d.valor) : null;
             return (
-              <div key={d.dia} title={`${d.dia} · ${brl(d.valor)}`} style={corDaFaixa(f)}
+              <div key={d.dia} role="img" aria-label={`${d.dia} de ${NOMES[p.mes - 1]}: ${brl(d.valor)}`} title={`${d.dia} · ${brl(d.valor)}`} style={corDaFaixa(f)}
                 className="flex min-h-[3.4rem] min-w-0 flex-col items-center justify-between rounded-md px-0.5 py-1 text-center">
                 <span className="text-[10px] font-medium opacity-80">{d.dia}</span>
                 <span className="num break-words text-[10px] leading-tight">{d.valor > 0 ? brlCurto(d.valor) : "–"}</span>
@@ -115,7 +115,7 @@ export function Termometro(p: TermometroProps) {
           {p.meses.map((v, i) => {
             const f = v > 0 ? faixaMes(v) : null;
             return (
-              <Link key={CURTO[i]} href={nav.mesHrefs[i]} prefetch={false} scroll={false} style={corDaFaixa(f)} title={`${NOMES[i]} · ${brl(v)}`}
+              <Link key={CURTO[i]} href={nav.mesHrefs[i]} prefetch={false} scroll={false} style={corDaFaixa(f)} title={`${NOMES[i]} · ${brl(v)}`} aria-label={`${NOMES[i]}: ${brl(v)}`}
                 className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-between rounded-md px-1 py-2 text-center hover:ring-2 hover:ring-marca-500">
                 <span className="text-[11px] font-medium capitalize opacity-80">{CURTO[i]}</span>
                 <span className="num break-words text-[11px] leading-tight">{v > 0 ? brlCurto(v) : "–"}</span>

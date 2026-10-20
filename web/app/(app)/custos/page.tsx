@@ -6,7 +6,7 @@ import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto } from "@/lib/formato";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
-import { custoParadaDe, iceberg, kpis360, mesDoTermometro, porDia, porGrupo, porMesAno, travado } from "@/lib/wcm/custo360";
+import { custoParadaDe, iceberg, kpis360, mesDoTermometro, mesNoIntervalo, porDia, porGrupo, porMesAno, travado } from "@/lib/wcm/custo360";
 import { barra, contexto, dados, resultados } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { dia, inicioDoMes, partes, somarMeses, type Dia } from "@/lib/wcm/util";
@@ -54,17 +54,17 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const { ini, fim } = c.f;
   const hoje = d.hoje;
   const fimEf = Math.min(fim, hoje);
-  const o = ordensDoPeriodo(d.ordens, ini, fim, c.tipos);
+  const o = ordensDoPeriodo(d.ordens, ini, fimEf, c.tipos);
   if (!o.length) return <PaginaWcm barra={barra(c)}>{titulo}<p className="text-[14px] text-texto-3">Sem ordens no recorte.</p></PaginaWcm>;
 
   // ---- topo: KPIs, iceberg, termômetro e para onde vai ----
-  const r = resumo(o, ini, fim);
+  const r = resumo(o, ini, fimEf);
   const comCentroOuTipo = c.f.centros.length > 0 || c.f.setores.length > 0 || c.f.tipos.length > 0;
   const nAtivos = (c.b.equipamentos.dados ?? [])
     .filter((e) => !e.desativado && (!c.f.areas.length || c.f.areas.includes(e.localizacao))).length;
   const k = kpis360(o, comCentroOuTipo ? 0 : nAtivos, r.meses);
 
-  const [ant0, ant1] = ind.periodoAnterior(ini, fim);
+  const [ant0, ant1] = ind.periodoAnterior(ini, fimEf);
   const antes = ordensDoPeriodo(d.ordens, ant0, ant1, c.tipos);
   const totalAntes = antes.reduce((s, x) => s + x.custoReal, 0);
   const variacao = antes.length && totalAntes ? ((r.total - totalAntes) / Math.abs(totalAntes)) * 100 : null;
@@ -98,12 +98,14 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const meses = porMesAno(ordensTerm, anoAlvo);
   const somaDias = (xs: { valor: number }[]) => xs.reduce((s, x) => s + x.valor, 0);
   const sIni = partes(spanIniEf), sFim = partes(spanFim);
+  const noSpan = (a: number, m: number) => mesNoIntervalo(a, m, spanIniEf, spanFim);
   const cursor = chaveMes(anoAlvo, mes);
   const temAnt = modo === "mensal" ? cursor - 1 >= chaveMes(sIni.ano, sIni.mes) : anoAlvo - 1 >= sIni.ano;
   const temProx = modo === "mensal" ? cursor + 1 <= chaveMes(sFim.ano, sFim.mes) : anoAlvo + 1 <= sFim.ano;
   const vizinhoMes = (delta: number) => {
     const k2 = cursor + delta;
-    return hrefCom(params, { cmes: mesParam(Math.floor(k2 / 12), (k2 % 12) + 1) });
+    const q = noSpan(Math.floor(k2 / 12), (k2 % 12) + 1);
+    return hrefCom(params, { cmes: mesParam(q.ano, q.mes) });
   };
   const termometro = {
     ano: anoAlvo, mes, modo, dias, meses,
@@ -111,19 +113,19 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
     anoAnteriorTotal: porMesAno(ordensTerm, anoAlvo - 1).reduce((s, v) => s + v, 0),
     anoAnterior: anoAlvo - 1,
     nav: {
-      ant: temAnt ? (modo === "mensal" ? vizinhoMes(-1) : hrefCom(params, { cmes: mesParam(anoAlvo - 1, mes), cvis: "anual" })) : null,
-      prox: temProx ? (modo === "mensal" ? vizinhoMes(1) : hrefCom(params, { cmes: mesParam(anoAlvo + 1, mes), cvis: "anual" })) : null,
+      ant: temAnt ? (modo === "mensal" ? vizinhoMes(-1) : hrefCom(params, { cmes: mesParam(noSpan(anoAlvo - 1, mes).ano, noSpan(anoAlvo - 1, mes).mes), cvis: "anual" })) : null,
+      prox: temProx ? (modo === "mensal" ? vizinhoMes(1) : hrefCom(params, { cmes: mesParam(noSpan(anoAlvo + 1, mes).ano, noSpan(anoAlvo + 1, mes).mes), cvis: "anual" })) : null,
       mensal: hrefCom(params, { cmes: mesParam(anoAlvo, mes), cvis: null }),
       anual: hrefCom(params, { cmes: mesParam(anoAlvo, mes), cvis: "anual" }),
-      mesHrefs: Array.from({ length: 12 }, (_, i) => hrefCom(params, { cmes: mesParam(anoAlvo, i + 1), cvis: null })),
+      mesHrefs: Array.from({ length: 12 }, (_, i) => hrefCom(params, { cmes: mesParam(noSpan(anoAlvo, i + 1).ano, noSpan(anoAlvo, i + 1).mes), cvis: null })),
     },
   };
 
   // ---- detalhes (como antes) ----
   const emerg = ind.temEmergencial(d);
   // custo por mês: o período, com no mínimo os 12 meses até o fim dele (contexto da tendência)
-  const iniMes = Math.min(ini, somarMeses(inicioDoMes(fim), -11));
-  const mes12 = porMes(ordensDoPeriodo(d.ordens, iniMes, fim, c.tipos), iniMes, fim);
+  const iniMes = Math.min(ini, somarMeses(inicioDoMes(fimEf), -11));
+  const mes12 = porMes(ordensDoPeriodo(d.ordens, iniMes, fimEf, c.tipos), iniMes, fimEf);
   const rotMes = mes12.meses.map(ind.mesTxt);
   const orc = ind.meta(ind.POR_ID.custo, metas);
   const porTipo = custoPor(o, (x) => x.tipoNome, 12);

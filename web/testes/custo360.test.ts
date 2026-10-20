@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { OrdemCusto } from "@/app/(app)/custos/calculo";
 import {
-  concentracao, custoParadaDe, dnaPorFamilia, iceberg, kpis360, mesDoTermometro, porCriticidade, porDia, porGrupo, porMesAno, travado,
+  concentracao, custoParadaDe, dnaPorFamilia, iceberg, kpis360, mesDoTermometro, mesNoIntervalo, porCriticidade, porDia, porGrupo, porMesAno, travado,
 } from "@/lib/wcm/custo360";
 import type { Equipamento, Requisicao } from "@/lib/wcm/preparo";
 import type { Quebra } from "@/lib/wcm/indicadores";
@@ -90,6 +90,19 @@ describe("mesDoTermometro", () => {
   });
   it("mês fora do intervalo cai no mês do fim", () => {
     expect(mesDoTermometro("2020-01", ini, fim)).toEqual({ ano: 2026, mes: 10 });
+  });
+});
+
+describe("mesNoIntervalo", () => {
+  const ini = D(2024, 6, 15), fim = D(2026, 10, 20);
+  it("mês dentro do intervalo fica como está", () => {
+    expect(mesNoIntervalo(2025, 3, ini, fim)).toEqual({ ano: 2025, mes: 3 });
+  });
+  it("ano anterior antes do início do IW38 vai para o primeiro mês (Jun/2024)", () => {
+    expect(mesNoIntervalo(2023, 3, ini, fim)).toEqual({ ano: 2024, mes: 6 });
+  });
+  it("mês depois do fim do IW38 vai para o último mês (Out/2026)", () => {
+    expect(mesNoIntervalo(2027, 1, ini, fim)).toEqual({ ano: 2026, mes: 10 });
   });
 });
 
