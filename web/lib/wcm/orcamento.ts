@@ -48,7 +48,7 @@ export interface LinhaOrcamento {
 export interface ResultadoOrcamento {
   linhas: LinhaOrcamento[];
   totais: { disponivel: number | null; gasto: number; saldo: number | null; aEntrar: number | null };
-  /** Requisições que contam mas não têm data (não entram em nenhum mês). */
+  /** Requisições (aprovada ou pendente, com total) sem data de envio: não entram em nenhum mês, em qualquer período. */
   semData: number;
   /** Nenhuma requisição com tipo (base sem a coluna): a tela avisa. */
   semTipo: boolean;

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { OrdemCusto } from "@/app/(app)/custos/calculo";
+import { lerJsonDemo } from "@/lib/dados/demo";
 import {
   chaveMes, entradaDaRequisicao, faseDaRequisicao, orcamentoDe, orcamentoPorMes, tipoDaRequisicao,
 } from "@/lib/wcm/orcamento";
 import { prepararRequisicoes, type Requisicao } from "@/lib/wcm/preparo";
-import { dia, type Dia } from "@/lib/wcm/util";
+import { dia, hoje, type Dia } from "@/lib/wcm/util";
 
 // dados fictícios
 const D = (a: number, m: number, d: number): Dia => dia(a, m, d)!;
@@ -34,6 +35,7 @@ describe("tipo da requisição", () => {
     for (const s of ["Material", "MAT"]) expect(tipoDaRequisicao(s), s).toBe("material");
     expect(tipoDaRequisicao("")).toBeNull();
     expect(tipoDaRequisicao("  ")).toBeNull();
+    expect(tipoDaRequisicao("Submaterial")).toBeNull();
   });
 });
 
@@ -121,5 +123,13 @@ describe("prepararRequisicoes com tipo e fase", () => {
     expect(r.requisicao).toBe("R9");
     expect(r.tipo).toBe("material");
     expect(r.fase).toBe("fora");
+  });
+});
+
+describe("demonstração do orçamento", () => {
+  it("o cadastro da demo tem orçamento para o mês de hoje", () => {
+    const cad = lerJsonDemo("metas_wcm.json") as unknown as Parameters<typeof orcamentoDe>[0];
+    const mesHoje = chaveMes(hoje());
+    expect(orcamentoDe(cad).get(mesHoje)).toBe(50000);
   });
 });

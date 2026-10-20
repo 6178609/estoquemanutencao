@@ -127,7 +127,7 @@ export function tipoDaRequisicao(texto: string): TipoReq | null {
   const k = chave(texto);
   if (!k) return null;
   if (k.includes("SERVI")) return "servico";
-  if (k.includes("MAT")) return "material";
+  if (k.startsWith("MAT")) return "material";
   return null;
 }
 
@@ -147,7 +147,7 @@ export interface Requisicao {
 
 export function prepararRequisicoes(cru: Crua[], hoje: Dia): Requisicao[] {
   const c = mapear(colunasDe(cru), {
-    Tipo: ["MATERIAL OU SERVI", "SERVI.O.{0,3}MATERIAL", "TIPO DE (ITEM|COMPRA|REQ)", "^TIPO$"],
+    Tipo: ["^MATERIAL OU SERVI", "^SERVI.O.{0,3}MATERIAL", "TIPO DE (ITEM|COMPRA|REQ)", "^TIPO$"],
     Requisicao: ["N(UMERO)? DA REQ", "REQUISI"], PO: ["NUMERO DA PO", "PEDIDO", "\\bPO\\b"], Status: ["^STATUS$", "STATUS"],
     Aprovador: ["APROVADOR ATUAL", "APROVADOR"], Proprietario: ["PROPRIETARIO"],
     Solicitante: ["SOLICITADO POR", "SOLICITANTE", "REQUISITANTE"], Itens: ["^ITENS$", "ITENS", "DESCRICAO"],
