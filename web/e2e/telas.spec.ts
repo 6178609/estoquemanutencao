@@ -82,3 +82,33 @@ test("custos: o filtro Pessoas (requisições) marca quem entra e põe o endere�
   await expect(page).toHaveURL(/[?&]pes=/);
   expect(erros).toEqual([]);
 });
+
+// Suporte Técnico: guias com busca, diagnóstico guiado e biblioteca (dados fictícios da demonstração)
+test("suporte técnico: guias, diagnóstico e biblioteca abrem; a busca acha o guia de rolamentos", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte");
+  await telaAbriu(page, "/suporte?visao=diagnostico&tipo=motor_eletrico&sintoma=aquecimento");
+  await expect(page.getByRole("heading", { name: "Causas prováveis" })).toBeVisible();
+  await telaAbriu(page, "/suporte?visao=biblioteca");
+  await telaAbriu(page, "/suporte?q=rolamento");
+  await expect(page.getByRole("heading", { name: "Rolamentos e mancais" }).first()).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
+test("suporte técnico no celular: diagnóstico com tipo inválido volta à escolha e a tela não rola de lado", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte?visao=diagnostico&tipo=xyz");
+  await expect(page.getByText("Tipo de equipamento não reconhecido")).toBeVisible();
+  await expect(page.getByText("1. Qual é o equipamento?")).toBeVisible();
+  const largura = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(largura).toBeLessThanOrEqual(1);
+  expect(erros).toEqual([]);
+});
+
+test("suporte técnico: a biblioteca mostra o envio de documento para o editor da demonstração", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte?visao=biblioteca");
+  await expect(page.getByRole("button", { name: "Adicionar à biblioteca" })).toBeVisible();
+  expect(erros).toEqual([]);
+});
