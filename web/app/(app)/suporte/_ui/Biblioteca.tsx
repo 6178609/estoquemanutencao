@@ -16,12 +16,11 @@ const LIMITE_ACERVO = 20;
 const TIPO_ROTULO: Record<ItemAcervo["tipo"], string> = {
   manual: "Manual", catalogo: "Catálogo", guia: "Guia", norma: "Norma", calculadora: "Calculadora", curso: "Curso", artigo: "Artigo",
 };
-const IDIOMA_ROTULO: Record<ItemAcervo["idioma"], string> = { pt: "Português", en: "Inglês", es: "Espanhol" };
 const nomeArea = (id: Area) => AREAS.find((a) => a.id === id)?.titulo ?? id;
 const AREAS_OPCOES = Object.fromEntries(AREAS.map((a) => [a.id, a.titulo]));
 const LISTA = "divide-y divide-borda overflow-hidden rounded-cartao border border-borda bg-superficie";
 
-export interface FiltrosBiblioteca { q: string; area?: Area; tipo?: ItemAcervo["tipo"]; idioma?: ItemAcervo["idioma"]; mais: boolean }
+export interface FiltrosBiblioteca { q: string; area?: Area; tipo?: ItemAcervo["tipo"]; mais: boolean }
 
 /** Endereço da biblioteca com os filtros atuais e, se `mais`, a lista do acervo inteira. */
 function hrefBiblioteca(f: FiltrosBiblioteca, mais: boolean): string {
@@ -29,7 +28,6 @@ function hrefBiblioteca(f: FiltrosBiblioteca, mais: boolean): string {
   if (f.q) p.set("q", f.q);
   if (f.area) p.set("area", f.area);
   if (f.tipo) p.set("tipo", f.tipo);
-  if (f.idioma) p.set("idioma", f.idioma);
   if (mais) p.set("mais", "1");
   return `/suporte?${p.toString()}`;
 }
@@ -40,8 +38,8 @@ function hrefBiblioteca(f: FiltrosBiblioteca, mais: boolean): string {
  * documentos dos equipamentos (leitura, com link para a ficha).
  */
 export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boolean; filtros: FiltrosBiblioteca }) {
-  const { q, area, tipo, idioma, mais } = filtros;
-  const acervo = buscarAcervo(q, { area, tipo, idioma });
+  const { q, area, tipo, mais } = filtros;
+  const acervo = buscarAcervo(q, { area, tipo });
   const mostrar = mais ? acervo : acervo.slice(0, LIMITE_ACERVO);
   const docs = (await documentosTecnicos(area)).filter((d) => casaBusca(normalizarBusca(`${d.titulo} ${d.nome ?? ""}`), q));
   const verEquip = podeVer(u, "equipamentos");
@@ -56,7 +54,6 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
         <Campo rotulo="Buscar na biblioteca" name="q" type="search" defaultValue={q} maxLength={120} placeholder="Ex.: SKF, NR-10, lubrificação" />
         <Seletor rotulo="Área" name="area" opcoes={AREAS_OPCOES} vazio="Todas as áreas" defaultValue={area ?? ""} />
         <Seletor rotulo="Tipo" name="tipo" opcoes={TIPO_ROTULO} vazio="Todos os tipos" defaultValue={tipo ?? ""} />
-        <Seletor rotulo="Idioma" name="idioma" opcoes={IDIOMA_ROTULO} vazio="Todos os idiomas" defaultValue={idioma ?? ""} />
         <button type="submit" className={BOTAO_SECUNDARIO}>Filtrar</button>
       </form>
 
@@ -79,7 +76,6 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-texto-3">
                   <span className="text-acao">{TIPO_ROTULO[it.tipo]}</span>
                   <span>· {nomeArea(it.area)}</span>
-                  <span>· {IDIOMA_ROTULO[it.idioma]}</span>
                 </div>
                 <a href={it.url} target="_blank" rel="noopener noreferrer" className="block break-words font-medium text-texto hover:text-acao">
                   {it.titulo}

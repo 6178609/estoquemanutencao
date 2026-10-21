@@ -3,10 +3,9 @@ import { describe, expect, it } from "vitest";
 import { ACERVO, buscarAcervo } from "@/lib/suporte/acervo";
 import { AREAS } from "@/lib/suporte/guias";
 
-// só links públicos: a validade de cada item (https, único, área/tipo/idioma válidos, textos preenchidos)
+// só links públicos: a validade de cada item (https, único, área/tipo válidos, só português, textos preenchidos)
 const AREAS_VALIDAS = new Set<string>(AREAS.map((a) => a.id));
 const TIPOS = new Set(["manual", "catalogo", "guia", "norma", "calculadora", "curso", "artigo"]);
-const IDIOMAS = new Set(["pt", "en", "es"]);
 
 describe("acervo de referência: validade dos itens", () => {
   it("há itens e todos os links são https e únicos", () => {
@@ -15,11 +14,11 @@ describe("acervo de referência: validade dos itens", () => {
     expect(new Set(ACERVO.map((x) => x.url)).size).toBe(ACERVO.length);
   });
 
-  it("área, tipo e idioma são valores válidos", () => {
+  it("área e tipo são valores válidos", () => {
     for (const it of ACERVO) {
       expect(AREAS_VALIDAS.has(it.area), `área inválida em ${it.url}`).toBe(true);
       expect(TIPOS.has(it.tipo), `tipo inválido em ${it.url}`).toBe(true);
-      expect(IDIOMAS.has(it.idioma), `idioma inválido em ${it.url}`).toBe(true);
+      expect(it.idioma, `não está em português: ${it.url}`).toBe("pt");
     }
   });
 
@@ -53,7 +52,7 @@ describe("buscarAcervo", () => {
     expect(buscarAcervo("zzzqqxx")).toEqual([]);
   });
 
-  it("filtra por área, tipo e idioma (sozinhos e juntos)", () => {
+  it("filtra por área e tipo (sozinhos e juntos)", () => {
     const eletrica = buscarAcervo("", { area: "eletrica" });
     expect(eletrica.length).toBeGreaterThan(0);
     expect(eletrica.every((x) => x.area === "eletrica")).toBe(true);
@@ -62,17 +61,14 @@ describe("buscarAcervo", () => {
     expect(normas.length).toBeGreaterThan(0);
     expect(normas.every((x) => x.tipo === "norma")).toBe(true);
 
-    const pt = buscarAcervo("", { idioma: "pt" });
-    expect(pt.length).toBeGreaterThan(0);
-    expect(pt.every((x) => x.idioma === "pt")).toBe(true);
-
-    const juntos = buscarAcervo("", { area: "seguranca", tipo: "norma", idioma: "pt" });
-    expect(juntos.every((x) => x.area === "seguranca" && x.tipo === "norma" && x.idioma === "pt")).toBe(true);
+    const juntos = buscarAcervo("", { area: "seguranca", tipo: "norma" });
+    expect(juntos.every((x) => x.area === "seguranca" && x.tipo === "norma")).toBe(true);
   });
 
-  it("combina busca e filtro", () => {
-    const achados = buscarAcervo("SKF", { idioma: "en" });
+  it("a busca acha material de fabricante (SKF) e combina com o filtro de área", () => {
+    const achados = buscarAcervo("SKF");
     expect(achados.length).toBeGreaterThan(0);
-    expect(achados.every((x) => x.idioma === "en")).toBe(true);
+    expect(achados.every((x) => `${x.titulo} ${x.fonte} ${x.descricao}`.toUpperCase().includes("SKF"))).toBe(true);
+    expect(buscarAcervo("SKF", { area: "mecanica" }).length).toBeGreaterThan(0);
   });
 });

@@ -5,6 +5,9 @@ import { Campo } from "@/components/Campos";
 import { Aviso, Secao } from "@/components/PaginaWcm";
 import { BOTAO_SECUNDARIO, Pilula } from "@/components/ui";
 import { AREAS, GUIAS, buscarGuias, guiaPorId, type Area, type Guia } from "@/lib/suporte/guias";
+import { MODELO_DO_GUIA, pecasComoMarcadores } from "@/lib/suporte/modelos3d";
+
+import { Visualizador3D } from "./3d/Visualizador3D";
 
 import { hrefSuporte, pilula } from "./url";
 
@@ -71,6 +74,7 @@ const SECOES: { chave: keyof Pick<Guia, "sintomas" | "causas" | "verificar" | "a
 /** Um guia aberto: seções, textos, links internos e os guias relacionados da mesma área. */
 function GuiaAberto({ guia: g, q, area }: { guia: Guia; q: string; area?: Area }) {
   const relacionados = GUIAS.filter((x) => x.area === g.area && x.id !== g.id).slice(0, 6);
+  const modelo3d = MODELO_DO_GUIA[g.id];
   return (
     <article className="space-y-8">
       <Link prefetch={false} href={hrefSuporte("guias", { q, area })} className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
@@ -81,6 +85,10 @@ function GuiaAberto({ guia: g, q, area }: { guia: Guia; q: string; area?: Area }
         <h2 className="font-display text-[26px] font-medium tracking-[-0.02em] text-texto">{g.titulo}</h2>
         <p className="max-w-3xl text-[15px] text-texto-2">{g.resumo}</p>
       </header>
+
+      {modelo3d && (
+        <Visualizador3D modelo={modelo3d} chave={`guia/${g.id}`} marcadores={pecasComoMarcadores(modelo3d)} rotulo="Peças no modelo" />
+      )}
 
       {SECOES.map((s) => {
         const itens = g[s.chave];

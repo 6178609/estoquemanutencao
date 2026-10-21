@@ -6,10 +6,11 @@ import { BOTAO_SECUNDARIO, Cartao } from "@/components/ui";
 import { podeVer, type Usuario } from "@/lib/auth/acesso";
 import { guiaPorId } from "@/lib/suporte/guias";
 import { TIPOS_EQUIPAMENTO, diagnosticar, type Sintoma } from "@/lib/suporte/diagnostico";
+import { MODELO_DO_TIPO, marcadoresDe } from "@/lib/suporte/modelos3d";
 
 import { HistoricoEquipamento } from "./HistoricoEquipamento";
+import { Visualizador3D } from "./3d/Visualizador3D";
 import { hrefSuporte, type Params, um } from "./url";
-
 /** Diagnóstico guiado: tipo → sintoma → causas, verificações e aviso; com equipamento válido, o histórico dele. */
 export async function Diagnostico({ params, u }: { params: Params; u: Usuario }) {
   const tipoId = um(params, "tipo");
@@ -103,6 +104,9 @@ export async function Diagnostico({ params, u }: { params: Params; u: Usuario })
                   })}
                 </ul>
               </div>
+            )}
+            {MODELO_DO_TIPO[tipo.id] && (
+              <Visualizador3D modelo={MODELO_DO_TIPO[tipo.id]!} chave={`${tipo.id}/${sintoma.id}`} marcadores={marcadoresDe(tipo.id, sintoma.id)} />
             )}
           </Secao>
 

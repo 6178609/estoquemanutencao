@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { acessoTotal, ehAdmin, podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
-import { TODAS } from "@/lib/navegacao";
+import { GRUPOS, TODAS } from "@/lib/navegacao";
 
 describe("acesso por função", () => {
   it("líder e analista veem tudo", () => {
@@ -63,5 +63,22 @@ describe("aba nova Indicadores SIM (MP)", () => {
     expect(podeVer({ login: "c", funcao: "terceiro", perfil: "editor" }, "indicadores_sim")).toBe(false);
     expect(podeVer({ login: "d", funcao: "manutentor", perfil: "admin" }, "indicadores_sim")).toBe(false);
     expect(podeVer({ login: "e", funcao: "analista", perfil: "leitor", abas: ["painel", "ordens"] }, "indicadores_sim")).toBe(false);
+  });
+});
+
+describe("aba Manuais", () => {
+  it("liberada para Líder e Analista; Terceiro e Manutentor só veem o Estoque", () => {
+    expect(podeVer({ login: "a", funcao: "lider", perfil: "leitor" }, "manuais")).toBe(true);
+    expect(podeVer({ login: "b", funcao: "analista", perfil: "leitor" }, "manuais")).toBe(true);
+    expect(podeVer({ login: "c", funcao: "terceiro", perfil: "editor" }, "manuais")).toBe(false);
+    expect(podeVer({ login: "d", funcao: "manutentor", perfil: "admin" }, "manuais")).toBe(false);
+    expect(podeVer({ login: "e", funcao: "analista", perfil: "leitor", abas: ["painel", "ordens"] }, "manuais")).toBe(false);
+  });
+  it("fica no grupo Confiabilidade, logo depois de Equipamentos", () => {
+    const g = GRUPOS.find((x) => x.abas.some((a) => a.id === "manuais"));
+    expect(g?.titulo).toBe("Confiabilidade");
+    const ids = g!.abas.map((a) => a.id);
+    expect(ids[ids.indexOf("equipamentos") + 1]).toBe("manuais");
+    expect(GRUPOS.flatMap((x) => x.abas).find((a) => a.id === "manuais")).toMatchObject({ rota: "/manuais", icone: "BookOpen" });
   });
 });
