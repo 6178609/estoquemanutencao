@@ -1,6 +1,6 @@
 import { Vector2 } from "three";
 
-import { Mat, Peca } from "./Peca";
+import { Mat, Parte, Peca } from "./Peca";
 import type { ModeloProps } from "./Peca";
 
 /**
@@ -85,13 +85,20 @@ export function Cilindro({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.cabecotes} explodir={explodir} afastamento={[-0.6, 0, 0]}>
-        {[-1, 1].map((sinal) => (
-          <mesh key={sinal} position={[0, sinal * (METADE_CURSO + CABECOTE_ALTURA / 2), 0]}>
+      <Peca id={PECA.cabecotes}>
+        {/* cada cabeçote sai para o seu lado, em direções diferentes */}
+        <Parte explodir={explodir} afastamento={[-0.5, 0, 0.4]}>
+          <mesh position={[0, METADE_CURSO + CABECOTE_ALTURA / 2, 0]}>
             <cylinderGeometry args={[RAIO_EXTERNO + 0.08, RAIO_EXTERNO + 0.08, CABECOTE_ALTURA, 48]} />
             <Mat cor="aco" />
           </mesh>
-        ))}
+        </Parte>
+        <Parte explodir={explodir} afastamento={[-0.5, 0, -0.4]}>
+          <mesh position={[0, -(METADE_CURSO + CABECOTE_ALTURA / 2), 0]}>
+            <cylinderGeometry args={[RAIO_EXTERNO + 0.08, RAIO_EXTERNO + 0.08, CABECOTE_ALTURA, 48]} />
+            <Mat cor="aco" />
+          </mesh>
+        </Parte>
       </Peca>
 
       <Peca id={PECA.amortecimento} explodir={explodir} afastamento={[0, 0, 0.5]}>

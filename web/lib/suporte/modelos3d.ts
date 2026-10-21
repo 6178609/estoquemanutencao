@@ -220,7 +220,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "carcaca", titulo: "Juntas ou bujões soltos", explicacao: "Juntas e bujões com aperto ou vedação ruins deixam o óleo escapar." },
     ],
     perda_torque: [
-      { peca: "pinhao", titulo: "Dente quebrado ou desgaste severo", explicacao: "Dente quebrado ou muito gasto deixa o engrenamento deslizar e o torque não chega à coroa." },
+      { peca: "pinhao", titulo: "Dente quebrado ou desgaste severo", explicacao: "Dente quebrado ou muito gasto causa batida e vibração a cada volta e pode travar o redutor; a causa costuma ser sobrecarga, choque ou falta de lubrificação." },
       { peca: "eixo_saida", titulo: "Chaveta cisalhada ou cubo frouxo no eixo de saída", explicacao: "Com a chaveta cisalhada ou o cubo frouxo, o eixo gira sem levar a carga na mesma proporção." },
       { peca: "eixo_entrada", titulo: "Elemento do acoplamento rompido ou limitador de torque patinando", explicacao: "Elemento rompido ou limitador de torque que patina separa o motor do redutor, e o torque não chega ao eixo." },
     ],

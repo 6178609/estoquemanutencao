@@ -65,18 +65,39 @@ export function Cena(props: CenaProps) {
   );
 }
 
-/**
- * Enquadramento por esfera envolvente: a distância que faz a caixa caber tanto na altura quanto na largura
- * do campo de visão, com 25% de folga, limitada aos limites dos controles.
- */
-function enquadrar(camera: Camera, caixa: Box3): { centro: Vector3; distancia: number } {
-  const centro = caixa.getCenter(new Vector3());
+/** Folga em volta da caixa enquadrada (25%). */
+const FOLGA = 1.25;
+/** O foco numa peça pequena não se aproxima além disso: a distância é pelo menos esta fração da do modelo inteiro. */
+const FRACAO_MINIMA_MODELO = 0.55;
+
+/** Distância que faz a esfera envolvente da caixa caber na altura e na largura do campo de visão (sem folga). */
+function distanciaAjuste(camera: Camera, caixa: Box3): number {
   const raio = caixa.getSize(new Vector3()).length() / 2;
   const cam = camera as PerspectiveCamera;
   const vFov = MathUtils.degToRad(cam.fov);
   const hFov = 2 * Math.atan(Math.tan(vFov / 2) * cam.aspect);
-  const distancia = (Math.max(raio / Math.sin(vFov / 2), raio / Math.sin(hFov / 2)) * 1.25);
-  return { centro, distancia: MathUtils.clamp(distancia, DISTANCIA_MINIMA, DISTANCIA_MAXIMA) };
+  return Math.max(raio / Math.sin(vFov / 2), raio / Math.sin(hFov / 2));
+}
+
+/**
+ * Enquadramento: sem peça, a distância cabe o modelo inteiro. Com peça, a distância é
+ * max(caber a peça * folga, 55% da distância do modelo inteiro), limitada aos limites dos controles.
+ * Assim a peça pequena (pinhão, vedação) fica em foco sem a câmera entrar nela, e o entorno continua visível.
+ */
+function enquadrar(
+  camera: Camera,
+  caixaModelo: Box3,
+  caixaPeca: Box3 | null,
+): { centro: Vector3; distancia: number } {
+  const fitModelo = distanciaAjuste(camera, caixaModelo) * FOLGA;
+  const alvo = caixaPeca ?? caixaModelo;
+  const distancia = caixaPeca
+    ? Math.max(distanciaAjuste(camera, caixaPeca) * FOLGA, FRACAO_MINIMA_MODELO * fitModelo)
+    : fitModelo;
+  return {
+    centro: alvo.getCenter(new Vector3()),
+    distancia: MathUtils.clamp(distancia, DISTANCIA_MINIMA, DISTANCIA_MAXIMA),
+  };
 }
 
 function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoClicarPeca }: CenaProps) {
@@ -98,9 +119,10 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoCli
     const ctl = controles.current;
     if (!grupo || !ctl) return;
     const objeto = destaque ? grupo.getObjectByName(destaque) ?? null : null;
-    const caixa = new Box3().setFromObject(objeto ?? grupo);
-    if (caixa.isEmpty()) return;
-    const { centro, distancia } = enquadrar(camera, caixa);
+    const caixaModelo = new Box3().setFromObject(grupo);
+    const caixaPeca = objeto ? new Box3().setFromObject(objeto) : null;
+    if (caixaModelo.isEmpty() || (caixaPeca && caixaPeca.isEmpty())) return;
+    const { centro, distancia } = enquadrar(camera, caixaModelo, caixaPeca);
     const direcao = camera.position.clone().sub(ctl.target);
     if (direcao.lengthSq() < 1e-6) direcao.set(0.6, 0.4, 1);
     direcao.normalize();

@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useRef } from "react";
+import type { RefObject } from "react";
 import type { ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -79,23 +80,11 @@ export interface ModeloProps {
 const ORIGEM = new Vector3();
 
 /**
- * Peça nomeada do modelo: um grupo com `name` = id da peça (o mesmo id de MODELOS). Anima a vista explodida
- * até o `afastamento` (no sistema local do modelo); com movimento reduzido, muda de uma vez.
+ * Anima um grupo até a vista explodida (`afastamento`, no sistema local do modelo) ou de volta à origem. Com movimento
+ * reduzido, muda de uma vez. O alvo é calculado uma vez por valor de `afastamento`, não a cada quadro.
  */
-export function Peca({
-  id,
-  explodir = false,
-  afastamento,
-  children,
-}: {
-  id: string;
-  explodir?: boolean;
-  afastamento?: [number, number, number];
-  children: ReactNode;
-}) {
-  const { aoClicarPeca, reduzir } = useContext(ContextoCena);
-  const grupo = useRef<Group>(null);
-  // o alvo da vista explodida é calculado uma vez por valor de `afastamento`, não a cada quadro
+function useAfastar(grupo: RefObject<Group | null>, explodir: boolean, afastamento?: [number, number, number]) {
+  const { reduzir } = useContext(ContextoCena);
   const chave = (afastamento ?? [0, 0, 0]).join(",");
   const alvo = useMemo(() => new Vector3(...chave.split(",").map(Number)), [chave]);
 
@@ -111,6 +100,26 @@ export function Peca({
     if (g.position.distanceTo(destino) > 0.0005) estado.invalidate();
     else g.position.copy(destino);
   });
+}
+
+/**
+ * Peça nomeada do modelo: um grupo com `name` = id da peça (o mesmo id de MODELOS). Anima a vista explodida
+ * até o `afastamento` (no sistema local do modelo); com movimento reduzido, muda de uma vez.
+ */
+export function Peca({
+  id,
+  explodir = false,
+  afastamento,
+  children,
+}: {
+  id: string;
+  explodir?: boolean;
+  afastamento?: [number, number, number];
+  children: ReactNode;
+}) {
+  const { aoClicarPeca } = useContext(ContextoCena);
+  const grupo = useRef<Group>(null);
+  useAfastar(grupo, explodir, afastamento);
 
   return (
     <ContextoPeca.Provider value={id}>
@@ -126,6 +135,24 @@ export function Peca({
       </group>
     </ContextoPeca.Provider>
   );
+}
+
+/**
+ * Parte de uma peça com vista explodida própria (ex.: cada cabeçote do cilindro vai para um lado). Não tem nome nem
+ * clique: a peça (`Peca`) continua sendo a unidade de destaque e de foco.
+ */
+export function Parte({
+  explodir = false,
+  afastamento,
+  children,
+}: {
+  explodir?: boolean;
+  afastamento?: [number, number, number];
+  children: ReactNode;
+}) {
+  const grupo = useRef<Group>(null);
+  useAfastar(grupo, explodir, afastamento);
+  return <group ref={grupo}>{children}</group>;
 }
 
 /**

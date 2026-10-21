@@ -57,19 +57,20 @@ const VOLUTA_FORMA = formaVoluta();
 const EXTRUSAO_VOLUTA = { depth: ESPESSURA_VOLUTA, bevelEnabled: false, curveSegments: 1 };
 
 export function Bomba({ explodir }: ModeloProps) {
+  // o eixo (Z local) fica horizontal na tela: a sucção à esquerda e o recalque virado para a câmera
   return (
-    <group>
-      <Peca id={PECA.voluta} explodir={explodir} afastamento={[0, 0.6, 0]}>
+    <group rotation={[0, -Math.PI / 2, 0]}>
+      <Peca id={PECA.voluta} explodir={explodir} afastamento={[0, 0.9, 0]}>
         <mesh position={[0, 0, -ESPESSURA_VOLUTA / 2]}>
           <extrudeGeometry args={[VOLUTA_FORMA, EXTRUSAO_VOLUTA]} />
-          <Mat cor="aco" />
+          <Mat cor="acoClaro" />
         </mesh>
       </Peca>
 
-      <Peca id={PECA.rotor} explodir={explodir} afastamento={[0, 0, 0.5]}>
+      <Peca id={PECA.rotor} explodir={explodir} afastamento={[0, 0, 0.9]}>
         <mesh rotation={GIRO_Z}>
           <cylinderGeometry args={[RAIO_ROTOR, RAIO_ROTOR, 0.06, 48]} />
-          <Mat cor="acoEscuro" />
+          <Mat cor="acoClaro" />
         </mesh>
         {Array.from({ length: PAS }, (_, k) => {
           const a = (k * 2 * Math.PI) / PAS;
@@ -81,7 +82,7 @@ export function Bomba({ explodir }: ModeloProps) {
               rotation={[0, 0, a]}
             >
               <boxGeometry args={[COMPRIMENTO_PA, 0.05, 0.14]} />
-              <Mat cor="acoClaro" />
+              <Mat cor="acoEscuro" />
             </mesh>
           );
         })}
@@ -91,14 +92,14 @@ export function Bomba({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.eixo}>
+      <Peca id={PECA.eixo} explodir={explodir} afastamento={[0, 0, -0.5]}>
         <mesh position={[0, 0, -0.35]} rotation={GIRO_Z}>
           <cylinderGeometry args={[0.07, 0.07, 2.5, 20]} />
           <Mat cor="acoEscuro" />
         </mesh>
       </Peca>
 
-      <Peca id={PECA.seloMecanico} explodir={explodir} afastamento={[0, 0, -0.4]}>
+      <Peca id={PECA.seloMecanico} explodir={explodir} afastamento={[0, 0, -0.6]}>
         <mesh position={[0, 0, -0.2]} rotation={GIRO_Z}>
           <cylinderGeometry args={[0.24, 0.24, 0.18, 32]} />
           <Mat cor="aco" />
@@ -109,7 +110,7 @@ export function Bomba({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.rolamentos} explodir={explodir} afastamento={[0, 0, -0.45]}>
+      <Peca id={PECA.rolamentos} explodir={explodir} afastamento={[0, 0, -1.1]}>
         <mesh position={[0, 0, -0.8]} rotation={GIRO_Z}>
           <cylinderGeometry args={[0.26, 0.26, 0.5, 40]} />
           <Mat cor="acoClaro" />
@@ -124,7 +125,7 @@ export function Bomba({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.acoplamento} explodir={explodir} afastamento={[0, 0, -0.8]}>
+      <Peca id={PECA.acoplamento} explodir={explodir} afastamento={[0, 0, -1.7]}>
         <mesh position={[0, 0, -1.25]} rotation={GIRO_Z}>
           <cylinderGeometry args={[0.18, 0.18, 0.3, 32]} />
           <Mat cor="aco" />
@@ -139,7 +140,7 @@ export function Bomba({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.succao} explodir={explodir} afastamento={[0, 0, 0.8]}>
+      <Peca id={PECA.succao} explodir={explodir} afastamento={[0, 0, 1.6]}>
         <mesh position={[0, 0, 0.5]} rotation={GIRO_Z}>
           <cylinderGeometry args={[0.22, 0.22, 0.8, 32]} />
           <Mat cor="azul" />
