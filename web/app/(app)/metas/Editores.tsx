@@ -7,21 +7,13 @@ import { useMemo, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
+import { lerBr, mostrarBr } from "@/lib/numeroBr";
 
 import { restaurarMetas, salvarCapacidades, salvarCustoParada, salvarJornada, salvarMetas, salvarTipos, type Resposta } from "./acoes";
 import { validarCustoParada } from "./validacao";
 
 /** Editores da aba Metas e parâmetros: tabelas com a coluna editável, contagem do que mudou e "Salvar". */
 
-const nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-const mostrar = (v: number | null | undefined) => (v == null ? "" : nf.format(v));
-/** "4,5" / "1.234,5" / "" → número | null; texto inválido → NaN. */
-function ler(t: string): number | null {
-  const s = t.trim().replace(/\s/g, "");
-  if (!s) return null;
-  const n = Number(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s);
-  return Number.isFinite(n) && n >= 0 ? n : NaN;
-}
 const igual = (a: number | null, b: number | null) => (a == null ? b == null : b != null && Math.abs(a - b) < 1e-9);
 
 const CAMPO = "h-9 w-full min-w-[90px] rounded-lg border border-borda bg-superficie-2 px-2.5 text-[13px] tabular-nums transition focus:border-[var(--acao)] focus:bg-superficie disabled:border-transparent disabled:bg-transparent";
@@ -58,7 +50,7 @@ export interface LinhaMeta { id: string; grupo: string; nome: string; unidade: s
 export function EditorMetas({ linhas, edita, personalizadas }: { linhas: LinhaMeta[]; edita: boolean; personalizadas: number }) {
   const [txt, setTxt] = useState<Record<string, string>>({});
   const { pend, msg, rodar } = useSalvar();
-  const mud = useMemo(() => Object.fromEntries(linhas.filter((l) => l.id in txt && !igual(ler(txt[l.id]), l.meta)).map((l) => [l.id, ler(txt[l.id])])), [txt, linhas]);
+  const mud = useMemo(() => Object.fromEntries(linhas.filter((l) => l.id in txt && !igual(lerBr(txt[l.id]), l.meta)).map((l) => [l.id, lerBr(txt[l.id])])), [txt, linhas]);
   const invalido = Object.values(mud).some((v) => v != null && Number.isNaN(v));
   const grupos = [...new Set(linhas.map((l) => l.grupo))];
   return (
@@ -82,14 +74,14 @@ export function EditorMetas({ linhas, edita, personalizadas }: { linhas: LinhaMe
             <tbody key={g} className="divide-borda divide-y border-t border-borda">
               <tr><td colSpan={6} className="bg-superficie-2/50 px-3 pb-1.5 pt-3 font-display text-[13.5px] font-medium">{g}</td></tr>
               {linhas.filter((l) => l.grupo === g).map((l) => {
-                const v = txt[l.id] ?? mostrar(l.meta);
+                const v = txt[l.id] ?? mostrarBr(l.meta);
                 const mudou = l.id in mud;
                 return (
                   <tr key={l.id} className={mudou ? "bg-marca-500/5" : undefined}>
                     <td className="min-w-[190px] px-3 py-1.5 font-medium">{l.nome}</td>
                     <td className="px-3 py-1.5 text-texto-2">{l.unidade}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 text-texto-2">{l.sentido}</td>
-                    <td className="num px-3 py-1.5 text-right tabular-nums text-texto-3">{l.padrao == null ? "—" : mostrar(l.padrao)}</td>
+                    <td className="num px-3 py-1.5 text-right tabular-nums text-texto-3">{l.padrao == null ? "—" : mostrarBr(l.padrao)}</td>
                     <td className="px-3 py-1.5">
                       <input aria-label={`Meta de ${l.nome}`} className={clsx(CELULA, mudou && "border-marca-500")} disabled={!edita} inputMode="decimal"
                         placeholder="sem meta" value={v} onChange={(e) => setTxt({ ...txt, [l.id]: e.target.value })} />
@@ -108,9 +100,9 @@ export function EditorMetas({ linhas, edita, personalizadas }: { linhas: LinhaMe
 
 // ----------------------------------------------------------------------------
 export function EditorJornada({ horas, edita }: { horas: number; edita: boolean }) {
-  const [txt, setTxt] = useState(mostrar(horas));
+  const [txt, setTxt] = useState(mostrarBr(horas));
   const { pend, msg, rodar } = useSalvar();
-  const v = ler(txt);
+  const v = lerBr(txt);
   const valido = v != null && !Number.isNaN(v) && v >= 1 && v <= 80;
   return (
     <div className="space-y-3">
@@ -133,9 +125,9 @@ export function EditorJornada({ horas, edita }: { horas: number; edita: boolean 
 
 // ----------------------------------------------------------------------------
 export function EditorCustoParada({ custoPar, paresHora, edita }: { custoPar: number | null; paresHora: number | null; edita: boolean }) {
-  const [txt, setTxt] = useState({ custo: mostrar(custoPar), pares: mostrar(paresHora) });
+  const [txt, setTxt] = useState({ custo: mostrarBr(custoPar), pares: mostrarBr(paresHora) });
   const { pend, msg, rodar } = useSalvar();
-  const custo = ler(txt.custo), pares = ler(txt.pares);
+  const custo = lerBr(txt.custo), pares = lerBr(txt.pares);
   const erro = validarCustoParada(custo, pares);
   const mudou = !igual(custo, custoPar) || !igual(pares, paresHora);
   return (
@@ -172,8 +164,8 @@ export interface LinhaCapacidade { centro: string; tecnicos: number; sugestao: n
 export function EditorCapacidade({ linhas, edita }: { linhas: LinhaCapacidade[]; edita: boolean }) {
   const [txt, setTxt] = useState<Record<string, string>>({});
   const { pend, msg, rodar } = useSalvar();
-  const mud = useMemo(() => Object.fromEntries(linhas.filter((l) => l.centro in txt && !igual(ler(txt[l.centro]), l.configurada))
-    .map((l) => [l.centro, ler(txt[l.centro])])), [txt, linhas]);
+  const mud = useMemo(() => Object.fromEntries(linhas.filter((l) => l.centro in txt && !igual(lerBr(txt[l.centro]), l.configurada))
+    .map((l) => [l.centro, lerBr(txt[l.centro])])), [txt, linhas]);
   const invalido = Object.values(mud).some((v) => v != null && Number.isNaN(v));
   const max = Math.max(1, ...linhas.map((l) => Math.max(l.media ?? 0, l.configurada ?? 0, l.sugestao ?? 0)));
   return (
@@ -195,18 +187,18 @@ export function EditorCapacidade({ linhas, edita }: { linhas: LinhaCapacidade[];
                 <tr key={l.centro} className={mudou ? "bg-marca-500/5" : undefined}>
                   <td className="whitespace-nowrap px-3 py-1.5 font-medium">{l.centro}</td>
                   <td className="num px-3 py-1.5 text-right tabular-nums">{l.tecnicos || "—"}</td>
-                  <td className="num px-3 py-1.5 text-right tabular-nums">{l.sugestao == null ? "—" : nf.format(Math.round(l.sugestao))}</td>
+                  <td className="num px-3 py-1.5 text-right tabular-nums">{l.sugestao == null ? "—" : mostrarBr(Math.round(l.sugestao))}</td>
                   <td className="px-3 py-1.5">
                     <div className="flex min-w-[150px] items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
                         <div className="h-full rounded-full bg-[var(--serie-1)]" style={{ width: `${((l.media ?? 0) / max) * 100}%` }} />
                       </div>
-                      <span className="num w-14 shrink-0 text-right tabular-nums">{l.media == null ? "—" : `${nf.format(Math.round(l.media))} h`}</span>
+                      <span className="num w-14 shrink-0 text-right tabular-nums">{l.media == null ? "—" : `${mostrarBr(Math.round(l.media))} h`}</span>
                     </div>
                   </td>
                   <td className="px-3 py-1.5">
                     <input aria-label={`Capacidade de ${l.centro}`} className={clsx(CELULA, mudou && "border-marca-500")} disabled={!edita} inputMode="decimal"
-                      placeholder="usa a média" value={txt[l.centro] ?? mostrar(l.configurada)} onChange={(e) => setTxt({ ...txt, [l.centro]: e.target.value })} />
+                      placeholder="usa a média" value={txt[l.centro] ?? mostrarBr(l.configurada)} onChange={(e) => setTxt({ ...txt, [l.centro]: e.target.value })} />
                   </td>
                 </tr>
               );
@@ -258,7 +250,7 @@ export function EditorTipos({ linhas, classes, edita }: { linhas: LinhaTipo[]; c
                     </select>
                   </td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-texto-2">{l.deduzida || "—"}</td>
-                  <td className="num px-3 py-1.5 text-right tabular-nums">{nf.format(l.ordens)}</td>
+                  <td className="num px-3 py-1.5 text-right tabular-nums">{mostrarBr(l.ordens)}</td>
                 </tr>
               );
             })}
