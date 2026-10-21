@@ -24,6 +24,10 @@ describe("pessoas da manutenção (filtro das requisições)", () => {
     expect(soManutencao(xs, [])).toHaveLength(2);
   });
 
+  it("nome só de símbolos não casa com requisição sem solicitante", () => {
+    expect(soManutencao([r(""), r("Fulano de Tal")], ["---", "Fulano de Tal"])).toHaveLength(1);
+  });
+
   it("reqs null devolve null", () => {
     expect(soManutencao(null, ["Pessoa Teste A"])).toBeNull();
   });

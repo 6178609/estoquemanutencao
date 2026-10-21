@@ -20,7 +20,7 @@ export function solicitantesDe(cad: Cadastro | null | undefined): string[] {
 export function soManutencao(reqs: Requisicao[] | null, nomes: string[]): Requisicao[] | null {
   if (!reqs) return null;
   if (!nomes.length) return reqs;
-  const marcados = new Set(nomes.map(chave));
+  const marcados = new Set(nomes.map(chave).filter(Boolean)); // nome só de símbolos não casa com solicitante vazio
   return reqs.filter((r) => marcados.has(chave(r.solicitante)));
 }
 
