@@ -1,12 +1,12 @@
 import {
   BadgeCheck, BellRing, Boxes, CalendarClock, CalendarCog, CalendarDays, CalendarRange, CircleCheckBig, ClipboardList,
-  Factory, FolderOpen, Gauge, GraduationCap, HardHat, HeartPulse, Home, LayoutDashboard, ListChecks, Microscope, Radar, Receipt, Search,
+  Factory, FolderOpen, Gauge, GraduationCap, HardHat, HeartPulse, Home, LayoutDashboard, LifeBuoy, ListChecks, Microscope, Radar, Receipt, Search,
   ShieldCheck, SlidersHorizontal, Timer, UserRound, UsersRound, Wallet, Wrench, type LucideProps,
 } from "lucide-react";
 
 const MAPA = {
   BadgeCheck, BellRing, Boxes, CalendarClock, CalendarCog, CalendarDays, CalendarRange, CircleCheckBig, ClipboardList,
-  Factory, FolderOpen, Gauge, GraduationCap, HardHat, HeartPulse, Home, LayoutDashboard, ListChecks, Microscope, Radar, Receipt, Search,
+  Factory, FolderOpen, Gauge, GraduationCap, HardHat, HeartPulse, Home, LayoutDashboard, LifeBuoy, ListChecks, Microscope, Radar, Receipt, Search,
   ShieldCheck, SlidersHorizontal, Timer, UserRound, UsersRound, Wallet, Wrench,
 };
 

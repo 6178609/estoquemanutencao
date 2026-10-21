@@ -3,13 +3,16 @@ import { NextRequest } from "next/server";
 
 import { _definirFonte } from "@/lib/dados/fonte";
 import { _definirSupabase } from "@/lib/dados/supabase";
-import { LIMITE_DOCUMENTO, documentosDe, gravarDocumento, todosDocumentosEquipamentos } from "@/lib/dados/documentos";
 import {
+  LIMITE_DOCUMENTO,
+  documentosDe,
   documentosTecnicos,
+  gravarDocumento,
   gravarDocumentoTecnico,
   gravarLinkTecnico,
   lerDocumentoTecnico,
   removerDocumentoTecnico,
+  todosDocumentosEquipamentos,
 } from "@/lib/dados/documentos";
 import type { Area } from "@/lib/suporte/guias";
 import * as rota from "@/app/api/suporte/documento/route";
@@ -21,8 +24,11 @@ const HTML = new TextEncoder().encode("<html><script>alert(1)</script>");
 
 // quem está "logado" nas rotas (mock da sessão): null = sem login
 let quem: { login: string; nome: string; perfil: string } | null = null;
+// nome da aba pedida à sessão (a rota tem de pedir "suporte", não a aba do equipamento)
+let abasPedidas: string[] = [];
 vi.mock("@/lib/auth/sessao", () => ({
-  autorizar: async (_aba: string, editar = false) => {
+  autorizar: async (aba: string, editar = false) => {
+    abasPedidas.push(aba);
     if (!quem) return null;
     if (editar && quem.perfil === "leitor") return null;
     return quem;
@@ -99,7 +105,7 @@ describe("biblioteca técnica: armazenamento", () => {
 describe("rota /api/suporte/documento", () => {
   beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
   afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); quem = null; });
-  beforeEach(() => { quem = { login: "lider.teste", nome: "Pessoa Fictícia", perfil: "editor" }; });
+  beforeEach(() => { quem = { login: "lider.teste", nome: "Pessoa Fictícia", perfil: "editor" }; abasPedidas = []; });
 
   const URL_ROTA = "http://localhost/api/suporte/documento";
   const enviar = (form: FormData, origem?: string) => new NextRequest(URL_ROTA, {
@@ -136,6 +142,13 @@ describe("rota /api/suporte/documento", () => {
     expect(r.status).toBe(403);
   });
 
+  it("aceita pedido com a origem do próprio site", async () => {
+    const r = await rota.POST(enviar(pdfForm(), "http://localhost"));
+    expect(r.status).toBe(200);
+    const { doc } = await r.json();
+    await rota.DELETE(new NextRequest(`${URL_ROTA}?area=mecanica&id=${doc.id}`, { method: "DELETE", headers: { origin: "http://localhost" } }));
+  });
+
   it("recusa área inválida e link inválido", async () => {
     const semArea = pdfForm({ area: "xyz" });
     expect((await rota.POST(enviar(semArea))).status).toBe(400);
@@ -163,6 +176,8 @@ describe("rota /api/suporte/documento", () => {
   it("editor envia, lê e remove; depois da remoção o documento some", async () => {
     const env = await rota.POST(enviar(pdfForm()));
     expect(env.status).toBe(200);
+    expect(abasPedidas).toContain("suporte");
+    expect(abasPedidas.every((a) => a === "suporte")).toBe(true);
     const { doc } = await env.json();
     expect(doc).toMatchObject({ titulo: "Manual fictício", tipo: "application/pdf" });
 
