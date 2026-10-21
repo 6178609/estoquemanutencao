@@ -22,7 +22,6 @@ const VISOES = [
   { id: "biblioteca", titulo: "Biblioteca" },
 ] as const;
 const TIPOS = ["manual", "catalogo", "guia", "norma", "calculadora", "curso", "artigo"] as const;
-const IDIOMAS = ["pt", "en", "es"] as const;
 
 /**
  * Suporte Técnico: guias de manutenção com busca, diagnóstico guiado (tipo → sintoma → causas) e a biblioteca
@@ -55,7 +54,6 @@ export default async function Suporte(props: { searchParams: Promise<Params> }) 
           q,
           area,
           tipo: TIPOS.find((t) => t === um(params, "tipo")) as ItemAcervo["tipo"] | undefined,
-          idioma: IDIOMAS.find((i) => i === um(params, "idioma")) as ItemAcervo["idioma"] | undefined,
           mais: um(params, "mais") === "1",
         }} />
       )}
