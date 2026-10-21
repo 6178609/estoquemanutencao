@@ -43,6 +43,8 @@ export function orcamentoDe(cad: Cadastro | null | undefined): Map<string, numbe
 
 export interface LinhaOrcamento {
   mes: string; disponivel: number | null; ordens: number; requisicoes: number | null; saldo: number | null; aEntrar: number | null;
+  /** Mês depois do mês de hoje: só tem requisições projetadas e não entra nos totais. */
+  previsao: boolean;
 }
 
 export interface ResultadoOrcamento {
@@ -67,11 +69,13 @@ function mesesEntre(ini: Dia, fim: Dia): string[] {
  * Uma linha por mês de [ini, fim]. Ordens somam `custoReal` no dia da ordem (sem data fica fora).
  * Requisições (se `reqs` não for null): fase aprovada soma em `requisicoes`, pendente em `aEntrar`, no mês de entrada.
  * `saldo` só onde há orçamento cadastrado: disponível − ordens − requisicoes (nunca 0 implícito).
+ * Os totais contam só os meses até o mês de `hoje`; meses depois dele são `previsao` e ficam fora.
  */
 export function orcamentoPorMes(
-  ordens: OrdemCusto[], reqs: Requisicao[] | null, disponivel: Map<string, number>, ini: Dia, fim: Dia,
+  ordens: OrdemCusto[], reqs: Requisicao[] | null, disponivel: Map<string, number>, ini: Dia, fim: Dia, hoje: Dia,
 ): ResultadoOrcamento {
   const meses = mesesEntre(ini, fim);
+  const mesHoje = chaveMes(hoje);
   const gasto = new Map<string, number>(), aprov = new Map<string, number>(), pend = new Map<string, number>();
   for (const x of ordens) {
     if (x.data == null || x.data < ini || x.data > fim) continue;
@@ -97,18 +101,21 @@ export function orcamentoPorMes(
       mes, disponivel: disp, ordens: ord, requisicoes: req,
       saldo: disp != null ? disp - ord - (req ?? 0) : null,
       aEntrar: reqs ? (pend.get(mes) ?? 0) : null,
+      previsao: mes > mesHoje,
     };
   });
 
-  const comDisp = linhas.filter((l) => l.disponivel != null);
+  // totais: só meses até o de hoje (a previsão não entra, nem o disponível dela)
+  const atuais = linhas.filter((l) => !l.previsao);
+  const comDisp = atuais.filter((l) => l.disponivel != null);
   const somar = (xs: number[]) => xs.reduce((s, v) => s + v, 0);
   return {
     linhas,
     totais: {
       disponivel: comDisp.length ? somar(comDisp.map((l) => l.disponivel ?? 0)) : null,
-      gasto: somar(linhas.map((l) => l.ordens + (l.requisicoes ?? 0))),
+      gasto: somar(atuais.map((l) => l.ordens + (l.requisicoes ?? 0))),
       saldo: comDisp.length ? somar(comDisp.map((l) => l.saldo ?? 0)) : null,
-      aEntrar: reqs ? somar(linhas.map((l) => l.aEntrar ?? 0)) : null,
+      aEntrar: reqs ? somar(atuais.map((l) => l.aEntrar ?? 0)) : null,
     },
     semData,
     semTipo: !!reqs?.length && reqs.every((r) => r.tipo == null),

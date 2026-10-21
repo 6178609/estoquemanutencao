@@ -162,8 +162,8 @@ function CaixaDica({ d, largura }: { d: Dica | null; largura: number }) {
 // ----------------------------------------------------------------------------
 // Colunas (verticais): uma série, várias lado a lado ou empilhadas; linha de meta opcional (única, ou uma por coluna)
 // ----------------------------------------------------------------------------
-export function Colunas({ rotulos, series, empilhar, meta, metaPorRotulo, formato: fmtNome = "padrao", altura = 220, corPorValor, rotular = "ultimo" }: {
-  rotulos: string[]; series: Serie[]; empilhar?: boolean; meta?: number | null; metaPorRotulo?: (number | null)[]; formato?: Formato;
+export function Colunas({ rotulos, series, empilhar, meta, metaPorRotulo, nomeMetaPorRotulo = "Meta", formato: fmtNome = "padrao", altura = 220, corPorValor, rotular = "ultimo" }: {
+  rotulos: string[]; series: Serie[]; empilhar?: boolean; meta?: number | null; metaPorRotulo?: (number | null)[]; nomeMetaPorRotulo?: string; formato?: Formato;
   altura?: number; corPorValor?: (v: number, i: number) => Cor; rotular?: "ultimo" | "todos" | "nenhum";
 }) {
   const [ref, largura] = useLargura<HTMLDivElement>();
@@ -221,10 +221,12 @@ export function Colunas({ rotulos, series, empilhar, meta, metaPorRotulo, format
                 )}
                 <rect x={ESQ + i * banda} y={TOPO} width={banda} height={h} fill="transparent" tabIndex={0}
                   onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: r,
-                    linhas: series.map((s, j) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!), linha: false,
-                      cor: corPorValor ? corPorValor(s.valores[i] ?? 0, i) : (s.cor ?? (`serie-${(j % 4) + 1}` as Cor)) })) })}
+                    linhas: [...series.map((s, j) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!), linha: false,
+                      cor: corPorValor ? corPorValor(s.valores[i] ?? 0, i) : (s.cor ?? (`serie-${(j % 4) + 1}` as Cor)) })),
+                    ...(metaPorRotulo?.[i] != null ? [{ nome: nomeMetaPorRotulo, valor: fmtV(metaPorRotulo[i]!), linha: true }] : [])] })}
                   onFocus={() => setDica({ x: ESQ + i * banda + banda / 2, y: TOPO, titulo: r,
-                    linhas: series.map((s) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!) })) })} />
+                    linhas: [...series.map((s) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!) })),
+                      ...(metaPorRotulo?.[i] != null ? [{ nome: nomeMetaPorRotulo, valor: fmtV(metaPorRotulo[i]!) }] : [])] })} />
               </g>
             );
           })}

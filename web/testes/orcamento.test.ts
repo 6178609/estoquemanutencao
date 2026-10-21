@@ -60,19 +60,27 @@ describe("orçamento por mês", () => {
   const ordens = [ordem(D(2026, 1, 10), 3000), ordem(D(2026, 2, 3), 500), ordem(null, 7000)];
   const disponivel = new Map([["2026-01", 10000]]);
 
-  it("linhas, saldo e totais com fictícios", () => {
-    const r = orcamentoPorMes(ordens, reqs, disponivel, ini, fim);
+  it("linhas, saldo e totais com fictícios (fevereiro é o mês de hoje)", () => {
+    const r = orcamentoPorMes(ordens, reqs, disponivel, ini, fim, D(2026, 2, 15));
     expect(r.linhas).toEqual([
-      { mes: "2026-01", disponivel: 10000, ordens: 3000, requisicoes: 1000, saldo: 6000, aEntrar: 0 },
-      { mes: "2026-02", disponivel: null, ordens: 500, requisicoes: 0, saldo: null, aEntrar: 400 },
+      { mes: "2026-01", disponivel: 10000, ordens: 3000, requisicoes: 1000, saldo: 6000, aEntrar: 0, previsao: false },
+      { mes: "2026-02", disponivel: null, ordens: 500, requisicoes: 0, saldo: null, aEntrar: 400, previsao: false },
     ]);
     expect(r.totais).toEqual({ disponivel: 10000, gasto: 4500, saldo: 6000, aEntrar: 400 });
     expect(r.semData).toBe(1);
     expect(r.semTipo).toBe(false);
   });
 
+  it("um mês futuro com disponível fica fora dos totais e aparece como previsão", () => {
+    const comFuturo = new Map([["2026-01", 10000], ["2026-02", 20000]]);
+    const r = orcamentoPorMes(ordens, reqs, comFuturo, ini, fim, D(2026, 1, 15));
+    expect(r.linhas.map((l) => l.previsao)).toEqual([false, true]);
+    expect(r.linhas[1].disponivel).toBe(20000);
+    expect(r.totais).toEqual({ disponivel: 10000, gasto: 4000, saldo: 6000, aEntrar: 0 });
+  });
+
   it("sem requisições (base não carregada): colunas de requisição ficam null", () => {
-    const r = orcamentoPorMes(ordens, null, disponivel, ini, fim);
+    const r = orcamentoPorMes(ordens, null, disponivel, ini, fim, D(2026, 2, 15));
     expect(r.linhas.every((l) => l.requisicoes === null && l.aEntrar === null)).toBe(true);
     expect(r.totais.aEntrar).toBeNull();
     expect(r.totais.gasto).toBe(3500);
@@ -81,9 +89,9 @@ describe("orçamento por mês", () => {
 
   it("semTipo só quando todas as requisições estão sem tipo", () => {
     const sem = reqs.map((x) => ({ ...x, tipo: null }));
-    expect(orcamentoPorMes([], sem, disponivel, ini, fim).semTipo).toBe(true);
-    expect(orcamentoPorMes([], [...sem, req({ tipo: "servico" })], disponivel, ini, fim).semTipo).toBe(false);
-    expect(orcamentoPorMes([], [], disponivel, ini, fim).semTipo).toBe(false);
+    expect(orcamentoPorMes([], sem, disponivel, ini, fim, D(2026, 2, 15)).semTipo).toBe(true);
+    expect(orcamentoPorMes([], [...sem, req({ tipo: "servico" })], disponivel, ini, fim, D(2026, 2, 15)).semTipo).toBe(false);
+    expect(orcamentoPorMes([], [], disponivel, ini, fim, D(2026, 2, 15)).semTipo).toBe(false);
   });
 });
 
@@ -130,7 +138,7 @@ describe("demonstração do orçamento", () => {
   it("o cadastro da demo tem orçamento para o mês de hoje", () => {
     const cad = lerJsonDemo("metas_wcm.json") as unknown as Parameters<typeof orcamentoDe>[0];
     const mesHoje = chaveMes(hoje());
-    expect(orcamentoDe(cad).get(mesHoje)).toBe(50000);
+    expect(orcamentoDe(cad).get(mesHoje)).toBe(300000);
   });
 });
 

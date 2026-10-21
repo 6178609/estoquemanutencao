@@ -15,6 +15,9 @@ describe("números pt-BR", () => {
     expect(lerBr("4,5")).toBe(4.5);
     expect(lerBr("4.5")).toBe(4.5);
     expect(lerBr(" 1 234 ")).toBe(1234);
+    expect(lerBr("0.125")).toBe(0.125);
+    expect(lerBr("1.250")).toBe(1250);
+    expect(lerBr("1.250,50")).toBe(1250.5);
   });
   it("vazio é null; texto e negativo são NaN", () => {
     expect(lerBr("")).toBeNull();

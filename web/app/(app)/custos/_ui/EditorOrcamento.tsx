@@ -87,7 +87,7 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
       </div>
 
       <p className="text-[13px] leading-relaxed text-texto-3">
-        Valor disponível do mês em R$. O mês sem valor fica sem saldo (“—”), não é tratado como zero.
+        Valor disponível do mês em R$. O mês sem valor fica sem saldo (“—”), não é tratado como zero. Use vírgula para decimais (ex.: 1.250,50).
       </p>
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">

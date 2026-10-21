@@ -18,17 +18,18 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor }: Resultad
   const nulBrl = (v: number | null) => (v == null ? "—" : brlCurto(v));
   const nulBr = (v: number | null) => (v == null ? "—" : brl(v));
   const saldoNeg = totais.saldo != null && totais.saldo < 0;
-  const rotulo = (mes: string) => {
-    const [ano, m] = mes.split("-").map(Number);
-    return `${MESES[m - 1]}/${String(ano).slice(2)}`;
+  const rotulo = (l: { mes: string; previsao: boolean }) => {
+    const [ano, m] = l.mes.split("-").map(Number);
+    return `${MESES[m - 1]}/${String(ano).slice(2)}${l.previsao ? " (previsão)" : ""}`;
   };
+  const temPrevisao = linhas.some((l) => l.previsao);
 
   const series: { nome: string; cor: Cor; valores: (number | null)[] }[] = [
     { nome: "Ordens (IW38)", cor: "serie-1", valores: linhas.map((l) => l.ordens) },
     ...(temReq ? [{ nome: "Requisições aprovadas", cor: "serie-3" as Cor, valores: linhas.map((l) => l.requisicoes) }] : []),
   ];
   const colunas = ["Mês", "Disponível", "Ordens", ...(temReq ? ["Requisições", "Saldo", "A entrar"] : ["Saldo"])];
-  const tabela = linhas.map((l) => [rotulo(l.mes), nulBr(l.disponivel), brl(l.ordens),
+  const tabela = linhas.map((l) => [rotulo(l), nulBr(l.disponivel), brl(l.ordens),
     ...(temReq ? [brl(l.requisicoes ?? 0)] : []), nulBr(l.saldo), ...(temReq ? [nulBr(l.aEntrar)] : [])]);
 
   const notas: string[] = [
@@ -38,6 +39,7 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor }: Resultad
     "A entrar = requisições aguardando aprovação. 'Ação de comprador pendente' já é aprovada e entra no valor (no cartão Travado ela aparece como pendente).",
     "Mês sem valor disponível cadastrado fica com saldo “—”, nunca como zero.",
   ];
+  if (temPrevisao) notas.push("Meses em previsão têm só as requisições projetadas; não entram nos totais.");
   if (!temReq) notas.unshift("Sem base de requisições: só as ordens entram no gasto.");
   if (totais.disponivel == null) notas.push("Nenhum mês do período tem valor disponível cadastrado.");
   if (semTipo) notas.push("A base de requisições não tem a coluna de tipo: todas foram tratadas como material (prazo de 30 dias).");
@@ -51,13 +53,13 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor }: Resultad
           dica: "Ordens (IW38) mais requisições aprovadas, somadas em todos os meses da tabela" },
         { rotulo: "Saldo", valor: nulBrl(totais.saldo), cor: saldoNeg ? "var(--st-critico)" : undefined,
           detalhe: saldoNeg ? "gasto acima do disponível" : "disponível menos gasto, meses com valor", dica: "Disponível − ordens − requisições aprovadas" },
-        { rotulo: "A entrar", valor: temReq ? nulBrl(totais.aEntrar) : "—", detalhe: "requisições aguardando aprovação", dica: "Requisições pendentes de aprovação, no mês em que entram" },
+        { rotulo: "A entrar", valor: temReq ? nulBrl(totais.aEntrar) : "—", detalhe: "aguardando aprovação · só as que entram nos meses da tabela", dica: "Requisições pendentes de aprovação, no mês em que entram" },
       ]} />
 
       <Grafico titulo="Orçamento × gasto por mês" subtitulo="Barras empilhadas: ordens e requisições aprovadas · traço verde = valor disponível do mês"
         legenda={<Legenda series={series} />} tabela={{ colunas, linhas: tabela }}>
-        <Colunas rotulos={linhas.map((l) => rotulo(l.mes))} series={series} empilhar metaPorRotulo={linhas.map((l) => l.disponivel)}
-          formato="R$" altura={260} rotular="ultimo" />
+        <Colunas rotulos={linhas.map((l) => rotulo(l))} series={series} empilhar metaPorRotulo={linhas.map((l) => l.disponivel)}
+          nomeMetaPorRotulo="Disponível" formato="R$" altura={260} rotular="nenhum" />
       </Grafico>
 
       <div className="space-y-2">

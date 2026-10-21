@@ -88,10 +88,11 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   // até o fim do segundo mês à frente (requisições projetadas); as ordens só existem até hoje (fimEf)
   const mesIni = inicioDoMes(ini);
   const mesHoje = inicioDoMes(hoje);
-  const fimOrcamento = fim >= mesHoje ? Math.max(fim, somarMeses(mesHoje, 3) - 1) : fim;
+  const fimDoMes = (x: Dia) => somarMeses(inicioDoMes(x), 1) - 1;
+  const fimOrcamento = fim >= mesHoje ? Math.max(fimDoMes(fim), fimDoMes(somarMeses(mesHoje, 2))) : fimDoMes(fim);
   const ordensOrcamento = mesIni === ini ? o : ordensDoPeriodo(d.ordens, mesIni, fimEf, c.tipos);
   const disponivelCad = orcamentoDe(metas);
-  const orcamento = orcamentoPorMes(ordensOrcamento, d.requisicoes, disponivelCad, mesIni, fimOrcamento);
+  const orcamento = orcamentoPorMes(ordensOrcamento, d.requisicoes, disponivelCad, mesIni, fimOrcamento, hoje);
   const oanoParam = typeof params.oano === "string" && /^\d{4}$/.test(params.oano) ? Number(params.oano) : NaN;
   const oano = oanoParam >= 2000 && oanoParam <= 2100 ? oanoParam : partes(fimEf).ano;
   const valoresAno = Array.from({ length: 12 }, (_, i) => disponivelCad.get(mesParam(oano, i + 1)) ?? null);
@@ -203,7 +204,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
         <Travado etapas={etapasTravado} />
       </div>
 
-      <Secao titulo="Orçamento" destaque="do mês" sub="Valor disponível lançado por mês × ordens (IW38) e requisições aprovadas. Requisições aguardando aprovação entram no mês previsto.">
+      <Secao titulo="Orçamento" destaque="do mês" sub="Valor disponível lançado por mês × ordens (IW38) e requisições aprovadas. Requisições aguardando aprovação aparecem à parte (a entrar) no mês previsto.">
         <Orcamento {...orcamento} editor={podeEditar(u) ? <EditorOrcamento ano={oano} valores={valoresAno} /> : undefined} />
       </Secao>
 

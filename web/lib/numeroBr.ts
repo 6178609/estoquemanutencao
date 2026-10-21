@@ -15,7 +15,7 @@ export function lerBr(t: string): number | null {
   if (!s) return null;
   let n: number;
   if (s.includes(",")) n = Number(s.replace(/\./g, "").replace(",", "."));
-  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) n = Number(s.replace(/\./g, ""));
+  else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) n = Number(s.replace(/\./g, ""));
   else n = Number(s);
   return Number.isFinite(n) && n >= 0 ? n : NaN;
 }
