@@ -77,4 +77,21 @@ describe("pessoas ativas (filtro pes da aba Custos)", () => {
     expect(pessoasAtivas({ pes: ["", "  ", " Fulano de Tal "] }, padrao)).toEqual(["Fulano de Tal"]);
     expect(pessoasAtivas({ pes: "" }, padrao)).toEqual([]);
   });
+
+  it("descarta nome com mais de 120 caracteres (após aparar)", () => {
+    const longo = "x".repeat(121);
+    expect(pessoasAtivas({ pes: [longo, "  " + "y".repeat(120) + "  ", "Fulano de Tal"] }, [])).toEqual(["y".repeat(120), "Fulano de Tal"]);
+  });
+
+  it("dedupe pela chave (sem acento, caixa e espaços), mantendo a primeira grafia", () => {
+    expect(pessoasAtivas({ pes: ["Fulano de Tal", "FULANO  de tal", "Pessoa Teste A"] }, [])).toEqual(["Fulano de Tal", "Pessoa Teste A"]);
+  });
+
+  it("no máximo 50 nomes", () => {
+    const xs = Array.from({ length: 60 }, (_, i) => `Pessoa ${i}`);
+    const out = pessoasAtivas({ pes: xs }, []);
+    expect(out).toHaveLength(50);
+    expect(out[0]).toBe("Pessoa 0");
+    expect(out[49]).toBe("Pessoa 49");
+  });
 });

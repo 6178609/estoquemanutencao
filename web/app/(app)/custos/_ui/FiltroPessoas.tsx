@@ -37,6 +37,15 @@ export function FiltroPessoas({ disponiveis, ativos, padrao, podeSalvarPadrao }:
   const [primeiros, setPrimeiros] = useState<Set<string>>(new Set()); // o que estava marcado ao abrir: vem primeiro na lista
   const [msg, setMsg] = useState<Resposta | null>(null);
   const [pend, iniciar] = useTransition();
+  // o endereço mudou (período, filtros ou outra seleção): fecha o painel e volta as marcações ao que o endereço diz
+  const chaveUrl = params.toString();
+  const [chaveVista, setChaveVista] = useState(chaveUrl);
+  if (chaveVista !== chaveUrl) {
+    setChaveVista(chaveUrl);
+    setAberto(false);
+    setSel({});
+    setMsg(null);
+  }
 
   const linhas = useMemo(() => {
     const naBase = new Set(disponiveis.map((o) => chave(o.nome)));
@@ -54,6 +63,7 @@ export function FiltroPessoas({ disponiveis, ativos, padrao, podeSalvarPadrao }:
   const marcados = Object.values(sel);
   const n = marcados.length;
   const erroPadrao = validarSolicitantes(marcados);
+  const demais = n > 50;
   const usandoOutra = !mesmoConjunto(ativos, padrao);
   const voltarHref = (() => {
     const p = new URLSearchParams(params.toString());
@@ -147,15 +157,18 @@ export function FiltroPessoas({ disponiveis, ativos, padrao, podeSalvarPadrao }:
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={BOTAO_PRIMARIO} disabled={pend} onClick={aplicar}>Aplicar</button>
+            <button type="button" className={BOTAO_PRIMARIO} disabled={pend || demais} onClick={aplicar}>Aplicar</button>
+            {demais && <span className="text-[12.5px] text-[var(--st-critico)]">Marque no máximo 50 pessoas.</span>}
             <button type="button" className={BOTAO_SECUNDARIO} disabled={pend || !n} onClick={() => setSel({})}>Limpar</button>
             {podeSalvarPadrao && (
-              <button type="button" className={BOTAO_SECUNDARIO} disabled={pend || !!erroPadrao} onClick={salvarPadrao}>
-                {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar como padrão
-              </button>
+              <>
+                <button type="button" className={BOTAO_SECUNDARIO} disabled={pend || !!erroPadrao} onClick={salvarPadrao}>
+                  {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar como padrão
+                </button>
+                {erroPadrao && <span className="basis-full text-[12.5px] text-[var(--st-critico)]">Para salvar como padrão: {erroPadrao}</span>}
+              </>
             )}
           </div>
-          {erroPadrao && <p className="text-[12.5px] text-[var(--st-critico)]">{erroPadrao}</p>}
           {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
         </div>
       )}
