@@ -106,7 +106,7 @@ export async function Diagnostico({ params, u }: { params: Params; u: Usuario })
               </div>
             )}
             {MODELO_DO_TIPO[tipo.id] && (
-              <Visualizador3D modelo={MODELO_DO_TIPO[tipo.id]!} tipo={tipo.id} sintoma={sintoma.id} marcadores={marcadoresDe(tipo.id, sintoma.id)} />
+              <Visualizador3D modelo={MODELO_DO_TIPO[tipo.id]!} chave={`${tipo.id}/${sintoma.id}`} marcadores={marcadoresDe(tipo.id, sintoma.id)} />
             )}
           </Secao>
 

@@ -112,3 +112,35 @@ test("suporte técnico: a biblioteca mostra o envio de documento para o editor d
   await expect(page.getByRole("button", { name: "Adicionar à biblioteca" })).toBeVisible();
   expect(erros).toEqual([]);
 });
+
+// visualização 3D de falhas (spec "Testes"): o diagnóstico mostra o bloco, a lista de causas e a explicação do marcador
+test("visualização 3D no diagnóstico: rolamento + ruído mostra o bloco, a lista de causas e a explicação ao clicar", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte?visao=diagnostico&tipo=rolamento_mancal&sintoma=ruido");
+  const secao = page.locator("section[aria-labelledby=visualizador-3d-titulo]");
+  await expect(secao.getByRole("heading", { name: "Visualização 3D" })).toBeVisible();
+  await expect(secao.getByRole("button", { name: "Gaiola quebrada ou desgastada" })).toBeVisible();
+  await secao.getByRole("button", { name: "Lascamento (spalling) da pista externa" }).click();
+  await expect(secao.getByText("Fadiga do material ou sobrecarga soltam lascas", { exact: false })).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
+test("visualização 3D no guia: o guia de rolamentos mostra o modelo e a lista de peças", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte?guia=rolamentos");
+  const secao = page.locator("section[aria-labelledby=visualizador-3d-titulo]");
+  await expect(secao.getByRole("heading", { name: "Visualização 3D" })).toBeVisible();
+  await expect(secao.getByRole("button", { name: "Gaiola" })).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
+test("visualização 3D no celular (390 px): o bloco cabe na tela e a página não rola de lado", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte?visao=diagnostico&tipo=rolamento_mancal&sintoma=ruido");
+  const secao = page.locator("section[aria-labelledby=visualizador-3d-titulo]");
+  await secao.scrollIntoViewIfNeeded();
+  await expect(secao.getByRole("button", { name: "Gaiola quebrada ou desgastada" })).toBeVisible();
+  const medidas = await page.evaluate(() => ({ rolagem: document.documentElement.scrollWidth, janela: window.innerWidth }));
+  expect(medidas.rolagem).toBeLessThanOrEqual(medidas.janela);
+});

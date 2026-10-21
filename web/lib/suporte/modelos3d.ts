@@ -340,3 +340,22 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
 export function marcadoresDe(tipo: string, sintoma: string): Marcador[] {
   return MARCADORES[tipo]?.[sintoma] ?? [];
 }
+
+/** Guia (ids de lib/suporte/guias.ts) → modelo 3D do equipamento do guia. Guias sem equipamento não entram aqui. */
+export const MODELO_DO_GUIA: Partial<Record<string, IdModelo>> = {
+  rolamentos: "rolamento",
+  motores_inducao: "motor",
+  redutores: "redutor",
+  correias_polias: "correia",
+  cilindros_pneumaticos: "cilindro",
+  valvulas_direcionais: "valvula",
+};
+
+/** Peças do modelo como marcadores (para o guia, que não tem causas): cada peça vira um item da lista. */
+export function pecasComoMarcadores(modelo: IdModelo): Marcador[] {
+  return MODELOS[modelo].pecas.map((p) => ({
+    peca: p.id,
+    titulo: p.nome,
+    explicacao: `Peça do ${MODELOS[modelo].titulo.toLowerCase()}. Selecione para ver onde ela fica no modelo.`,
+  }));
+}

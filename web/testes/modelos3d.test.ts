@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { TIPOS_EQUIPAMENTO } from "@/lib/suporte/diagnostico";
-import { MARCADORES, MODELOS, MODELOS_COM_CENA, MODELO_DO_TIPO, marcadoresDe, temCena } from "@/lib/suporte/modelos3d";
+import { GUIAS } from "@/lib/suporte/guias";
+import {
+  MARCADORES,
+  MODELOS,
+  MODELOS_COM_CENA,
+  MODELO_DO_GUIA,
+  MODELO_DO_TIPO,
+  marcadoresDe,
+  pecasComoMarcadores,
+  temCena,
+} from "@/lib/suporte/modelos3d";
 import { PECAS_ROLAMENTO } from "@/app/(app)/suporte/_ui/3d/Rolamento";
 import { PECAS_MOTOR } from "@/app/(app)/suporte/_ui/3d/Motor";
 import { PECAS_REDUTOR } from "@/app/(app)/suporte/_ui/3d/Redutor";
@@ -129,3 +139,22 @@ describe("modelos 3D: cenas", () => {
     for (const id of MODELOS_ESPERADOS) expect(temCena(id), `sem cena: ${id}`).toBe(true);
   });
 });
+
+describe("modelos 3D: guias", () => {
+  it("todo guia mapeado existe em GUIAS, e aponta para um modelo com cena", () => {
+    const ids = new Set(GUIAS.map((g) => g.id));
+    for (const [guia, modelo] of Object.entries(MODELO_DO_GUIA)) {
+      expect(ids.has(guia), `guia inexistente no mapa 3D: ${guia}`).toBe(true);
+      expect(temCena(modelo!), `modelo sem cena para o guia ${guia}`).toBe(true);
+    }
+  });
+
+  it("as peças de um modelo viram marcadores que apontam para peças existentes", () => {
+    for (const id of MODELOS_ESPERADOS) {
+      const marcadores = pecasComoMarcadores(id);
+      expect(marcadores.map((m) => m.peca)).toEqual(MODELOS[id].pecas.map((p) => p.id));
+      for (const m of marcadores) expect(m.explicacao.trim()).not.toBe("");
+    }
+  });
+});
+

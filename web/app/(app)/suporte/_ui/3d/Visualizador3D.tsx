@@ -15,10 +15,12 @@ const Cena = dynamic(() => import("./Cena").then((m) => m.Cena), {
 
 interface Props {
   modelo: IdModelo;
-  tipo: string;
-  sintoma: string;
-  /** causas do sintoma com a peça ligada (de `marcadoresDe`, no servidor: a tabela inteira não vai ao cliente) */
+  /** identifica o contexto (ex.: tipo/sintoma no diagnóstico, guia no guia): ao mudar, o estado começa do zero */
+  chave: string;
+  /** causas com a peça ligada (no servidor: a tabela inteira não vai ao cliente), ou as peças do modelo */
   marcadores: Marcador[];
+  /** título da lista de marcadores */
+  rotulo?: string;
 }
 
 /**
@@ -28,13 +30,14 @@ interface Props {
 export function Visualizador3D(props: Props) {
   // modelo sem cena não mostra o bloco (nada quebra)
   if (!temCena(props.modelo)) return null;
-  // ao trocar tipo ou sintoma, o estado (peça ativa, explodido, giro) começa do zero
-  return <Bloco key={`${props.tipo}/${props.sintoma}`} modelo={props.modelo} marcadores={props.marcadores} />;
+  // ao trocar o contexto, o estado (peça ativa, explodido, giro) começa do zero
+  return <Bloco key={props.chave} modelo={props.modelo} marcadores={props.marcadores} rotulo={props.rotulo} />;
 }
 
-function Bloco({ modelo: idModelo, marcadores }: { modelo: ModeloComCena; marcadores: Marcador[] }) {
+function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena; marcadores: Marcador[]; rotulo?: string }) {
   const modelo = MODELOS[idModelo];
-  const [ativo, setAtivo] = useState<number | null>(null);
+  // o marcador inicial é o da primeira causa que tem peça no modelo
+  const [ativo, setAtivo] = useState<number | null>(() => primeiroComPeca(idModelo, marcadores));
   const [explodir, setExplodir] = useState(false);
   const [pausado, setPausado] = useState(false);
   const reduzir = useMovimentoReduzido();
@@ -119,14 +122,14 @@ function Bloco({ modelo: idModelo, marcadores }: { modelo: ModeloComCena; marcad
         </div>
 
         <div className="min-w-0">
-          <h4 className="text-[13px] font-semibold text-texto">Causas no modelo</h4>
+          <h4 className="text-[13px] font-semibold text-texto">{rotulo ?? "Causas no modelo"}</h4>
           <ul className="mt-2 space-y-2">
             {marcadores.map((m, i) => (
               <li key={`${m.peca}-${i}`}>
                 <button
                   type="button"
                   aria-pressed={ativo === i}
-                  onClick={() => setAtivo(ativo === i ? null : i)}
+                  onClick={() => setAtivo(i)}
                   className="flex min-h-11 w-full flex-col items-start rounded-cartao border border-borda bg-superficie px-4 py-3 text-left transition hover:border-borda-forte hover:bg-superficie-2 aria-pressed:border-acao"
                 >
                   <span className="text-[14px] font-medium text-texto">{m.titulo}</span>
@@ -139,6 +142,13 @@ function Bloco({ modelo: idModelo, marcadores }: { modelo: ModeloComCena; marcad
       </div>
     </section>
   );
+}
+
+/** Índice da primeira causa cuja peça existe no modelo; null se nenhuma. */
+function primeiroComPeca(modelo: ModeloComCena, marcadores: Marcador[]): number | null {
+  const pecas = new Set(MODELOS[modelo].pecas.map((p) => p.id));
+  const i = marcadores.findIndex((m) => pecas.has(m.peca));
+  return i >= 0 ? i : null;
 }
 
 const BOTAO_NO_MODELO =
