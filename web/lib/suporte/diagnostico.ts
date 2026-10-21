@@ -41,7 +41,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a limpeza da carcaça, da grade e do ventilador.",
           "Medir a temperatura do rolamento e a vibração do mancal.",
         ],
-        seguranca: "Medições com o motor energizado só por profissional habilitado (NR-10). Para limpeza, bloquear (LOTO).",
+        seguranca: "Medições com o painel energizado só por profissional autorizado (NR-10), com EPI e instrumento de categoria CAT adequada; para qualquer intervenção, bloquear (LOTO).",
         guias: ["motores_inducao", "medicoes_isolamento", "rolamentos"],
       },
       {
@@ -74,7 +74,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
         verificar: [
           "Medir a corrente em cada fase durante a partida e em carga.",
           "Conferir o ajuste do relé com a corrente nominal da placa.",
-          "Medir a resistência de isolamento com megôhmetro (mínimo usual de 1 MΩ a 500 V).",
+          "Medir a resistência de isolamento com megôhmetro. Valor mínimo (IEEE 43, enrolamento de baixa tensão): 5 MΩ, corrigido para 40 °C; abaixo disso, não energizar.",
           "Verificar a carga mecânica (travamento, aperto de correia, alinhamento).",
         ],
         seguranca: "Antes de medir o isolamento, desenergizar, bloquear e descarregar o motor.",
@@ -95,6 +95,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a alimentação das três fases e a corrente.",
           "Medir a vibração e comparar com a linha de base.",
         ],
+        seguranca: "Bloquear (LOTO) antes de tocar no ventilador, na tampa ou no acoplamento.",
         guias: ["rolamentos", "alinhamento_eixos", "analise_vibracao"],
       },
       {
@@ -112,6 +113,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o alinhamento e a condição do acoplamento.",
           "Verificar se há sujeira acumulada no ventilador ou no rotor.",
         ],
+        seguranca: "Bloquear (LOTO) antes de apertar a base, o acoplamento ou o ventilador; medir sem tocar em partes girantes.",
         guias: ["analise_vibracao", "alinhamento_eixos", "rolamentos"],
       },
     ],
@@ -154,7 +156,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a vibração e comparar com a linha de base.",
           "Verificar a folga do eixo.",
         ],
-        seguranca: "Não girar o rolamento com as mãos na máquina energizada.",
+        seguranca: "Nunca tocar partes girantes; girar à mão só com o equipamento bloqueado (LOTO).",
         guias: ["rolamentos", "analise_vibracao", "contaminacao_lubrificante"],
       },
       {
@@ -336,6 +338,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a rotação do eixo e a tensão do motor.",
           "Medir a pressão de descarga com manômetro calibrado.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar antes de abrir o filtro ou a sucção.",
         guias: ["unidade_hidraulica", "motores_inducao"],
       },
       {
@@ -351,6 +354,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a temperatura e a viscosidade do fluido.",
           "Verificar se há espuma no reservatório.",
         ],
+        seguranca: "Bloquear (LOTO) antes de abrir a sucção ou de ajustar válvulas.",
         guias: ["unidade_hidraulica", "oleos"],
       },
       {
@@ -366,6 +370,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o alinhamento do motor com a bomba.",
           "Inspecionar o eixo na região do selo.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar antes de trocar o selo ou a gaxeta; fluido quente ou pressurizado causa queimadura ou jato.",
         guias: ["alinhamento_eixos", "acoplamentos"],
       },
       {
@@ -381,6 +386,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o nível e a qualidade do lubrificante do mancal.",
           "Medir o alinhamento do acoplamento.",
         ],
+        seguranca: "Não tocar na carcaça quente; bloquear (LOTO) antes de mexer em válvulas ou no mancal.",
         guias: ["rolamentos", "alinhamento_eixos"],
       },
     ],
@@ -404,6 +410,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a pressão na entrada do cilindro.",
           "Verificar o nível do lubrificador e o gotejamento.",
         ],
+        seguranca: "Despressurizar antes de ajustar os reguladores de vazão; o cilindro pode se mover com ar residual.",
         guias: ["cilindros_pneumaticos", "frl"],
       },
       {
@@ -419,6 +426,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Conferir o diâmetro do cilindro e a força de projeto.",
           "Procurar vazamento interno com o cilindro travado.",
         ],
+        seguranca: "Despressurizar antes de desmontar conexões ou o cilindro.",
         guias: ["frl", "cilindros_pneumaticos", "vazamentos_ar"],
       },
       {
@@ -450,6 +458,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o alinhamento da carga e a fixação do cilindro.",
           "Medir a pressão de trabalho durante o curso.",
         ],
+        seguranca: "Bloquear o movimento e despressurizar antes de ajustar o sensor ou o fim de curso.",
         guias: ["cilindros_pneumaticos", "valvulas_direcionais"],
       },
     ],
@@ -472,6 +481,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Ouvir o clique da comutação e verificar o LED de comando.",
           "Verificar a pressão de alimentação e de pilotagem.",
         ],
+        seguranca: "Despressurizar antes de desmontar a válvula ou o carretel; bloquear o comando antes de trocar a bobina.",
         guias: ["valvulas_direcionais", "frl"],
       },
       {
@@ -502,6 +512,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a vedação da válvula com o comando desligado.",
           "Conferir a filtragem do ar.",
         ],
+        seguranca: "Despressurizar antes de desmontar a válvula; cuidado com o jato de ar.",
         guias: ["valvulas_direcionais", "vazamentos_ar", "frl"],
       },
     ],
@@ -541,6 +552,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o trocador de calor e a ventilação do reservatório.",
           "Verificar a viscosidade do óleo com a análise.",
         ],
+        seguranca: "Deixar o óleo esfriar antes de abrir o reservatório ou o trocador; bloquear (LOTO) antes de intervir.",
         guias: ["unidade_hidraulica", "oleos"],
       },
       {
@@ -555,6 +567,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a sucção e o nível do óleo.",
           "Verificar o filtro de sucção.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar antes de abrir a sucção ou o filtro.",
         guias: ["unidade_hidraulica"],
       },
       {
@@ -569,6 +582,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Coletar amostra para análise de água e de partículas.",
           "Verificar o respiro e as vedações do reservatório.",
         ],
+        seguranca: "Despressurizar e drenar com recipiente adequado; evitar contato do óleo com a pele; bloquear antes de abrir o sistema.",
         guias: ["contaminacao_lubrificante", "unidade_hidraulica"],
       },
     ],
@@ -590,6 +604,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
         verificar: [
           "Ler o código de falha e o momento do desarme no histórico.",
           "Medir a resistência de isolamento do cabo e do motor, com o inversor desenergizado e descarregado.",
+          "Desconectar os cabos do motor dos bornes de saída do inversor antes de aplicar o megôhmetro.",
           "Conferir os parâmetros de corrente e tensão do motor com a placa.",
           "Conferir os tempos de rampa.",
         ],
@@ -609,6 +624,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a tensão da rede na entrada do inversor.",
           "Verificar se existe resistor de frenagem e se está ligado.",
         ],
+        seguranca: "Desenergizar e aguardar a descarga dos capacitores; bloquear o inversor antes de medir.",
         guias: ["inversores"],
       },
       {
@@ -624,7 +640,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar fusíveis e contator de entrada.",
           "Verificar o aperto e o estado das conexões de entrada.",
         ],
-        seguranca: "Medições de entrada energizada só por profissional habilitado (NR-10).",
+        seguranca: "Medições com o painel energizado só por profissional autorizado (NR-10), com EPI e instrumento de categoria CAT adequada; para qualquer intervenção, bloquear (LOTO).",
         guias: ["inversores", "nr10"],
       },
       {
@@ -640,6 +656,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Limpar os filtros do painel e o dissipador.",
           "Medir a temperatura ambiente do painel.",
         ],
+        seguranca: "Desenergizar e aguardar a descarga dos capacitores.",
         guias: ["inversores"],
       },
     ],
@@ -694,6 +711,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o aperto dos terminais de potência.",
           "Verificar o estado dos contatos principais.",
         ],
+        seguranca: "Bloquear e testar a ausência de tensão antes de tocar nos terminais ou no contator.",
         guias: ["contatores_rele_termico"],
       },
       {
@@ -709,6 +727,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a resistência de aterramento com o terrômetro.",
           "Inspecionar terminais e hastes.",
         ],
+        seguranca: "Isolar e impedir o uso do equipamento; não tocar a carcaça; medir desenergizado.",
         guias: ["aterramento", "nr10"],
       },
     ],
@@ -732,6 +751,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o filtro de admissão e o dreno.",
           "Verificar a válvula de retenção e a de descarga.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar.",
         guias: ["vazamentos_ar", "frl"],
       },
       {
@@ -747,6 +767,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar o nível e a qualidade do óleo.",
           "Medir a temperatura de descarga.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar.",
         guias: ["oleos", "vazamentos_ar"],
       },
       {
@@ -762,6 +783,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a vibração dos mancais.",
           "Verificar a fixação das válvulas.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar.",
         guias: ["correias_polias", "analise_vibracao", "rolamentos"],
       },
       {
@@ -776,6 +798,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Procurar vazamento com detector ultrassônico ou espuma.",
           "Verificar os drenos automáticos.",
         ],
+        seguranca: "Bloquear (LOTO) e despressurizar.",
         guias: ["vazamentos_ar"],
       },
     ],
@@ -921,6 +944,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a continuidade do cabo.",
           "Verificar a conexão no módulo de entrada do CLP.",
         ],
+        seguranca: "Medir com o circuito desenergizado ou com instrumento de categoria adequada; não tocar em terminais energizados.",
         guias: ["medicoes_isolamento", "nr10"],
       },
       {
@@ -936,6 +960,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Medir a continuidade da blindagem e do aterramento.",
           "Verificar a fixação do sensor e a distância ao alvo.",
         ],
+        seguranca: "Bloquear antes de mexer nos cabos ou na blindagem; não tocar em partes energizadas.",
         guias: ["aterramento", "medicoes_isolamento"],
       },
       {
@@ -951,6 +976,7 @@ export const TIPOS_EQUIPAMENTO: TipoEquipamento[] = [
           "Verificar a limpeza do alvo e a distância de detecção.",
           "Comparar a leitura com um instrumento de referência.",
         ],
+        seguranca: "Ajustar o sensor com o equipamento bloqueado (LOTO) ou com a alimentação segura; ajustes no controlador podem alterar o processo, então confirmar com a operação.",
         guias: ["medicoes_isolamento"],
       },
     ],

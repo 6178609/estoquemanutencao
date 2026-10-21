@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { GRUPOS } from "@/lib/navegacao";
-import { AREAS, GUIAS, buscarGuias, guiaPorId } from "@/lib/suporte/guias";
+import { AREAS, GUIAS, buscarEm, buscarGuias, guiaPorId } from "@/lib/suporte/guias";
+import type { Guia } from "@/lib/suporte/guias";
 import { TIPOS_EQUIPAMENTO, diagnosticar } from "@/lib/suporte/diagnostico";
 
 const ROTAS = new Set(GRUPOS.flatMap((g) => g.abas.map((a) => a.rota)));
@@ -90,6 +91,15 @@ describe("busca de guias", () => {
     expect(r[0].nota).toBeGreaterThan(0);
   });
 
+  it("plural na consulta acha o singular do texto (CADEIAS × cadeia)", () => {
+    const ficticio: Guia[] = [
+      { id: "ficticio", area: "mecanica", titulo: "Lubrificador de cadeia", resumo: "Cuidados com a cadeia.",
+        palavras: ["cadeia"], texto: ["Verificar a cadeia de transmissão."] },
+    ];
+    expect(buscarEm(ficticio, "CADEIAS")[0]?.guia.id).toBe("ficticio");
+    expect(buscarEm(ficticio, "cadeias transmissao")[0]?.guia.id).toBe("ficticio");
+  });
+
   it("consulta sem resultado devolve lista vazia", () => {
     expect(buscarGuias("xyzzyqwerty")).toEqual([]);
   });
@@ -119,6 +129,14 @@ describe("diagnóstico guiado: conteúdo", () => {
       expect(t.sintomas.length, `${t.id} com menos de 3 sintomas`).toBeGreaterThanOrEqual(3);
       const ids = t.sintomas.map((s) => s.id);
       expect(new Set(ids).size, `sintoma repetido em ${t.id}`).toBe(ids.length);
+    }
+  });
+
+  it("todo sintoma de tipo elétrico ou de fluidos tem segurança (seguranca)", () => {
+    for (const t of TIPOS_EQUIPAMENTO.filter((x) => x.area === "eletrica" || x.area === "fluidos")) {
+      for (const s of t.sintomas) {
+        expect(s.seguranca?.trim(), `sem segurança em ${t.id}/${s.id}`).toBeTruthy();
+      }
     }
   });
 

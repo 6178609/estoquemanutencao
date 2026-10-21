@@ -262,6 +262,7 @@ export const GUIAS: Guia[] = [
     praticas: [
       "Crie a linha de base com o equipamento novo ou recém-revisado e grave a rota de medição.",
       "Os limites numéricos de velocidade dependem do porte e da fixação: use a tabela da ISO 10816 aplicável ao equipamento.",
+      "A ISO 20816-3 substitui a ISO 10816-3; confira a parte da norma aplicável ao equipamento.",
     ],
     links: [
       { rotulo: "Preditiva (SEMEQ)", rota: "/preditiva" },
@@ -282,7 +283,7 @@ export const GUIAS: Guia[] = [
       "Graxa endurecida, seca ou com aspecto de borra.",
     ],
     causas: [
-      "Excesso de graxa: o mancal bate e aquece pelo atrito do lubrificante.",
+      "a agitação do excesso de graxa gera atrito e aquece o mancal",
       "Graxa incompatível com a que já está no mancal (espessantes diferentes).",
       "Graxa inadequada para a temperatura ou a velocidade de operação.",
       "Bico de graxa sujo, que introduz poeira junto com a graxa.",
@@ -478,6 +479,7 @@ export const GUIAS: Guia[] = [
     verificar: [
       "Ler o histórico de falhas do inversor e anotar o código e o momento do desarme.",
       "Com o inversor desenergizado e descarregado (aguardar o tempo indicado no manual), medir a resistência de isolamento do cabo e do motor.",
+      "Desconectar os cabos do motor dos bornes de saída do inversor antes de aplicar o megôhmetro.",
       "Medir tensão de entrada nas três fases, com o inversor em carga, e o desequilíbrio entre elas.",
       "Verificar ventiladores do inversor, filtros do painel e temperatura do dissipador.",
       "Conferir os parâmetros de corrente nominal, tensão e frequência com a placa do motor.",
@@ -525,7 +527,7 @@ export const GUIAS: Guia[] = [
     acoes: [
       "Limpar o núcleo e os contatos; trocar o contato quando houver queima.",
       "Corrigir o aperto e a conexão antes de religar.",
-      "Ajustar o relé térmico à corrente nominal do motor (não acima dela).",
+      "Ajustar o relé térmico à corrente nominal do motor (ou In × fator de serviço), sem ficar acima dela.",
       "Trocar o contator quando a bobina ou os contatos estiverem fora da especificação.",
     ],
     praticas: [
@@ -573,7 +575,7 @@ export const GUIAS: Guia[] = [
     area: "eletrica",
     titulo: "Medições: multímetro e megôhmetro",
     resumo: "Roteiro de medições elétricas com multímetro e megôhmetro, com valores de referência e cuidados de segurança.",
-    palavras: ["megohmetro", "megôhmetro", "multimetro", "medicao", "resistencia de isolamento", "tensao", "corrente", "1 megaohm"],
+    palavras: ["megohmetro", "megôhmetro", "multimetro", "medicao", "resistencia de isolamento", "tensao", "corrente", "5 megaohm"],
     sintomas: [
       "Dúvida sobre o estado do isolamento de motor, cabo ou painel.",
       "Suspeita de fuga para a terra ou curto entre espiras.",
@@ -585,13 +587,13 @@ export const GUIAS: Guia[] = [
     ],
     verificar: [
       "Desenergizar, bloquear e descarregar o equipamento antes de medir.",
-      "Megôhmetro em motor de baixa tensão: aplicar 500 V DC entre cada fase e a carcaça, e entre as fases. Valor mínimo usual: 1 MΩ.",
+      "Megôhmetro em motor de baixa tensão: aplicar 500 V DC entre cada fase e a carcaça, e entre as fases. Valor mínimo (IEEE 43, enrolamento de baixa tensão): 5 MΩ, corrigido para 40 °C; abaixo disso, não energizar.",
       "Índice de polarização (IP = R 10 min ÷ R 1 min): valores acima de 2 indicam isolamento em boas condições.",
       "Multímetro: conferir a tensão de alimentação, a resistência ôhmica entre fases (valores equilibrados) e a continuidade dos cabos.",
       "Anotar as medições com data, temperatura do equipamento e umidade do ambiente.",
     ],
     acoes: [
-      "Se o isolamento estiver abaixo de 1 MΩ, secar o motor e repetir a medição antes de decidir a rebobinagem.",
+      "Se o isolamento estiver abaixo de 5 MΩ, secar o motor e repetir a medição antes de decidir a rebobinagem.",
       "Registrar a tendência: queda de valor entre medições é o sinal mais importante.",
       "Trocar o cabo ou o componente quando a medição não se recuperar após a secagem.",
     ],
@@ -619,7 +621,7 @@ export const GUIAS: Guia[] = [
     verificar: [
       "Confirmar a permissão de trabalho e o procedimento do serviço antes de começar.",
       "Confirmar que os executantes são habilitados e capacitados para o nível de tensão.",
-      "Desenergizar, bloquear, sinalizar e verificar ausência de tensão antes de tocar.",
+      "Seccionar, impedir a reenergização (bloqueio), constatar a ausência de tensão, instalar aterramento temporário com equipotencialização, proteger os elementos energizados próximos e sinalizar o impedimento.",
       "Conferir as ferramentas isoladas e os EPIs para o nível de tensão.",
     ],
     acoes: [
@@ -657,7 +659,7 @@ export const GUIAS: Guia[] = [
       "Despressurizar a linha antes de abrir o copo.",
       "Verificar o dreno do filtro e esvaziar a água.",
       "Ler a pressão de entrada e de saída com manômetro, em consumo normal.",
-      "Verificar o nível e o gotejamento do lubrificador (cerca de 1 gota por minuto por cilindro em operação normal, conforme o fabricante).",
+      "Verificar o nível e o gotejamento do lubrificador (cerca de 1 gota a cada 300–1000 L de ar, conforme o fabricante).",
     ],
     acoes: [
       "Limpar ou trocar o elemento filtrante e instalar dreno automático.",
@@ -666,6 +668,7 @@ export const GUIAS: Guia[] = [
     ],
     praticas: [
       "Mantenha o FRL depois do secador e do reservatório, com dreno automático na linha.",
+      "Uma vez lubrificado, o componente deve continuar sendo lubrificado.",
     ],
     links: [{ rotulo: "Equipamentos", rota: "/equipamentos" }],
   },
@@ -973,7 +976,7 @@ export const GUIAS: Guia[] = [
     ],
     links: [
       { rotulo: "Painel WCM", rota: "/painel" },
-      { rotulo: "Confiabilidade", rota: "/confiabilidade" },
+      { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
     ],
   },
   {
@@ -1161,7 +1164,7 @@ export const GUIAS: Guia[] = [
     ],
     links: [
       { rotulo: "Ordens", rota: "/ordens" },
-      { rotulo: "Confiabilidade", rota: "/confiabilidade" },
+      { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
     ],
   },
   {
@@ -1184,6 +1187,7 @@ export const GUIAS: Guia[] = [
       "IW38 e IW39: listas de ordens.",
       "IW41 e IW47: apontar confirmação e listar confirmações.",
       "IP10 e IP19: planos de manutenção e programação.",
+      "IP10: programar o plano; IP19: visão geral da programação.",
       "IA05 e IA06: listas de tarefas.",
       "IH08: equipamentos. MB52: estoque por material. ME5A: requisições de compra.",
     ],
@@ -1287,7 +1291,7 @@ export const GUIAS: Guia[] = [
       "Lista de tarefas criada antes de uma mudança de processo.",
     ],
     verificar: [
-      "IP10: conferir o plano, o ciclo e o equipamento vinculado.",
+      "IP02/IP03: conferir o plano, o ciclo e o objeto técnico. IP10: programar o plano (iniciar o ciclo e gerar as chamadas).",
       "IP19: conferir a programação e as datas das próximas ordens.",
       "IA05 e IA06: conferir as operações da lista de tarefas e os recursos estimados.",
       "Conferir se a ordem gerada pelo plano está com o tipo YM01.",
@@ -1325,7 +1329,7 @@ export const GUIAS: Guia[] = [
       "Quebra é a ordem YM11 (nota Y1 convertida em ordem).",
     ],
     links: [
-      { rotulo: "Confiabilidade", rota: "/confiabilidade" },
+      { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
       { rotulo: "MTBF e MTTR por tipo de ordem", rota: "/confiabilidade_tipos" },
     ],
   },
@@ -1345,7 +1349,7 @@ export const GUIAS: Guia[] = [
       "Mantenha peças críticas em estoque e planos de contingência para as falhas mais comuns.",
     ],
     links: [
-      { rotulo: "Confiabilidade", rota: "/confiabilidade" },
+      { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
       { rotulo: "Mão de obra e backlog", rota: "/mao_de_obra" },
     ],
   },
@@ -1365,7 +1369,7 @@ export const GUIAS: Guia[] = [
       "Compare a disponibilidade com a meta da área, não com outra área de processo diferente.",
     ],
     links: [
-      { rotulo: "Confiabilidade", rota: "/confiabilidade" },
+      { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
       { rotulo: "Indicadores SIM (MP)", rota: "/indicadores_sim" },
     ],
   },
@@ -1376,7 +1380,7 @@ export const GUIAS: Guia[] = [
     resumo: "Volume de serviços pendentes da manutenção, medido em horas de trabalho, e como interpretá-lo.",
     palavras: ["backlog", "pendencias", "ordens abertas", "atraso", "HH pendente", "fila"],
     texto: [
-      "Backlog em horas = HH estimadas das ordens abertas e não executadas ÷ capacidade semanal da equipe (HH disponíveis por semana).",
+      "Backlog (semanas) = HH estimadas das ordens abertas ÷ HH disponíveis por semana da equipe.",
       "Backlog de ordens = quantidade de ordens abertas, por tipo e por prioridade.",
       "Backlog em semanas acima de 2 a 3 sinaliza falta de capacidade ou de planejamento, conforme a planta.",
     ],
@@ -1437,13 +1441,26 @@ function corpoDoGuia(g: Guia): string {
     .join(" ");
 }
 
+/** Tira o plural simples de termos longos (ROLAMENTOS → rolamento). */
+function raiz(t: string): string {
+  if (t.length <= 4) return t;
+  if (t.endsWith("es")) return t.slice(0, -2);
+  if (t.endsWith("s")) return t.slice(0, -1);
+  return t;
+}
+
 /**
  * Busca guias. Cada termo precisa aparecer em algum campo do guia; a nota soma título×5, palavras×4, resumo×2 e corpo×1.
  * Consulta vazia devolve todos os guias (da área, se informada) com nota 0, na ordem de GUIAS.
  */
 export function buscarGuias(q: string, area?: Area): { guia: Guia; nota: number }[] {
-  const base = area ? GUIAS.filter((g) => g.area === area) : GUIAS;
-  const termos = norm(q).split(/\s+/).filter(Boolean);
+  return buscarEm(GUIAS, q, area);
+}
+
+/** Mesma busca de `buscarGuias`, sobre uma lista qualquer de guias. */
+export function buscarEm(lista: Guia[], q: string, area?: Area): { guia: Guia; nota: number }[] {
+  const base = area ? lista.filter((g) => g.area === area) : lista;
+  const termos = norm(q).split(/\s+/).filter(Boolean).map(raiz);
   if (termos.length === 0) return base.map((guia) => ({ guia, nota: 0 }));
 
   const resultados: { guia: Guia; nota: number }[] = [];
