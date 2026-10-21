@@ -2,6 +2,8 @@
  * Modo demonstração: dados FICTÍCIOS gerados aqui, usados quando o site não tem fonte de dados configurada
  * (ex.: o primeiro deploy na Vercel antes de colocar o token). Nada aqui é dado da empresa.
  */
+import { chaveMes } from "../wcm/orcamento";
+import { hoje, inicioDoMes, somarMeses } from "../wcm/util";
 import type { ItemCatalogo, ItemEstoque } from "./materiais";
 
 function gerador(semente: number) {
@@ -75,10 +77,20 @@ export function dadosDemo() {
 
 // cadastros da demonstração ficam só na memória do servidor
 // (em globalThis: as rotas de API e as páginas podem ter cópias separadas deste módulo no mesmo processo)
+/** Orçamento fictício: de 3 meses atrás até 2 meses à frente do mês de hoje, valores redondos que variam por mês. */
+const VALORES_DEMO = [280000, 300000, 320000, 300000, 300000, 300000]; // deslocamentos -3 a +2
+export function orcamentoDemo(h: number): Record<string, Record<string, unknown>> {
+  const inicio = inicioDoMes(h);
+  const out: Record<string, Record<string, unknown>> = {};
+  VALORES_DEMO.forEach((valor, i) => { out[`orcamento:${chaveMes(somarMeses(inicio, i - 3))}`] = { valor }; });
+  return out;
+}
+
 const globalDemo = globalThis as unknown as { __cmCadastrosDemo?: Map<string, Record<string, Record<string, unknown>>> };
 const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<string, Record<string, unknown>>>([
   ["cadastro_materiais.json", {}],
   ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] } }],
+  ["metas_wcm.json", orcamentoDemo(hoje())],
   ["tipos_ordem.json", { YM01: { descricao: "Preventiva" }, YM03: { descricao: "Preditiva / inspeção" },
     YM11: { descricao: "Corretiva Emergencial" }, YM12: { descricao: "Corretiva programada" }, YM13: { descricao: "Melhoria" } }],
 ]));

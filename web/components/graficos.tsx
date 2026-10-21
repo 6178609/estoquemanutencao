@@ -160,10 +160,10 @@ function CaixaDica({ d, largura }: { d: Dica | null; largura: number }) {
 }
 
 // ----------------------------------------------------------------------------
-// Colunas (verticais): uma série, várias lado a lado ou empilhadas; linha de meta opcional
+// Colunas (verticais): uma série, várias lado a lado ou empilhadas; linha de meta opcional (única, ou uma por coluna)
 // ----------------------------------------------------------------------------
-export function Colunas({ rotulos, series, empilhar, meta, formato: fmtNome = "padrao", altura = 220, corPorValor, rotular = "ultimo" }: {
-  rotulos: string[]; series: Serie[]; empilhar?: boolean; meta?: number | null; formato?: Formato;
+export function Colunas({ rotulos, series, empilhar, meta, metaPorRotulo, nomeMetaPorRotulo = "Meta", formato: fmtNome = "padrao", altura = 220, corPorValor, rotular = "ultimo" }: {
+  rotulos: string[]; series: Serie[]; empilhar?: boolean; meta?: number | null; metaPorRotulo?: (number | null)[]; nomeMetaPorRotulo?: string; formato?: Formato;
   altura?: number; corPorValor?: (v: number, i: number) => Cor; rotular?: "ultimo" | "todos" | "nenhum";
 }) {
   const [ref, largura] = useLargura<HTMLDivElement>();
@@ -172,7 +172,7 @@ export function Colunas({ rotulos, series, empilhar, meta, formato: fmtNome = "p
   const BASE = 22, TOPO = 16;
   const totais = rotulos.map((_, i) => empilhar ? series.reduce((s, x) => s + Math.max(0, x.valores[i] ?? 0), 0)
     : Math.max(0, ...series.map((x) => x.valores[i] ?? 0)));
-  const { ticks, topo } = escala(Math.max(...totais, meta ?? 0, 0), 0, 4, fmtNome === "inteiro" || fmtNome === "un");
+  const { ticks, topo } = escala(Math.max(...totais, meta ?? 0, ...(metaPorRotulo ?? []).map((v) => v ?? 0), 0), 0, 4, fmtNome === "inteiro" || fmtNome === "un");
   const ESQ = margemEixo(ticks.map(fmtV));
   const w = Math.max(largura - ESQ, 10), h = altura - BASE - TOPO;
   const banda = w / Math.max(rotulos.length, 1);
@@ -221,13 +221,19 @@ export function Colunas({ rotulos, series, empilhar, meta, formato: fmtNome = "p
                 )}
                 <rect x={ESQ + i * banda} y={TOPO} width={banda} height={h} fill="transparent" tabIndex={0}
                   onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: r,
-                    linhas: series.map((s, j) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!), linha: false,
-                      cor: corPorValor ? corPorValor(s.valores[i] ?? 0, i) : (s.cor ?? (`serie-${(j % 4) + 1}` as Cor)) })) })}
+                    linhas: [...series.map((s, j) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!), linha: false,
+                      cor: corPorValor ? corPorValor(s.valores[i] ?? 0, i) : (s.cor ?? (`serie-${(j % 4) + 1}` as Cor)) })),
+                    ...(metaPorRotulo?.[i] != null ? [{ nome: nomeMetaPorRotulo, valor: fmtV(metaPorRotulo[i]!), linha: true }] : [])] })}
                   onFocus={() => setDica({ x: ESQ + i * banda + banda / 2, y: TOPO, titulo: r,
-                    linhas: series.map((s) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!) })) })} />
+                    linhas: [...series.map((s) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!) })),
+                      ...(metaPorRotulo?.[i] != null ? [{ nome: nomeMetaPorRotulo, valor: fmtV(metaPorRotulo[i]!) }] : [])] })} />
               </g>
             );
           })}
+          {metaPorRotulo?.map((v, i) => v == null ? null : (
+            <line key={`meta-${i}`} x1={ESQ + i * banda + banda * 0.12} x2={ESQ + i * banda + banda * 0.88} y1={y(v)} y2={y(v)}
+              stroke="var(--st-bom)" strokeWidth={2} strokeDasharray="4 3" />
+          ))}
           {meta != null && meta > 0 && (
             <g>
               <line x1={ESQ} x2={largura} y1={y(meta)} y2={y(meta)} stroke="var(--st-bom)" strokeWidth={1.5} />

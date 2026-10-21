@@ -7,7 +7,7 @@ import { dia } from "@/lib/wcm/util";
 const hoje = dia(2026, 10, 12)!;
 // dados fictícios
 const r = (x: Partial<Requisicao>) => ({ requisicao: "R1", po: "", status: "", aprovador: "", proprietario: "", solicitante: "",
-  itens: "", justificativa: "", enviadoEm: hoje, ultimoEnvio: null, total: 0, pendente: false, diasAguardando: null, ...x }) as Requisicao;
+  itens: "", justificativa: "", enviadoEm: hoje, ultimoEnvio: null, total: 0, pendente: false, diasAguardando: null, tipo: null, fase: "aprovada", ...x }) as Requisicao;
 
 describe("requisições", () => {
   it("abre no mês atual, só pendentes", () => {

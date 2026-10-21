@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import { Barras, Colunas, Grafico, Legenda, type Cor } from "@/components/graficos";
 import { PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
+import { podeEditar } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { brl, brlCurto } from "@/lib/formato";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { concentracao, custoParadaDe, dnaPorFamilia, iceberg, kpis360, mesDoTermometro, mesNoIntervalo, porCriticidade, porDia, porGrupo, porMesAno, travado } from "@/lib/wcm/custo360";
 import { barra, contexto, dados, resultados } from "@/lib/wcm/contexto";
+import { orcamentoDe, orcamentoPorMes } from "@/lib/wcm/orcamento";
 import * as ind from "@/lib/wcm/indicadores";
 import { dia, inicioDoMes, partes, somarMeses, type Dia } from "@/lib/wcm/util";
 
@@ -18,9 +20,11 @@ import { TabelaFicha } from "../confiabilidade/_comum/TabelaFicha";
 import { custoPor, ordensDoPeriodo, porEquipamento, porMes, resumo } from "./calculo";
 import { Concentracao } from "./_ui/Concentracao";
 import { Dna } from "./_ui/Dna";
+import { EditorOrcamento } from "./_ui/EditorOrcamento";
 import { Iceberg } from "./_ui/Iceberg";
 import { PorClasse } from "./_ui/PorClasse";
 import { Kpis360 } from "./_ui/Kpis360";
+import { Orcamento } from "./_ui/Orcamento";
 import { ParaOnde } from "./_ui/ParaOnde";
 import { Termometro } from "./_ui/Termometro";
 import { Travado } from "./_ui/Travado";
@@ -46,7 +50,7 @@ const COL_ORD: Coluna[] = [
 ];
 
 export default async function Custos(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await exigir("custos");
+  const u = await exigir("custos");
   const params = await props.searchParams;
   const c = await contexto(params);
   const titulo = <Cabecalho titulo="Custos," destaque="quanto custa manter a fábrica rodando." sobre="Manutenção Profissional"
@@ -80,6 +84,18 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const pctCorr = atual.pct_custo_corr ?? null;
   const metaCorr = ind.meta(ind.POR_ID.pct_custo_corr, metas);
   const etapasTravado = travado(o, d.requisicoes);
+  // orçamento do mês: a tabela vai do mês do início do período até o fim do período ou, se ele chega ao mês atual,
+  // até o fim do segundo mês à frente (requisições projetadas); as ordens só existem até hoje (fimEf)
+  const mesIni = inicioDoMes(ini);
+  const mesHoje = inicioDoMes(hoje);
+  const fimDoMes = (x: Dia) => somarMeses(inicioDoMes(x), 1) - 1;
+  const fimOrcamento = fim >= mesHoje ? Math.max(fimDoMes(fim), fimDoMes(somarMeses(mesHoje, 2))) : fimDoMes(fim);
+  const ordensOrcamento = mesIni === ini ? o : ordensDoPeriodo(d.ordens, mesIni, fimEf, c.tipos);
+  const disponivelCad = orcamentoDe(metas);
+  const orcamento = orcamentoPorMes(ordensOrcamento, d.requisicoes, disponivelCad, mesIni, fimOrcamento, hoje);
+  const oanoParam = typeof params.oano === "string" && /^\d{4}$/.test(params.oano) ? Number(params.oano) : NaN;
+  const oano = oanoParam >= 2000 && oanoParam <= 2100 ? oanoParam : partes(fimEf).ano;
+  const valoresAno = Array.from({ length: 12 }, (_, i) => disponivelCad.get(mesParam(oano, i + 1)) ?? null);
   const travados = etapasTravado.filter((e) => e.valor != null);
   const totalTravado = travados.length ? travados.reduce((s, e) => s + (e.valor ?? 0), 0) : null;
 
@@ -187,6 +203,10 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
         <Concentracao conc={concentracao(o)} nomeEq={nomeEq} campoEq={campoEq} />
         <Travado etapas={etapasTravado} />
       </div>
+
+      <Secao titulo="Orçamento" destaque="do mês" sub="Valor disponível lançado por mês × ordens (IW38) e requisições aprovadas. Requisições aguardando aprovação aparecem à parte (a entrar) no mês previsto.">
+        <Orcamento {...orcamento} editor={podeEditar(u) ? <EditorOrcamento ano={oano} valores={valoresAno} /> : undefined} />
+      </Secao>
 
       <details className="rounded-cartao border border-borda bg-superficie">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-display text-[16px] font-medium [&::-webkit-details-marker]:hidden">
