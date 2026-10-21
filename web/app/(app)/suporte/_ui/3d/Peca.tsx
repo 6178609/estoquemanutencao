@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef } from "react";
+import { createContext, useContext, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -80,20 +80,21 @@ export function Peca({
 }) {
   const { aoClicarPeca, reduzir } = useContext(ContextoCena);
   const grupo = useRef<Group>(null);
-  const destino = useRef(new Vector3());
+  // o alvo da vista explodida é calculado uma vez por valor de `afastamento`, não a cada quadro
+  const chave = (afastamento ?? [0, 0, 0]).join(",");
+  const alvo = useMemo(() => new Vector3(...chave.split(",").map(Number)), [chave]);
 
-  useFrame((estado) => {
+  useFrame((estado, delta) => {
     const g = grupo.current;
     if (!g) return;
-    const a = explodir && afastamento ? afastamento : null;
-    destino.current.copy(a ? new Vector3(...a) : ORIGEM);
+    const destino = explodir ? alvo : ORIGEM;
     if (reduzir) {
-      g.position.copy(destino.current);
+      g.position.copy(destino);
       return;
     }
-    g.position.lerp(destino.current, 0.15);
-    if (g.position.distanceTo(destino.current) > 0.0005) estado.invalidate();
-    else g.position.copy(destino.current);
+    g.position.lerp(destino, 1 - Math.exp(-8 * delta));
+    if (g.position.distanceTo(destino) > 0.0005) estado.invalidate();
+    else g.position.copy(destino);
   });
 
   return (

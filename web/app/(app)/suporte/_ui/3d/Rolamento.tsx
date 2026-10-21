@@ -10,6 +10,19 @@ const RAIO_GOLA = 0.1;
 const RAIO_ESFERA = 0.085;
 const RAIO_INTERNO = 0.5;
 const ESFERAS = 9;
+const PECA = {
+  anelExterno: "anel_externo",
+  pistaExterna: "pista_externa",
+  anelInterno: "anel_interno",
+  pistaInterna: "pista_interna",
+  esferas: "esferas",
+  gaiola: "gaiola",
+  vedacao: "vedacao",
+} as const;
+
+/** Ids das peças desenhadas (testados contra MODELOS em testes/modelos3d.test.ts). */
+export const PECAS_ROLAMENTO: readonly string[] = Object.values(PECA);
+
 const SEGMENTOS = 56;
 
 /** Arco da gola de pista: sinal +1 para a pista externa (para fora), -1 para a interna (para dentro). */
@@ -69,35 +82,35 @@ const ANGULO_ESFERA = (2 * Math.PI) / ESFERAS;
 export function Rolamento({ explodir }: ModeloProps) {
   return (
     <group>
-      <Peca id="anel_externo" explodir={explodir} afastamento={[0.45, 0, 0]}>
+      <Peca id={PECA.anelExterno} explodir={explodir} afastamento={[0.45, 0, 0]}>
         <mesh>
           <latheGeometry args={[PERFIL_EXTERNO, SEGMENTOS]} />
           <Mat cor="aco" />
         </mesh>
       </Peca>
 
-      <Peca id="pista_externa" explodir={explodir} afastamento={[0.45, 0, 0]}>
+      <Peca id={PECA.pistaExterna} explodir={explodir} afastamento={[0.45, 0, 0]}>
         <mesh>
           <latheGeometry args={[FAIXA_EXTERNA, SEGMENTOS]} />
           <Mat cor="acoClaro" />
         </mesh>
       </Peca>
 
-      <Peca id="anel_interno" explodir={explodir} afastamento={[-0.45, 0, 0]}>
+      <Peca id={PECA.anelInterno} explodir={explodir} afastamento={[-0.45, 0, 0]}>
         <mesh>
           <latheGeometry args={[PERFIL_INTERNO, SEGMENTOS]} />
           <Mat cor="aco" />
         </mesh>
       </Peca>
 
-      <Peca id="pista_interna" explodir={explodir} afastamento={[-0.45, 0, 0]}>
+      <Peca id={PECA.pistaInterna} explodir={explodir} afastamento={[-0.45, 0, 0]}>
         <mesh>
           <latheGeometry args={[FAIXA_INTERNA, SEGMENTOS]} />
           <Mat cor="acoClaro" />
         </mesh>
       </Peca>
 
-      <Peca id="esferas">
+      <Peca id={PECA.esferas}>
         {Array.from({ length: ESFERAS }, (_, k) => {
           const a = k * ANGULO_ESFERA;
           return (
@@ -109,7 +122,7 @@ export function Rolamento({ explodir }: ModeloProps) {
         })}
       </Peca>
 
-      <Peca id="gaiola">
+      <Peca id={PECA.gaiola}>
         {Array.from({ length: ESFERAS }, (_, k) => {
           // bolsos entre as esferas: um pilar de gaiola no meio de cada intervalo
           const a = (k + 0.5) * ANGULO_ESFERA;
@@ -128,7 +141,7 @@ export function Rolamento({ explodir }: ModeloProps) {
         ))}
       </Peca>
 
-      <Peca id="vedacao">
+      <Peca id={PECA.vedacao}>
         <mesh>
           <latheGeometry args={[ESCUDO_SUPERIOR, 48]} />
           <Mat cor="acoEscuro" />

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { TIPOS_EQUIPAMENTO } from "@/lib/suporte/diagnostico";
-import { MARCADORES, MODELOS, MODELO_DO_TIPO, marcadoresDe } from "@/lib/suporte/modelos3d";
+import { MARCADORES, MODELOS, MODELOS_COM_CENA, MODELO_DO_TIPO, marcadoresDe, temCena } from "@/lib/suporte/modelos3d";
+import { PECAS_ROLAMENTO } from "@/app/(app)/suporte/_ui/3d/Rolamento";
+import { PECAS_MOTOR } from "@/app/(app)/suporte/_ui/3d/Motor";
 import type { IdModelo } from "@/lib/suporte/modelos3d";
 
 const TIPOS_COM_MODELO = [
@@ -91,5 +93,19 @@ describe("modelos 3D: marcadores", () => {
         }
       }
     }
+  });
+});
+
+describe("modelos 3D: cenas", () => {
+  it("as peças desenhadas em cada cena são exatamente as de MODELOS", () => {
+    const ids = (lista: readonly string[]) => [...lista].sort();
+    expect(ids(PECAS_ROLAMENTO)).toEqual(ids(MODELOS.rolamento.pecas.map((p) => p.id)));
+    expect(ids(PECAS_MOTOR)).toEqual(ids(MODELOS.motor.pecas.map((p) => p.id)));
+  });
+
+  it("MODELOS_COM_CENA lista só modelos existentes, e temCena confere a lista", () => {
+    for (const m of MODELOS_COM_CENA) expect(MODELOS[m]).toBeDefined();
+    expect(temCena("rolamento")).toBe(true);
+    expect(temCena("redutor")).toBe(false);
   });
 });

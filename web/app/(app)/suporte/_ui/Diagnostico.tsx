@@ -6,7 +6,7 @@ import { BOTAO_SECUNDARIO, Cartao } from "@/components/ui";
 import { podeVer, type Usuario } from "@/lib/auth/acesso";
 import { guiaPorId } from "@/lib/suporte/guias";
 import { TIPOS_EQUIPAMENTO, diagnosticar, type Sintoma } from "@/lib/suporte/diagnostico";
-import { MODELO_DO_TIPO } from "@/lib/suporte/modelos3d";
+import { MODELO_DO_TIPO, marcadoresDe } from "@/lib/suporte/modelos3d";
 
 import { HistoricoEquipamento } from "./HistoricoEquipamento";
 import { Visualizador3D } from "./3d/Visualizador3D";
@@ -106,7 +106,7 @@ export async function Diagnostico({ params, u }: { params: Params; u: Usuario })
               </div>
             )}
             {MODELO_DO_TIPO[tipo.id] && (
-              <Visualizador3D modelo={MODELO_DO_TIPO[tipo.id]!} tipo={tipo.id} sintoma={sintoma.id} />
+              <Visualizador3D modelo={MODELO_DO_TIPO[tipo.id]!} tipo={tipo.id} sintoma={sintoma.id} marcadores={marcadoresDe(tipo.id, sintoma.id)} />
             )}
           </Secao>
 

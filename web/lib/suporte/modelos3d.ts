@@ -6,6 +6,14 @@
 
 export type IdModelo = "rolamento" | "motor" | "redutor" | "correia" | "bomba" | "cilindro" | "valvula" | "esteira";
 
+/** Modelos que já têm cena 3D (`Cena.tsx`). Fonte única: a cena e o diagnóstico usam esta lista. */
+export const MODELOS_COM_CENA = ["rolamento", "motor"] as const;
+export type ModeloComCena = (typeof MODELOS_COM_CENA)[number];
+
+export function temCena(modelo: IdModelo): modelo is ModeloComCena {
+  return (MODELOS_COM_CENA as readonly string[]).includes(modelo);
+}
+
 export interface PecaModelo {
   id: string;
   nome: string;
@@ -175,9 +183,9 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "rotor", titulo: "Rotor travado", explicacao: "Carga mecânica excessiva ou rolamento agarrado impede o giro." },
     ],
     desarma: [
-      { peca: "estator", titulo: "Isolação degradada ou fuga para a carcaça", explicacao: "A isolação das bobinas perde a resistência; a fuga de corrente faz o relé de proteção desarmar." },
+      { peca: "estator", titulo: "Isolação degradada ou fuga para a carcaça", explicacao: "A isolação das bobinas perde a resistência; a fuga de corrente faz o disjuntor ou o DR (IDR) desarmar." },
       { peca: "caixa_ligacao", titulo: "Desequilíbrio ou falta de fase", explicacao: "Com uma fase faltando ou desequilibrada, a corrente sobe nas outras e o relé desarma." },
-      { peca: "rotor", titulo: "Travamento ou sobrecarga mecânica", explicacao: "Rotor forçado eleva a corrente de partida e de carga acima do ajuste do relé." },
+      { peca: "rotor", titulo: "Travamento ou sobrecarga mecânica", explicacao: "Com o rotor travado, a corrente fica alta e fixa, e a partida se prolonga até o relé térmico desarmar." },
     ],
     ruido: [
       { peca: "ventilador", titulo: "Ventilador batendo na tampa ou com aleta solta", explicacao: "Folga do ventilador na tampa ou aleta solta geram ruído de atrito e batida." },
@@ -189,13 +197,13 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "rotor", titulo: "Desbalanceamento do rotor", explicacao: "Massa desigual ou peça perdida no rotor gera vibração na rotação." },
       { peca: "ventilador", titulo: "Desbalanceamento do ventilador", explicacao: "Sujeira acumulada ou pá perdida desbalanceia o ventilador." },
       { peca: "rolamento_dianteiro", titulo: "Defeito de rolamento", explicacao: "As frequências de defeito aparecem no espectro de vibração do mancal." },
-      { peca: "carcaca", titulo: "Pé do motor solto", explicacao: "Base com folga deixa o motor vibrar, e a vibração cresce com a carga." },
+      { peca: "carcaca", titulo: "Pé manco (soft foot)", explicacao: "A base empenada deforma a carcaça e desalinha o motor; a vibração aparece em 1× a rotação e em 2× a frequência da rede." },
     ],
   },
   redutor: {
     aquecimento: [
       { peca: "nivel_oleo", titulo: "Nível de óleo fora da faixa", explicacao: "Nível baixo deixa as engrenagens sem lubrificação; nível alto gera agitação e calor." },
-      { peca: "carcaca", titulo: "Óleo com viscosidade errada ou degradado", explicacao: "O óleo perde película e aquece a carcaça quando a viscosidade não é a recomendada." },
+      { peca: "carcaca", titulo: "Respiro entupido ou óleo degradado", explicacao: "Respiro entupido impede a troca de pressão interna, e óleo com viscosidade errada perde película e aquece o redutor." },
       { peca: "pinhao", titulo: "Engrenamento sobrecarregado", explicacao: "Sobrecarga ou partidas com carga aumentam o atrito entre os dentes." },
       { peca: "rolamentos", titulo: "Rolamento com atrito alto", explicacao: "Falta de lubrificação ou carga excessiva eleva o atrito no mancal do eixo." },
     ],
@@ -203,7 +211,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "pinhao", titulo: "Dentes do pinhão desgastados", explicacao: "Desgaste e folga excessiva nos dentes geram ruído de choque a cada engrenamento." },
       { peca: "coroa", titulo: "Dentes da coroa com pitting ou lascados", explicacao: "Fadiga superficial ou dentes lascados causam ruído periódico no engrenamento." },
       { peca: "rolamentos", titulo: "Rolamento do eixo com defeito", explicacao: "Pista ou esferas danificadas geram ruído que se confunde com o do engrenamento." },
-      { peca: "carcaca", titulo: "Óleo contaminado com partículas abrasivas", explicacao: "Partículas abrasivas no óleo aceleram o desgaste dos dentes." },
+      { peca: "carcaca", titulo: "Óleo contaminado com partículas abrasivas", explicacao: "Partículas abrasivas no óleo desgastam os dentes e aumentam a folga, o que deixa o engrenamento ruidoso." },
     ],
     vazamento: [
       { peca: "retentores", titulo: "Retentor gasto ou danificado", explicacao: "O lábio do retentor gasto deixa o óleo passar pelo eixo." },
@@ -212,9 +220,9 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "carcaca", titulo: "Juntas ou bujões soltos", explicacao: "Juntas e bujões com aperto ou vedação ruins deixam o óleo escapar." },
     ],
     perda_torque: [
-      { peca: "coroa", titulo: "Desgaste de dentes com folga excessiva", explicacao: "A folga entre os dentes deixa o engrenamento deslizar e perder torque." },
-      { peca: "eixo_saida", titulo: "Folga no eixo de saída", explicacao: "Folga no eixo de saída reduz a transmissão de torque para a carga." },
-      { peca: "eixo_entrada", titulo: "Elemento elástico do acoplamento gasto", explicacao: "O elemento elástico gasto do acoplamento motor-redutor desliza e perde torque." },
+      { peca: "pinhao", titulo: "Dente quebrado ou desgaste severo", explicacao: "Dente quebrado ou muito gasto deixa o engrenamento deslizar e o torque não chega à coroa." },
+      { peca: "eixo_saida", titulo: "Chaveta cisalhada ou cubo frouxo no eixo de saída", explicacao: "Com a chaveta cisalhada ou o cubo frouxo, o eixo gira sem levar a carga na mesma proporção." },
+      { peca: "eixo_entrada", titulo: "Elemento do acoplamento rompido ou limitador de torque patinando", explicacao: "Elemento rompido ou limitador de torque que patina separa o motor do redutor, e o torque não chega ao eixo." },
     ],
   },
   correia_polia: {
@@ -227,7 +235,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
     desgaste: [
       { peca: "correia", titulo: "Borda da correia desfiada ou trincada", explicacao: "O atrito nas bordas, somado a calor ou óleo, endurece a borracha e a faz trincar." },
       { peca: "eixos", titulo: "Polias desalinhadas", explicacao: "Eixos fora de paralelo fazem a correia atritar nas bordas das polias." },
-      { peca: "correia", titulo: "Tensão excessiva", explicacao: "Tensão acima da recomendada endurece a borracha e sobrecarrega os mancais." },
+      { peca: "correia", titulo: "Tensão excessiva", explicacao: "Tensão excessiva estica a correia e sobrecarrega os mancais." },
     ],
     vibracao: [
       { peca: "correia", titulo: "Tensão desigual entre as correias", explicacao: "Com várias correias, tensões diferentes fazem umas trabalharem mais que outras e vibrarem." },
@@ -292,6 +300,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "bobina", titulo: "Tensão acima da nominal", explicacao: "Tensão acima da placa aumenta a corrente e o calor na bobina." },
       { peca: "bobina", titulo: "Curto entre espiras", explicacao: "Espiras em curto concentram corrente e a bobina queima." },
       { peca: "bobina", titulo: "Comando contínuo em válvula de pulso", explicacao: "Válvula feita para pulso, mantida energizada, esquenta sem parar." },
+      { peca: "carretel", titulo: "Carretel travado em bobina CA", explicacao: "Com o carretel travado, a bobina CA mantém corrente de partida alta e fica energizada; sem mover, aquece até queimar." },
     ],
     vazamento: [
       { peca: "vedacoes", titulo: "Vedação interna gasta", explicacao: "Com a válvula desligada, a vedação não fecha e o ar passa entre as vias." },
@@ -302,7 +311,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
   esteira_transportador: {
     desalinhada: [
       { peca: "roletes", titulo: "Roletes fora de esquadro", explicacao: "Roletes desalinhados empurram a correia para um dos lados." },
-      { peca: "tambor_acionamento", titulo: "Tambor desalinhado ou com abaulamento", explicacao: "A correia corre para o lado de maior diâmetro do tambor." },
+      { peca: "tambor_acionamento", titulo: "Tambor com abaulamento gasto ou material aderido", explicacao: "Abaulamento gasto ou material aderido ao tambor faz a correia correr para o lado de maior diâmetro." },
       { peca: "esticador", titulo: "Tensão desigual nos lados", explicacao: "Esticador ajustado diferente em cada lado tira a correia do centro." },
       { peca: "raspador", titulo: "Acúmulo de material em um lado", explicacao: "Material acumulado em um lado muda o atrito e desloca a correia." },
     ],

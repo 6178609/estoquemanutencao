@@ -4,8 +4,8 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode, RefObject } from "react";
 
-import { MODELOS, marcadoresDe } from "@/lib/suporte/modelos3d";
-import type { IdModelo } from "@/lib/suporte/modelos3d";
+import { MODELOS, temCena } from "@/lib/suporte/modelos3d";
+import type { IdModelo, Marcador, ModeloComCena } from "@/lib/suporte/modelos3d";
 
 /** three.js só entra no cliente, quando o bloco aparece na tela (ver `useVisivel`). */
 const Cena = dynamic(() => import("./Cena").then((m) => m.Cena), {
@@ -17,6 +17,8 @@ interface Props {
   modelo: IdModelo;
   tipo: string;
   sintoma: string;
+  /** causas do sintoma com a peça ligada (de `marcadoresDe`, no servidor: a tabela inteira não vai ao cliente) */
+  marcadores: Marcador[];
 }
 
 /**
@@ -24,24 +26,21 @@ interface Props {
  * focaliza a peça (vermelho) e mostra a explicação. Sem WebGL, a lista de marcadores continua.
  */
 export function Visualizador3D(props: Props) {
-  // modelos ainda sem cena não mostram o bloco (nada quebra); ao trocar tipo ou sintoma, o estado começa do zero
-  if (!MODELOS_COM_CENA.has(props.modelo)) return null;
-  return <Bloco key={`${props.tipo}/${props.sintoma}`} {...props} />;
+  // modelo sem cena não mostra o bloco (nada quebra)
+  if (!temCena(props.modelo)) return null;
+  // ao trocar tipo ou sintoma, o estado (peça ativa, explodido, giro) começa do zero
+  return <Bloco key={`${props.tipo}/${props.sintoma}`} modelo={props.modelo} marcadores={props.marcadores} />;
 }
 
-/** Modelos que já têm cena em `Cena.tsx` (COMPONENTES). Mantém a lista igual à de lá. */
-const MODELOS_COM_CENA: ReadonlySet<IdModelo> = new Set<IdModelo>(["rolamento", "motor"]);
-
-function Bloco({ modelo: idModelo, tipo, sintoma }: Props) {
+function Bloco({ modelo: idModelo, marcadores }: { modelo: ModeloComCena; marcadores: Marcador[] }) {
   const modelo = MODELOS[idModelo];
-  const marcadores = marcadoresDe(tipo, sintoma);
   const [ativo, setAtivo] = useState<number | null>(null);
   const [explodir, setExplodir] = useState(false);
   const [pausado, setPausado] = useState(false);
   const reduzir = useMovimentoReduzido();
   const suporte = useWebGL();
   const area = useRef<HTMLDivElement>(null);
-  const visivel = useVisivel(area);
+  const { naTela, jaVisto } = useVisivel(area);
 
   const peca = ativo === null ? null : (marcadores[ativo]?.peca ?? null);
   // o giro para quando há uma peça em foco, e nunca com movimento reduzido
@@ -64,41 +63,36 @@ function Bloco({ modelo: idModelo, tipo, sintoma }: Props) {
         <div className="min-w-0 space-y-3">
           <div
             ref={area}
-            role="img"
-            aria-label={`Modelo 3D: ${modelo.titulo}.${marcador ? ` Peça em destaque: ${nomeDe(marcador.peca)}.` : ""}`}
             className="relative h-[300px] w-full overflow-hidden rounded-cartao border border-borda bg-superficie-2 sm:h-[400px]"
           >
-            {!visivel ? (
+            {!jaVisto ? (
               <Mensagem>Visualização 3D</Mensagem>
             ) : suporte === false ? (
-              <Mensagem>Visualização 3D indisponível neste navegador</Mensagem>
+              <Mensagem role="status">Visualização 3D indisponível neste navegador</Mensagem>
             ) : suporte === true ? (
-              <Cena
-                modelo={idModelo}
-                destaque={peca}
-                explodir={explodir}
-                girar={girar}
-                reduzir={reduzir}
-                aoClicarPeca={aoClicarPeca}
-              />
+              <div
+                role="img"
+                aria-label={`Modelo 3D: ${modelo.titulo}.${marcador ? ` Peça em destaque: ${nomeDe(marcador.peca)}.` : ""}`}
+                className="absolute inset-0"
+              >
+                <Cena
+                  modelo={idModelo}
+                  destaque={peca}
+                  explodir={explodir}
+                  girar={girar}
+                  reduzir={reduzir}
+                  naTela={naTela}
+                  aoClicarPeca={aoClicarPeca}
+                />
+              </div>
             ) : null}
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              aria-pressed={!explodir}
-              onClick={() => setExplodir(false)}
-              className={BOTAO_NO_MODELO}
-            >
+            <button type="button" aria-pressed={!explodir} onClick={() => setExplodir(false)} className={BOTAO_NO_MODELO}>
               Montado
             </button>
-            <button
-              type="button"
-              aria-pressed={explodir}
-              onClick={() => setExplodir(true)}
-              className={BOTAO_NO_MODELO}
-            >
+            <button type="button" aria-pressed={explodir} onClick={() => setExplodir(true)} className={BOTAO_NO_MODELO}>
               Vista explodida
             </button>
             <button type="button" onClick={() => setAtivo(null)} className={BOTAO_NO_MODELO}>
@@ -150,35 +144,40 @@ function Bloco({ modelo: idModelo, tipo, sintoma }: Props) {
 const BOTAO_NO_MODELO =
   "inline-flex min-h-11 items-center rounded-full border border-borda bg-superficie px-4 text-[13.5px] text-texto transition hover:border-borda-forte aria-pressed:border-transparent aria-pressed:bg-tinta aria-pressed:font-semibold aria-pressed:text-tinta-texto";
 
-function Mensagem({ children }: { children: ReactNode }) {
+function Mensagem({ children, role }: { children: ReactNode; role?: "status" }) {
   return (
-    <div className="flex h-full items-center justify-center p-6 text-center text-[13.5px] text-texto-3">{children}</div>
+    <div role={role} className="flex h-full items-center justify-center p-6 text-center text-[13.5px] text-texto-3">
+      {children}
+    </div>
   );
 }
 
-/** Vira verdadeiro uma vez, quando o bloco entra na tela (com folga para começar antes). */
+/**
+ * Acompanha a entrada na tela sem parar de observar: `naTela` liga/desliga o desenho do canvas, e `jaVisto` monta
+ * a cena só na primeira vez que o bloco aparece.
+ */
 function useVisivel(ref: RefObject<HTMLDivElement | null>) {
-  const [visivel, setVisivel] = useState(false);
+  const [naTela, setNaTela] = useState(false);
+  const [jaVisto, setJaVisto] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    if (!el || visivel) return;
+    if (!el) return;
     const observador = new IntersectionObserver(
       (entradas) => {
-        if (entradas.some((e) => e.isIntersecting)) {
-          setVisivel(true);
-          observador.disconnect();
-        }
+        const dentro = entradas.some((e) => e.isIntersecting);
+        setNaTela(dentro);
+        if (dentro) setJaVisto(true);
       },
       { rootMargin: "200px" },
     );
     observador.observe(el);
     return () => observador.disconnect();
-  }, [ref, visivel]);
-  return visivel;
+  }, [ref]);
+  return { naTela, jaVisto };
 }
 
 let webglCache: boolean | undefined;
-/** Há WebGL neste navegador? null no servidor e na hidratação. */
+/** Há WebGL neste navegador? Testa com um contexto de sonda e o libera logo em seguida. null no servidor e na hidratação. */
 function useWebGL(): boolean | null {
   return useSyncExternalStore(
     () => () => {},
@@ -186,7 +185,9 @@ function useWebGL(): boolean | null {
       if (webglCache === undefined) {
         try {
           const c = document.createElement("canvas");
-          webglCache = !!(c.getContext("webgl2") || c.getContext("webgl"));
+          const gl = c.getContext("webgl2") || c.getContext("webgl");
+          webglCache = !!gl;
+          (gl as WebGLRenderingContext | null)?.getExtension("WEBGL_lose_context")?.loseContext();
         } catch {
           webglCache = false;
         }

@@ -8,6 +8,22 @@ import type { ModeloProps } from "./Peca";
  * vista explodida estão no sistema local (Y = ao longo do eixo; X = para cima no modelo deitado).
  * Cada peça é um grupo `name` = id de MODELOS.motor.
  */
+const PECA = {
+  carcaca: "carcaca",
+  tampas: "tampas",
+  estator: "estator",
+  rotor: "rotor",
+  eixo: "eixo",
+  rolamentoDianteiro: "rolamento_dianteiro",
+  rolamentoTraseiro: "rolamento_traseiro",
+  ventilador: "ventilador",
+  tampaVentilador: "tampa_ventilador",
+  caixaLigacao: "caixa_ligacao",
+} as const;
+
+/** Ids das peças desenhadas (testados contra MODELOS em testes/modelos3d.test.ts). */
+export const PECAS_MOTOR: readonly string[] = Object.values(PECA);
+
 const SEGMENTOS = 48;
 const ALETAS = 16;
 const ANGULO_ALETA = (2 * Math.PI) / ALETAS;
@@ -30,7 +46,7 @@ const TAMPA_VENTILADOR_FIM = retangulo(0.2, 0.46, -1.56, -1.53);
 export function Motor({ explodir }: ModeloProps) {
   return (
     <group rotation={[0, 0, Math.PI / 2]}>
-      <Peca id="carcaca">
+      <Peca id={PECA.carcaca}>
         <mesh>
           <latheGeometry args={[CARCACA, SEGMENTOS]} />
           <Mat cor="aco" />
@@ -46,7 +62,7 @@ export function Motor({ explodir }: ModeloProps) {
         })}
       </Peca>
 
-      <Peca id="tampas">
+      <Peca id={PECA.tampas}>
         <mesh>
           <latheGeometry args={[TAMPA_FRONTAL, SEGMENTOS]} />
           <Mat cor="acoEscuro" />
@@ -65,7 +81,7 @@ export function Motor({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id="estator">
+      <Peca id={PECA.estator}>
         <mesh>
           <latheGeometry args={[NUCLEO, SEGMENTOS]} />
           <Mat cor="acoEscuro" />
@@ -78,21 +94,21 @@ export function Motor({ explodir }: ModeloProps) {
         ))}
       </Peca>
 
-      <Peca id="rotor">
+      <Peca id={PECA.rotor}>
         <mesh>
           <cylinderGeometry args={[0.42, 0.42, 1.3, 40]} />
           <Mat cor="aco" />
         </mesh>
       </Peca>
 
-      <Peca id="eixo">
+      <Peca id={PECA.eixo}>
         <mesh position={[0, 0.025, 0]}>
           <cylinderGeometry args={[0.07, 0.07, 2.65, 20]} />
           <Mat cor="acoEscuro" />
         </mesh>
       </Peca>
 
-      <Peca id="rolamento_dianteiro" explodir={explodir} afastamento={[0, 0.35, 0]}>
+      <Peca id={PECA.rolamentoDianteiro} explodir={explodir} afastamento={[0, 0.35, 0]}>
         <group position={[0, 0.93, 0]}>
           <mesh>
             <latheGeometry args={[ROLAMENTO_PERFIL, 32]} />
@@ -105,7 +121,7 @@ export function Motor({ explodir }: ModeloProps) {
         </group>
       </Peca>
 
-      <Peca id="rolamento_traseiro" explodir={explodir} afastamento={[0, -0.35, 0]}>
+      <Peca id={PECA.rolamentoTraseiro} explodir={explodir} afastamento={[0, -0.35, 0]}>
         <group position={[0, -0.93, 0]}>
           <mesh>
             <latheGeometry args={[ROLAMENTO_PERFIL, 32]} />
@@ -118,7 +134,7 @@ export function Motor({ explodir }: ModeloProps) {
         </group>
       </Peca>
 
-      <Peca id="ventilador" explodir={explodir} afastamento={[0, -0.45, 0]}>
+      <Peca id={PECA.ventilador} explodir={explodir} afastamento={[0, -0.45, 0]}>
         <group position={[0, -1.25, 0]}>
           <mesh>
             <cylinderGeometry args={[0.1, 0.1, 0.14, 20]} />
@@ -136,7 +152,7 @@ export function Motor({ explodir }: ModeloProps) {
         </group>
       </Peca>
 
-      <Peca id="tampa_ventilador" explodir={explodir} afastamento={[0, -0.3, 0]}>
+      <Peca id={PECA.tampaVentilador} explodir={explodir} afastamento={[0, -0.3, 0]}>
         <mesh position={[0, -1.25, 0]}>
           <cylinderGeometry args={[0.46, 0.46, 0.6, 36, 1, true]} />
           <Mat cor="aco" />
@@ -147,7 +163,7 @@ export function Motor({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id="caixa_ligacao" explodir={explodir} afastamento={[0.4, 0, 0]}>
+      <Peca id={PECA.caixaLigacao} explodir={explodir} afastamento={[0.4, 0, 0]}>
         <mesh position={[0.82, 0.1, 0]}>
           <boxGeometry args={[0.34, 0.45, 0.36]} />
           <Mat cor="aco" />
