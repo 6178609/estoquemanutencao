@@ -11,13 +11,25 @@ import type { ModeloComCena } from "@/lib/suporte/modelos3d";
 
 import { ContextoCena, lerPaleta } from "./Peca";
 import type { ModeloProps, Paleta } from "./Peca";
+import { Bomba } from "./Bomba";
+import { Cilindro } from "./Cilindro";
+import { Correia } from "./Correia";
+import { Esteira } from "./Esteira";
 import { Motor } from "./Motor";
+import { Redutor } from "./Redutor";
 import { Rolamento } from "./Rolamento";
+import { Valvula } from "./Valvula";
 
 /** Tipado pelo mesmo `MODELOS_COM_CENA` de modelos3d.ts: um modelo novo exige a cena aqui, e vice-versa. */
 const COMPONENTES: Record<ModeloComCena, ComponentType<ModeloProps>> = {
   rolamento: Rolamento,
   motor: Motor,
+  redutor: Redutor,
+  correia: Correia,
+  bomba: Bomba,
+  cilindro: Cilindro,
+  valvula: Valvula,
+  esteira: Esteira,
 };
 
 const DISTANCIA_MINIMA = 0.5;

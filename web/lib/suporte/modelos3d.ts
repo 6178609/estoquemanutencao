@@ -6,8 +6,8 @@
 
 export type IdModelo = "rolamento" | "motor" | "redutor" | "correia" | "bomba" | "cilindro" | "valvula" | "esteira";
 
-/** Modelos que já têm cena 3D (`Cena.tsx`). Fonte única: a cena e o diagnóstico usam esta lista. */
-export const MODELOS_COM_CENA = ["rolamento", "motor"] as const;
+/** Modelos com cena 3D (`Cena.tsx`). Fonte única: a cena e o diagnóstico usam esta lista. */
+export const MODELOS_COM_CENA = ["rolamento", "motor", "redutor", "correia", "bomba", "cilindro", "valvula", "esteira"] as const;
 export type ModeloComCena = (typeof MODELOS_COM_CENA)[number];
 
 export function temCena(modelo: IdModelo): modelo is ModeloComCena {

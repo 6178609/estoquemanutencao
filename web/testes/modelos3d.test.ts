@@ -4,6 +4,12 @@ import { TIPOS_EQUIPAMENTO } from "@/lib/suporte/diagnostico";
 import { MARCADORES, MODELOS, MODELOS_COM_CENA, MODELO_DO_TIPO, marcadoresDe, temCena } from "@/lib/suporte/modelos3d";
 import { PECAS_ROLAMENTO } from "@/app/(app)/suporte/_ui/3d/Rolamento";
 import { PECAS_MOTOR } from "@/app/(app)/suporte/_ui/3d/Motor";
+import { PECAS_REDUTOR } from "@/app/(app)/suporte/_ui/3d/Redutor";
+import { PECAS_CORREIA } from "@/app/(app)/suporte/_ui/3d/Correia";
+import { PECAS_BOMBA } from "@/app/(app)/suporte/_ui/3d/Bomba";
+import { PECAS_CILINDRO } from "@/app/(app)/suporte/_ui/3d/Cilindro";
+import { PECAS_VALVULA } from "@/app/(app)/suporte/_ui/3d/Valvula";
+import { PECAS_ESTEIRA } from "@/app/(app)/suporte/_ui/3d/Esteira";
 import type { IdModelo } from "@/lib/suporte/modelos3d";
 
 const TIPOS_COM_MODELO = [
@@ -97,15 +103,29 @@ describe("modelos 3D: marcadores", () => {
 });
 
 describe("modelos 3D: cenas", () => {
+  const PECAS_DAS_CENAS: Record<IdModelo, readonly string[]> = {
+    rolamento: PECAS_ROLAMENTO,
+    motor: PECAS_MOTOR,
+    redutor: PECAS_REDUTOR,
+    correia: PECAS_CORREIA,
+    bomba: PECAS_BOMBA,
+    cilindro: PECAS_CILINDRO,
+    valvula: PECAS_VALVULA,
+    esteira: PECAS_ESTEIRA,
+  };
+
   it("as peças desenhadas em cada cena são exatamente as de MODELOS", () => {
     const ids = (lista: readonly string[]) => [...lista].sort();
-    expect(ids(PECAS_ROLAMENTO)).toEqual(ids(MODELOS.rolamento.pecas.map((p) => p.id)));
-    expect(ids(PECAS_MOTOR)).toEqual(ids(MODELOS.motor.pecas.map((p) => p.id)));
+    for (const id of MODELOS_ESPERADOS) {
+      expect(ids(PECAS_DAS_CENAS[id]), `peças da cena de ${id} fora de MODELOS`).toEqual(
+        ids(MODELOS[id].pecas.map((p) => p.id)),
+      );
+    }
   });
 
   it("MODELOS_COM_CENA lista só modelos existentes, e temCena confere a lista", () => {
     for (const m of MODELOS_COM_CENA) expect(MODELOS[m]).toBeDefined();
-    expect(temCena("rolamento")).toBe(true);
-    expect(temCena("redutor")).toBe(false);
+    expect([...MODELOS_COM_CENA].sort()).toEqual([...MODELOS_ESPERADOS].sort());
+    for (const id of MODELOS_ESPERADOS) expect(temCena(id), `sem cena: ${id}`).toBe(true);
   });
 });

@@ -11,20 +11,35 @@ export interface Paleta {
   acoClaro: string;
   acoEscuro: string;
   cobre: string;
+  borracha: string;
+  azul: string;
   destaque: string;
 }
 
-/** Nomes CSS usados pela paleta: aço (texto-3, borda-forte, texto-2), cobre (serie-2) e destaque (st-critico). */
+/**
+ * Nomes CSS usados pela paleta: aço (texto-3, borda-forte, texto-2), cobre (serie-2), borracha (texto, quase preto),
+ * azul (serie-1) e destaque (st-critico).
+ */
 const VARIAVEIS: Record<keyof Paleta, string> = {
   aco: "--texto-3",
   acoClaro: "--borda-forte",
   acoEscuro: "--texto-2",
   cobre: "--serie-2",
+  borracha: "--texto",
+  azul: "--serie-1",
   destaque: "--st-critico",
 };
 
 /** Só para o caso de a variável não existir: cores nomeadas do CSS, sem hex. */
-const RESERVA: Paleta = { aco: "gray", acoClaro: "silver", acoEscuro: "dimgray", cobre: "chocolate", destaque: "red" };
+const RESERVA: Paleta = {
+  aco: "gray",
+  acoClaro: "silver",
+  acoEscuro: "dimgray",
+  cobre: "chocolate",
+  borracha: "black",
+  azul: "steelblue",
+  destaque: "red",
+};
 
 /** Lê a paleta dos tokens do site. Só no cliente. */
 export function lerPaleta(): Paleta {
