@@ -6,12 +6,13 @@ import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
 import * as ind from "@/lib/wcm/indicadores";
 
-import { validarCustoParada } from "./validacao";
+import { validarCustoParada, validarSolicitantes } from "./validacao";
 
 /**
  * Gravações da aba Metas e parâmetros — o metas_wcm.json:
  *   "<id do indicador>" → {"meta": x | ""} (mesclar) · "_parametros" → {"horas_semana": x} (mesclar)
  *   "capacidade:<centro>" → {"hh": x} ou removido · "tipo:<código>" → {"descricao": "...", "classe": "..."} (mesclar)
+ *   "_solicitantes" → {"nomes": [...]} (substitui; pessoas da manutenção)
  */
 export interface Resposta { erro: string; ok: string }
 
@@ -70,6 +71,17 @@ export async function salvarCustoParada(custoPar: number | null, paresHora: numb
   const pares = paresHora || null;
   return gravar({ _parametros: { custo_par: custo, pares_hora: pares } }, u.nome || u.login, true,
     "Custo da produção parada salvo. Zero (ou vazio) deixa o campo sem valor.");
+}
+
+/** Pessoas da manutenção: a lista inteira (substitui a anterior); lista vazia = sem filtro. Só o item _solicitantes muda. */
+export async function salvarSolicitantes(nomes: string[]): Promise<Resposta> {
+  const u = await autorizar("metas", true);
+  if (!u) return NEGADO;
+  const erro = validarSolicitantes(nomes);
+  if (erro) return { erro, ok: "" };
+  const limpos = nomes.map((n) => n.trim());
+  return gravar({ _solicitantes: { nomes: limpos } }, u.nome || u.login, false,
+    limpos.length ? `${limpos.length} pessoa(s) da manutenção salva(s).` : "Lista vazia: valem todas as requisições.");
 }
 
 /** {centro: HH/semana | null} — null volta a usar a média apontada. */

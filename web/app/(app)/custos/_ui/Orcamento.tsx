@@ -11,7 +11,7 @@ import { Nota, Numeros } from "../../confiabilidade/_comum/Numeros";
  * Orçamento do mês: valor disponível (cadastro) × ordens (IW38) e requisições aprovadas, com as requisições
  * aguardando aprovação (a entrar). Contas em lib/wcm/orcamento.ts; o editor do disponível vai no rodapé.
  */
-export function Orcamento({ linhas, totais, semData, semTipo, editor }: ResultadoOrcamento & { editor?: ReactNode }) {
+export function Orcamento({ linhas, totais, semData, semTipo, editor, pessoas }: ResultadoOrcamento & { editor?: ReactNode; pessoas?: number }) {
   const temReq = linhas.some((l) => l.requisicoes != null);
   const ordensTotal = linhas.reduce((s, l) => s + l.ordens, 0);
   const reqTotal = linhas.reduce((s, l) => s + (l.requisicoes ?? 0), 0);
@@ -33,7 +33,7 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor }: Resultad
     ...(temReq ? [brl(l.requisicoes ?? 0)] : []), nulBr(l.saldo), ...(temReq ? [nulBr(l.aEntrar)] : [])]);
 
   const notas: string[] = [
-    "Requisições valem para a fábrica inteira; as ordens seguem o recorte do filtro.",
+    ...(pessoas ? [] : ["Requisições valem para a fábrica inteira; as ordens seguem o recorte do filtro."]),
     "Requisição entra no mês 30 dias após o envio (material) ou 15 dias (serviço); sem data de envio, conta a partir do último envio.",
     "Possível duplicidade: a mesma despesa pode aparecer como ordem e como requisição; o gasto soma as duas bases.",
     "A entrar = requisições aguardando aprovação. 'Ação de comprador pendente' já é aprovada e entra no valor (no cartão Travado ela aparece como pendente).",
@@ -41,6 +41,7 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor }: Resultad
   ];
   if (temPrevisao) notas.push("Meses em previsão têm só as requisições projetadas; não entram nos totais.");
   if (!temReq) notas.unshift("Sem base de requisições: só as ordens entram no gasto.");
+  if (pessoas) notas.unshift(`Requisições filtradas pelas pessoas da manutenção (${pessoas}) — ajuste em Metas e parâmetros.`);
   if (totais.disponivel == null) notas.push("Nenhum mês do período tem valor disponível cadastrado.");
   if (semTipo) notas.push("A base de requisições não tem a coluna de tipo: todas foram tratadas como material (prazo de 30 dias).");
   if (semData > 0) notas.push(semData === 1 ? "1 requisição sem data de envio ficou fora." : `${semData} requisições sem data de envio ficaram fora.`);

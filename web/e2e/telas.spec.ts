@@ -72,3 +72,10 @@ test("a rota de aquecimento responde sem dados", async ({ request }) => {
   for (const t of Object.values(j.bases as Record<string, Record<string, unknown>>))
     expect(Object.keys(t).sort()).toEqual(["baixar_ms", "em", "kb", "ler_ms", "linhas", "preparar_ms"]);
 });
+
+test("metas: a visão Equipe e capacidade mostra Pessoas da manutenção", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/metas?visao=Equipe%20e%20capacidade");
+  await expect(page.getByRole("heading", { name: /Pessoas da manutenção/ })).toBeVisible();
+  expect(erros).toEqual([]);
+});

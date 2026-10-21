@@ -11,6 +11,7 @@ import { concentracao, custoParadaDe, dnaPorFamilia, iceberg, kpis360, mesDoTerm
 import { barra, contexto, dados, resultados } from "@/lib/wcm/contexto";
 import { orcamentoDe, orcamentoPorMes } from "@/lib/wcm/orcamento";
 import * as ind from "@/lib/wcm/indicadores";
+import { soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
 import { dia, inicioDoMes, partes, somarMeses, type Dia } from "@/lib/wcm/util";
 
 import { hrefCom } from "../equipamentos/_ui/url";
@@ -83,7 +84,11 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const grupos = porGrupo(o);
   const pctCorr = atual.pct_custo_corr ?? null;
   const metaCorr = ind.meta(ind.POR_ID.pct_custo_corr, metas);
-  const etapasTravado = travado(o, d.requisicoes);
+  // requisições só das pessoas da manutenção marcadas em Metas (sem marcação, todas); só esta aba filtra
+  const solicitantes = solicitantesDe(metas);
+  const reqs = soManutencao(d.requisicoes, solicitantes);
+  const pessoas = solicitantes.length || undefined;
+  const etapasTravado = travado(o, reqs);
   // orçamento do mês: a tabela vai do mês do início do período até o fim do período ou, se ele chega ao mês atual,
   // até o fim do segundo mês à frente (requisições projetadas); as ordens só existem até hoje (fimEf)
   const mesIni = inicioDoMes(ini);
@@ -92,7 +97,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const fimOrcamento = fim >= mesHoje ? Math.max(fimDoMes(fim), fimDoMes(somarMeses(mesHoje, 2))) : fimDoMes(fim);
   const ordensOrcamento = mesIni === ini ? o : ordensDoPeriodo(d.ordens, mesIni, fimEf, c.tipos);
   const disponivelCad = orcamentoDe(metas);
-  const orcamento = orcamentoPorMes(ordensOrcamento, d.requisicoes, disponivelCad, mesIni, fimOrcamento, hoje);
+  const orcamento = orcamentoPorMes(ordensOrcamento, reqs, disponivelCad, mesIni, fimOrcamento, hoje);
   const oanoParam = typeof params.oano === "string" && /^\d{4}$/.test(params.oano) ? Number(params.oano) : NaN;
   const oano = oanoParam >= 2000 && oanoParam <= 2100 ? oanoParam : partes(fimEf).ano;
   const valoresAno = Array.from({ length: 12 }, (_, i) => disponivelCad.get(mesParam(oano, i + 1)) ?? null);
@@ -103,7 +108,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const horasIw47 = (conf ?? []).filter((x) => x.data != null && x.data >= ini && x.data <= fimEf).reduce((s, x) => s + x.horas, 0);
   const quebras = d.notas && (!c.f.tipos.length || c.f.tipos.includes(ind.TIPO_QUEBRA)) ? ind.quebras(d) : [];
   const quebrasPeriodo = quebras.filter((q) => q.data != null && q.data >= ini && q.data <= fimEf);
-  const reqPendentes = d.requisicoes ? d.requisicoes.filter((x) => x.pendente).reduce((s, x) => s + x.total, 0) : null;
+  const reqPendentes = reqs ? reqs.filter((x) => x.pendente).reduce((s, x) => s + x.total, 0) : null;
   const estoque = d.estoque ? d.estoque.reduce((s, x) => s + x.valor, 0) : null;
   const ice = iceberg(o, quebrasPeriodo, horasIw47, reqPendentes, estoque, custoParadaDe(metas));
 
@@ -179,11 +184,12 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
             comPlanoPct: pctCorr != null ? 100 - pctCorr : null, dica: ind.POR_ID.pct_custo_corr.formula,
           }}
           travado={totalTravado}
+          pessoas={pessoas}
         />
       </Secao>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1.3fr_1fr]">
-        <Iceberg ice={ice} temIw47={conf != null} />
+        <Iceberg ice={ice} temIw47={conf != null} pessoas={pessoas} />
         <Termometro {...termometro} />
         <ParaOnde
           grupos={grupos}
@@ -201,11 +207,11 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
         <Dna familias={dnaPorFamilia(o, nomeEq, 5)} />
         <PorClasse dados={porCriticidade(o, eqsAtivos)} semIh08={c.b.equipamentos.dados == null} comFiltroCentroTipo={comCentroOuTipo} />
         <Concentracao conc={concentracao(o)} nomeEq={nomeEq} campoEq={campoEq} />
-        <Travado etapas={etapasTravado} />
+        <Travado etapas={etapasTravado} pessoas={pessoas} />
       </div>
 
       <Secao titulo="Orçamento" destaque="do mês" sub="Valor disponível lançado por mês × ordens (IW38) e requisições aprovadas. Requisições aguardando aprovação aparecem à parte (a entrar) no mês previsto.">
-        <Orcamento {...orcamento} editor={podeEditar(u) ? <EditorOrcamento ano={oano} valores={valoresAno} /> : undefined} />
+        <Orcamento {...orcamento} pessoas={pessoas} editor={podeEditar(u) ? <EditorOrcamento ano={oano} valores={valoresAno} /> : undefined} />
       </Secao>
 
       <details className="rounded-cartao border border-borda bg-superficie">
