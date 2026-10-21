@@ -1,0 +1,135 @@
+import { createContext, useContext, useRef } from "react";
+import type { ReactNode } from "react";
+import { useFrame } from "@react-three/fiber";
+import type { ThreeEvent } from "@react-three/fiber";
+import { DoubleSide, Vector3 } from "three";
+import type { Group } from "three";
+
+/** Cores da cena, lidas dos tokens do site (CSS vars) em tempo de execução. Sem hex fixo aqui. */
+export interface Paleta {
+  aco: string;
+  acoClaro: string;
+  acoEscuro: string;
+  cobre: string;
+  destaque: string;
+}
+
+/** Nomes CSS usados pela paleta: aço (texto-3, borda-forte, texto-2), cobre (serie-2) e destaque (st-critico). */
+const VARIAVEIS: Record<keyof Paleta, string> = {
+  aco: "--texto-3",
+  acoClaro: "--borda-forte",
+  acoEscuro: "--texto-2",
+  cobre: "--serie-2",
+  destaque: "--st-critico",
+};
+
+/** Só para o caso de a variável não existir: cores nomeadas do CSS, sem hex. */
+const RESERVA: Paleta = { aco: "gray", acoClaro: "silver", acoEscuro: "dimgray", cobre: "chocolate", destaque: "red" };
+
+/** Lê a paleta dos tokens do site. Só no cliente. */
+export function lerPaleta(): Paleta {
+  const pal = { ...RESERVA };
+  if (typeof window === "undefined") return pal;
+  const estilo = getComputedStyle(document.documentElement);
+  for (const chave of Object.keys(VARIAVEIS) as (keyof Paleta)[]) {
+    const valor = estilo.getPropertyValue(VARIAVEIS[chave]).trim();
+    if (valor) pal[chave] = valor;
+  }
+  return pal;
+}
+
+export type CorBase = Exclude<keyof Paleta, "destaque">;
+
+export interface EstadoCena {
+  destaque: string | null;
+  paleta: Paleta;
+  reduzir: boolean;
+  aoClicarPeca: (id: string) => void;
+}
+
+export const ContextoCena = createContext<EstadoCena>({
+  destaque: null,
+  paleta: RESERVA,
+  reduzir: false,
+  aoClicarPeca: () => {},
+});
+
+const ContextoPeca = createContext<string>("");
+
+/** Props comuns a todos os modelos: só o estado de montagem vem de fora. */
+export interface ModeloProps {
+  explodir: boolean;
+}
+
+const ORIGEM = new Vector3();
+
+/**
+ * Peça nomeada do modelo: um grupo com `name` = id da peça (o mesmo id de MODELOS). Anima a vista explodida
+ * até o `afastamento` (no sistema local do modelo); com movimento reduzido, muda de uma vez.
+ */
+export function Peca({
+  id,
+  explodir = false,
+  afastamento,
+  children,
+}: {
+  id: string;
+  explodir?: boolean;
+  afastamento?: [number, number, number];
+  children: ReactNode;
+}) {
+  const { aoClicarPeca, reduzir } = useContext(ContextoCena);
+  const grupo = useRef<Group>(null);
+  const destino = useRef(new Vector3());
+
+  useFrame((estado) => {
+    const g = grupo.current;
+    if (!g) return;
+    const a = explodir && afastamento ? afastamento : null;
+    destino.current.copy(a ? new Vector3(...a) : ORIGEM);
+    if (reduzir) {
+      g.position.copy(destino.current);
+      return;
+    }
+    g.position.lerp(destino.current, 0.15);
+    if (g.position.distanceTo(destino.current) > 0.0005) estado.invalidate();
+    else g.position.copy(destino.current);
+  });
+
+  return (
+    <ContextoPeca.Provider value={id}>
+      <group
+        name={id}
+        ref={grupo}
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          aoClicarPeca(id);
+        }}
+      >
+        {children}
+      </group>
+    </ContextoPeca.Provider>
+  );
+}
+
+/**
+ * Material da malha dentro de uma peça. A peça em destaque fica em vermelho (`--st-critico`); com um destaque ativo,
+ * as demais ficam semitransparentes (opacidade 0,25).
+ */
+export function Mat({ cor }: { cor: CorBase }) {
+  const { destaque, paleta } = useContext(ContextoCena);
+  const id = useContext(ContextoPeca);
+  const realce = destaque === id;
+  const aberta = destaque === null || realce;
+  return (
+    <meshStandardMaterial
+      color={realce ? paleta.destaque : paleta[cor]}
+      roughness={0.55}
+      metalness={0.25}
+      side={DoubleSide}
+      transparent={!aberta}
+      opacity={aberta ? 1 : 0.25}
+      depthWrite={aberta}
+    />
+  );
+}
