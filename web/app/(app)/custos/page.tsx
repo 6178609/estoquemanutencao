@@ -11,7 +11,7 @@ import { concentracao, custoParadaDe, dnaPorFamilia, iceberg, kpis360, mesDoTerm
 import { barra, contexto, dados, resultados } from "@/lib/wcm/contexto";
 import { orcamentoDe, orcamentoPorMes } from "@/lib/wcm/orcamento";
 import * as ind from "@/lib/wcm/indicadores";
-import { soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
+import { contarSolicitantes, pessoasAtivas, soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
 import { dia, inicioDoMes, partes, somarMeses, type Dia } from "@/lib/wcm/util";
 
 import { hrefCom } from "../equipamentos/_ui/url";
@@ -22,6 +22,7 @@ import { custoPor, ordensDoPeriodo, porEquipamento, porMes, resumo } from "./cal
 import { Concentracao } from "./_ui/Concentracao";
 import { Dna } from "./_ui/Dna";
 import { EditorOrcamento } from "./_ui/EditorOrcamento";
+import { FiltroPessoas } from "./_ui/FiltroPessoas";
 import { Iceberg } from "./_ui/Iceberg";
 import { PorClasse } from "./_ui/PorClasse";
 import { Kpis360 } from "./_ui/Kpis360";
@@ -60,11 +61,16 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
 
   const [[atual], d, campoEq] = await Promise.all([resultados(c), dados(c), campoDoEquipamento(c)]);
   const metas = c.cad.metas;
+  // pessoas do filtro (endereço pes; sem pes, o padrão salvo): só as requisições delas entram nesta aba
+  const solicitantes = pessoasAtivas(params, solicitantesDe(metas));
+  const filtroPessoas = d.requisicoes?.length ? (
+    <FiltroPessoas disponiveis={contarSolicitantes(d.requisicoes)} ativos={solicitantes} padrao={solicitantesDe(metas)} podeSalvarPadrao={podeEditar(u)} />
+  ) : null;
   const { ini, fim } = c.f;
   const hoje = d.hoje;
   const fimEf = Math.min(fim, hoje);
   const o = ordensDoPeriodo(d.ordens, ini, fimEf, c.tipos);
-  if (!o.length) return <PaginaWcm barra={barra(c)}>{titulo}<p className="text-[14px] text-texto-3">Sem ordens no recorte.</p></PaginaWcm>;
+  if (!o.length) return <PaginaWcm barra={barra(c)}>{titulo}{filtroPessoas}<p className="text-[14px] text-texto-3">Sem ordens no recorte.</p></PaginaWcm>;
 
   // ---- topo: KPIs, iceberg, termômetro e para onde vai ----
   const r = resumo(o, ini, fimEf);
@@ -84,8 +90,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   const grupos = porGrupo(o);
   const pctCorr = atual.pct_custo_corr ?? null;
   const metaCorr = ind.meta(ind.POR_ID.pct_custo_corr, metas);
-  // requisições só das pessoas da manutenção marcadas em Metas (sem marcação, todas); só esta aba filtra
-  const solicitantes = solicitantesDe(metas);
+  // requisições só das pessoas do filtro (sem marcação, todas)
   const reqs = soManutencao(d.requisicoes, solicitantes);
   const pessoas = solicitantes.length || undefined;
   const etapasTravado = travado(o, reqs);
@@ -170,6 +175,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
   return (
     <PaginaWcm barra={barra(c)}>
       {titulo}
+      {filtroPessoas}
       <Secao titulo="Indicadores" destaque="de custo" sub={`Recorte: ${c.recorte}. Passe o mouse no nome do indicador para ver a fórmula.`}>
         <Kpis360
           total={r.total}

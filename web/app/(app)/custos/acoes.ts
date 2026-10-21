@@ -6,7 +6,7 @@ import { autorizar } from "@/lib/auth/sessao";
 import { gravarCadastroLote } from "@/lib/dados/cadastros";
 import * as ind from "@/lib/wcm/indicadores";
 
-import { validarOrcamento } from "./validacao";
+import { validarOrcamento, validarSolicitantes } from "./validacao";
 
 /**
  * Valor disponível mensal (metas_wcm.json): "orcamento:AAAA-MM" → {"valor": x} ou removido quando vazio.
@@ -34,4 +34,20 @@ export async function salvarOrcamento(ano: number, valores: (number | null)[]): 
   }
   revalidatePath("/", "layout"); // o disponível aparece em toda a aba Custos
   return { erro: "", ok: "Valor disponível salvo." };
+}
+
+/** Padrão de "Pessoas (requisições)" (metas_wcm.json, item "_solicitantes"): a lista inteira; vazia = todas as requisições. */
+export async function salvarPessoasPadrao(nomes: string[]): Promise<Resposta> {
+  const u = await autorizar("custos", true);
+  if (!u) return { erro: "Só editores e administradores salvam o padrão.", ok: "" };
+  const erro = validarSolicitantes(nomes);
+  if (erro) return { erro, ok: "" };
+  const limpos = nomes.map((n) => n.trim());
+  try {
+    await gravarCadastroLote(ind.ARQ_METAS, { _solicitantes: { nomes: limpos } }, u.nome || u.login, false);
+  } catch (e) {
+    return { erro: (e as Error).message || "Falha ao gravar.", ok: "" };
+  }
+  revalidatePath("/", "layout"); // as requisições filtradas valem em toda a aba Custos
+  return { erro: "", ok: limpos.length ? `${limpos.length} pessoa(s) salva(s) como padrão.` : "Padrão limpo: valem todas as requisições." };
 }

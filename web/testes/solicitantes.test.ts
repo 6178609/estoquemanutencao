@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contarSolicitantes, soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
+import { contarSolicitantes, pessoasAtivas, soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
 import type { Requisicao } from "@/lib/wcm/preparo";
 
 // nomes fictícios
@@ -51,5 +51,47 @@ describe("pessoas da manutenção (filtro das requisições)", () => {
       { nome: "Outra Pessoa de Teste", qtd: 1 },
     ]);
     expect(contarSolicitantes(null)).toEqual([]);
+  });
+});
+
+describe("pessoas ativas (filtro pes da aba Custos)", () => {
+  const padrao = ["Pessoa Teste A", "Fulano de Tal"];
+
+  it("sem pes, vale o padrão salvo (vazio = todas)", () => {
+    expect(pessoasAtivas({}, padrao)).toEqual(padrao);
+    expect(pessoasAtivas({ ini: "2026-01-01" }, padrao)).toEqual(padrao);
+    expect(pessoasAtivas({}, [])).toEqual([]);
+  });
+
+  it("pes único e repetido viram a lista, na ordem do endereço", () => {
+    expect(pessoasAtivas({ pes: "Fulano de Tal" }, padrao)).toEqual(["Fulano de Tal"]);
+    expect(pessoasAtivas({ pes: ["Fulano de Tal", "Pessoa Teste A"] }, [])).toEqual(["Fulano de Tal", "Pessoa Teste A"]);
+  });
+
+  it("pes=todas é sem filtro, mesmo com padrão salvo", () => {
+    expect(pessoasAtivas({ pes: "todas" }, padrao)).toEqual([]);
+    expect(pessoasAtivas({ pes: ["Fulano de Tal", "todas"] }, padrao)).toEqual([]);
+  });
+
+  it("ignora vazios e espaços; endereço só com vazios não usa o padrão", () => {
+    expect(pessoasAtivas({ pes: ["", "  ", " Fulano de Tal "] }, padrao)).toEqual(["Fulano de Tal"]);
+    expect(pessoasAtivas({ pes: "" }, padrao)).toEqual([]);
+  });
+
+  it("descarta nome com mais de 120 caracteres (após aparar)", () => {
+    const longo = "x".repeat(121);
+    expect(pessoasAtivas({ pes: [longo, "  " + "y".repeat(120) + "  ", "Fulano de Tal"] }, [])).toEqual(["y".repeat(120), "Fulano de Tal"]);
+  });
+
+  it("dedupe pela chave (sem acento, caixa e espaços), mantendo a primeira grafia", () => {
+    expect(pessoasAtivas({ pes: ["Fulano de Tal", "FULANO  de tal", "Pessoa Teste A"] }, [])).toEqual(["Fulano de Tal", "Pessoa Teste A"]);
+  });
+
+  it("no máximo 50 nomes", () => {
+    const xs = Array.from({ length: 60 }, (_, i) => `Pessoa ${i}`);
+    const out = pessoasAtivas({ pes: xs }, []);
+    expect(out).toHaveLength(50);
+    expect(out[0]).toBe("Pessoa 0");
+    expect(out[49]).toBe("Pessoa 49");
   });
 });

@@ -73,9 +73,12 @@ test("a rota de aquecimento responde sem dados", async ({ request }) => {
     expect(Object.keys(t).sort()).toEqual(["baixar_ms", "em", "kb", "ler_ms", "linhas", "preparar_ms"]);
 });
 
-test("metas: a visão Equipe e capacidade mostra Pessoas da manutenção", async ({ page }) => {
+test("custos: o filtro Pessoas (requisições) marca quem entra e põe o endereço", async ({ page }) => {
   const erros = await entrarNaDemo(page);
-  await telaAbriu(page, "/metas?visao=Equipe%20e%20capacidade");
-  await expect(page.getByRole("heading", { name: /Pessoas da manutenção/ })).toBeVisible();
+  await telaAbriu(page, "/custos");
+  await page.getByRole("button", { name: /^Pessoas \(requisições\)/ }).click();
+  await page.getByRole("checkbox").first().check();
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page).toHaveURL(/[?&]pes=/);
   expect(erros).toEqual([]);
 });

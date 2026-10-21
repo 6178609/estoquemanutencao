@@ -62,35 +62,3 @@ describe("metas", () => {
     expect((await acoes.salvarCustoParada(1, 1)).erro).toMatch(/editores/);
   });
 });
-
-describe("pessoas da manutenção (Metas e parâmetros)", () => {
-  beforeEach(() => { gravados.length = 0; editor = true; });
-  it("validação: até 50 nomes, 1 a 120 caracteres, sem repetidos pela chave", async () => {
-    const val = await import("@/app/(app)/metas/validacao");
-    expect(val.validarSolicitantes([])).toBe("");
-    expect(val.validarSolicitantes(["Pessoa Teste A", "Fulano de Tal"])).toBe("");
-    expect(val.validarSolicitantes(Array.from({ length: 50 }, (_, i) => `Pessoa ${i}`))).toBe("");
-    expect(val.validarSolicitantes(Array.from({ length: 51 }, (_, i) => `Pessoa ${i}`))).not.toBe("");
-    expect(val.validarSolicitantes([""])).not.toBe("");
-    expect(val.validarSolicitantes(["   "])).not.toBe("");
-    expect(val.validarSolicitantes(["x".repeat(121)])).not.toBe("");
-    expect(val.validarSolicitantes(["Pessoa Teste A", "pessoa  teste a"])).not.toBe("");
-    expect(val.validarSolicitantes("Pessoa Teste A" as unknown as string[])).not.toBe("");
-    expect(val.validarSolicitantes([42 as unknown as string])).not.toBe("");
-  });
-  it("salvarSolicitantes grava a lista inteira (sem mesclar)", async () => {
-    expect((await acoes.salvarSolicitantes(["  Pessoa Teste A ", "Fulano de Tal"])).erro).toBe("");
-    expect((await acoes.salvarSolicitantes([])).erro).toBe("");
-    expect(gravados).toEqual([
-      { nome: "metas_wcm.json", itens: { _solicitantes: { nomes: ["Pessoa Teste A", "Fulano de Tal"] } }, mesclar: false },
-      { nome: "metas_wcm.json", itens: { _solicitantes: { nomes: [] } }, mesclar: false },
-    ]);
-  });
-  it("salvarSolicitantes recusa lista inválida e leitor não grava", async () => {
-    expect((await acoes.salvarSolicitantes(["Pessoa Teste A", "pessoa teste a"])).erro).not.toBe("");
-    expect(gravados).toHaveLength(0);
-    editor = false;
-    expect((await acoes.salvarSolicitantes(["Pessoa Teste A"])).erro).toMatch(/editores/);
-    expect(gravados).toHaveLength(0);
-  });
-});

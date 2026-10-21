@@ -7,11 +7,10 @@ import { useMemo, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
-import { chave, casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { lerBr, mostrarBr } from "@/lib/numeroBr";
 
-import { restaurarMetas, salvarCapacidades, salvarCustoParada, salvarJornada, salvarMetas, salvarSolicitantes, salvarTipos, type Resposta } from "./acoes";
-import { validarCustoParada, validarSolicitantes } from "./validacao";
+import { restaurarMetas, salvarCapacidades, salvarCustoParada, salvarJornada, salvarMetas, salvarTipos, type Resposta } from "./acoes";
+import { validarCustoParada } from "./validacao";
 
 /** Editores da aba Metas e parâmetros: tabelas com a coluna editável, contagem do que mudou e "Salvar". */
 
@@ -258,83 +257,6 @@ export function EditorTipos({ linhas, classes, edita }: { linhas: LinhaTipo[]; c
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------------
-export interface OpcaoSolicitante { nome: string; qtd: number }
-
-/** Quem solicita pela manutenção: busca, caixas de seleção (marcados primeiro), contagem e "Salvar" / "Limpar seleção". */
-export function EditorSolicitantes({ disponiveis, marcados, edita }: { disponiveis: OpcaoSolicitante[]; marcados: string[]; edita: boolean }) {
-  const [busca, setBusca] = useState("");
-  const [sel, setSel] = useState<Record<string, string>>(() => Object.fromEntries(marcados.map((n) => [chave(n), n])));
-  const { pend, msg, rodar } = useSalvar();
-  const salvos = useMemo(() => new Set(marcados.map(chave)), [marcados]);
-  const lista = Object.values(sel);
-  const erro = validarSolicitantes(lista);
-  const mudou = Object.keys(sel).length !== salvos.size || Object.keys(sel).some((k) => !salvos.has(k));
-
-  // a ordem não muda enquanto se marca: "marcados primeiro" vale para o que está salvo; nomes marcados fora da base entram com 0
-  const linhas = useMemo(() => {
-    const naBase = new Set(disponiveis.map((o) => chave(o.nome)));
-    const todas: OpcaoSolicitante[] = [...disponiveis, ...marcados.filter((n) => !naBase.has(chave(n))).map((nome) => ({ nome, qtd: 0 }))];
-    const ord = (o: OpcaoSolicitante) => (salvos.has(chave(o.nome)) ? 0 : 1);
-    return todas.map((o, i) => ({ ...o, k: chave(o.nome), i })).sort((a, b) => ord(a) - ord(b) || a.i - b.i);
-  }, [disponiveis, marcados, salvos]);
-  const visiveis = busca.trim() ? linhas.filter((o) => casaBusca(normalizarBusca(o.nome), busca)) : linhas;
-
-  const alternar = (k: string, nome: string) => setSel((s) => {
-    const t = { ...s };
-    if (k in t) delete t[k]; else t[k] = nome;
-    return t;
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="block min-w-0 max-w-sm flex-1">
-          <span className="sr-only">Buscar pessoa</span>
-          <input type="search" placeholder="Buscar pessoa…" className={clsx(CAMPO, "h-10")} value={busca} onChange={(e) => setBusca(e.target.value)} />
-        </label>
-        <span className="num pb-2 text-[13px] text-texto-2">{lista.length === 1 ? "1 marcada" : `${lista.length} marcadas`}</span>
-      </div>
-
-      <div className="max-h-[420px] overflow-y-auto overflow-x-hidden rounded-cartao border border-borda bg-superficie">
-        {visiveis.map((o) => {
-          const marcado = o.k in sel;
-          return (
-            <label key={o.k} className={clsx("flex min-w-0 cursor-pointer items-start gap-3 border-borda px-4 py-2.5 not-first:border-t", marcado && "bg-marca-500/5")}>
-              <input type="checkbox" className="mt-1 size-4 shrink-0 accent-[var(--acao)]" disabled={!edita} checked={marcado}
-                onChange={() => alternar(o.k, o.nome)} />
-              <span className="min-w-0 flex-1 break-words">
-                <span className="text-[13.5px] font-medium">{o.nome}</span>
-                <span className="block text-[12px] text-texto-3">
-                  {o.qtd ? (o.qtd === 1 ? "1 requisição" : `${mostrarBr(o.qtd)} requisições`) : "(sem requisições na base)"}
-                </span>
-              </span>
-            </label>
-          );
-        })}
-        {!visiveis.length && (
-          <p className="px-4 py-6 text-center text-[13px] text-texto-3">
-            {busca.trim() ? "Nenhuma pessoa com esse nome." : "Nenhuma requisição na base."}
-          </p>
-        )}
-      </div>
-
-      {edita && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button className={BOTAO_PRIMARIO} disabled={!mudou || pend || !!erro} onClick={() => rodar(() => salvarSolicitantes(lista))}>
-            {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
-          </button>
-          <button className={BOTAO_SECUNDARIO} disabled={pend || !lista.length} onClick={() => setSel({})}>
-            <RotateCcw className="size-4" /> Limpar seleção
-          </button>
-        </div>
-      )}
-      {erro && <p className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
-      {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
   );
 }

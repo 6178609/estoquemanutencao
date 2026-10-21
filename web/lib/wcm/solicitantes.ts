@@ -16,6 +16,25 @@ export function solicitantesDe(cad: Cadastro | null | undefined): string[] {
   return bruto.filter((n): n is string => typeof n === "string" && n.trim() !== "").map((n) => n.trim());
 }
 
+/**
+ * Pessoas do filtro da aba Custos: o endereço manda (pes repetido, um por nome; "todas" = sem filtro); sem pes vale o
+ * padrão salvo. Vazios e nomes com mais de 120 caracteres saem; repetidos (pela chave) contam uma vez; no máximo 50. Puro.
+ */
+export function pessoasAtivas(params: Record<string, string | string[] | undefined>, padrao: string[]): string[] {
+  const v = params.pes;
+  if (v === undefined) return padrao;
+  const nomes = (Array.isArray(v) ? v : [v]).map((x) => x.trim()).filter((x) => x && x.length <= 120);
+  if (nomes.includes("todas")) return [];
+  const vistos = new Set<string>();
+  const unicos = nomes.filter((x) => {
+    const k = chave(x);
+    if (!k || vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+  return unicos.slice(0, 50);
+}
+
 /** Só as requisições de quem está marcado. Sem marcados, devolve a mesma lista; nunca altera a lista recebida. */
 export function soManutencao(reqs: Requisicao[] | null, nomes: string[]): Requisicao[] | null {
   if (!reqs) return null;

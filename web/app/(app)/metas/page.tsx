@@ -8,9 +8,8 @@ import { exigir } from "@/lib/auth/sessao";
 import { contexto, dados } from "@/lib/wcm/contexto";
 import { custoParadaDe } from "@/lib/wcm/custo360";
 import * as ind from "@/lib/wcm/indicadores";
-import { contarSolicitantes, solicitantesDe } from "@/lib/wcm/solicitantes";
 
-import { EditorCapacidade, EditorCustoParada, EditorJornada, EditorMetas, EditorSolicitantes, EditorTipos, type LinhaCapacidade, type LinhaMeta, type LinhaTipo } from "./Editores";
+import { EditorCapacidade, EditorCustoParada, EditorJornada, EditorMetas, EditorTipos, type LinhaCapacidade, type LinhaMeta, type LinhaTipo } from "./Editores";
 
 export const metadata: Metadata = { title: "Metas e parâmetros" };
 export const dynamic = "force-dynamic";
@@ -84,10 +83,6 @@ async function SecaoCapacidade({ c, edita }: { c: Awaited<ReturnType<typeof cont
       <Secao titulo="Capacidade semanal" destaque="por centro de trabalho (HH/semana)"
         sub={`Usada no backlog em semanas. Vazio = o site usa a média de HH apontadas nas últimas 12 semanas.${d.equipe ? ` Equipe da Gestão de HH: ${n0.format(d.equipe.length)} pessoas, ${n0.format(tec.length)} técnicos de execução.` : ""}`}>
         <EditorCapacidade linhas={linhas} edita={edita} />
-      </Secao>
-      <Secao titulo="Pessoas da manutenção" destaque="(requisições)"
-        sub="Marque quem solicita pela manutenção. Na aba Custos, só as requisições dessas pessoas entram (orçamento, iceberg e travado). Sem ninguém marcado, valem todas.">
-        <EditorSolicitantes disponiveis={contarSolicitantes(c.b.requisicoes.dados)} marcados={solicitantesDe(c.cad.metas)} edita={edita} />
       </Secao>
     </div>
   );
