@@ -66,7 +66,7 @@ const pastaEquipamento = (tag: string) => `${PASTA}/${createHash("sha1").update(
 const novoId = () => Date.now().toString(36) + randomBytes(4).toString("hex");
 /** Título limpo: sem quebras de linha, até 120 caracteres. */
 export const limparTitulo = (t: string) =>
-  t.replace(/[\u0000-\u001f\u007f​-‏‪-‮⁦-⁩]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  t.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 
 /** Diferença entre as bibliotecas: cadastro, pasta, validação da chave e as mensagens (o texto de hoje não muda). */
 interface Colecao {
