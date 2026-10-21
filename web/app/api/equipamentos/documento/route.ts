@@ -22,11 +22,16 @@ function erro(e: unknown) {
   return NextResponse.json({ erro: "Não foi possível gravar agora; tente de novo." }, { status: 500 });
 }
 
-/** Abre o arquivo (para quem vê a aba Equipamentos). */
+/** Abre o arquivo: para quem vê a aba Equipamentos ou a aba Manuais (a tela de Manuais mostra os arquivos dela). */
 export async function GET(req: NextRequest) {
-  if (!(await autorizar("equipamentos"))) return new NextResponse("Sem acesso.", { status: 403 });
+  if (!(await autorizar("manuais")) && !(await autorizar("equipamentos"))) return new NextResponse("Sem acesso.", { status: 403 });
   const p = req.nextUrl.searchParams;
-  const r = await lerDocumento(p.get("eq") ?? "", p.get("id") ?? "").catch(() => null);
+  let r: Awaited<ReturnType<typeof lerDocumento>> = null;
+  try {
+    r = await lerDocumento(p.get("eq") ?? "", p.get("id") ?? "");
+  } catch (e) {
+    if (e instanceof FonteErro) return new NextResponse(e.message, { status: 404 });
+  }
   if (!r) return new NextResponse("Documento não encontrado.", { status: 404 });
   const nome = (r.doc.nome || "documento").replace(/[^\w.\- ]/g, "_");
   return new NextResponse(Buffer.from(r.bytes), {

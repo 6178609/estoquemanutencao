@@ -4,16 +4,20 @@ import { NextRequest } from "next/server";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
 import { _definirSupabase } from "@/lib/dados/supabase";
 import {
+  ARQ_DOCUMENTOS,
   documentosDe,
   gravarDocumento,
   gravarDocumentoEmVarios,
+  gravarLink,
   gravarLinkEmVarios,
   LIMITE_DOCUMENTO,
   lerDocumento,
   removerDocumento,
   todosDocumentosEquipamentos,
 } from "@/lib/dados/documentos";
+import { gravarCadastroLote } from "@/lib/dados/cadastros";
 import * as rota from "@/app/api/manuais/route";
+import * as rotaDocumento from "@/app/api/equipamentos/documento/route";
 
 // tudo fictício; os bytes são de um PDF e de um HTML de mentira
 const PDF = new TextEncoder().encode("%PDF-1.7\n%fake\n");
@@ -138,11 +142,13 @@ describe("manuais em vários equipamentos: armazenamento", () => {
 // ---------------------------------------------------------------------------- rota /api/manuais
 
 // quem está "logado" (mock da sessão); a rota pede a aba Equipamentos com edição
-let quem: { login: string; nome: string; funcao: string; perfil: string } | null = null;
+// abas: lista de abas do usuário (sem a lista, vale a função); a rota pede a aba que quer
+let quem: { login: string; nome: string; funcao: string; perfil: string; abas?: string[] } | null = null;
 vi.mock("@/lib/auth/sessao", () => ({
-  autorizar: async (_aba: string, editar = false) => {
+  autorizar: async (aba: string, editar = false) => {
     if (!quem) return null;
     if (editar && quem.perfil === "leitor") return null;
+    if (quem.abas && !quem.abas.includes(aba)) return null;
     return quem;
   },
 }));
@@ -235,5 +241,68 @@ describe("rota /api/manuais", () => {
     semNada.append("eqs", "MAN-01");
     semNada.set("titulo", "x");
     expect((await rota.POST(enviar(semNada))).status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------- concorrência, batch e referência solta
+
+describe("manuais: gravação em lote, concorrência e referências soltas", () => {
+  beforeEach(() => { _definirSupabase(null); });
+  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+
+  it("duas gravações ao mesmo tempo no mesmo equipamento: as duas ficam", async () => {
+    _definirFonte(fonteFalsa().fonte);
+    await Promise.all([
+      gravarLinkEmVarios(["SIMULT-01"], { titulo: "Primeiro", url: "https://exemplo.test/a" }, "Teste"),
+      gravarLinkEmVarios(["SIMULT-01", "SIMULT-02"], { titulo: "Segundo", url: "https://exemplo.test/b" }, "Teste"),
+    ]);
+    expect((await documentosDe("SIMULT-01")).map((d) => d.titulo).sort()).toEqual(["Primeiro", "Segundo"]);
+    expect((await documentosDe("SIMULT-02")).map((d) => d.titulo)).toEqual(["Segundo"]);
+  });
+
+  it("lote com um equipamento cheio não grava nada (tudo ou nada)", async () => {
+    const f = fonteFalsa();
+    _definirFonte(f.fonte);
+    for (let i = 0; i < 50; i++) await gravarLink("CHEIO-01", { titulo: `Link ${i}`, url: `https://exemplo.test/${i}` }, "Teste");
+    await expect(gravarLinkEmVarios(["LIVRE-01", "CHEIO-01"], { titulo: "Lote", url: "https://exemplo.test/lote" }, "Teste"))
+      .rejects.toThrow(/CHEIO-01 já tem 50/);
+    expect(await documentosDe("LIVRE-01")).toEqual([]);
+    await expect(gravarDocumentoEmVarios(["LIVRE-02", "CHEIO-01"], { titulo: "Lote", nome: "l.pdf", bytes: PDF }, "Teste"))
+      .rejects.toThrow(/CHEIO-01 já tem 50/);
+    expect(await documentosDe("LIVRE-02")).toEqual([]);
+    // o arquivo que não chegou a ser ligado não fica no repositório
+    expect([...f.arquivos.keys()].filter((k) => k.startsWith(PASTA_ARQUIVOS))).toHaveLength(0);
+  });
+
+  it("referência solta (a origem saiu da lista) diz o que houve em vez de ler arquivo órfão", async () => {
+    _definirFonte(fonteFalsa().fonte);
+    const r = await gravarDocumentoEmVarios(["SOLTA-01", "SOLTA-02"], { titulo: "Manual", nome: "m.pdf", bytes: PDF }, "Teste");
+    await gravarCadastroLote(ARQ_DOCUMENTOS, { "SOLTA-01": null }, "Teste");
+    await expect(lerDocumento("SOLTA-02", r[1].doc.id)).rejects.toThrow(/Arquivo de origem não encontrado/);
+  });
+});
+
+describe("GET do documento para quem vê só a aba Manuais", () => {
+  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
+  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); quem = null; });
+
+  it("abre o arquivo com a aba Manuais, mas não sem ela", async () => {
+    const d = await gravarDocumento("ABRE-01", { titulo: "Manual", nome: "m.pdf", bytes: PDF }, "Teste");
+    const pedido = () => new NextRequest(`http://localhost/api/equipamentos/documento?${new URLSearchParams({ eq: "ABRE-01", id: d.id })}`);
+
+    quem = { login: "manuais.teste", nome: "Pessoa Fictícia", funcao: "", perfil: "leitor", abas: ["manuais"] };
+    expect((await rotaDocumento.GET(pedido())).status).toBe(200);
+
+    quem = { login: "ordens.teste", nome: "Pessoa Fictícia", funcao: "", perfil: "leitor", abas: ["ordens"] };
+    expect((await rotaDocumento.GET(pedido())).status).toBe(403);
+  });
+
+  it("referência solta responde 404 com a mensagem", async () => {
+    quem = { login: "lider.teste", nome: "Pessoa Fictícia", funcao: "lider", perfil: "editor" };
+    const r = await gravarDocumentoEmVarios(["GET-SOLTA-1", "GET-SOLTA-2"], { titulo: "Manual", nome: "m.pdf", bytes: PDF }, "Teste");
+    await gravarCadastroLote(ARQ_DOCUMENTOS, { "GET-SOLTA-1": null }, "Teste");
+    const resp = await rotaDocumento.GET(new NextRequest(`http://localhost/api/equipamentos/documento?${new URLSearchParams({ eq: "GET-SOLTA-2", id: r[1].doc.id })}`));
+    expect(resp.status).toBe(404);
+    expect(await resp.text()).toMatch(/Arquivo de origem não encontrado/);
   });
 });

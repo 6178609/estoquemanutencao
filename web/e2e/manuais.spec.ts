@@ -32,3 +32,24 @@ test("sem rolagem horizontal na tela de 390 px", async ({ page }) => {
   const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(sobra).toBeLessThanOrEqual(0);
 });
+
+test("usar link do acervo preenche título e link (modo link)", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/manuais");
+  await page.getByRole("button", { name: "Link" }).first().click();
+  await page.getByLabel(/Usar link do acervo/).selectOption({ index: 1 });
+  await expect(page.getByLabel("Link", { exact: true })).toHaveValue(/^https:\/\//);
+  await expect(page.getByLabel("Título", { exact: true })).not.toHaveValue("");
+  expect(erros).toEqual([]);
+});
+
+test("em 390 px, o Vincular de cada equipamento sem manual aparece inteiro (cartão, sem tabela)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await entrarNaDemo(page);
+  await telaAbriu(page, "/manuais");
+  const botao = page.getByRole("link", { name: "Vincular" }).first();
+  await botao.scrollIntoViewIfNeeded();
+  await expect(botao).toBeVisible();
+  const caixa = await botao.boundingBox();
+  expect(caixa && caixa.x >= 0 && caixa.x + caixa.width <= 390).toBe(true);
+});

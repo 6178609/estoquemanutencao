@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BOTAO_COMPACTO, Cabecalho, Pagina, Selo } from "@/components/ui";
-import { podeEditar, veInteira } from "@/lib/auth/acesso";
+import { podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { todosDocumentosEquipamentos } from "@/lib/dados/documentos";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
@@ -28,54 +28,70 @@ export const maxDuration = 60;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
 const TIPOS: Record<string, string> = { pdf: "PDF", imagem: "Imagem", link: "Link" };
 const LIMITE_SEM_MANUAL = 50;
+const rotuloTipo = (tipo: string) => (tipo === "link" ? "Link" : tipo === "application/pdf" ? "PDF" : "Imagem");
 
 /**
  * Manuais: vincula um manual (arquivo ou link) a um ou mais equipamentos e lista todos os vínculos. Usa a mesma
  * biblioteca da ficha do equipamento (Equipamentos › Biblioteca do ativo). Universo: os equipamentos do IH08 que
- * não estão desativados.
+ * não estão desativados. A ficha só aparece para quem vê a aba Equipamentos.
  */
 export default async function Manuais(props: { searchParams: Promise<Params> }) {
   const u = await exigir("manuais");
   const params = await props.searchParams;
   const edita = veInteira(u, "equipamentos") && podeEditar(u);
+  const verFicha = podeVer(u, "equipamentos");
   const q = um(params, "q"), tipo = um(params, "tipo") as TipoManual | "", area = um(params, "area"), sem = um(params, "sem");
   const vincular = um(params, "vincular").trim();
 
   const c = await contexto({});
   const [inv, vinculos, campoEq] = await Promise.all([inventarioAtivos(c), todosDocumentosEquipamentos(), campoDoEquipamento(c)]);
   const todos: EquipamentoManual[] = inv.map((x) => ({ codigo: x.codigo, nome: x.equipamento || "", campo: campoEq(x.codigo) || "", area: x.area || "" }));
-  const ativos = inv.filter((x) => x.situacao !== DESATIVADO && x.origem !== "Site").map((x) => ({ codigo: x.codigo, area: x.area || "" }));
-  const codigosAtivos = new Set(ativos.map((a) => a.codigo));
+  const ativosIH08 = inv.filter((x) => x.situacao !== DESATIVADO && x.origem !== "Site").map((x) => ({ codigo: x.codigo, area: x.area || "" }));
+  const codigosAtivos = new Set(ativosIH08.map((a) => a.codigo));
   const ativosTela = todos.filter((x) => codigosAtivos.has(x.codigo));
-  const resumo = resumoManuais(ativos, vinculos);
+  const porCodigo = new Map(todos.map((x) => [x.codigo, x]));
+  const resumo = resumoManuais(ativosIH08, vinculos);
   const manuais = vinculos.filter((v) => !v.doc.origem).length;
   const areas = [...new Set(ativosTela.map((x) => x.area).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   const filtrados = filtrarManuais(vinculos, { q, tipo: tipo || undefined, area }, todos);
   const pag = paginar(filtrados, Number(um(params, "pag")));
   const semManual = equipamentosSemManual(ativosTela, vinculos, sem);
-  const linhas: LinhaT[] = pag.itens.map(({ tag, doc }) => {
-    const eq = todos.find((x) => x.codigo === tag);
-    const abrir = doc.tipo === "link" ? doc.url! : `/api/equipamentos/documento?${new URLSearchParams({ eq: tag, id: doc.id })}`;
-    const ficha = `/equipamentos/biblioteca?${new URLSearchParams({ eq: tag })}`;
+  const itens = pag.itens.map(({ tag, doc }) => {
+    const eq = porCodigo.get(tag);
     return {
       chave: `${tag}|${doc.id}`,
-      href: ficha,
-      celulas: [
-        tag,
-        <span key="eq" className="block max-w-[260px] truncate">{eq?.campo || "—"}<span className="block truncate text-[12px] text-texto-3">{eq?.nome || ""}</span></span>,
-        <a key="t" href={abrir} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-[320px] items-center gap-1 font-medium hover:text-acao">
-          <span className="truncate">{doc.titulo}</span><ExternalLink className="size-3.5 shrink-0 text-texto-3" aria-hidden />
-          <span className="sr-only">(abre em nova aba)</span>
-        </a>,
-        <Selo key="s" cor={doc.tipo === "link" ? "azul" : "cinza"}>{doc.tipo === "link" ? "Link" : doc.tipo === "application/pdf" ? "PDF" : "Imagem"}</Selo>,
-        doc.origem ? <span key="o" className="text-[12px] text-texto-3">Mesmo arquivo de {doc.origem.tag}</span> : "—",
-        <span key="d" className="whitespace-nowrap">{new Date(doc.em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>,
-        doc.por || "—",
-        edita ? <RemoverManual key="r" eq={tag} id={doc.id} titulo={doc.titulo} /> : "",
-      ],
+      tag,
+      campo: eq?.campo || "—",
+      nome: eq?.nome || "",
+      titulo: doc.titulo,
+      abrir: doc.tipo === "link" ? doc.url! : `/api/equipamentos/documento?${new URLSearchParams({ eq: tag, id: doc.id })}`,
+      tipo: rotuloTipo(doc.tipo),
+      origem: doc.origem ? `Mesmo arquivo de ${doc.origem.tag}` : "",
+      data: new Date(doc.em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      por: doc.por || "—",
+      id: doc.id,
     };
   });
+  const ficha = (tag: string) => `/equipamentos/biblioteca?${new URLSearchParams({ eq: tag })}`;
+
+  const linhasManuais: LinhaT[] = itens.map((x) => ({
+    chave: x.chave,
+    href: verFicha ? ficha(x.tag) : undefined,
+    celulas: [
+      x.tag,
+      <span key="eq" className="block max-w-[260px] truncate">{x.campo}<span className="block truncate text-[12px] text-texto-3">{x.nome}</span></span>,
+      <a key="t" href={x.abrir} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-[320px] items-center gap-1 font-medium hover:text-acao">
+        <span className="truncate">{x.titulo}</span><ExternalLink className="size-3.5 shrink-0 text-texto-3" aria-hidden />
+        <span className="sr-only">(abre em nova aba)</span>
+      </a>,
+      <Selo key="s" cor={x.tipo === "Link" ? "azul" : "cinza"}>{x.tipo}</Selo>,
+      x.origem ? <span key="o" className="text-[12px] text-texto-3">{x.origem}</span> : "—",
+      <span key="d" className="whitespace-nowrap">{x.data}</span>,
+      x.por,
+      edita ? <RemoverManual key="r" eq={x.tag} id={x.id} titulo={x.titulo} /> : "",
+    ],
+  }));
 
   const acervo = ACERVO.map((a) => ({ titulo: a.titulo, url: a.url, fonte: a.fonte, area: a.area }));
 
@@ -88,7 +104,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
         <h2 id="numeros" className="font-display text-[20px] font-medium">Cobertura</h2>
         <GradeNumeros colunas={4}>
           <Numero rotulo="Manuais cadastrados" valor={inteiroBr(manuais)} detalhe="arquivos e links (sem as referências)" />
-          <Numero rotulo="Equipamentos com manual" valor={inteiroBr(resumo.comManual)} detalhe={`de ${inteiroBr(ativos.length)} equipamentos ativos`} />
+          <Numero rotulo="Equipamentos com manual" valor={inteiroBr(resumo.comManual)} detalhe={`de ${inteiroBr(ativosIH08.length)} equipamentos ativos`} />
           <Numero rotulo="Sem manual" valor={inteiroBr(resumo.semManual)} detalhe="equipamentos ativos" />
           <Numero rotulo="Cobertura" valor={`${resumo.cobertura}%`} detalhe={`${inteiroBr(resumo.vinculos)} vínculos no total`} />
         </GradeNumeros>
@@ -137,16 +153,48 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
             <Link prefetch={false} href="/manuais#lista" className={clsx(BOTAO_COMPACTO, "bg-transparent")}>Limpar</Link>
           </div>
         </form>
-        <TabelaT colunas={[
-          { rotulo: "Equipamento", dica: "Abre a ficha do equipamento" },
-          { rotulo: "Campo / denominação" },
-          { rotulo: "Manual", larga: true },
-          { rotulo: "Tipo" },
-          { rotulo: "Origem" },
-          { rotulo: "Enviado em" },
-          { rotulo: "Quem enviou" },
-          { rotulo: edita ? "Remover" : "" },
-        ]} linhas={linhas} vazio="Nenhum manual com estes filtros." />
+
+        {!itens.length ? (
+          <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum manual com estes filtros.</p>
+        ) : (
+          <>
+            {/* celular: cartões (sem rolagem de tabela) */}
+            <ul className="space-y-3 sm:hidden">
+              {itens.map((x) => (
+                <li key={x.chave} className="space-y-2 rounded-cartao border border-borda bg-superficie p-4">
+                  <a href={x.abrir} target="_blank" rel="noopener noreferrer" className="inline-flex items-start gap-1 font-medium hover:text-acao">
+                    <span className="min-w-0 break-words">{x.titulo}</span><ExternalLink className="mt-1 size-3.5 shrink-0 text-texto-3" aria-hidden />
+                    <span className="sr-only">(abre em nova aba)</span>
+                  </a>
+                  <div className="text-[13px] text-texto-2">{x.tag} · {x.campo}</div>
+                  {x.nome && <div className="text-[12.5px] text-texto-3">{x.nome}</div>}
+                  <div className="flex flex-wrap items-center gap-2 text-[12px] text-texto-3">
+                    <Selo cor={x.tipo === "Link" ? "azul" : "cinza"}>{x.tipo}</Selo>
+                    <span>{x.data} · {x.por}</span>
+                    {x.origem && <span>· {x.origem}</span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {verFicha && <Link prefetch={false} href={ficha(x.tag)} className={BOTAO_COMPACTO}>Ficha do equipamento</Link>}
+                    {edita && <RemoverManual eq={x.tag} id={x.id} titulo={x.titulo} />}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {/* computador: tabela */}
+            <div className="hidden sm:block">
+              <TabelaT colunas={[
+                { rotulo: "Equipamento", dica: verFicha ? "Abre a ficha do equipamento" : undefined },
+                { rotulo: "Campo / denominação" },
+                { rotulo: "Manual", larga: true },
+                { rotulo: "Tipo" },
+                { rotulo: "Origem" },
+                { rotulo: "Enviado em" },
+                { rotulo: "Quem enviou" },
+                { rotulo: edita ? "Remover" : "" },
+              ]} linhas={linhasManuais} />
+            </div>
+          </>
+        )}
         <Paginacao params={params} pag={pag.pag} paginas={pag.paginas} total={pag.total} inicio={pag.inicio} mostrados={pag.itens.length} rotulo="vínculos" />
       </section>
 
@@ -169,17 +217,40 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
           </label>
           <button type="submit" className={BOTAO_COMPACTO}>Filtrar</button>
         </form>
-        <TabelaT colunas={[
-          { rotulo: "Equipamento" }, { rotulo: "Campo / denominação" }, { rotulo: "Área" }, { rotulo: edita ? "Ação" : "" },
-        ]} linhas={semManual.slice(0, LIMITE_SEM_MANUAL).map((x) => ({
-          chave: x.codigo,
-          celulas: [
-            <Link key="c" prefetch={false} href={`/equipamentos/biblioteca?${new URLSearchParams({ eq: x.codigo })}`} className="font-mono text-[12.5px] font-medium text-acao underline-offset-2 hover:underline">{x.codigo}</Link>,
-            <span key="n" className="block max-w-[320px] truncate">{x.campo || "—"}<span className="block truncate text-[12px] text-texto-3">{x.nome}</span></span>,
-            x.area || "—",
-            edita ? <Link key="v" prefetch={false} scroll={false} href={`/manuais?${new URLSearchParams({ vincular: x.codigo })}#vincular`} className={BOTAO_COMPACTO}>Vincular</Link> : "",
-          ],
-        }))} vazio="Todos os equipamentos ativos já têm manual." />
+        {!semManual.length ? (
+          <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Todos os equipamentos ativos já têm manual.</p>
+        ) : (
+          <>
+            <ul className="space-y-3 sm:hidden">
+              {semManual.slice(0, LIMITE_SEM_MANUAL).map((x) => (
+                <li key={x.codigo} className="space-y-2 rounded-cartao border border-borda bg-superficie p-4">
+                  <div className="font-mono text-[13px] font-medium text-acao">{x.codigo}</div>
+                  <div className="text-[13.5px]">{x.campo || "—"}</div>
+                  {x.nome && <div className="text-[12.5px] text-texto-3">{x.nome}</div>}
+                  <div className="text-[12.5px] text-texto-3">Área: {x.area || "—"}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {verFicha && <Link prefetch={false} href={ficha(x.codigo)} className={BOTAO_COMPACTO}>Ficha</Link>}
+                    {edita && <Link prefetch={false} scroll={false} href={`/manuais?${new URLSearchParams({ vincular: x.codigo })}#vincular`} className={clsx(BOTAO_COMPACTO, "min-h-11")}>Vincular</Link>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden sm:block">
+              <TabelaT colunas={[
+                { rotulo: "Equipamento" }, { rotulo: "Campo / denominação" }, { rotulo: "Área" }, { rotulo: edita ? "Ação" : "" },
+              ]} linhas={semManual.slice(0, LIMITE_SEM_MANUAL).map((x) => ({
+                chave: x.codigo,
+                href: verFicha ? ficha(x.codigo) : undefined,
+                celulas: [
+                  x.codigo,
+                  <span key="n" className="block max-w-[320px] truncate">{x.campo || "—"}<span className="block truncate text-[12px] text-texto-3">{x.nome}</span></span>,
+                  x.area || "—",
+                  edita ? <Link key="v" prefetch={false} scroll={false} href={`/manuais?${new URLSearchParams({ vincular: x.codigo })}#vincular`} className={BOTAO_COMPACTO}>Vincular</Link> : "",
+                ],
+              }))} />
+            </div>
+          </>
+        )}
         {semManual.length > LIMITE_SEM_MANUAL && <p className="text-[12.5px] text-texto-3">Mostrando {LIMITE_SEM_MANUAL} de {inteiroBr(semManual.length)}.</p>}
       </section>
     </Pagina>

@@ -33,7 +33,8 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
 
   const achados = useMemo(() => equipamentos.filter((e) =>
     casaBusca(normalizarBusca([e.codigo, e.campo, e.nome, e.area].join(" ")), busca)), [equipamentos, busca]);
-  const itensAcervo = useMemo(() => acervo.filter((a) =>
+  // o índice no acervo vai junto com o item (a lista não procura a posição de cada um)
+  const itensAcervo = useMemo(() => acervo.map((a, i) => ({ ...a, i })).filter((a) =>
     casaBusca(normalizarBusca([a.titulo, a.fonte, a.area].join(" ")), buscaAcervo)), [acervo, buscaAcervo]);
 
   const alternar = (codigo: string) => setMarcados((m) => m.includes(codigo) ? m.filter((x) => x !== codigo)
@@ -148,7 +149,7 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
               <select value={escolhidoAcervo} onChange={(e) => escolherAcervo(e.target.value)}
                 className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
                 <option value="">— escolher —</option>
-                {itensAcervo.slice(0, 200).map((a) => <option key={acervo.indexOf(a)} value={acervo.indexOf(a)}>{a.titulo} ({a.fonte})</option>)}
+                {itensAcervo.slice(0, 200).map((a) => <option key={a.i} value={a.i}>{a.titulo} ({a.fonte})</option>)}
               </select>
             </label>
           </div>
