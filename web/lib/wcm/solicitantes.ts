@@ -16,6 +16,18 @@ export function solicitantesDe(cad: Cadastro | null | undefined): string[] {
   return bruto.filter((n): n is string => typeof n === "string" && n.trim() !== "").map((n) => n.trim());
 }
 
+/**
+ * Pessoas do filtro da aba Custos: o endereço manda (pes repetido, um por nome; "todas" = sem filtro); sem pes vale o
+ * padrão salvo. Vazios saem; nomes repetidos contam uma vez. Puro.
+ */
+export function pessoasAtivas(params: Record<string, string | string[] | undefined>, padrao: string[]): string[] {
+  const v = params.pes;
+  if (v === undefined) return padrao;
+  const nomes = (Array.isArray(v) ? v : [v]).map((x) => x.trim()).filter(Boolean);
+  if (nomes.includes("todas")) return [];
+  return [...new Set(nomes)];
+}
+
 /** Só as requisições de quem está marcado. Sem marcados, devolve a mesma lista; nunca altera a lista recebida. */
 export function soManutencao(reqs: Requisicao[] | null, nomes: string[]): Requisicao[] | null {
   if (!reqs) return null;
