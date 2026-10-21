@@ -105,3 +105,10 @@ test("suporte técnico no celular: diagnóstico com tipo inválido volta à esco
   expect(largura).toBeLessThanOrEqual(1);
   expect(erros).toEqual([]);
 });
+
+test("suporte técnico: a biblioteca mostra o envio de documento para o editor da demonstração", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/suporte?visao=biblioteca");
+  await expect(page.getByRole("button", { name: "Adicionar à biblioteca" })).toBeVisible();
+  expect(erros).toEqual([]);
+});

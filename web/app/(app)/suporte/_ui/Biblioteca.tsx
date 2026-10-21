@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { Campo, Seletor } from "@/components/Campos";
-import { BOTAO_SECUNDARIO } from "@/components/ui";
 import { Aviso, Secao } from "@/components/PaginaWcm";
+import { BOTAO_SECUNDARIO } from "@/components/ui";
 import { podeVer, type Usuario } from "@/lib/auth/acesso";
 import { documentosTecnicos, todosDocumentosEquipamentos } from "@/lib/dados/documentos";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
@@ -10,8 +10,9 @@ import { ACERVO, buscarAcervo, type ItemAcervo } from "@/lib/suporte/acervo";
 import { AREAS, type Area } from "@/lib/suporte/guias";
 
 import { EnviarDocumento } from "./EnviarDocumento";
+import { RemoverDocumento } from "./RemoverDocumento";
 
-const LIMITE_ACERVO = 60;
+const LIMITE_ACERVO = 20;
 const TIPO_ROTULO: Record<ItemAcervo["tipo"], string> = {
   manual: "Manual", catalogo: "Catálogo", guia: "Guia", norma: "Norma", calculadora: "Calculadora", curso: "Curso", artigo: "Artigo",
 };
@@ -20,15 +21,28 @@ const nomeArea = (id: Area) => AREAS.find((a) => a.id === id)?.titulo ?? id;
 const AREAS_OPCOES = Object.fromEntries(AREAS.map((a) => [a.id, a.titulo]));
 const LISTA = "divide-y divide-borda overflow-hidden rounded-cartao border border-borda bg-superficie";
 
-export interface FiltrosBiblioteca { q: string; area?: Area; tipo?: ItemAcervo["tipo"]; idioma?: ItemAcervo["idioma"] }
+export interface FiltrosBiblioteca { q: string; area?: Area; tipo?: ItemAcervo["tipo"]; idioma?: ItemAcervo["idioma"]; mais: boolean }
+
+/** Endereço da biblioteca com os filtros atuais e, se `mais`, a lista do acervo inteira. */
+function hrefBiblioteca(f: FiltrosBiblioteca, mais: boolean): string {
+  const p = new URLSearchParams({ visao: "biblioteca" });
+  if (f.q) p.set("q", f.q);
+  if (f.area) p.set("area", f.area);
+  if (f.tipo) p.set("tipo", f.tipo);
+  if (f.idioma) p.set("idioma", f.idioma);
+  if (mais) p.set("mais", "1");
+  return `/suporte?${p.toString()}`;
+}
 
 /**
- * Biblioteca técnica: filtros, acervo de referência (links públicos), documentos enviados pela equipe e os
- * documentos dos equipamentos (leitura, com link para a ficha). Só editor ou administrador envia.
+ * Biblioteca técnica: filtros, envio (só editor ou administrador, logo abaixo dos filtros), acervo de referência
+ * (links públicos; 20 primeiros, "Ver mais" para o resto), documentos enviados (com Remover para quem edita) e os
+ * documentos dos equipamentos (leitura, com link para a ficha).
  */
 export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boolean; filtros: FiltrosBiblioteca }) {
-  const { q, area, tipo, idioma } = filtros;
+  const { q, area, tipo, idioma, mais } = filtros;
   const acervo = buscarAcervo(q, { area, tipo, idioma });
+  const mostrar = mais ? acervo : acervo.slice(0, LIMITE_ACERVO);
   const docs = (await documentosTecnicos(area)).filter((d) => casaBusca(normalizarBusca(`${d.titulo} ${d.nome ?? ""}`), q));
   const verEquip = podeVer(u, "equipamentos");
   const docsEquip = verEquip
@@ -46,13 +60,21 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
         <button type="submit" className={BOTAO_SECUNDARIO}>Filtrar</button>
       </form>
 
+      {edita ? (
+        <Secao titulo="Enviar" destaque="documento" sub="Manual, norma ou tabela da empresa. Vai para a biblioteca técnica, na área escolhida.">
+          <EnviarDocumento areas={AREAS.map((a) => ({ id: a.id, titulo: a.titulo }))} areaInicial={area} />
+        </Secao>
+      ) : (
+        <Aviso tom="azul">Só editor ou administrador envia documentos para a biblioteca técnica.</Aviso>
+      )}
+
       <Secao titulo="Acervo" destaque="de referência" sub="Links públicos e gratuitos de fabricantes e órgãos oficiais. Abre o original no site de quem publica; nada é copiado para cá.">
-        <p className="text-[13px] text-texto-3">{acervo.length} de {ACERVO.length} itens{acervo.length > LIMITE_ACERVO ? `. Mostrando os ${LIMITE_ACERVO} primeiros; refine a busca ou os filtros.` : ""}</p>
+        <p className="text-[13px] text-texto-3">{acervo.length} de {ACERVO.length} itens</p>
         {acervo.length === 0 ? (
           <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum item do acervo para esta busca.</p>
         ) : (
           <ul className={LISTA}>
-            {acervo.slice(0, LIMITE_ACERVO).map((it) => (
+            {mostrar.map((it) => (
               <li key={it.url} className="space-y-1.5 px-4 py-3.5">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-texto-3">
                   <span className="text-acao">{TIPO_ROTULO[it.tipo]}</span>
@@ -68,6 +90,11 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
             ))}
           </ul>
         )}
+        {!mais && acervo.length > LIMITE_ACERVO && (
+          <Link prefetch={false} href={hrefBiblioteca(filtros, true)} className="inline-flex min-h-11 items-center text-[13.5px] font-semibold text-acao hover:text-[var(--acao-forte)]">
+            Ver mais ({acervo.length - LIMITE_ACERVO} itens)
+          </Link>
+        )}
       </Secao>
 
       <Secao titulo="Documentos" destaque="enviados" sub={area ? `Documentos de ${nomeArea(area)}.` : "Manuais, normas e tabelas que a equipe enviou."}>
@@ -80,20 +107,18 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
             {docs.map((d) => {
               const href = d.tipo === "link" ? d.url! : `/api/suporte/documento?${new URLSearchParams({ area: d.area, id: d.id })}`;
               return (
-                <li key={`${d.area}-${d.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3 text-[13.5px]">
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="min-w-0 break-words font-medium text-texto hover:text-acao">
-                    {d.titulo}<span className="sr-only"> (abre em nova aba)</span>
-                  </a>
-                  <span className="text-texto-3">{nomeArea(d.area)} · {d.tipo === "link" ? "Link" : d.tipo === "application/pdf" ? "PDF" : "Imagem"}</span>
+                <li key={`${d.area}-${d.id}`} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-[13.5px]">
+                  <div className="min-w-0 flex-1">
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="break-words font-medium text-texto hover:text-acao">
+                      {d.titulo}<span className="sr-only"> (abre em nova aba)</span>
+                    </a>
+                    <div className="text-[12.5px] text-texto-3">{nomeArea(d.area)} · {d.tipo === "link" ? "Link" : d.tipo === "application/pdf" ? "PDF" : "Imagem"}</div>
+                  </div>
+                  {edita && <RemoverDocumento area={d.area} id={d.id} titulo={d.titulo} />}
                 </li>
               );
             })}
           </ul>
-        )}
-        {edita ? (
-          <EnviarDocumento areas={AREAS.map((a) => ({ id: a.id, titulo: a.titulo }))} areaInicial={area} />
-        ) : (
-          <Aviso tom="azul">Só editor ou administrador envia documentos para a biblioteca técnica.</Aviso>
         )}
       </Secao>
 
@@ -103,7 +128,7 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
             <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum documento de equipamento{q ? " para esta busca" : ""}.</p>
           ) : (
             <ul className={LISTA}>
-              {docsEquip.slice(0, LIMITE_ACERVO).map((x) => (
+              {docsEquip.slice(0, 60).map((x) => (
                 <li key={`${x.tag}-${x.doc.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3 text-[13.5px]">
                   <span className="min-w-0 break-words font-medium text-texto">{x.doc.titulo}</span>
                   <Link prefetch={false} href={`/equipamentos/biblioteca?eq=${encodeURIComponent(x.tag)}`} className="num font-mono text-acao hover:text-[var(--acao-forte)]">

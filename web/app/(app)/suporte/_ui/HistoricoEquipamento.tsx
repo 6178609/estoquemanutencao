@@ -2,8 +2,7 @@ import Link from "next/link";
 
 import { Secao } from "@/components/PaginaWcm";
 import { Cartao } from "@/components/ui";
-import { analisarModos } from "@/lib/wcm/modosFalha";
-import { tiposPorOrdem } from "@/lib/wcm/preparo";
+import { historicoDoEquipamento } from "@/lib/suporte/historico";
 import { contexto, dados } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { dataBr } from "@/lib/wcm/util";
@@ -12,17 +11,13 @@ import type { Params } from "./url";
 
 /**
  * Histórico do equipamento informado no diagnóstico: as últimas 5 quebras (mesma regra da Confiabilidade) e os 5
- * modos de causa mais frequentes (IW47 das ordens YM11 dele). Sem quebras nem modos, o bloco não aparece.
+ * modos de causa mais frequentes (IW47 das ordens YM11 dele; regra em lib/suporte/historico.ts). Sem nada, não aparece.
  */
 export async function HistoricoEquipamento({ params, eq, podeFicha }: { params: Params; eq: string; podeFicha: boolean }) {
   const c = await contexto(params);
-  const d = await dados(c);
-  const ordensIds = new Set((c.b.ordens.dados ?? []).filter((o) => o.equipChave === eq).map((o) => o.ordem));
-  const quebras = ind.quebras(d).filter((q) => q.equipChave === eq)
-    .sort((a, b) => (b.data ?? 0) - (a.data ?? 0)).slice(0, 5);
-  const conf = (c.b.confirmacoes.dados ?? []).filter((x) => ordensIds.has(x.ordem));
-  const tipos = tiposPorOrdem(c.b.ordens.dados ?? [], c.b.operacoes.dados ?? [], c.b.confirmacoes.dados ?? []);
-  const modos = analisarModos(conf, tipos).modos.slice(0, 5);
+  // histórico inteiro do equipamento: sem os filtros de área, centro e tipo (que escondiam dados dele)
+  const d = await dados(c, { areas: [], centros: [], tipos: [] });
+  const { quebras, modos } = historicoDoEquipamento(eq, ind.quebras(d), c.b.ordens.dados ?? [], c.b.confirmacoes.dados ?? []);
   if (!quebras.length && !modos.length) return null;
 
   return (

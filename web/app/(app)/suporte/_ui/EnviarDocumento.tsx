@@ -17,7 +17,9 @@ export function EnviarDocumento({ areas, areaInicial }: { areas: { id: string; t
 
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
+    // guardado antes do await: depois dele, e.currentTarget já não existe
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
     const arq = form.get("arquivo");
     if (modo === "arquivo" && !(arq instanceof File && arq.size)) {
       setEstado({ enviando: false, erro: "Escolha o arquivo (PDF ou imagem).", ok: "" });
@@ -35,7 +37,7 @@ export function EnviarDocumento({ areas, areaInicial }: { areas: { id: string; t
       setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo passou de 4 MB. Para documentos maiores, use “Adicionar link”." : "Não foi possível enviar."), ok: "" });
       return;
     }
-    e.currentTarget.reset();
+    formEl.reset();
     setEstado({ enviando: false, erro: "", ok: "Documento adicionado à biblioteca." });
     router.refresh();
   };

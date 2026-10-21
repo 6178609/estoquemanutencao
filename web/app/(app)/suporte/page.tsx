@@ -56,6 +56,7 @@ export default async function Suporte(props: { searchParams: Promise<Params> }) 
           area,
           tipo: TIPOS.find((t) => t === um(params, "tipo")) as ItemAcervo["tipo"] | undefined,
           idioma: IDIOMAS.find((i) => i === um(params, "idioma")) as ItemAcervo["idioma"] | undefined,
+          mais: um(params, "mais") === "1",
         }} />
       )}
     </Pagina>
