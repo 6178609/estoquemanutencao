@@ -40,6 +40,10 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
   const [ativo, setAtivo] = useState<number | null>(() => primeiroComPeca(idModelo, marcadores));
   const [explodir, setExplodir] = useState(false);
   const [pausado, setPausado] = useState(false);
+  /** contador de Recentrar: cada clique refoca o modelo inteiro, mesmo sem peça em foco */
+  const [recentrarN, setRecentrarN] = useState(0);
+  /** o navegador perdeu o contexto WebGL depois de montar a cena */
+  const [perdido, setPerdido] = useState(false);
   const reduzir = useMovimentoReduzido();
   const suporte = useWebGL();
   const area = useRef<HTMLDivElement>(null);
@@ -70,13 +74,13 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
           >
             {!jaVisto ? (
               <Mensagem>Visualização 3D</Mensagem>
-            ) : suporte === false ? (
+            ) : suporte === false || perdido ? (
               <Mensagem role="status">Visualização 3D indisponível neste navegador</Mensagem>
             ) : suporte === true ? (
               <div
                 role="img"
                 aria-label={`Modelo 3D: ${modelo.titulo}.${marcador ? ` Peça em destaque: ${nomeDe(marcador.peca)}.` : ""}`}
-                className="absolute inset-0"
+                className="absolute inset-0 touch-pan-y"
               >
                 <Cena
                   modelo={idModelo}
@@ -85,28 +89,41 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
                   girar={girar}
                   reduzir={reduzir}
                   naTela={naTela}
+                  recentrar={recentrarN}
                   aoClicarPeca={aoClicarPeca}
+                  aoPerderContexto={() => setPerdido(true)}
                 />
               </div>
             ) : null}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button type="button" aria-pressed={!explodir} onClick={() => setExplodir(false)} className={BOTAO_NO_MODELO}>
-              Montado
-            </button>
-            <button type="button" aria-pressed={explodir} onClick={() => setExplodir(true)} className={BOTAO_NO_MODELO}>
-              Vista explodida
-            </button>
-            <button type="button" onClick={() => setAtivo(null)} className={BOTAO_NO_MODELO}>
-              Recentrar
-            </button>
-            {!reduzir && (
-              <button type="button" onClick={() => setPausado((p) => !p)} className={BOTAO_NO_MODELO}>
-                {pausado ? "Retomar giro" : "Pausar giro"}
+          {/* controles da cena: só existem com WebGL; sem ele, a lista de causas continua */}
+          {suporte === true && !perdido && (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" aria-pressed={!explodir} onClick={() => setExplodir(false)} className={BOTAO_NO_MODELO}>
+                Montado
               </button>
-            )}
-          </div>
+              <button type="button" aria-pressed={explodir} onClick={() => setExplodir(true)} className={BOTAO_NO_MODELO}>
+                Vista explodida
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAtivo(null);
+                  setRecentrarN((n) => n + 1);
+                }}
+                className={BOTAO_NO_MODELO}
+              >
+                Recentrar
+              </button>
+              {/* com uma peça em foco o giro já está parado: o botão só aparece quando há giro para pausar */}
+              {!reduzir && peca === null && (
+                <button type="button" onClick={() => setPausado((p) => !p)} className={BOTAO_NO_MODELO}>
+                  {pausado ? "Retomar giro" : "Pausar giro"}
+                </button>
+              )}
+            </div>
+          )}
 
           <div aria-live="polite" className="min-h-[4.5rem] rounded-cartao border border-borda bg-superficie p-4">
             {marcador ? (

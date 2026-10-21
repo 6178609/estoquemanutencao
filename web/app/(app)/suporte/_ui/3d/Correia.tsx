@@ -37,7 +37,7 @@ const GIRO_Z: [number, number, number] = [Math.PI / 2, 0, 0];
 export function Correia({ explodir }: ModeloProps) {
   return (
     <group>
-      <Peca id={PECA.poliaMotora} explodir={explodir} afastamento={[-0.3, 0, 0.6]}>
+      <Peca id={PECA.poliaMotora} explodir={explodir} afastamento={[-0.5, 0, 0.9]}>
         <mesh position={[MOTORA.x, 0, 0]} rotation={GIRO_Z}>
           <cylinderGeometry args={[MOTORA.raio - FOLGA_POLIA, MOTORA.raio - FOLGA_POLIA, LARGURA_POLIA, 40]} />
           <Mat cor="aco" />
@@ -48,7 +48,7 @@ export function Correia({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.poliaMovida} explodir={explodir} afastamento={[0.3, 0, 0.6]}>
+      <Peca id={PECA.poliaMovida} explodir={explodir} afastamento={[0.5, 0, 0.9]}>
         <mesh position={[MOVIDA.x, 0, 0]} rotation={GIRO_Z}>
           <cylinderGeometry args={[MOVIDA.raio - FOLGA_POLIA, MOVIDA.raio - FOLGA_POLIA, LARGURA_POLIA, 56]} />
           <Mat cor="aco" />
@@ -59,14 +59,14 @@ export function Correia({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.correia} explodir={explodir} afastamento={[0, 0.6, 0]}>
+      <Peca id={PECA.correia} explodir={explodir} afastamento={[0, 1.0, 0]}>
         <mesh position={[0, 0, -LARGURA_CORREIA / 2]}>
           <extrudeGeometry args={[CORREIA_FORMA, EXTRUSAO_CORREIA]} />
           <Mat cor="borracha" />
         </mesh>
       </Peca>
 
-      <Peca id={PECA.eixos} explodir={explodir} afastamento={[0, -0.3, 0]}>
+      <Peca id={PECA.eixos} explodir={explodir} afastamento={[0, -0.5, 0]}>
         {/* eixos das polias, atravessando o cubo */}
         {[MOTORA.x, MOVIDA.x].map((x) => (
           <mesh key={x} position={[x, 0, 0]} rotation={GIRO_Z}>
@@ -87,7 +87,7 @@ export function Correia({ explodir }: ModeloProps) {
         </mesh>
       </Peca>
 
-      <Peca id={PECA.tensor} explodir={explodir} afastamento={[0.5, 0, 0]}>
+      <Peca id={PECA.tensor} explodir={explodir} afastamento={[0.8, -0.3, 0]}>
         <mesh position={[TENSOR.x, TENSOR.y, 0]} rotation={GIRO_Z}>
           <cylinderGeometry args={[TENSOR.raio, TENSOR.raio, 0.3, 32]} />
           <Mat cor="acoClaro" />

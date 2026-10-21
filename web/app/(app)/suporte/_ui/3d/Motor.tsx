@@ -1,6 +1,6 @@
 import { Vector2 } from "three";
 
-import { Mat, Peca } from "./Peca";
+import { Mat, Parte, Peca } from "./Peca";
 import type { ModeloProps } from "./Peca";
 
 /**
@@ -46,7 +46,7 @@ const TAMPA_VENTILADOR_FIM = retangulo(0.2, 0.46, -1.56, -1.53);
 export function Motor({ explodir }: ModeloProps) {
   return (
     <group rotation={[0, 0, Math.PI / 2]}>
-      <Peca id={PECA.carcaca}>
+      <Peca id={PECA.carcaca} explodir={explodir} afastamento={[0.8, 0, 0]}>
         <mesh>
           <latheGeometry args={[CARCACA, SEGMENTOS]} />
           <Mat cor="aco" />
@@ -63,25 +63,30 @@ export function Motor({ explodir }: ModeloProps) {
       </Peca>
 
       <Peca id={PECA.tampas}>
-        <mesh>
-          <latheGeometry args={[TAMPA_FRONTAL, SEGMENTOS]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-        <mesh>
-          <latheGeometry args={[TAMPA_TRASEIRA, SEGMENTOS]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-        <mesh>
-          <latheGeometry args={[CUBO_FRONTAL, SEGMENTOS]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-        <mesh>
-          <latheGeometry args={[CUBO_TRASEIRO, SEGMENTOS]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
+        {/* cada tampa sai para o seu lado do eixo */}
+        <Parte explodir={explodir} afastamento={[0, 0.5, 0]}>
+          <mesh>
+            <latheGeometry args={[TAMPA_FRONTAL, SEGMENTOS]} />
+            <Mat cor="acoEscuro" />
+          </mesh>
+          <mesh>
+            <latheGeometry args={[CUBO_FRONTAL, SEGMENTOS]} />
+            <Mat cor="acoEscuro" />
+          </mesh>
+        </Parte>
+        <Parte explodir={explodir} afastamento={[0, -0.5, 0]}>
+          <mesh>
+            <latheGeometry args={[TAMPA_TRASEIRA, SEGMENTOS]} />
+            <Mat cor="acoEscuro" />
+          </mesh>
+          <mesh>
+            <latheGeometry args={[CUBO_TRASEIRO, SEGMENTOS]} />
+            <Mat cor="acoEscuro" />
+          </mesh>
+        </Parte>
       </Peca>
 
-      <Peca id={PECA.estator}>
+      <Peca id={PECA.estator} explodir={explodir} afastamento={[-0.5, 0, 0]}>
         <mesh>
           <latheGeometry args={[NUCLEO, SEGMENTOS]} />
           <Mat cor="acoEscuro" />
@@ -94,7 +99,7 @@ export function Motor({ explodir }: ModeloProps) {
         ))}
       </Peca>
 
-      <Peca id={PECA.rotor}>
+      <Peca id={PECA.rotor} explodir={explodir} afastamento={[0, 0, 0.6]}>
         <mesh>
           <cylinderGeometry args={[0.42, 0.42, 1.3, 40]} />
           <Mat cor="aco" />

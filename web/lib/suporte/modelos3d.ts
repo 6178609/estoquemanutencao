@@ -203,7 +203,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
   redutor: {
     aquecimento: [
       { peca: "nivel_oleo", titulo: "Nível de óleo fora da faixa", explicacao: "Nível baixo deixa as engrenagens sem lubrificação; nível alto gera agitação e calor." },
-      { peca: "carcaca", titulo: "Respiro entupido ou óleo degradado", explicacao: "Respiro entupido impede a troca de pressão interna, e óleo com viscosidade errada perde película e aquece o redutor." },
+      { peca: "carcaca", titulo: "Óleo degradado ou de viscosidade errada", explicacao: "Óleo degradado ou de viscosidade errada perde a película e aumenta o atrito e o calor." },
       { peca: "pinhao", titulo: "Engrenamento sobrecarregado", explicacao: "Sobrecarga ou partidas com carga aumentam o atrito entre os dentes." },
       { peca: "rolamentos", titulo: "Rolamento com atrito alto", explicacao: "Falta de lubrificação ou carga excessiva eleva o atrito no mancal do eixo." },
     ],
@@ -216,11 +216,11 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
     vazamento: [
       { peca: "retentores", titulo: "Retentor gasto ou danificado", explicacao: "O lábio do retentor gasto deixa o óleo passar pelo eixo." },
       { peca: "eixo_saida", titulo: "Eixo marcado na região do retentor", explicacao: "Marca ou desgaste no eixo impede o retentor novo de vedar." },
-      { peca: "nivel_oleo", titulo: "Nível de óleo acima do máximo", explicacao: "Excesso de óleo, com pressão interna alta, empurra o óleo pelas vedações." },
+      { peca: "nivel_oleo", titulo: "Nível alto ou respiro entupido", explicacao: "Excesso de óleo, ou respiro entupido que segura a pressão interna, empurra o óleo pelas vedações." },
       { peca: "carcaca", titulo: "Juntas ou bujões soltos", explicacao: "Juntas e bujões com aperto ou vedação ruins deixam o óleo escapar." },
     ],
     perda_torque: [
-      { peca: "pinhao", titulo: "Dente quebrado ou desgaste severo", explicacao: "Dente quebrado ou muito gasto causa batida e vibração a cada volta e pode travar o redutor; a causa costuma ser sobrecarga, choque ou falta de lubrificação." },
+      { peca: "pinhao", titulo: "Dente quebrado ou desgaste severo", explicacao: "Dentes quebrados ou muito gastos deixam de transmitir a carga de forma contínua: o eixo de saída dá trancos e perde força sob carga." },
       { peca: "eixo_saida", titulo: "Chaveta cisalhada ou cubo frouxo no eixo de saída", explicacao: "Com a chaveta cisalhada ou o cubo frouxo, o eixo gira sem levar a carga na mesma proporção." },
       { peca: "eixo_entrada", titulo: "Elemento do acoplamento rompido ou limitador de torque patinando", explicacao: "Elemento rompido ou limitador de torque que patina separa o motor do redutor, e o torque não chega ao eixo." },
     ],
@@ -230,7 +230,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "correia", titulo: "Tensão insuficiente", explicacao: "Pouca tensão faz a correia escorregar nas polias, sobretudo na partida." },
       { peca: "correia", titulo: "Correia gasta ou com óleo", explicacao: "Óleo ou borracha vitrificada reduzem o atrito entre a correia e a polia." },
       { peca: "polia_motora", titulo: "Canal da polia gasto", explicacao: "Canal gasto e com degraus não prende a correia, que afunda e patina." },
-      { peca: "correia", titulo: "Correias de tipos ou comprimentos misturados", explicacao: "Correias diferentes trabalham com tensões diferentes, e a mais curta patina." },
+      { peca: "correia", titulo: "Correias de tipos ou comprimentos misturados", explicacao: "Correias diferentes ficam com tensões diferentes: a mais curta carrega quase toda a carga e gasta antes, e a mais longa fica frouxa e patina. Troque sempre o jogo completo."},
     ],
     desgaste: [
       { peca: "correia", titulo: "Borda da correia desfiada ou trincada", explicacao: "O atrito nas bordas, somado a calor ou óleo, endurece a borracha e a faz trincar." },
@@ -252,7 +252,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
     ],
     ruido: [
       { peca: "rotor", titulo: "Cavitação nas pás do rotor", explicacao: "Bolhas de vapor colapsam nas pás, com ruído de cascalho e erosão." },
-      { peca: "succao", titulo: "Sucção restrita ou com ar", explicacao: "Altura de sucção alta ou tubulação estreita reduzem a pressão na entrada e provocam cavitação." },
+      { peca: "succao", titulo: "Sucção restrita (NPSH disponível baixo)", explicacao: "Altura de sucção alta ou tubulação estreita reduzem a pressão na entrada e provocam cavitação." },
       { peca: "voluta", titulo: "Erosão na voluta", explicacao: "As bolhas que colapsam também erodem a voluta, perto da entrada do rotor." },
     ],
     vazamento: [
@@ -305,7 +305,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
     vazamento: [
       { peca: "vedacoes", titulo: "Vedação interna gasta", explicacao: "Com a válvula desligada, a vedação não fecha e o ar passa entre as vias." },
       { peca: "corpo", titulo: "Juntas do corpo soltas", explicacao: "Parafusos e juntas soltos deixam o ar escapar pela face de montagem." },
-      { peca: "escapes", titulo: "Escape com vazamento ou obstruído", explicacao: "Escape que não fecha deixa o ar sair continuamente; obstruído, faz a válvula reagir devagar." },
+      { peca: "escapes", titulo: "Escape soprando ou silenciador entupido", explicacao: "Ar saindo sem parar pelo escape, com a válvula parada, indica vedação interna ou do êmbolo passando; silenciador entupido segura a descarga e deixa o atuador lento." },
     ],
   },
   esteira_transportador: {
@@ -313,7 +313,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "roletes", titulo: "Roletes fora de esquadro", explicacao: "Roletes desalinhados empurram a correia para um dos lados." },
       { peca: "tambor_acionamento", titulo: "Tambor com abaulamento gasto ou material aderido", explicacao: "Abaulamento gasto ou material aderido ao tambor faz a correia correr para o lado de maior diâmetro." },
       { peca: "esticador", titulo: "Tensão desigual nos lados", explicacao: "Esticador ajustado diferente em cada lado tira a correia do centro." },
-      { peca: "raspador", titulo: "Acúmulo de material em um lado", explicacao: "Material acumulado em um lado muda o atrito e desloca a correia." },
+      { peca: "raspador", titulo: "Raspador gasto ou desajustado", explicacao: "Raspador gasto deixa material grudar em tambores e roletes, que ficam com diâmetro desigual e desviam a correia." },
     ],
     ruido: [
       { peca: "roletes", titulo: "Rolete com rolamento defeituoso", explicacao: "Rolamento gasto do rolete gera ruído de rugido ou batida a cada volta." },
@@ -322,7 +322,7 @@ export const MARCADORES: Record<string, Record<string, Marcador[]>> = {
       { peca: "raspador", titulo: "Material preso entre a correia e a estrutura", explicacao: "Pedra ou peça presa entre a correia e o raspador gera batida." },
     ],
     travada: [
-      { peca: "tambor_acionamento", titulo: "Tambor de acionamento travado", explicacao: "Tambor sem girar faz a correia deslizar ou o motor forçar." },
+      { peca: "tambor_acionamento", titulo: "Tambor de acionamento travado", explicacao: "Mancal agarrado ou falha no redutor ou acoplamento impede o giro; o motor força e o relé desarma." },
       { peca: "roletes", titulo: "Rolete emperrado", explicacao: "Rolete que não gira cria atrito e para a correia." },
       { peca: "correia", titulo: "Corpo estranho preso na correia", explicacao: "Peça presa entre a correia e a estrutura bloqueia o movimento." },
       { peca: "tambor_retorno", titulo: "Tambor de retorno sem girar", explicacao: "Tambor de retorno travado aumenta o esforço de tração do motor." },

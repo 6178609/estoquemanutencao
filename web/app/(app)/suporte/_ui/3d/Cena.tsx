@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { ComponentRef, ComponentType } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { Box3, Camera, MathUtils, Vector3 } from "three";
+import { Box3, Camera, MathUtils, Object3D, TOUCH, Vector3 } from "three";
 import type { Group, PerspectiveCamera } from "three";
 
 import type { ModeloComCena } from "@/lib/suporte/modelos3d";
@@ -45,7 +45,11 @@ export interface CenaProps {
   reduzir: boolean;
   /** o bloco está na tela: sem isso o canvas fica parado ("never") */
   naTela: boolean;
+  /** contador: cada clique em Recentrar aumenta; volta ao modelo inteiro mesmo sem peça em foco */
+  recentrar: number;
   aoClicarPeca: (id: string) => void;
+  /** o navegador perdeu o contexto WebGL: a página mostra a mensagem de indisponível */
+  aoPerderContexto: () => void;
 }
 
 type ControlesOrbita = ComponentRef<typeof OrbitControls>;
@@ -59,6 +63,12 @@ export function Cena(props: CenaProps) {
       camera={{ position: [2.6, 1.4, 3.4], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
       style={{ position: "absolute", inset: 0 }}
+      onCreated={({ gl }) => {
+        gl.domElement.addEventListener("webglcontextlost", (e) => {
+          e.preventDefault();
+          props.aoPerderContexto();
+        });
+      }}
     >
       <CenaInterna {...props} />
     </Canvas>
@@ -100,12 +110,19 @@ function enquadrar(
   };
 }
 
-function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoClicarPeca }: CenaProps) {
+function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recentrar, aoClicarPeca }: CenaProps) {
   const Modelo = COMPONENTES[modelo];
   const raiz = useRef<Group>(null);
   const controles = useRef<ControlesOrbita>(null);
   /** foco animado: para onde a câmera e o alvo devem ir */
   const foco = useRef<{ alvo: Vector3; posicao: Vector3 } | null>(null);
+  /** objeto enquadrado (peça ou modelo inteiro) e o último centro dele: se o centro se mover (vista explodida), a câmera acompanha */
+  const seguido = useRef<Object3D | null>(null);
+  // objetos reutilizados em todo quadro: nada é criado por quadro
+  const caixa = useMemo(() => new Box3(), []);
+  const centroSeguido = useMemo(() => new Vector3(), []);
+  const centroAtual = useMemo(() => new Vector3(), []);
+  const deslocamento = useMemo(() => new Vector3(), []);
   const { camera, invalidate } = useThree();
   const paleta = useMemo<Paleta>(() => lerPaleta(), []);
   const estado = useMemo(
@@ -113,7 +130,7 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoCli
     [destaque, paleta, reduzir, aoClicarPeca],
   );
 
-  // Ao trocar a peça (ou ao recentrar, que zera o destaque), prepara o enquadramento da peça ou do modelo inteiro.
+  // Ao trocar a peça ou ao recentrar, prepara o enquadramento da peça ou do modelo inteiro.
   useEffect(() => {
     const grupo = raiz.current;
     const ctl = controles.current;
@@ -127,15 +144,17 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoCli
     if (direcao.lengthSq() < 1e-6) direcao.set(0.6, 0.4, 1);
     direcao.normalize();
     foco.current = { alvo: centro, posicao: centro.clone().addScaledVector(direcao, distancia) };
+    seguido.current = objeto ?? grupo;
+    centroSeguido.copy(centro);
     invalidate();
-  }, [destaque, camera, invalidate]);
+  }, [destaque, recentrar, camera, invalidate, centroSeguido]);
 
   // Quando parado, a cena só desenha ao pedido: os efeitos abaixo acordam o próximo quadro.
   useEffect(() => {
     invalidate();
   }, [destaque, explodir, girar, reduzir, naTela, invalidate]);
 
-  useFrame((estadoQuadro, delta) => {
+  useFrame((estadoQuadro, dt) => {
     const ctl = controles.current;
     const f = foco.current;
     if (ctl && f) {
@@ -145,7 +164,7 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoCli
         foco.current = null;
       } else {
         // amortecimento independente da taxa de quadros
-        const k = 1 - Math.exp(-6 * delta);
+        const k = 1 - Math.exp(-6 * dt);
         ctl.target.lerp(f.alvo, k);
         camera.position.lerp(f.posicao, k);
         const chegou =
@@ -159,10 +178,24 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoCli
         }
       }
       ctl.update();
+    } else if (ctl && seguido.current) {
+      // com o foco assentado, o centro da peça pode ter mudado (vista explodida): a câmera anda junto
+      caixa.setFromObject(seguido.current);
+      if (!caixa.isEmpty()) {
+        caixa.getCenter(centroAtual);
+        if (centroAtual.distanceToSquared(centroSeguido) > 1e-10) {
+          deslocamento.subVectors(centroAtual, centroSeguido);
+          ctl.target.add(deslocamento);
+          camera.position.add(deslocamento);
+          centroSeguido.copy(centroAtual);
+          ctl.update();
+          estadoQuadro.invalidate();
+        }
+      }
     }
     const g = raiz.current;
     if (g && girar) {
-      g.rotation.y += delta * 0.3;
+      g.rotation.y += dt * 0.3;
       estadoQuadro.invalidate();
     }
   });
@@ -172,7 +205,15 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, aoCli
       <ambientLight intensity={0.75} />
       <directionalLight position={[3, 4, 5]} intensity={1.1} />
       <directionalLight position={[-3, -2, -4]} intensity={0.35} />
-      <OrbitControls ref={controles} makeDefault minDistance={DISTANCIA_MINIMA} maxDistance={DISTANCIA_MAXIMA} />
+      {/* toque: um dedo gira (o gesto vertical rola a página, por touch-action no contêiner); dois dedos aproximam e giram; sem arrastar lateral */}
+      <OrbitControls
+        ref={controles}
+        makeDefault
+        minDistance={DISTANCIA_MINIMA}
+        maxDistance={DISTANCIA_MAXIMA}
+        enablePan={false}
+        touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_ROTATE }}
+      />
       <ContextoCena.Provider value={estado}>
         <group ref={raiz}>
           <Modelo explodir={explodir} />
