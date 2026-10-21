@@ -36,7 +36,11 @@ export interface Documento {
   url?: string;
   /** nome do arquivo enviado (para o download) */
   nome?: string;
+  /** referência: o arquivo está no documento da origem (mesmo manual em vários equipamentos; sem bytes próprios) */
+  origem?: { tag: string; id: string };
 }
+
+interface Origem { tag: string; id: string }
 
 /** Documento da biblioteca técnica, com a área a que pertence. */
 export type DocumentoTecnico = Documento & { area: Area };
@@ -105,13 +109,17 @@ const TECNICO: Colecao = {
 
 const caminhoDe = (c: Colecao, chave: string, id: string) => `${c.pastaDe(chave)}/${id}`;
 
+const origemValida = (o: unknown) => o === undefined || (!!o && typeof o === "object"
+  && typeof (o as Origem).tag === "string" && tagValida((o as Origem).tag)
+  && typeof (o as Origem).id === "string" && idValido((o as Origem).id));
+
 function lista(item: unknown): Documento[] {
   const d = (item as { documentos?: unknown } | undefined)?.documentos;
   // só o que tem a forma certa (o link ainda é conferido de novo: ele vira href na tela)
   return Array.isArray(d) ? (d.filter((x) => {
     const y = x as Documento;
     return !!y && typeof y === "object" && typeof y.id === "string" && typeof y.titulo === "string" && typeof y.tipo === "string"
-      && typeof y.em === "string" && (y.tipo !== "link" || linkValido(y.url));
+      && typeof y.em === "string" && (y.tipo !== "link" || linkValido(y.url)) && origemValida(y.origem);
   }) as Documento[]) : [];
 }
 
@@ -168,16 +176,28 @@ async function gravarLinkNa(c: Colecao, chave: string, d: { titulo: string; url:
   return doc;
 }
 
-/** Tira da lista (e apaga o arquivo, se der). */
+/** Documentos que apontam para o arquivo `chave/id` (referências de outros equipamentos). */
+async function referenciasA(c: Colecao, chave: string, id: string): Promise<Documento[]> {
+  const cadastro = await lerCadastro(c.arquivo);
+  return Object.keys(cadastro).flatMap((k) => lista(cadastro[k]).filter((d) => d.origem?.tag === chave && d.origem.id === id));
+}
+
+/** Tira da lista (e apaga o arquivo, se der). Um arquivo com referências em outros equipamentos não sai antes delas. */
 async function removerDaColecao(c: Colecao, chave: string, id: string, por: string): Promise<void> {
   if (!c.chaveValida(chave) || !idValido(id)) throw new FonteErro(c.erroRemover);
   const doc = (await documentosDeColecao(c, chave)).find((x) => x.id === id);
   if (!doc) return;
+  const refs = await referenciasA(c, chave, id);
+  if (refs.length) {
+    throw new FonteErro(`Este manual está vinculado a ${refs.length} ${refs.length === 1 ? "outro equipamento" : "outros equipamentos"}. `
+      + "Tire o vínculo deles antes de remover.");
+  }
   await gravarCadastroLote(c.arquivo, { [chave]: (atual) => {
     const resto = lista(atual).filter((x) => x.id !== id);
     return resto.length ? { ...(atual ?? {}), documentos: resto } : null;
   } }, por);
-  if (doc.tipo === "link") return;
+  // link e referência não têm arquivo próprio
+  if (doc.tipo === "link" || doc.origem) return;
   const f = fonte();
   if (!f) demo.delete(caminhoDe(c, chave, id));
   else {
@@ -189,25 +209,29 @@ async function removerDaColecao(c: Colecao, chave: string, id: string, por: stri
 /** Quando a lista de arquivos de cada biblioteca foi relida (no máximo a cada 15 s). */
 const releuEm = new Map<string, number>();
 
-/** O arquivo de um documento da lista (null se não existe ou é link). */
+/** Os bytes de um arquivo guardado (undefined se não existe). */
+async function bytesDe(c: Colecao, chave: string, id: string): Promise<Uint8Array | undefined> {
+  const f = fonte();
+  const caminho = caminhoDe(c, chave, id);
+  if (!f) return demo.get(caminho);
+  let bytes = (await f.ler(caminho))?.bytes;
+  // outra instância pode ter gravado agora: relê a lista de arquivos, no máximo a cada 15 s (poupa a cota da API)
+  const ultima = releuEm.get(c.arquivo) ?? 0;
+  if (!bytes && Date.now() - ultima > 15_000) {
+    releuEm.set(c.arquivo, Date.now());
+    await f.versoes(true);
+    bytes = (await f.ler(caminho))?.bytes;
+  }
+  return bytes;
+}
+
+/** O arquivo de um documento da lista (null se não existe ou é link). A referência lê o arquivo da origem. */
 async function lerDaColecao(c: Colecao, chave: string, id: string): Promise<{ doc: Documento; bytes: Uint8Array; tipo: TipoDocumento } | null> {
   if (!c.chaveValida(chave) || !idValido(id)) return null;
   const doc = (await documentosDeColecao(c, chave)).find((x) => x.id === id);
   if (!doc || doc.tipo === "link") return null;
-  const f = fonte();
-  const caminho = caminhoDe(c, chave, id);
-  let bytes: Uint8Array | undefined;
-  if (!f) bytes = demo.get(caminho);
-  else {
-    bytes = (await f.ler(caminho))?.bytes;
-    // outra instância pode ter gravado agora: relê a lista de arquivos, no máximo a cada 15 s (poupa a cota da API)
-    const ultima = releuEm.get(c.arquivo) ?? 0;
-    if (!bytes && Date.now() - ultima > 15_000) {
-      releuEm.set(c.arquivo, Date.now());
-      await f.versoes(true);
-      bytes = (await f.ler(caminho))?.bytes;
-    }
-  }
+  const origem: Origem = doc.origem ?? { tag: chave, id };
+  const bytes = await bytesDe(c, origem.tag, origem.id);
   const tipo = bytes && tipoDocumento(bytes);
   return bytes && tipo ? { doc, bytes, tipo } : null;
 }
@@ -235,6 +259,82 @@ export async function removerDocumento(tag: string, id: string, por: string): Pr
 /** O arquivo de um documento da lista (null se não existe ou é link). */
 export async function lerDocumento(tag: string, id: string): Promise<{ doc: Documento; bytes: Uint8Array; tipo: TipoDocumento } | null> {
   return lerDaColecao(ATIVO, tag, id);
+}
+
+/** Até quantos equipamentos de uma vez (um manual vinculado a vários). */
+export const MAX_LOTE = 50;
+
+/** Lista de equipamentos sem repetição; recusa lista vazia, grande demais ou com TAG inválida (antes de gravar). */
+function tagsDoLote(tags: string[]): string[] {
+  const unicas = [...new Set(tags)];
+  if (!unicas.length) throw new FonteErro("Escolha pelo menos um equipamento.");
+  if (unicas.length > MAX_LOTE) throw new FonteErro(`Escolha no máximo ${MAX_LOTE} equipamentos de cada vez.`);
+  if (!unicas.every(tagValida)) throw new FonteErro("Equipamento inválido.");
+  return unicas;
+}
+
+/** No lote, o título é obrigatório (sem ele, o nome do arquivo não entra no lugar). */
+function tituloDoLote(t: string): string {
+  const x = limparTitulo(t);
+  if (!x) throw new FonteErro("Informe o título do manual.");
+  return x;
+}
+
+/** Recusa antes de gravar se algum equipamento já está no limite de documentos. */
+async function haLugar(tags: string[]): Promise<void> {
+  for (const t of tags) {
+    if ((await documentosDeColecao(ATIVO, t)).length >= MAX_POR_EQUIPAMENTO) {
+      throw new FonteErro(`O equipamento ${t} já tem ${MAX_POR_EQUIPAMENTO} documentos; remova algum antes.`);
+    }
+  }
+}
+
+/** Desfaz o que o lote já pôs (links ou referências), na volta de um erro. */
+async function desfazer(feitos: { tag: string; doc: Documento }[], por: string) {
+  for (const x of feitos) await removerDocumento(x.tag, x.doc.id, por).catch(() => undefined);
+}
+
+/**
+ * Um arquivo (PDF ou imagem) em vários equipamentos: os bytes são gravados UMA vez, no 1º equipamento da lista; nos
+ * outros entra um documento que aponta para ele (`origem`). Devolve um documento por equipamento.
+ */
+export async function gravarDocumentoEmVarios(tags: string[], d: { titulo: string; nome: string; bytes: Uint8Array }, por: string):
+  Promise<{ tag: string; doc: Documento }[]> {
+  const lote = tagsDoLote(tags);
+  const titulo = tituloDoLote(d.titulo);
+  await haLugar(lote);
+  const [origem, ...demais] = lote;
+  const arquivo = await gravarNaColecao(ATIVO, origem, { titulo, nome: d.nome, bytes: d.bytes }, por);
+  const refs: { tag: string; doc: Documento }[] = [];
+  try {
+    for (const tag of demais) {
+      const doc: Documento = { id: novoId(), titulo: arquivo.titulo, tipo: arquivo.tipo, tamanho: arquivo.tamanho, em: new Date().toISOString(),
+        por, nome: arquivo.nome, origem: { tag: origem, id: arquivo.id } };
+      await registrar(ATIVO, tag, doc, por);
+      refs.push({ tag, doc });
+    }
+  } catch (e) {
+    await desfazer(refs, por);
+    await removerDocumento(origem, arquivo.id, por).catch(() => undefined);
+    throw e;
+  }
+  return [{ tag: origem, doc: arquivo }, ...refs];
+}
+
+/** Um link em vários equipamentos: uma entrada de link por equipamento. */
+export async function gravarLinkEmVarios(tags: string[], d: { titulo: string; url: string }, por: string): Promise<{ tag: string; doc: Documento }[]> {
+  const lote = tagsDoLote(tags);
+  const titulo = tituloDoLote(d.titulo);
+  if (!linkValido(d.url)) throw new FonteErro("Link inválido: use um endereço começando com https:// (ou http://).");
+  await haLugar(lote);
+  const feitos: { tag: string; doc: Documento }[] = [];
+  try {
+    for (const tag of lote) feitos.push({ tag, doc: await gravarLinkNa(ATIVO, tag, { titulo, url: d.url }, por) });
+  } catch (e) {
+    await desfazer(feitos, por);
+    throw e;
+  }
+  return feitos;
 }
 
 /** Todos os documentos de todos os equipamentos, do mais recente (só leitura, para a listagem). */

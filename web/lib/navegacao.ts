@@ -22,6 +22,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "saude", titulo: "Saúde dos ativos", icone: "HeartPulse", rota: "/saude" },
     { id: "preditiva", titulo: "Preditiva (SEMEQ)", icone: "Radar", rota: "/preditiva" },
     { id: "equipamentos", titulo: "Equipamentos", icone: "Factory", rota: "/equipamentos" },
+    { id: "manuais", titulo: "Manuais", icone: "BookOpen", rota: "/manuais" },
     { id: "notas", titulo: "Notas", icone: "BellRing", rota: "/notas" },
   ] },
   { titulo: "Análise de falhas", abas: [
