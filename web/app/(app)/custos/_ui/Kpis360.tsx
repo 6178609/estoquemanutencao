@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { SeloFarol } from "@/components/Indicador";
 import { brl, brlCurto } from "@/lib/formato";
 import type { Farol } from "@/lib/wcm/indicadores";
+import { escopoRequisicoes } from "@/lib/wcm/solicitantes";
 
 /** Cinco cartões do topo da aba Custos. Valores já calculados pela página; null = sem dado (mostra "—"). */
 export interface Kpis360Props {
@@ -17,6 +18,8 @@ export interface Kpis360Props {
   ordensComCusto: number;
   backlog: { pct: number | null; meta: number | null; farol: Farol; comPlanoPct: number | null; dica: string };
   travado: number | null;
+  /** com a lista de pessoas da manutenção ativa: o número delas (as requisições são só dessas pessoas) */
+  pessoas?: number;
 }
 
 const nf0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -76,7 +79,7 @@ export function Kpis360(p: Kpis360Props) {
       </Cartao>
 
       <Cartao filete="var(--st-serio)" rotulo="Total travado" valor={brlCurto(p.travado)}>
-        <span>pendente de aprovação, aberto ou sem confirmação; inclui requisições da fábrica inteira</span>
+        <span>pendente de aprovação, aberto ou sem confirmação; {p.pessoas ? `inclui requisições das ${escopoRequisicoes(p.pessoas)}` : "inclui requisições da fábrica inteira"}</span>
       </Cartao>
     </div>
   );

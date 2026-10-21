@@ -1,5 +1,6 @@
 import { brlCurto } from "@/lib/formato";
 import type { travado } from "@/lib/wcm/custo360";
+import { escopoRequisicoes } from "@/lib/wcm/solicitantes";
 
 type Etapas = ReturnType<typeof travado>;
 
@@ -16,7 +17,7 @@ const COR: Record<1 | 2 | 3 | 4, { fundo: string; texto: string }> = {
  * Onde o custo está travado: etapas numeradas, com valor e barra proporcional. Etapa sem ordem/requisição some;
  * a etapa 4 é contagem (concluídas sem custo lançado), sem R$. Sem etapa restante, o cartão some.
  */
-export function Travado({ etapas }: { etapas: Etapas }) {
+export function Travado({ etapas, pessoas }: { etapas: Etapas; pessoas?: number }) {
   const vis = etapas.filter((e) => e.qtd > 0);
   if (!vis.length) return null;
   const comValor = vis.filter((e) => e.valor != null);
@@ -34,7 +35,7 @@ export function Travado({ etapas }: { etapas: Etapas }) {
       <ol className="flex flex-col gap-4 p-5">
         {vis.map((e) => {
           const cor = COR[e.etapa];
-          const rotulo = e.etapa === 1 ? "Requisições pendentes · fábrica inteira" : e.rotulo;
+          const rotulo = e.etapa === 1 ? `Requisições pendentes · ${escopoRequisicoes(pessoas)}` : e.rotulo;
           const comR = e.valor != null;
           return (
             <li key={e.etapa} className="flex gap-3">

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { brlCurto } from "@/lib/formato";
 import type { iceberg } from "@/lib/wcm/custo360";
+import { escopoRequisicoes } from "@/lib/wcm/solicitantes";
 
 type Ice = ReturnType<typeof iceberg>;
 
@@ -11,12 +12,12 @@ const nf1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
  * Iceberg do custo: em cima da água, o custo visível (ordens); embaixo, o que não aparece na ordem.
  * Cada linha some quando não há dado; a parada só aparece com quebras no recorte.
  */
-export function Iceberg({ ice, temIw47 }: { ice: Ice; temIw47: boolean }) {
+export function Iceberg({ ice, temIw47, pessoas }: { ice: Ice; temIw47: boolean; pessoas?: number }) {
   const parada = ice.paradaHoras != null;
   const semCusto = parada && ice["paradaR$"] == null;
   const linhas = [
     temIw47 ? { chave: "iw47", rotulo: "Horas de serviço (IW47)", valor: `${nf1.format(ice.horasServico)} h`, detalhe: "apontadas no período" } : null,
-    ice.requisicoes != null ? { chave: "req", rotulo: "Requisições pendentes", valor: brlCurto(ice.requisicoes), detalhe: "fábrica inteira" } : null,
+    ice.requisicoes != null ? { chave: "req", rotulo: "Requisições pendentes", valor: brlCurto(ice.requisicoes), detalhe: escopoRequisicoes(pessoas) } : null,
     ice.estoque != null ? { chave: "est", rotulo: "Estoque", valor: brlCurto(ice.estoque), detalhe: "fábrica inteira · valor do MB52" } : null,
   ].filter((x) => x != null);
 
