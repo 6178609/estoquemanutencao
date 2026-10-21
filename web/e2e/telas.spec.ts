@@ -12,6 +12,14 @@ test("telas principais abrem sem erro", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
+test("orçamento do mês na aba Custos: cartão e editor (a demo pode editar)", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/custos");
+  await expect(page.getByRole("heading", { name: "Orçamento do mês" })).toBeVisible();
+  await expect(page.getByText("Lançar valor disponível")).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
 test("termômetro do custo: a seta de mês anterior troca o mês", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/custos");
