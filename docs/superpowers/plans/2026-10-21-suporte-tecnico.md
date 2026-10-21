@@ -97,3 +97,14 @@ equipamento).
   `/suporte?visao=biblioteca` abre; busca `?q=rolamento` mostra o guia de rolamentos.
 - [ ] Verificação completa + capturas 1280/390 em `/tmp/claude-0/-home-user/5db15329-dc38-575b-a133-cb274cfe7ed3/scratchpad/sup-*.png`.
 - [ ] Commit `feat(suporte): aba Suporte Técnico`.
+
+---
+
+## Ajuste do usuário — acervo de referência (vale sobre a Task 2)
+A biblioteca vem pré-carregada com o **acervo**: links públicos e gratuitos (manuais, catálogos, guias, normas, calculadoras)
+de fabricantes e órgãos oficiais, pesquisados com Firecrawl. Só links — nunca copiar PDFs de terceiros para o repositório.
+- `web/lib/suporte/acervo.ts`: `interface ItemAcervo { titulo: string; area: Area; fonte: string; tipo: "manual"|"catalogo"|"guia"|"norma"|"calculadora"|"curso"|"artigo"; idioma: "pt"|"en"|"es"; url: string; descricao: string }`
+  e `ACERVO: ItemAcervo[]` gerado a partir de `/tmp/claude-0/-home-user/5db15329-dc38-575b-a133-cb274cfe7ed3/scratchpad/acervo-*.json`
+  (o controlador entrega os arquivos); `buscarAcervo(q, filtros: { area?, tipo?, idioma? })` sem acento/caixa.
+- Testes: URLs `https://` válidas e únicas; área/tipo/idioma válidos; título e fonte não vazios; busca acha por fonte ("SKF").
+- Na página (Task 3), a visão Biblioteca mostra o acervo com filtros de área, tipo e idioma + busca, antes dos documentos enviados.
