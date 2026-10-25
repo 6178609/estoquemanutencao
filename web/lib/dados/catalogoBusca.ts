@@ -4,7 +4,7 @@ import { catalogo, estoque } from "./bases";
 import { ATIVOS, INATIVOS, type ItemCatalogo } from "./materiais";
 import { casaBusca, normalizarBusca } from "./texto";
 
-export interface FiltroCatalogo {
+interface FiltroCatalogo {
   q: string;
   status: string[];
   categorias: string[];

@@ -56,7 +56,7 @@ export const PENDENTES = new Set<Situacao>(["Aberta", "Liberada", ENCERRADA_SEM_
 export const NAT_PLANO = "Plano de manutenção", NAT_BACKLOG = "Backlog";
 export const STATUS_USUARIO: Record<string, string> = { PLA: "Em planejamento", PRO: "Programado", ELP: "Em planejamento (ELP)", CAN: "Cancelada" };
 
-export function situacaoDe(sistema: string, usuario: string): Situacao {
+function situacaoDe(sistema: string, usuario: string): Situacao {
   const sis = new Set(sistema.split(" ").filter(Boolean));
   const usu = new Set(usuario.split(" ").filter(Boolean));
   if (usu.has("CAN") || sis.has("DLFL") || sis.has("MREL") || sis.has("MEEL")) return "Cancelada";
@@ -251,7 +251,7 @@ export function prepararNotas(cru: Crua[], hoje: Dia, excluir = true): Nota[] {
   return out;
 }
 
-export const TIPO_NOTA_QUEBRA = "Y1", TIPO_ORDEM_QUEBRA = "YM11";
+const TIPO_NOTA_QUEBRA = "Y1", TIPO_ORDEM_QUEBRA = "YM11";
 
 /**
  * Quebra (regra da planta) = nota Y1 convertida em ordem YM11. O tipo da ordem vem das bases (IW38, IW38OP, IW47);
@@ -279,7 +279,6 @@ export function tiposPorOrdem(...fontes: { ordem: string; tipo: string }[][]): M
 // ----------------------------------------------------------------------------
 // IH08 — equipamentos
 // ----------------------------------------------------------------------------
-export const ABC_PARA_CRITICIDADE: Record<string, string> = { A: "Alta", B: "Média", C: "Baixa" };
 
 export interface Equipamento {
   equipamento: string; denominacao: string; localizacao: string; codigoAbc: string; local: string; desativado: boolean;

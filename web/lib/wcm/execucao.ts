@@ -19,15 +19,11 @@ export const EXECUTADA = "Executada", SEM_APONTAMENTO = "Encerrada sem confirma�
   PROGRAMADA = "Programada", CANCELADA = "Cancelada";
 export const SITUACOES = [EXECUTADA, SEM_APONTAMENTO, ATRASADA, PROGRAMADA, CANCELADA] as const;
 export type SituacaoAtividade = (typeof SITUACOES)[number];
-export const CONCLUIDA_ST = new Set(["CONF", "ENTE", "ENCE"]);
-export const CANCELADA_ST = new Set(["ELIM", "DLFL", "MREL", "MEEL"]);
-export const COR: Record<SituacaoAtividade, string> = {
-  [EXECUTADA]: "#0E9F46", [SEM_APONTAMENTO]: "#9BC53D", [ATRASADA]: "#E3262B", [PROGRAMADA]: "#0A6EBD",
-  [CANCELADA]: "#B0B6B3",
-};
+const CONCLUIDA_ST = new Set(["CONF", "ENTE", "ENCE"]);
+const CANCELADA_ST = new Set(["ELIM", "DLFL", "MREL", "MEEL"]);
 
 /** Nº da operação sem zeros à esquerda ("0010" = "10"). */
-export const nOp = (v: unknown) => String(v ?? "").trim().replace(/^0+/, "");
+const nOp = (v: unknown) => String(v ?? "").trim().replace(/^0+/, "");
 
 /** [ini, fim] em dias inteiros (sem data = fora). */
 export const entre = (d: Dia | null | undefined, ini: Dia, fim: Dia) => d != null && d >= ini && d <= fim;
@@ -54,7 +50,7 @@ export interface Apontamento extends Confirmacao {
   op: string;     // nº da operação sem zeros à esquerda
 }
 
-export function nomes(equipe: Pessoa[] | null | undefined): Map<string, string> {
+function nomes(equipe: Pessoa[] | null | undefined): Map<string, string> {
   const m = new Map<string, string>();
   for (const p of equipe ?? []) if (p.nome) m.set(p.np, p.nome);
   return m;
@@ -156,7 +152,7 @@ export function operacoes(oper: Operacao[] | null | undefined, ordens: Ordem[] |
 // ----------------------------------------------------------------------------
 // Indicadores do período
 // ----------------------------------------------------------------------------
-export interface IndicadoresExecucao {
+interface IndicadoresExecucao {
   encerradas_sem_conf: number; programadas: number; devidas: number; executadas: number; atrasadas: number;
   taxa_execucao: number | null;
   janela_iw47: [Dia, Dia] | null;     // período coberto pela IW47 (rastreadas/HH só valem dentro dele)
@@ -240,7 +236,7 @@ export function semanal(ops: Atividade[], ini: Dia, fim: Dia, hoje: Dia = hojeLo
   }));
 }
 
-export type CampoGrupo = "setor" | "centroTrabalho" | "natureza" | "area";
+type CampoGrupo = "setor" | "centroTrabalho" | "natureza" | "area";
 export interface GrupoExecucao {
   grupo: string; programadas: number; executadas: number; atrasadas: number; hhProgramadas: number; taxa: number;
 }
@@ -308,7 +304,7 @@ export function porPessoa(confAp: Apontamento[] | null | undefined, ops: Ativida
   return t.sort((x, y) => y.hhApontadas - x.hhApontadas);
 }
 
-export interface ApontamentoDaPessoa extends Apontamento {
+interface ApontamentoDaPessoa extends Apontamento {
   textoOperacao: string | null; equipamento: string; objeto: string | null; situacao: SituacaoAtividade | null;
   natureza: string | null;
 }
@@ -349,7 +345,7 @@ export function pessoasDasAtividades(ops: Atividade[]): string[] {
   return [...s].sort();
 }
 
-export interface FiltroAtividades { busca?: string; situacoes?: string[]; pessoas?: string[] }
+interface FiltroAtividades { busca?: string; situacoes?: string[]; pessoas?: string[] }
 
 /** Atividades programadas no período, com busca (ordem, atividade, equipamento, objeto, pessoa), situação e pessoa. */
 export function filtrarAtividades(ops: Atividade[], ini: Dia, fim: Dia, f: FiltroAtividades = {}): Atividade[] {

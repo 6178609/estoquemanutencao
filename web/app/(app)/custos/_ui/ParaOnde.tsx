@@ -1,7 +1,7 @@
 import { brlCurto } from "@/lib/formato";
 
 /** Para onde vai: a maior classe de manutenção em destaque, as outras em blocos menores, e a régua da planejada. */
-export interface ParaOndeProps {
+interface ParaOndeProps {
   grupos: { grupo: string; valor: number; pct: number }[];
   /** custo com plano hoje = 100% − custo sem plano (backlog, pct_custo_corr), em % */
   planejadaPct: number | null;

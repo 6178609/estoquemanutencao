@@ -13,7 +13,7 @@ import * as ind from "@/lib/wcm/indicadores";
  * Gravações do Gerenciador de HH — o mesmo cadastro (hh_disponibilidade.json).
  * Só editor/administrador; mesclar=true (só os campos informados mudam).
  */
-export type Resposta = { ok: true; msg: string } | { ok: false; erro: string };
+type Resposta = { ok: true; msg: string } | { ok: false; erro: string };
 
 const MATRICULA = /^[\w.\-]{1,30}$/;
 
@@ -67,7 +67,7 @@ export async function salvarDisponibilidade(edicoes: EdicaoPessoa[]): Promise<Re
 }
 
 /** Nova ausência (férias, afastamento…) — datas ISO aaaa-mm-dd, inclusivas. */
-export interface DadosTreinamento { titulo?: string; horas?: string | number | null; entidade?: string; validade?: string }
+interface DadosTreinamento { titulo?: string; horas?: string | number | null; entidade?: string; validade?: string }
 
 export async function adicionarAusencia(np: string, tipo: string, de: string, ate: string, obs: string,
   treino?: DadosTreinamento): Promise<Resposta> {

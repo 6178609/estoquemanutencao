@@ -9,7 +9,7 @@ import { faixa, GRUPOS_CLASSE, grupoDaClasse, moda, segunda } from "../confiabil
  */
 export interface Exec extends ind.HhExecutada { atividade: string }
 
-export interface LinhaPessoa {
+interface LinhaPessoa {
   np: string; horas: number; dias: number; ordens: number; pctPlano: number | null; pctEmerg: number | null; pctFora: number | null;
   centro: string; hhDia: number; utilizacao: number | null;
 }
@@ -52,7 +52,7 @@ export function porSemana(ex: Exec[]) {
 }
 
 export const NATUREZAS_HH = ["Plano de manutenção", "Backlog", ind.FORA_DO_IW38];
-export const naturezaHh = (e: Pick<ind.HhExecutada, "noIw38" | "comPlano">) => (!e.noIw38 ? ind.FORA_DO_IW38 : e.comPlano ? "Plano de manutenção" : "Backlog");
+const naturezaHh = (e: Pick<ind.HhExecutada, "noIw38" | "comPlano">) => (!e.noIw38 ? ind.FORA_DO_IW38 : e.comPlano ? "Plano de manutenção" : "Backlog");
 
 /** HH por centro (os `n` maiores) quebradas por natureza. */
 export function porCentroNatureza(ex: Exec[], n = 14): { centro: string; total: number; partes: number[] }[] {

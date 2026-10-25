@@ -11,7 +11,7 @@ import { Quadro } from "../execucao/_ui/Blocos";
 import { adicionarAusencia } from "./acoes";
 
 const iso = (d: number) => new Date(d * 86_400_000).toISOString().slice(0, 10);
-export const TREINAMENTO = "Treinamento";
+const TREINAMENTO = "Treinamento";
 
 /**
  * Nova ausência (férias, afastamento, treinamento…) — usada na Gestão de HH e em Treinamentos e férias. Treinamento

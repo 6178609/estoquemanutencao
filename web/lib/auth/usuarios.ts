@@ -9,11 +9,11 @@ import { confere, gerarHash, normalizarLogin, validarEmail, validarLogin, valida
  * Usuários: primeiro administrador, novo usuário, editar, excluir e trocar a senha (arquivo app/usuarios.json).
  * Uma conta criada aqui vale para todo o sistema.
  */
-export const ARQ_USUARIOS = "usuarios.json";
+const ARQ_USUARIOS = "usuarios.json";
 const FUNCOES_ACESSO_TOTAL = new Set(["lider", "analista"]);
 const META = new Set(["atualizado_em", "atualizado_por"]);
 
-export type Registro = Record<string, unknown> & {
+type Registro = Record<string, unknown> & {
   nome?: string; perfil?: string; funcao?: string; ativo?: boolean; abas?: unknown; trocar_senha?: boolean;
   /** para os avisos por e-mail (ex.: treinamentos vencendo, aos líderes) */
   email?: string;
@@ -58,7 +58,7 @@ export async function precisaPrimeiroAdmin(): Promise<boolean> {
 const g = globalThis as unknown as { __cmFalhasCodigo?: { n: number; ate: number } };
 const falhas = (g.__cmFalhasCodigo ??= { n: 0, ate: 0 });
 
-export interface DadosNovo { nome: string; login: string; funcao: string; perfil?: string; senha: string; senha2?: string; email?: string }
+interface DadosNovo { nome: string; login: string; funcao: string; perfil?: string; senha: string; senha2?: string; email?: string }
 
 export async function criarPrimeiroAdmin(d: DadosNovo & { codigo: string }): Promise<{ erro: string; login: string }> {
   const login = normalizarLogin(d.login);
@@ -97,7 +97,7 @@ export async function criarUsuario(por: string, d: DadosNovo): Promise<string> {
   return "";
 }
 
-export interface Edicao {
+interface Edicao {
   novoLogin: string; nome: string; funcao: string; perfil: string; ativo: boolean; novaSenha: string;
   /** undefined = mantém o atual; "" = apaga */
   email?: string;

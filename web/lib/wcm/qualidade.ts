@@ -10,12 +10,12 @@ import type { Dia } from "./util";
  * Testado em testes/qualidade.test.ts.
  */
 
-export const JANELA_DIAS = 365;
+const JANELA_DIAS = 365;
 export const VERDE = "verde", AMARELO = "amarelo", VERMELHO = "vermelho";
 export type Farol = typeof VERDE | typeof AMARELO | typeof VERMELHO;
 
 /** Valor de uma célula da lista de problemas (datas como `Dia`). */
-export type Valor = string | number | boolean | null;
+type Valor = string | number | boolean | null;
 /** Linha da lista de problemas: rótulo da coluna → valor. */
 export type LinhaProblema = Record<string, Valor>;
 /** Colunas de data nas listas de problemas (para formatar dd/mm/aaaa). */
@@ -54,23 +54,23 @@ export function checagem(c: Omit<Checagem, "n" | "pct" | "farol">): Checagem {
 // ----------------------------------------------------------------------------
 export type OrdemQualidade = Pick<Ordem, "ordem" | "tipo" | "texto" | "situacao" | "data" | "inicio" | "fim" | "equipChave" |
   "objeto" | "centroTrabalho" | "localizacao">;
-export type OperacaoQualidade = Pick<Operacao, "ordem" | "operacao" | "textoOperacao" | "inicio" | "centroTrabalho" | "objeto" |
+type OperacaoQualidade = Pick<Operacao, "ordem" | "operacao" | "textoOperacao" | "inicio" | "centroTrabalho" | "objeto" |
   "horas" | "cancelada">;
-export type NotaQualidade = Pick<Nota, "nota" | "tipoNota" | "data" | "dias" | "comOrdem" | "equipChave" | "objeto" | "descricao" |
+type NotaQualidade = Pick<Nota, "nota" | "tipoNota" | "data" | "dias" | "comOrdem" | "equipChave" | "objeto" | "descricao" |
   "centroTrabalho">;
-export type ConfirmacaoQualidade = Pick<Confirmacao, "np" | "centroTrabalho" | "data" | "horas">;
-export type PessoaQualidade = Pick<Pessoa, "np">;
-export type EquipQualidade = Pick<Equipamento, "equipamento" | "codigoAbc">;
+type ConfirmacaoQualidade = Pick<Confirmacao, "np" | "centroTrabalho" | "data" | "horas">;
+type PessoaQualidade = Pick<Pessoa, "np">;
+type EquipQualidade = Pick<Equipamento, "equipamento" | "codigoAbc">;
 /**
  * Quebra: "Nota", "Data", "Ordem", "Equip. (chave)", "Objeto técnico", "Descrição",
  * "Centro de trabalho" e "Horas de reparo" (null = sem horas de reparo).
  */
-export interface QuebraQualidade {
+interface QuebraQualidade {
   nota: string; data: Dia | null; ordem?: string; equipChave: string; objeto?: string; descricao?: string;
   centroTrabalho?: string; horasReparo: number | null;
 }
 
-export interface EntradasQualidade {
+interface EntradasQualidade {
   ordens?: OrdemQualidade[] | null;
   oper?: OperacaoQualidade[] | null;
   notas?: NotaQualidade[] | null;

@@ -14,12 +14,12 @@ export function temCena(modelo: IdModelo): modelo is ModeloComCena {
   return (MODELOS_COM_CENA as readonly string[]).includes(modelo);
 }
 
-export interface PecaModelo {
+interface PecaModelo {
   id: string;
   nome: string;
 }
 
-export interface Modelo {
+interface Modelo {
   titulo: string;
   pecas: PecaModelo[];
 }

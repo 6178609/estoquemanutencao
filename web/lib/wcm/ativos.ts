@@ -29,18 +29,18 @@ export const OPERACAO = SITUACOES[0], DESATIVADO = SITUACOES[SITUACOES.length - 
 /** custo de 12 meses ÷ valor de reposição que já pede a análise de substituição */
 export const LIMITE_SUBSTITUICAO = 0.5;
 export const AVISO_GARANTIA_DIAS = 90;
-export const JANELA_DIAS = 365;
+const JANELA_DIAS = 365;
 
 export const SUBSTITUIR = "Avaliar substituição", CRIAR_PLANO = "Criar plano preventivo",
   ATACAR = "Atacar causa das falhas", CLASSIFICAR = "Classificar criticidade", MANTER = "Manter";
 export const RECOMENDACOES = [SUBSTITUIR, CRIAR_PLANO, ATACAR, CLASSIFICAR, MANTER];
-export const SEM_RECOMENDACAO = "—";
-export const GARANTIAS = ["Vigente", `Vence em ${AVISO_GARANTIA_DIAS} dias`, "Vencida", "Sem garantia cadastrada"];
+const SEM_RECOMENDACAO = "—";
+const GARANTIAS = ["Vigente", `Vence em ${AVISO_GARANTIA_DIAS} dias`, "Vencida", "Sem garantia cadastrada"];
 export const ABC_PARA_CRITICIDADE: Record<string, string> = { A: "Alta", B: "Média", C: "Baixa" };
 /** o mesmo de preparo.PENDENTES */
 const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
 /** situação da chamada da IP19 que não conta como plano ativo (planos.classificar) */
-export const CHAMADA_SALTADA = "Saltada/cancelada";
+const CHAMADA_SALTADA = "Saltada/cancelada";
 
 // ----------------------------------------------------------------------------
 // Entradas
@@ -116,7 +116,7 @@ const ehDict = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 const contar = (m: Map<string, number>, k: string, v = 1) => m.set(k, (m.get(k) ?? 0) + v);
 
 /** Situação da garantia na data de hoje. */
-export function situacaoGarantia(ate: Dia | null, hoje: Dia): string {
+function situacaoGarantia(ate: Dia | null, hoje: Dia): string {
   if (ate == null) return GARANTIAS[3];
   if (ate < hoje) return GARANTIAS[2];
   return ate <= hoje + AVISO_GARANTIA_DIAS ? GARANTIAS[1] : GARANTIAS[0];
@@ -234,7 +234,7 @@ export function inventario(hoje: Dia, e: EntradasAtivos = {}): LinhaAtivo[] {
 }
 
 /** Recomendação de um ativo (uma linha do inventário). */
-export function recomendar(g: Pick<LinhaAtivo, "situacao" | "custoPorReposicaoPct" | "vidaRestante" | "faixa" |
+function recomendar(g: Pick<LinhaAtivo, "situacao" | "custoPorReposicaoPct" | "vidaRestante" | "faixa" |
   "criticidade" | "cobertoPorPlano">): string {
   if (g.situacao === DESATIVADO) return SEM_RECOMENDACAO;
   const pct = g.custoPorReposicaoPct, resto = g.vidaRestante;
@@ -246,7 +246,7 @@ export function recomendar(g: Pick<LinhaAtivo, "situacao" | "custoPorReposicaoPc
   return MANTER;
 }
 
-export interface ResumoAtivos {
+interface ResumoAtivos {
   ativos: number; desativados: number; alta: number; semCriticidade: number; parados: number;
   coberturaCriticos: number | null; coberturaAlta: number | null; custo12m: number; substituir: number;
   garantiaVencendo: number;
@@ -269,7 +269,7 @@ export function resumo(t: LinhaAtivo[]): ResumoAtivos {
   };
 }
 
-export interface LinhaPareto { codigo: string; equipamento: string; criticidade: string; custo12Meses: number; pctAcumulado: number }
+interface LinhaPareto { codigo: string; equipamento: string; criticidade: string; custo12Meses: number; pctAcumulado: number }
 
 /** Os `n` ativos que mais custaram em 12 meses (bad actors) com o % acumulado do custo da planta. */
 export function paretoCusto(t: LinhaAtivo[], n = 15): LinhaPareto[] {
@@ -284,7 +284,7 @@ export function paretoCusto(t: LinhaAtivo[], n = 15): LinhaPareto[] {
   });
 }
 
-export interface LinhaCompletude { informacao: string; preenchidoPct: number; faltando: number }
+interface LinhaCompletude { informacao: string; preenchidoPct: number; faltando: number }
 
 /** % dos ativos (não desativados) com cada informação preenchida — as lacunas do cadastro. */
 export function completude(t: LinhaAtivo[]): LinhaCompletude[] {
@@ -315,7 +315,7 @@ export function contarRecomendacoes(t: LinhaAtivo[]): { recomendacao: string; at
   return RECOMENDACOES.map((r) => ({ recomendacao: r, ativos: a.filter((x) => x.recomendacao === r).length }));
 }
 
-export const SEM_AREA = "(sem área)";
+const SEM_AREA = "(sem área)";
 
 /** Ativos (não desativados) por área e criticidade — as `n` áreas com mais ativos. */
 export function porArea(t: LinhaAtivo[], n = 15): { areas: string[]; linhas: { area: string; criticidade: string; ativos: number }[] } {
@@ -333,7 +333,7 @@ export function porArea(t: LinhaAtivo[], n = 15): { areas: string[]; linhas: { a
   return { areas, linhas };
 }
 
-export interface CicloDeVida {
+interface CicloDeVida {
   ativos: number; comAno: number; idadeMedia: number | null; vidaVencida: number; emGarantia: number;
   garantiaVencendo: number; temCicloCadastrado: boolean;
   /** substituição a avaliar, garantia vencendo ou ≤ 1 ano de vida útil */

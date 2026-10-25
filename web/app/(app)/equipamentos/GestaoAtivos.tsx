@@ -18,7 +18,7 @@ import { CampoEq, filtrarInventario, lerFiltroInventario, paginar, param, ROTULO
 
 /** Visão "Gestão de ativos" — a única de quem tem só a parte parcial da aba, sem editar. */
 
-export const COR_REC: Record<string, Cor> = {
+const COR_REC: Record<string, Cor> = {
   [ativos.SUBSTITUIR]: "st-critico", [ativos.CRIAR_PLANO]: "st-serio", [ativos.ATACAR]: "st-atencao", [ativos.CLASSIFICAR]: "neutro",
   [ativos.MANTER]: "st-bom",
 };

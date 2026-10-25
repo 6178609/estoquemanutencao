@@ -39,7 +39,7 @@ export const envioIdValido = (id: unknown): id is string => typeof id === "strin
 
 export const novoEnvio = () => randomBytes(12).toString("hex");
 
-export const caminhoParte = (envio: string, indice: number) => `${PASTA_PARTES}/${envio}/${indice}`;
+const caminhoParte = (envio: string, indice: number) => `${PASTA_PARTES}/${envio}/${indice}`;
 const caminhoInfo = (envio: string) => `${PASTA_PARTES}/${envio}/info.json`;
 
 /** Quem iniciou o envio, quando expira, e o que vai virar o documento. */

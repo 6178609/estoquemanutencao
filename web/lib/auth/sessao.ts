@@ -22,7 +22,7 @@ const MAX_FALHAS = 5;
 const BLOQUEIO_MS = 5 * 60_000;
 const ARQ = "usuarios.json";
 
-export interface UsuarioSessao extends Usuario {
+interface UsuarioSessao extends Usuario {
   login: string;
   demo?: boolean;
   trocarSenha?: boolean;

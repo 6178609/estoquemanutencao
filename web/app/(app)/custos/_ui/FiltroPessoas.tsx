@@ -16,8 +16,8 @@ import { validarSolicitantes } from "../validacao";
 
 /** Filtro "Pessoas (requisições)" da aba Custos: escolhe quem solicita (endereço pes) e, se puder, grava o padrão. */
 
-export interface OpcaoPessoa { nome: string; qtd: number }
-export interface FiltroPessoasProps { disponiveis: OpcaoPessoa[]; ativos: string[]; padrao: string[]; podeSalvarPadrao: boolean }
+interface OpcaoPessoa { nome: string; qtd: number }
+interface FiltroPessoasProps { disponiveis: OpcaoPessoa[]; ativos: string[]; padrao: string[]; podeSalvarPadrao: boolean }
 
 const CAMPO = "h-9 w-full min-w-0 rounded-lg border border-borda bg-superficie-2 px-2.5 text-[13px] transition focus:border-[var(--acao)] focus:bg-superficie";
 

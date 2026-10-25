@@ -75,7 +75,7 @@ export function paraData(v: unknown): Dia | null {
 // ----------------------------------------------------------------------------
 // Fora da visão do site: Fábrica Piloto, Desenho e alguns centros de trabalho
 // ----------------------------------------------------------------------------
-export const CENTROS_FORA = new Set(["FABPILOT", "SOFICOM", "ELMCPILT", "MTZ_PILT", "OPER_MTZ", "OPER_MATRIZ", "MATR",
+const CENTROS_FORA = new Set(["FABPILOT", "SOFICOM", "ELMCPILT", "MTZ_PILT", "OPER_MTZ", "OPER_MATRIZ", "MATR",
   "OPER", "TPME", "ELMC_MTZ"]);
 const LOCALIZACOES_FORA = new Set(["DESEN"]);
 const RX_PILOTO = /\bFAB(?:RICA)?\.?\s*PILOT/;
@@ -100,7 +100,7 @@ const SETORES_RX: [RegExp, string][] = [
   [/(^|_)PRE/, "Predial"], [/MATZ|MATRIZ|MTZ/, "Matrizaria"], [/FERRAM/, "Ferramentaria"], [/LUBRIF/, "Lubrificação"],
   [/^GPM$|PLANEJ/, "Planejamento (GPM)"], [/AUT/, "Automação"], [/TERC/, "Terceiros"], [/SRI/, "SRI"], [/SATELIT/, "Satélite"],
 ];
-export const OUTROS_SETOR = "Outros";
+const OUTROS_SETOR = "Outros";
 export const SETORES = [...SETORES_RX.map(([, s]) => s), OUTROS_SETOR];
 const cacheSetor = new Map<string, string>();
 
@@ -130,16 +130,6 @@ export function mediana(xs: number[]): number {
   return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
 }
 
-export function agrupar<T, K>(xs: T[], chaveDe: (x: T) => K): Map<K, T[]> {
-  const m = new Map<K, T[]>();
-  for (const x of xs) {
-    const k = chaveDe(x);
-    const g = m.get(k);
-    if (g) g.push(x);
-    else m.set(k, [x]);
-  }
-  return m;
-}
 
 /** Hash curto (FNV-1a) de um texto — chave de cache que muda quando o cadastro muda. */
 export function hashTexto(s: string): string {

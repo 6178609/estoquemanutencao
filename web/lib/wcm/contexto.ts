@@ -47,7 +47,7 @@ function guardado<T>(chave: string, fn: () => T): T {
 const assinatura = (b: Bases) => [b.ordens, b.notas, b.operacoes, b.confirmacoes, b.equipamentos, b.equipe, b.requisicoes,
   b.cruas.ip19, b.cruas.af, b.cruas.acoesAf].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${b.hoje}`;
 
-export function todosCentros(b: Bases): string[] {
+function todosCentros(b: Bases): string[] {
   const s = new Set<string>();
   for (const xs of [b.ordens.dados, b.operacoes.dados, b.confirmacoes.dados, b.notas.dados])
     for (const x of xs ?? []) if (x.centroTrabalho.trim()) s.add(x.centroTrabalho);
@@ -82,11 +82,12 @@ export async function contexto(params: Record<string, string | string[] | undefi
     if (maximo == null || o.data > maximo) maximo = o.data;
   }
   const f = lerFiltros(params, jar.get(COOKIE_FILTROS)?.value, b.hoje, { minimo, maximo });
-  const [metas, equipamentos, materiais, cadHh] = await Promise.all([
+  const [metas, equipamentos, materiais, cadHh, tiposOrdemGestao] = await Promise.all([
     lerCadastro(ind.ARQ_METAS), lerCadastro("cadastro_equipamentos.json"), lerCadastro("cadastro_materiais.json"), lerCadastro(hh.ARQ),
+    lerCadastro("tipos_ordem.json"),
   ]);
   // nomes dos tipos de ordem: os da Gestão de HH (Fontes de dados) completados/sobrescritos pelos cadastrados em Metas
-  const daGestao = Object.fromEntries(Object.entries(await lerCadastro("tipos_ordem.json"))
+  const daGestao = Object.fromEntries(Object.entries(tiposOrdemGestao)
     .map(([cod, v]) => [cod, String((v as { descricao?: unknown })?.descricao ?? "")]).filter(([, d]) => d));
   const tipos = ind.tiposDe(metas as Cadastro, daGestao);
   const sig = assinatura(b);
@@ -180,16 +181,15 @@ export async function serieMensal(c: Contexto, meses = 12) {
 
 /** Indicadores do período para cada área / setor / centro (scorecard). */
 export async function porDimensao(c: Contexto, campo: "areas" | "setores" | "centros", valores: string[]): Promise<Record<string, ind.Resultado>> {
-  const out: Record<string, ind.Resultado> = {};
-  for (const v of valores) {
+  const resultados = await Promise.all(valores.map(async (v) => {
     let rec: { areas?: string[]; centros?: string[] };
     if (campo === "setores") {
       const base = c.centros.length ? c.centros : todosCentros(c.b);
       rec = { centros: base.filter((x) => setorDoCentro(x) === v).length ? base.filter((x) => setorDoCentro(x) === v) : ["—"] };
     } else rec = campo === "areas" ? { areas: [v] } : { centros: [v] };
-    out[v] = ind.calcular(await dados(c, rec), c.f.ini, c.f.fim);
-  }
-  return out;
+    return [v, ind.calcular(await dados(c, rec), c.f.ini, c.f.fim)] as const;
+  }));
+  return Object.fromEntries(resultados);
 }
 
 export interface OrdemEnriquecida extends Ordem {

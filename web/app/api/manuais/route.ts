@@ -1,20 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { veInteira } from "@/lib/auth/acesso";
-import { autorizar } from "@/lib/auth/sessao";
 import { FonteErro } from "@/lib/dados/fonte";
 import { gravarDocumentoEmVarios, gravarLinkEmVarios, LIMITE_DOCUMENTO } from "@/lib/dados/documentos";
 import { podeEnviar } from "@/lib/dados/fotos";
+import { quemEditaEquipamentos } from "@/lib/auth/editor";
 
 export const dynamic = "force-dynamic";
-
-/** Quem vincula manuais: o mesmo da biblioteca do ativo (editor ou administrador que vê a aba Equipamentos inteira). */
-async function quemEdita(req: NextRequest) {
-  const origem = req.headers.get("origin");
-  if (origem && origem !== req.nextUrl.origin) return null;
-  const u = await autorizar("equipamentos", true);
-  return u && veInteira(u, "equipamentos") ? u : null;
-}
 
 function erro(e: unknown) {
   if (e instanceof FonteErro) return NextResponse.json({ erro: e.message }, { status: 400 });
@@ -24,7 +15,7 @@ function erro(e: unknown) {
 
 /** Vincula um arquivo (PDF/imagem até 4 MB) ou um link a um ou mais equipamentos (até 50). */
 export async function POST(req: NextRequest) {
-  const u = await quemEdita(req);
+  const u = await quemEditaEquipamentos(req);
   if (!u) return NextResponse.json({ erro: "Só editor ou administrador vincula manuais." }, { status: 403 });
   let form: FormData;
   try {

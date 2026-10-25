@@ -20,7 +20,7 @@ const nomeArea = (id: Area) => AREAS.find((a) => a.id === id)?.titulo ?? id;
 const AREAS_OPCOES = Object.fromEntries(AREAS.map((a) => [a.id, a.titulo]));
 const LISTA = "divide-y divide-borda overflow-hidden rounded-cartao border border-borda bg-superficie";
 
-export interface FiltrosBiblioteca { q: string; area?: Area; tipo?: ItemAcervo["tipo"]; mais: boolean }
+interface FiltrosBiblioteca { q: string; area?: Area; tipo?: ItemAcervo["tipo"]; mais: boolean }
 
 /** Endereço da biblioteca com os filtros atuais e, se `mais`, a lista do acervo inteira. */
 function hrefBiblioteca(f: FiltrosBiblioteca, mais: boolean): string {

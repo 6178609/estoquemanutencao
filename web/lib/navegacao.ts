@@ -2,7 +2,7 @@
  * Abas do sistema.
  * `rota`: endereço da aba.
  */
-export interface Aba {
+interface Aba {
   id: string;
   titulo: string;
   icone: string; // nome do ícone (lucide)

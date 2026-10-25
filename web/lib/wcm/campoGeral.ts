@@ -28,7 +28,7 @@ export async function camposGerais(c: Pick<Contexto, "b">): Promise<Map<string, 
 const normalizar = (codigo: string) => String(codigo ?? "").trim().toUpperCase().replace(/^0+(?=.)/, "");
 
 /** Campo de ordenação de um equipamento ("" quando ele não tem ordem com campo no IW38). */
-export function campoDe(campos: Map<string, string>, codigo: string | null | undefined): string {
+function campoDe(campos: Map<string, string>, codigo: string | null | undefined): string {
   if (!codigo) return "";
   return campos.get(codigo) ?? campos.get(normalizar(codigo)) ?? "";
 }

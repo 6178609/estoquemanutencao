@@ -140,7 +140,7 @@ function CartaoPadrao({ l, colunas }: { l: Linha; colunas: Coluna[] }) {
   );
 }
 
-export function Paginacao({ params, pagina, paginas, chave = "pag" }: { params: Params; pagina: number; paginas: number; chave?: string }) {
+function Paginacao({ params, pagina, paginas, chave = "pag" }: { params: Params; pagina: number; paginas: number; chave?: string }) {
   const nums = [...new Set([1, pagina - 1, pagina, pagina + 1, paginas])].filter((p) => p >= 1 && p <= paginas).sort((a, b) => a - b);
   const btn = "grid h-8 min-w-8 place-items-center rounded-lg px-2 transition hover:bg-superficie-2 hover:text-texto";
   return (

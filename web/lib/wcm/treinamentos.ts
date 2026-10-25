@@ -24,7 +24,7 @@ const inicioAno = (ano: number): Dia => Math.round(Date.UTC(ano, 0, 1) / DIA_MS)
 const sobrepoe = (a: Pick<Ausencia, "de" | "ate">, ini: Dia, fim: Dia) => Math.max(0, Math.min(a.ate, fim) - Math.max(a.de, ini) + 1);
 
 /** Horas de jornada perdidas por uma ausência dentro de [ini, fim]: carga horária proporcional ou dias × jornada ÷ 7. */
-export function horasPerdidas(a: Ausencia, jornada: number, ini: Dia, fim: Dia): number {
+function horasPerdidas(a: Ausencia, jornada: number, ini: Dia, fim: Dia): number {
   const dentro = sobrepoe(a, ini, fim);
   if (!dentro || a.semHh) return 0;
   return a.horas != null ? (a.horas * dentro) / diasDaAusencia(a) : (jornada * dentro) / 7;
@@ -43,7 +43,7 @@ export function horasPorTipo(aus: Ausencia[], pes: Pick<PessoaHh, "np" | "jornad
   return out;
 }
 
-export interface FeriasAno { np: string; gozados: number; programados: number; total: number; restante: number; proxima: Dia | null }
+interface FeriasAno { np: string; gozados: number; programados: number; total: number; restante: number; proxima: Dia | null }
 
 /** Dias de férias no ano civil de `hoje`, por pessoa (inclusive quem não tem nenhum: 0 de 30). */
 export function feriasNoAno(aus: Ausencia[], nps: string[], hoje: Dia): FeriasAno[] {
@@ -115,7 +115,7 @@ export function matrizTreinamentos(rec: Reciclagem[]): { titulos: { chave: strin
   return { titulos, celula: new Map(rec.map((r) => [`${r.np}|${r.chaveTitulo}`, r])) };
 }
 
-export interface CoberturaSemana { centro: string; semana: Dia; tecnicos: number; pico: number; pct: number; alerta: boolean }
+interface CoberturaSemana { centro: string; semana: Dia; tecnicos: number; pico: number; pct: number; alerta: boolean }
 
 /** Por centro e semana (segunda a domingo) de [ini, fim]: o pico de técnicos ausentes no mesmo dia (dias inteiros). */
 export function cobertura(aus: Ausencia[], pes: Pick<PessoaHh, "np" | "centroTrabalho" | "contaNaCapacidade">[], ini: Dia, fim: Dia,

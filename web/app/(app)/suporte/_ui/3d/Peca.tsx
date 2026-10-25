@@ -56,7 +56,7 @@ export function lerPaleta(): Paleta {
 
 export type CorBase = Exclude<keyof Paleta, "destaque">;
 
-export interface EstadoCena {
+interface EstadoCena {
   destaque: string | null;
   paleta: Paleta;
   reduzir: boolean;
@@ -201,7 +201,7 @@ export const CAMERA_INICIAL: [number, number, number] = [2.4, 2.3, 3.2];
  * Eixo de uma peça torneada: "y" (de pé, padrão), "x" (deitada ao longo da tela) ou "z" (apontando para a câmera).
  * Dentro de `NoEixo`, o Y local vira o eixo pedido; o corte de cada `Torneado` continua voltado para a câmera.
  */
-export type Eixo = "x" | "y" | "z";
+type Eixo = "x" | "y" | "z";
 const ROTACAO_EIXO: Record<Eixo, [number, number, number]> = {
   y: [0, 0, 0],
   x: [0, 0, -Math.PI / 2], // Y local → +X; X local → -Y
@@ -215,7 +215,7 @@ const CENTRO_CORTE: Record<Eixo, number> = {
   z: Math.atan2(CAM_X, -CAM_Y),
 };
 /** O corte abre 90° (um quadrante) centrado na câmera: a peça é desenhada em 270°. */
-export const CORTE_ABERTO = Math.PI * 1.5;
+const CORTE_ABERTO = Math.PI * 1.5;
 const inicioCorte = (eixo: Eixo) => CENTRO_CORTE[eixo] + Math.PI / 4;
 
 const ContextoEixo = createContext<Eixo>("y");

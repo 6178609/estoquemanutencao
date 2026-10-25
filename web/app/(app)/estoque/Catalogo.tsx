@@ -15,7 +15,7 @@ type Onde = "todos" | "almox" | "fora";
 const INATIVOS = new Set(["BLOQUEADO", "CANCELADO", "DUPLICADO"]);
 const PEDACO = 150;
 
-export interface ResumoCatalogo {
+interface ResumoCatalogo {
   total: number; ativos: number; aprovados: number; inativos: number; noAlmox: number;
   status: [string, number][]; categorias: string[];
 }

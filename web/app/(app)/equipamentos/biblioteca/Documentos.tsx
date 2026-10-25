@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { Campo, Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
 
-export interface DocTela {
+interface DocTela {
   id: string; titulo: string; tipo: string; tamanho: number; em: string; por: string; url?: string;
 }
 

@@ -254,7 +254,7 @@ export const ACERVO: ItemAcervo[] = [
   { titulo: "OEE (Overall Equipment Effectiveness): o que é e como aplicar (Universal Robots BR)", area: "indicadores", fonte: "Universal Robots", tipo: "guia", idioma: "pt", url: "https://www.universal-robots.com/br/blog/oee/", descricao: "Definição do OEE como KPI de disponibilidade, desempenho e qualidade." },
 ];
 
-export interface FiltrosAcervo {
+interface FiltrosAcervo {
   area?: Area;
   tipo?: ItemAcervo["tipo"];
 }

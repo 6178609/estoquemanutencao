@@ -16,7 +16,6 @@ import { fonte, FonteErro } from "./fonte";
  */
 export const LIMITE_FOTO = 1_500_000; // o navegador já reduz a foto antes de enviar (≤ 1600 px, JPEG)
 export const LIMITE_MINI = 120_000;
-export { MAX_FOTOS };
 const PASTA = "app/fotos/materiais";
 const CADASTRO = "cadastro_materiais.json";
 
@@ -44,7 +43,7 @@ export function caminhoFoto(material: string, mini = false, id?: string): string
 
 const ALFABETO = "abcdefghijklmnopqrstuvwxyz0123456789";
 /** Id curto e aleatório da foto extra (10 caracteres de [a-z0-9]). */
-export function novoIdFoto(): string {
+function novoIdFoto(): string {
   let s = "";
   for (let i = 0; i < 10; i++) s += ALFABETO[randomInt(ALFABETO.length)];
   return s;

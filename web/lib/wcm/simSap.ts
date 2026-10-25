@@ -7,10 +7,10 @@ import { montarDeck, type LinhaSim, type TipoKpi } from "./indicadoresSim";
  * mês, mês anterior e acumulado do ano (YTD), e os KPIs do pilar MP do Deck (Indisponibilidade, MTTR, MTBF, quebras,
  * Plano de Manutenção) calculados pelo SAP ao lado da meta e do real da planilha. Testado em testes/indicadoresSim.test.ts.
  */
-export const tipoDe = (k: ind.Kpi): TipoKpi => (k.sentido > 0 ? "A" : "B");
+const tipoDe = (k: ind.Kpi): TipoKpi => (k.sentido > 0 ? "A" : "B");
 
 /** Os KPIs do Deck MP e como saem dos indicadores do site (null = o SAP não tem como calcular). */
-export const KPIS_MP: { kpi: string; tipo: TipoKpi; unidade: "%" | "h" | "un"; de: ((r: ind.Resultado) => number | null) | null; fonte: string }[] = [
+const KPIS_MP: { kpi: string; tipo: TipoKpi; unidade: "%" | "h" | "un"; de: ((r: ind.Resultado) => number | null) | null; fonte: string }[] = [
   { kpi: "Indisponibilidade", tipo: "B", unidade: "%", fonte: "100% − disponibilidade (MTBF ÷ (MTBF + MTTR))",
     de: (r) => (r.disponibilidade == null ? null : 100 - r.disponibilidade) },
   { kpi: "MTTR", tipo: "B", unidade: "h", fonte: "MTTR das quebras", de: (r) => r.mttr ?? null },
@@ -58,7 +58,7 @@ export const GRUPOS_SIM: { titulo: string; grupos: string[] }[] = [
   { titulo: "MRO — peças e suprimentos", grupos: [ind.SUPRIMENTOS] },
 ];
 
-export interface LinhaSap { kpi: ind.Kpi; tipo: TipoKpi; meta: number | null; anterior: number | null; real: number | null; ytd: number | null; farol: ind.Farol; farolYtd: ind.Farol }
+interface LinhaSap { kpi: ind.Kpi; tipo: TipoKpi; meta: number | null; anterior: number | null; real: number | null; ytd: number | null; farol: ind.Farol; farolYtd: ind.Farol }
 
 /** Uma linha por indicador do site, no formato do Deck (meta, mês anterior, mês, acumulado e farol). */
 export function linhasSap(mes: ind.Resultado, anterior: ind.Resultado, ytd: ind.Resultado, metas: Parameters<typeof ind.meta>[1]): LinhaSap[] {

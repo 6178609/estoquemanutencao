@@ -6,7 +6,7 @@ const nf = (casas: number) => {
   return f;
 };
 
-export const vazio = (v: number | null | undefined): v is null | undefined => v == null || Number.isNaN(v);
+const vazio = (v: number | null | undefined): v is null | undefined => v == null || Number.isNaN(v);
 export const num = (v: number | null | undefined, casas = 1, suf = "") => (vazio(v) ? "—" : `${nf(casas).format(v)}${suf}`);
 export const int = (v: number | null | undefined) => num(v, 0);
 export const pct = (v: number | null | undefined, casas = 1) => num(v, casas, "%");

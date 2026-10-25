@@ -26,7 +26,7 @@ export const ARQ = "hh_disponibilidade.json";
 export const TIPOS_AUSENCIA = ["Férias", "Afastamento (atestado / INSS)", "Treinamento", "Folga / compensação", "Licença",
   "Cedido a outra área", "Outro"];
 /** Especialidades que, por padrão, não contam na capacidade. */
-export const SEM_CAPACIDADE = ["Apoio / gestão", "Planejamento (GPM)"];
+const SEM_CAPACIDADE = ["Apoio / gestão", "Planejamento (GPM)"];
 
 export interface AusenciaGravada {
   id?: string; tipo?: string; de?: string; ate?: string; obs?: string;
@@ -34,7 +34,7 @@ export interface AusenciaGravada {
   titulo?: string; horas?: number | null; entidade?: string; validade?: string;
 }
 /** Dados da pessoa no cadastro manual da equipe. */
-export interface PessoaGravada {
+interface PessoaGravada {
   nome?: string; cargo?: string; centro?: string; area?: string; turma?: string; supervisor?: string; ativo?: boolean | null;
 }
 export interface ItemHh extends PessoaGravada {
@@ -45,7 +45,7 @@ export interface ItemHh extends PessoaGravada {
 export type CadastroHh = Record<string, unknown>;
 
 /** A equipe da planilha (só os campos usados aqui). */
-export type PessoaEquipe = Pick<Pessoa, "np"> & Partial<Pick<Pessoa, "nome" | "cargo" | "especialidade" | "centroTrabalho" | "area" | "turma">>;
+type PessoaEquipe = Pick<Pessoa, "np"> & Partial<Pick<Pessoa, "nome" | "cargo" | "especialidade" | "centroTrabalho" | "area" | "turma">>;
 
 export interface PessoaHh {
   np: string; nome: string; cargo: string; especialidade: string; centroTrabalho: string; area: string; turma: string;
@@ -57,12 +57,6 @@ export interface PessoaHh {
   observacao: string;
 }
 
-/** Colunas da tabela/planilha baixada (campo → rótulo). */
-export const COLUNAS: [keyof PessoaHh, string][] = [
-  ["np", "Nº pessoal"], ["nome", "Nome"], ["cargo", "Cargo"], ["especialidade", "Especialidade"],
-  ["centroTrabalho", "Centro de trabalho"], ["area", "Área"], ["turma", "Turma"], ["jornada", "Jornada (h/sem)"],
-  ["disponivel", "Disponível %"], ["contaNaCapacidade", "Conta na capacidade"], ["observacao", "Observação"],
-];
 
 function itemDe(cad: CadastroHh | null | undefined, np: string): ItemHh {
   const i = cad?.[np];
@@ -82,7 +76,7 @@ function num(v: unknown, padrao: number): number {
 }
 
 /** Quem conta na capacidade quando o cadastro não diz: pela especialidade (sem apoio/gestão e planejamento). */
-export const contaPorPadrao = (especialidade: string) => !SEM_CAPACIDADE.includes(especialidade);
+const contaPorPadrao = (especialidade: string) => !SEM_CAPACIDADE.includes(especialidade);
 
 /** A equipe da planilha com a disponibilidade cadastrada (ou os padrões). */
 export function pessoas(equipe: PessoaEquipe[] | null | undefined, cad: CadastroHh | null | undefined,
@@ -191,7 +185,7 @@ export function horasParciais(cad: CadastroHh | null | undefined, ini: Dia, fim:
   return out;
 }
 
-export interface DisponibilidadeHh extends PessoaHh {
+interface DisponibilidadeHh extends PessoaHh {
   horasBrutas: number; diasAusente: number; horasAusente: number; horasDisponiveis: number;
 }
 

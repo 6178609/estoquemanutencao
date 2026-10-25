@@ -10,10 +10,10 @@ import { hoje as hojeLocal, inicioDoMes, mesBr, soma, type Dia } from "./util";
  * e a ordem é a tratativa. A nota se liga à ordem pelo campo Ordem ou pelo mesmo código no texto.
  */
 
-export const PALAVRA = "SEMEQ";
+const PALAVRA = "SEMEQ";
 // \W (Unicode) = nem letra, nem número, nem "_"
 const RX = /SEMEQ[^\p{L}\p{N}_]*(?<tec>[A-Z]{2,4})[^\p{L}\p{N}_]*(?<num>\p{Nd}+)[^\p{L}\p{N}_]*(?<achado>.*)/u;
-export const TECNICAS: Record<string, string> = {
+const TECNICAS: Record<string, string> = {
   AVB: "Análise de vibração", AOL: "Análise de óleo", TMP: "Termografia", TER: "Termografia", UTS: "Ultrassom",
   ULT: "Ultrassom", MCA: "Análise de circuito de motor", END: "Ensaio não destrutivo", INS: "Inspeção sensitiva",
 };
@@ -22,11 +22,7 @@ export const TRATADA = "Tratada", SEM_CONF = "Encerrada sem confirmação", TRAT
   SEM_ORDEM = "Sem ordem", CANCELADA = "Cancelada";
 export const SITUACOES = [TRATADA, SEM_CONF, TRATATIVA, ATRASADA, SEM_ORDEM, CANCELADA] as const;
 export type SituacaoAnomalia = (typeof SITUACOES)[number];
-export const ABERTAS = new Set<SituacaoAnomalia>([SEM_CONF, TRATATIVA, ATRASADA, SEM_ORDEM]);
-export const COR: Record<SituacaoAnomalia, string> = {
-  [TRATADA]: "#0E9F46", [SEM_CONF]: "#9BC53D", [TRATATIVA]: "#0A6EBD", [ATRASADA]: "#E3262B", [SEM_ORDEM]: "#F7931E",
-  [CANCELADA]: "#B0B6B3",
-};
+const ABERTAS = new Set<SituacaoAnomalia>([SEM_CONF, TRATATIVA, ATRASADA, SEM_ORDEM]);
 
 /** O texto tem SEMEQ? */
 export const ehSemeq = (texto: unknown) => String(texto ?? "").toUpperCase().includes(PALAVRA);
@@ -200,7 +196,7 @@ export function anomalias(notas: Nota[] | null | undefined, ordens: Ordem[] | nu
 // ----------------------------------------------------------------------------
 const entre = ex.entre;
 
-export interface IndicadoresPreditiva {
+interface IndicadoresPreditiva {
   semeq_detectadas: number; semeq_com_ordem: number | null; semeq_tratadas: number | null; semeq_dias: number | null;
   semeq_abertas: number; semeq_atrasadas: number; semeq_equipamentos: number; semeq_reincidentes: number;
   semeq_custo: number;
@@ -291,7 +287,7 @@ export function equipamentosMaisAnomalias(per: Anomalia[], n = 12):
     .sort((a, b) => b.anomalias - a.anomalias || b.abertas - a.abertas).slice(0, n);
 }
 
-export interface FiltroAnomalias { busca?: string; tecnicas?: string[]; situacoes?: string[]; todasAsDatas?: boolean }
+interface FiltroAnomalias { busca?: string; tecnicas?: string[]; situacoes?: string[]; todasAsDatas?: boolean }
 
 /** A tabela: período (ou todas as datas), busca (código, achado, equipamento, nota, ordem, quem tratou), técnica e situação. */
 export function filtrarAnomalias(an: Anomalia[], ini: Dia, fim: Dia, f: FiltroAnomalias = {}): Anomalia[] {

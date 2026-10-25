@@ -96,7 +96,7 @@ export function porMesAno(o: OrdemCusto[], ano: number): number[] {
   return out;
 }
 
-export type Grupo = "Planejada" | "Corretiva" | "Emergencial" | "Outras";
+type Grupo = "Planejada" | "Corretiva" | "Emergencial" | "Outras";
 
 /** Custo por grupo de classe (só grupos com ordem), com % do total e custo médio por ordem. */
 export function porGrupo(o: OrdemCusto[]): { grupo: Grupo; valor: number; pct: number; ordens: number; porOrdem: number }[] {
@@ -138,7 +138,7 @@ export function dnaPorFamilia(o: OrdemCusto[], nomeEq: Map<string, string>, n = 
   return out;
 }
 
-export type ClasseAbc = "A" | "B" | "C" | "Sem classe";
+type ClasseAbc = "A" | "B" | "C" | "Sem classe";
 
 /**
  * Custo por classe de criticidade (A/B/C do cadastro de equipamentos ativos): médio por ativo da classe.

@@ -10,8 +10,8 @@ import { BOTAO_PRIMARIO } from "@/components/ui";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { LIMITE_DOCUMENTO, LIMITE_MANUAL_GRANDE, TAMANHO_PARTE } from "@/lib/limitesManual";
 
-export interface EqTela { codigo: string; nome: string; campo: string; area: string }
-export interface AcervoTela { titulo: string; url: string; fonte: string; area: string }
+interface EqTela { codigo: string; nome: string; campo: string; area: string }
+interface AcervoTela { titulo: string; url: string; fonte: string; area: string }
 
 const MAX_LOTE = 50;
 const MOSTRAR = 60;

@@ -14,14 +14,13 @@ export const CRITICIDADES = ["Alta", "Média", "Baixa"];
 export const CATEGORIAS = ["Mecânico", "Elétrico", "Instrumentação", "Hidráulico", "Pneumático", "Civil", "Utilidades", "Outro"];
 export const SEM_CLASSE = "Sem classe";
 export const NAO_CLASSIFICADO = "(não classificado)";
-export const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
-export const POR_PAGINA = 50;
+const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
 export const V_ATIVOS = "Gestão de ativos", V_CADASTRO = "Cadastro de equipamentos", V_ANALISE = "Análise pelas ordens (IW38)";
 export const VISOES = [V_ATIVOS, V_CADASTRO, V_ANALISE];
 /** Rótulo da coluna/campo com o campo de ordenação geral do equipamento (o mesmo do Calendário e da Gestão de MRO). */
 export const ROTULO_CAMPO = "Campo de ordenação";
 /** Padrão de `campoEq`: sem a função, não há coluna de campo (as planilhas e buscas seguem como antes). */
-export const semCampo = (_codigo: string): string => "";
+const semCampo = (_codigo: string): string => "";
 export type CampoEq = (codigo: string) => string;
 
 export type Params = Record<string, string | string[] | undefined>;
@@ -36,14 +35,7 @@ export const param = (p: Params, k: string): string => {
 export const listaParam = (p: Params, k: string): string[] =>
   param(p, k).split(",").map((x) => x.trim()).filter((x) => x && x !== "-").slice(0, 60);
 
-export interface Pagina<T> { itens: T[]; pag: number; paginas: number; total: number; inicio: number }
-
-export function paginar<T>(xs: T[], pag: number, tamanho = POR_PAGINA): Pagina<T> {
-  const paginas = Math.max(1, Math.ceil(xs.length / tamanho));
-  const p = Math.min(Math.max(1, Math.floor(pag) || 1), paginas);
-  const inicio = (p - 1) * tamanho;
-  return { itens: xs.slice(inicio, inicio + tamanho), pag: p, paginas, total: xs.length, inicio };
-}
+export { paginar } from "@/lib/paginacao";
 
 /** CSV que o Excel em português abre direto (BOM, ponto e vírgula, vírgula decimal). */
 export function csv(colunas: string[], linhas: unknown[][]): string {
@@ -72,7 +64,7 @@ export { hashTexto } from "@/lib/wcm/util";
 // ----------------------------------------------------------------------------
 // Inventário (Gestão de ativos)
 // ----------------------------------------------------------------------------
-export interface FiltroInventario {
+interface FiltroInventario {
   q: string; areas: string[]; crits: string[]; sits: string[]; recs: string[]; semPlano: boolean; site: boolean;
 }
 
@@ -134,7 +126,7 @@ export const pecasEmAlerta = (xs: SituacaoPeca[]) => xs.filter((x) => x.status !
 // ----------------------------------------------------------------------------
 // Análise pelas ordens (IW38): uma linha por equipamento
 // ----------------------------------------------------------------------------
-export interface LinhaAnalise {
+interface LinhaAnalise {
   codigo: string; nome: string; criticidade: string; abc: string; categoria: string; local: string; centro: string;
   ordens: number; backlog: number; custo: number; pendentes: number; notas: number | null; notasSemOrdem: number | null;
   quebras: number | null; ultima: Dia | null; pecas: number; pecasEmFalta: number; desativado: boolean;
@@ -211,7 +203,7 @@ export function agregarAnalise(todas: OrdemA[], ini: Dia, fim: Dia, e: {
   return out;
 }
 
-export interface FiltroAnalise { q: string; crits: string[]; pend: boolean; periodo: boolean }
+interface FiltroAnalise { q: string; crits: string[]; pend: boolean; periodo: boolean }
 
 export function lerFiltroAnalise(p: Params): FiltroAnalise {
   return { q: param(p, "aq"), crits: listaParam(p, "acrit"), pend: param(p, "apend") === "1", periodo: param(p, "aper") !== "0" };
@@ -231,7 +223,7 @@ export function filtrarAnalise(t: LinhaAnalise[], f: FiltroAnalise, campoEq: Cam
   }).sort((a, b) => b.custo - a.custo || b.ordens - a.ordens);
 }
 
-export const COLUNAS_ANALISE: [keyof LinhaAnalise, string][] = [
+const COLUNAS_ANALISE: [keyof LinhaAnalise, string][] = [
   ["codigo", "Código"], ["nome", "Nome"], ["criticidade", "Criticidade"], ["abc", "ABC"], ["categoria", "Categoria"],
   ["local", "Local"], ["centro", "Centro"], ["ordens", "Ordens no período"], ["backlog", "Backlog"], ["custo", "Custo no período (R$)"],
   ["pendentes", "Pendentes"], ["notas", "Notas"], ["notasSemOrdem", "Notas sem ordem"], ["quebras", "Quebras"],
@@ -263,7 +255,7 @@ export interface FormCadastro {
   vida_util: number | string | null; garantia_ate: string | null; valor_reposicao: number | string | null;
 }
 
-export interface ItemCadastro {
+interface ItemCadastro {
   nome: string; categoria: string; criticidade: string; observacoes: string; materiais: string[]; situacao: string;
   fabricante: string; modelo: string; serie: string; ano_instalacao: number | null; vida_util: number | null;
   garantia_ate: string | null; valor_reposicao: number | null;
@@ -332,7 +324,7 @@ export function formInicial(tag: string, info: Record<string, unknown> | null | 
 // ----------------------------------------------------------------------------
 // Lista do cadastro (visão "Cadastro de equipamentos")
 // ----------------------------------------------------------------------------
-export interface FiltroCadastro { q: string; crits: string[] }
+interface FiltroCadastro { q: string; crits: string[] }
 
 export function lerFiltroCadastro(p: Params): FiltroCadastro {
   return { q: param(p, "cq"), crits: listaParam(p, "ccrit") };

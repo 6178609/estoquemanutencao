@@ -12,7 +12,7 @@ import { MultiEscolha } from "@/components/Filtros";
  * endereço — com nomes que não colidem com a barra global (?ini/?fim/?area/…): mudar um deles recalcula a página no
  * servidor mantendo o desenho anterior esmaecido, como a barra global. Tudo serializável (vem do servidor).
  */
-export type Controle =
+type Controle =
   | { tipo: "periodo"; de: string; ate: string; valorDe: string; valorAte: string; rotulo?: string;
     atalhos?: { rotulo: string; de: string; ate: string }[] }
   | { tipo: "busca"; chave: string; valor: string; placeholder: string }
@@ -21,7 +21,7 @@ export type Controle =
   | { tipo: "escolha"; chave: string; rotulo: string; valor: string; opcoes: { valor: string; rotulo: string }[] }
   | { tipo: "pilulas"; chave: string; rotulo: string; valor: string[]; opcoes: { valor: string; n?: number }[] };
 
-export function useAplicar(limpar: string[] = []) {
+function useAplicar(limpar: string[] = []) {
   const router = useRouter();
   const rota = usePathname();
   const params = useSearchParams();

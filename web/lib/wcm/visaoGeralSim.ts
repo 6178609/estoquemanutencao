@@ -19,14 +19,14 @@ export const indiceMes = (mes: string) => Number(mes.slice(5, 7)) - 1;
 /** O roadmap só vale para o ano dele (`ano`, "2026"); outro ano da base mensal fica sem roadmap. */
 const doAno = (ms: MaquinaRoadmap[], mes: string, ano?: string) => (!ano || mes.startsWith(ano) ? ms : []);
 
-export function contaRoadmap(ms: MaquinaRoadmap[], i: number): Conta {
+function contaRoadmap(ms: MaquinaRoadmap[], i: number): Conta {
   return contar(ms.map((m) => {
     const s = situacao(m.previsto[i], m.realizado[i]);
     return s === "sem" ? null : s === "ok";
   }));
 }
 
-export interface PontoMes { mes: string; deck: Conta; roadmap: Conta }
+interface PontoMes { mes: string; deck: Conta; roadmap: Conta }
 
 /** Evolução de janeiro até o mês: % dos indicadores na meta e % das máquinas no previsto. */
 export function evolucao(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string, ano?: string): PontoMes[] {
@@ -38,7 +38,7 @@ export function evolucao(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string, ano?:
   return saida;
 }
 
-export interface LinhaIndicador { kpi: string; tipo: TipoKpi; mes: Conta; ytd: Conta; foraDaMeta: string[]; serie: (number | null)[] }
+interface LinhaIndicador { kpi: string; tipo: TipoKpi; mes: Conta; ytd: Conta; foraDaMeta: string[]; serie: (number | null)[] }
 
 /** Cada indicador de manutenção somado nas áreas: quantas áreas na meta no mês e no acumulado, e a série do % no ano. */
 export function porIndicador(l: LinhaSim[], mes: string): LinhaIndicador[] {
@@ -61,7 +61,7 @@ const ordem = (k: string) => {
   return i < 0 ? ORDEM_KPIS.length : i;
 };
 
-export interface LinhaArea { area: string; mes: Conta; ytd: Conta; foraDaMeta: string[] }
+interface LinhaArea { area: string; mes: Conta; ytd: Conta; foraDaMeta: string[] }
 
 export function porArea(l: LinhaSim[], mes: string): LinhaArea[] {
   return montarDeck(l, mes).map((a) => ({
@@ -70,7 +70,7 @@ export function porArea(l: LinhaSim[], mes: string): LinhaArea[] {
   })).sort((a, b) => (pct(a.mes) ?? 101) - (pct(b.mes) ?? 101) || a.area.localeCompare(b.area));
 }
 
-export interface Resumo { deck: Conta; ytd: Conta; roadmap: Conta; geral: Conta; melhoraram: number; pioraram: number }
+interface Resumo { deck: Conta; ytd: Conta; roadmap: Conta; geral: Conta; melhoraram: number; pioraram: number }
 
 /** O retrato do mês. "Geral" = itens na meta (indicadores + máquinas no previsto) sobre todos os itens com dado. */
 export function resumoSim(l: LinhaSim[], ms: MaquinaRoadmap[], mes: string, ano?: string): Resumo {

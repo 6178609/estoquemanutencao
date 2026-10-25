@@ -38,7 +38,7 @@ import {
  *   `app/documentos/tecnicos/<área>/<id>`.
  */
 export const ARQ_DOCUMENTOS = "documentos_equipamentos.json";
-export const ARQ_DOCUMENTOS_TECNICOS = "documentos_tecnicos.json";
+const ARQ_DOCUMENTOS_TECNICOS = "documentos_tecnicos.json";
 export { LIMITE_DOCUMENTO } from "../limitesManual";
 import { LIMITE_DOCUMENTO } from "../limitesManual";
 const PASTA = "app/documentos/equipamentos";
@@ -50,9 +50,9 @@ function guardarDemo(k: string, b: Uint8Array) {
   while (demo.size > 50) demo.delete(demo.keys().next().value!);
 }
 
-export type TipoDocumento = "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
+type TipoDocumento = "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
 
-export interface Documento {
+interface Documento {
   id: string; titulo: string; tipo: TipoDocumento | "link"; tamanho: number; em: string; por: string;
   /** só nos links */
   url?: string;
@@ -64,12 +64,12 @@ export interface Documento {
   partes?: Partes;
 }
 
-export interface Partes { envio: string; total: number }
+interface Partes { envio: string; total: number }
 
 interface Origem { tag: string; id: string }
 
 /** Documento da biblioteca técnica, com a área a que pertence. */
-export type DocumentoTecnico = Documento & { area: Area };
+type DocumentoTecnico = Documento & { area: Area };
 
 /** PDF ou imagem, pela assinatura dos bytes. */
 export function tipoDocumento(b: Uint8Array): TipoDocumento | null {
@@ -89,7 +89,7 @@ export function linkValido(url: unknown): boolean {
 }
 
 const RESERVADAS = new Set(["__proto__", "constructor", "prototype"]);
-export const tagValida = (tag: string) => !!tag && tag.length <= 60 && !/[\u0000-\u001f]/.test(tag) && !RESERVADAS.has(tag);
+const tagValida = (tag: string) => !!tag && tag.length <= 60 && !/[\u0000-\u001f]/.test(tag) && !RESERVADAS.has(tag);
 const idValido = (id: string) => /^[a-z0-9]{6,32}$/.test(id);
 /** Pasta do equipamento no repositório: pelo hash da TAG (a TAG pode ter barra, espaço, acento…). */
 const pastaEquipamento = (tag: string) => `${PASTA}/${createHash("sha1").update(tag).digest("hex").slice(0, 16)}`;
@@ -320,7 +320,7 @@ export async function lerDocumento(tag: string, id: string): Promise<{ doc: Docu
 }
 
 /** Até quantos equipamentos de uma vez (um manual vinculado a vários). */
-export const MAX_LOTE = 50;
+const MAX_LOTE = 50;
 
 /** Lista de equipamentos sem repetição; recusa lista vazia, grande demais ou com TAG inválida (antes de gravar). */
 function tagsDoLote(tags: string[]): string[] {

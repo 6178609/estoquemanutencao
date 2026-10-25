@@ -11,11 +11,11 @@ import { useRef } from "react";
  * centenas a ~5 mil linhas já recortadas no servidor. Colunas largas rolam dentro do cartão (nunca a página).
  */
 export type Celula = string | number | null | { t: string; cor?: string; fundo?: string; dica?: string; forte?: boolean };
-export interface Coluna { titulo: string; largura?: number; flex?: boolean; num?: boolean; centro?: boolean; dica?: string; fixa?: boolean }
+interface Coluna { titulo: string; largura?: number; flex?: boolean; num?: boolean; centro?: boolean; dica?: string; fixa?: boolean }
 
 const texto = (c: Celula) => (c == null ? "" : typeof c === "object" ? c.t : typeof c === "number" ? c.toLocaleString("pt-BR") : c);
 
-export function baixarCsv(nome: string, colunas: string[], linhas: Celula[][]) {
+function baixarCsv(nome: string, colunas: string[], linhas: Celula[][]) {
   const esc = (v: string) => `"${v.replaceAll('"', '""')}"`;
   const corpo = linhas.map((l) => l.map((c) => esc(typeof c === "number" ? String(c).replace(".", ",") : texto(c))).join(";"));
   const blob = new Blob(["﻿" + [colunas.map(esc).join(";"), ...corpo].join("\r\n")], { type: "text/csv;charset=utf-8" });
@@ -26,7 +26,7 @@ export function baixarCsv(nome: string, colunas: string[], linhas: Celula[][]) {
   URL.revokeObjectURL(a.href);
 }
 
-export function BotaoCsv({ nome, colunas, linhas, rotulo = "Baixar CSV" }: { nome: string; colunas: string[]; linhas: Celula[][]; rotulo?: string }) {
+function BotaoCsv({ nome, colunas, linhas, rotulo = "Baixar CSV" }: { nome: string; colunas: string[]; linhas: Celula[][]; rotulo?: string }) {
   return (
     <button onClick={() => baixarCsv(nome, colunas, linhas)} disabled={!linhas.length}
       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-borda px-2.5 text-[12.5px] text-texto-2 transition hover:bg-superficie-2 hover:text-texto disabled:opacity-50">

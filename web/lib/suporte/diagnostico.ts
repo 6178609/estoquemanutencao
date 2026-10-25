@@ -13,7 +13,7 @@ export interface Sintoma {
   guias: string[];
 }
 
-export interface TipoEquipamento {
+interface TipoEquipamento {
   id: string;
   titulo: string;
   area: Area;

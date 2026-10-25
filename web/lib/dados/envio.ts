@@ -11,9 +11,9 @@ import { fonte, FonteErro } from "./fonte";
  * manifesto só passa a apontar para elas quando a última chega (até lá, vale a versão anterior inteira).
  */
 export const LIMITE_BYTES = 4_000_000;
-export const MAX_PARTES = 40;
+const MAX_PARTES = 40;
 
-export interface Parte {
+interface Parte {
   tipo: Tipo;
   envio: string;      // identificador do envio (as partes de uma base têm o mesmo)
   parte: number;      // 1..total
@@ -32,7 +32,7 @@ export function caminhoParte(tipo: Tipo, envio: string, parte: number): string {
 }
 
 /** Confere que é um parquet de verdade e devolve quantas linhas ele tem. */
-export function conferirParquet(bytes: Uint8Array): number {
+function conferirParquet(bytes: Uint8Array): number {
   const fim = bytes.length;
   const magico = (i: number) => bytes[i] === 0x50 && bytes[i + 1] === 0x41 && bytes[i + 2] === 0x52 && bytes[i + 3] === 0x31;
   if (fim < 12 || !magico(0) || !magico(fim - 4)) throw new FonteErro("o arquivo enviado não é um parquet válido");

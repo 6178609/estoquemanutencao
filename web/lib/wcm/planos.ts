@@ -18,23 +18,14 @@ export const CONCLUIDA = "Concluída", ABERTA = "Em aberto", ATRASADA = "Atrasad
 export const SITUACOES = [CONCLUIDA, ABERTA, ATRASADA, PROGRAMADA, SALTADA, SEM_STATUS] as const;
 export type SituacaoChamada = (typeof SITUACOES)[number];
 /** O que aparece na célula quando há mais de uma chamada na mesma semana (a primeira da lista vence). */
-export const PRIORIDADE: SituacaoChamada[] = [ATRASADA, ABERTA, PROGRAMADA, CONCLUIDA, SALTADA, SEM_STATUS];
+const PRIORIDADE: SituacaoChamada[] = [ATRASADA, ABERTA, PROGRAMADA, CONCLUIDA, SALTADA, SEM_STATUS];
 export const SIMBOLO: Record<SituacaoChamada, string> = {
   [CONCLUIDA]: "✓", [ABERTA]: "●", [ATRASADA]: "!", [PROGRAMADA]: "○", [SALTADA]: "–", [SEM_STATUS]: "·",
-};
-/** [fundo, texto] de cada situação (verde/laranja/vermelho do tema; azul e cinzas neutros). */
-export const COR: Record<SituacaoChamada, [string, string]> = {
-  [CONCLUIDA]: ["#D3F0DE", "#0B7A36"],
-  [ABERTA]: ["#D6E8F7", "#0A5A9C"],
-  [ATRASADA]: ["#F9D4D5", "#B3161B"],
-  [PROGRAMADA]: ["#FFFFFF", "#6B7370"],
-  [SALTADA]: ["#ECEEED", "#8C9491"],
-  [SEM_STATUS]: ["#F4F6F5", "#8C9491"],
 };
 const PRI = new Map<string, number>(PRIORIDADE.map((s, i) => [s, i]));
 
 /** Uma chamada do plano (plano + item + data planejada), já com as operações juntadas. */
-export interface Chamada {
+interface Chamada {
   plano: string; item: string; texto: string; equipamento: string; objeto: string; local: string; centroTrabalho: string;
   grupoPlanejamento: string; ciclo: string; pacote: string; estrategia: string; tipoOrdem: string;
   dataPlanejada: Dia | null; dataChamada: Dia | null; dataConclusao: Dia | null; tipoProgramacao: string; ordem: string;
@@ -264,7 +255,7 @@ function ordemPorPlanoEData<T extends Chamada>(ch: T[], iw38: OrdemPlano[]): T[]
 // ----------------------------------------------------------------------------
 // Calendário semanal entre duas datas (52 colunas para um ano)
 // ----------------------------------------------------------------------------
-export const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const p2 = (n: number) => String(n).padStart(2, "0");
 const ddmm = (d: Dia) => { const p = partes(d); return `${p2(p.dia)}/${p2(p.mes)}`; };
 const ddmmaaaa = (d: Dia) => `${ddmm(d)}/${partes(d).ano}`;
@@ -367,7 +358,7 @@ function ciclosEstimados(ch: ChamadaClassificada[]): Map<string, string> {
   return out;
 }
 
-export interface LinhaCalendario {
+interface LinhaCalendario {
   /** chave do plano ("20976 / 1" quando a IP19 traz item) */
   plano: string; descricao: string; equipamento: string;
   /** código do equipamento (o mais frequente nas chamadas do plano) — para achar o campo de ordenação */
@@ -378,7 +369,7 @@ export interface LinhaCalendario {
   situacao: Record<string, SituacaoChamada | "">;
 }
 
-export interface Calendario { semanas: string[]; segundas: Dia[]; linhas: LinhaCalendario[] }
+interface Calendario { semanas: string[]; segundas: Dia[]; linhas: LinhaCalendario[] }
 
 /**
  * Uma linha por plano (e item, quando a IP19 traz item), em ordem de chave; uma coluna por semana entre `inicio` e
@@ -440,7 +431,7 @@ export function atrasadosPrimeiro(linhas: LinhaCalendario[]): LinhaCalendario[] 
   return linhas.slice().sort((a, b) => b.atrasadas - a.atrasadas || cmp(a.plano, b.plano));
 }
 
-export interface CargaSemana { segunda: Dia; semana: string; situacao: SituacaoChamada; chamadas: number }
+interface CargaSemana { segunda: Dia; semana: string; situacao: SituacaoChamada; chamadas: number }
 
 /** Chamadas por semana e situação no período (a carga de trabalho dos planos). */
 export function cargaSemanal(ch: ChamadaClassificada[], inicio: Dia, fim: Dia): CargaSemana[] {
@@ -458,7 +449,7 @@ export function cargaSemanal(ch: ChamadaClassificada[], inicio: Dia, fim: Dia): 
   return [...m.values()].sort((a, b) => a.segunda - b.segunda || cmp(a.situacao, b.situacao));
 }
 
-export interface Celula {
+interface Celula {
   chave: string; plano: string; semana: string; situacao: SituacaoChamada; chamadas: number; simbolo: string;
   periodo: string; datas: string; ordens: string;
 }
@@ -495,7 +486,7 @@ export function celulas(ch: ChamadaClassificada[], inicio: Dia, fim: Dia, ordemP
 // ----------------------------------------------------------------------------
 // O que a página mostra (filtros, indicadores e detalhe do plano)
 // ----------------------------------------------------------------------------
-export interface FiltroPlanos {
+interface FiltroPlanos {
   inicio: Dia; fim: Dia;
   /** filtros globais: centro de trabalho e tipo de ordem (chamada sem tipo passa) */
   centrosGlobais?: string[]; tiposGlobais?: string[];
@@ -531,13 +522,13 @@ export interface Aderencia {
 }
 
 /** Aderência até hoje: chamadas com data até hoje que foram concluídas (saltadas e canceladas não contam). */
-export function aderencia(ch: ChamadaClassificada[], hoje: Dia): Aderencia {
+function aderencia(ch: ChamadaClassificada[], hoje: Dia): Aderencia {
   const venc = ch.filter((c) => c.data != null && c.data <= hoje && c.situacao !== SALTADA);
   const concluidas = venc.filter((c) => c.situacao === CONCLUIDA).length;
   return { vencidas: venc.length, concluidas, taxa: venc.length ? concluidas / venc.length : null };
 }
 
-export interface ResumoPlanos {
+interface ResumoPlanos {
   planos: number; chamadas: number; programadas: number; atrasadas: number; custoReal: number; aderencia: Aderencia;
 }
 

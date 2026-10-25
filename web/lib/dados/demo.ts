@@ -79,7 +79,7 @@ export function dadosDemo() {
 // (em globalThis: as rotas de API e as páginas podem ter cópias separadas deste módulo no mesmo processo)
 /** Orçamento fictício: de 3 meses atrás até 2 meses à frente do mês de hoje, valores redondos que variam por mês. */
 const VALORES_DEMO = [280000, 300000, 320000, 300000, 300000, 300000]; // deslocamentos -3 a +2
-export function orcamentoDemo(h: number): Record<string, Record<string, unknown>> {
+function orcamentoDemo(h: number): Record<string, Record<string, unknown>> {
   const inicio = inicioDoMes(h);
   const out: Record<string, Record<string, unknown>> = {};
   VALORES_DEMO.forEach((valor, i) => { out[`orcamento:${chaveMes(somarMeses(inicio, i - 3))}`] = { valor }; });

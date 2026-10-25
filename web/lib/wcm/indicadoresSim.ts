@@ -29,7 +29,7 @@ const num = (v: unknown): number | null => {
 };
 
 /** "01/03/2026" (ou "2026-03-01") → "2026-03". */
-export function mesDe(v: unknown): string | null {
+function mesDe(v: unknown): string | null {
   const s = String(v ?? "").trim();
   let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}`;

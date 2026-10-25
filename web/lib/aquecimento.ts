@@ -14,7 +14,7 @@ import { ARQ_METAS } from "./wcm/indicadores";
  * Fontes de dados e por /api/aquecer. Cada etapa usa os mesmos caches das telas; com nada novo, volta em milissegundos.
  */
 const g = globalThis as unknown as { __cmAquecimento?: { em: number; p: Promise<Etapas> } };
-export type Etapas = Record<string, number | string>;
+type Etapas = Record<string, number | string>;
 const INTERVALO_MS = 45_000; // pedidos seguidos no mesmo servidor reaproveitam o último aquecimento
 
 async function medir(etapas: Etapas, nome: string, f: () => Promise<unknown>) {

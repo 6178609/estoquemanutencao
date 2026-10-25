@@ -10,11 +10,11 @@ import { usuarios } from "./usuarios";
  * Pedido de acesso (tela de entrada) e aprovação pelo administrador (Usuários) — gravado em
  * app/solicitacoes_acesso.json. A senha escolhida fica só como hash e some quando o pedido é decidido.
  */
-export const ARQ_SOLICITACOES = "solicitacoes_acesso.json";
-export const MAX_PENDENTES = 30;               // proteção contra abuso do formulário público
-export const INTERVALO_MS = 10 * 60_000;       // um pedido a cada 10 min por navegador
+const ARQ_SOLICITACOES = "solicitacoes_acesso.json";
+const MAX_PENDENTES = 30;               // proteção contra abuso do formulário público
+const INTERVALO_MS = 10 * 60_000;       // um pedido a cada 10 min por navegador
 
-export interface Pedido {
+interface Pedido {
   nome?: string; funcao?: string; motivo?: string; status?: "pendente" | "aprovada" | "recusada"; criado_em?: string;
   sal?: string; senha_hash?: string; decidido_por?: string; decidido_em?: string; motivo_recusa?: string;
 }

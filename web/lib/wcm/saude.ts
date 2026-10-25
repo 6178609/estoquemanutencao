@@ -17,7 +17,7 @@ import type { Dia } from "./util";
 
 export type IdContribuinte = "quebras" | "falhas_af" | "corretivas" | "backlog" | "preventivas" | "preditiva" | "custo";
 
-export interface Contribuinte {
+interface Contribuinte {
   id: IdContribuinte;
   nome: string;
   peso: number;
@@ -44,22 +44,20 @@ export const CONTRIBUINTES: Contribuinte[] = [
     regra: "Custo real das ordens dos últimos 12 meses ÷ custo do equipamento no percentil 95 da planta " +
       "(acima dele = cheia)." },
 ];
-export const POR_ID = Object.fromEntries(CONTRIBUINTES.map((c) => [c.id, c])) as Record<IdContribuinte, Contribuinte>;
 
 export const BOA = "Boa", ATENCAO = "Atenção", CRITICA = "Crítica";
 export type Faixa = typeof BOA | typeof ATENCAO | typeof CRITICA;
 export const FAIXAS: Faixa[] = [CRITICA, ATENCAO, BOA];
 /** saúde ≥ 80 boa; 60 a 79 atenção; abaixo de 60 crítica */
 export const LIMITES = { [BOA]: 80, [ATENCAO]: 60 } as const;
-export const COR_FAIXA: Record<Faixa, string> = { [BOA]: "#0E9F46", [ATENCAO]: "#F2B705", [CRITICA]: "#E3262B" };
-export const PESO_CRITICIDADE: Record<string, number> = { Alta: 3.0, "Média": 2.0, Baixa: 1.0, "": 1.5 };
+const PESO_CRITICIDADE: Record<string, number> = { Alta: 3.0, "Média": 2.0, Baixa: 1.0, "": 1.5 };
 export const SEM_CLASSE = "Sem classe";
 export const CRITICIDADES = ["Alta", "Média", "Baixa", SEM_CLASSE];
-export const JANELA_DIAS = 365;
+const JANELA_DIAS = 365;
 
 /** Situações da preditiva (ABERTAS e ATRASADA). */
-export const PREDITIVA_ATRASADA = "Atrasada";
-export const PREDITIVA_ABERTAS = new Set(["Encerrada sem confirmação", "Em tratativa", PREDITIVA_ATRASADA, "Sem ordem"]);
+const PREDITIVA_ATRASADA = "Atrasada";
+const PREDITIVA_ABERTAS = new Set(["Encerrada sem confirmação", "Em tratativa", PREDITIVA_ATRASADA, "Sem ordem"]);
 
 export function faixa(saude: number): Faixa {
   return saude >= LIMITES[BOA] ? BOA : saude >= LIMITES[ATENCAO] ? ATENCAO : CRITICA;
@@ -73,24 +71,24 @@ export type OrdemSaude = Pick<Ordem, "situacao" | "equipChave" | "data" | "comPl
   "objeto" | "localizacao" | "centroTrabalho" | "setor">;
 
 /** Quebra: equipamento, data da nota e reincidência (≤ 30 dias da anterior). */
-export interface QuebraSaude { equipChave: string; data: Dia | null; reincidente: boolean }
+interface QuebraSaude { equipChave: string; data: Dia | null; reincidente: boolean }
 
 /** Falha do Gerenciador de AF: "Código SAP", "Situação", "Data da falha", "Duração da parada (h)". */
-export interface FalhaAfSaude { codigoSap: string; situacao: string; dataFalha: Dia | null; duracaoParada?: number | null }
+interface FalhaAfSaude { codigoSap: string; situacao: string; dataFalha: Dia | null; duracaoParada?: number | null }
 
 /** Chamada da IP19 classificada (planos.classificar): "Equipamento" e "Situação" (Atrasada, Programada…). */
-export interface ChamadaSaude { equipamento: string; situacao: string }
+interface ChamadaSaude { equipamento: string; situacao: string }
 
 /** Anomalia da preditiva (preditiva.anomalias): "Equipamento" e "Situação". */
 export interface AnomaliaSaude { equipamento: string; situacao: string }
 
 /** IH08 preparado: nome, ABC e desativado. */
-export type EquipSaude = Pick<Equipamento, "equipamento" | "denominacao" | "codigoAbc" | "desativado">;
+type EquipSaude = Pick<Equipamento, "equipamento" | "denominacao" | "codigoAbc" | "desativado">;
 
 /** Cadastro de equipamentos do site (`cadastro_equipamentos.json`): código → {criticidade, nome, …}. */
 export type CadastroEquip = Record<string, unknown>;
 
-export interface EntradasSaude {
+interface EntradasSaude {
   quebras?: QuebraSaude[] | null;
   afs?: FalhaAfSaude[] | null;
   chamadas?: ChamadaSaude[] | null;
@@ -277,7 +275,7 @@ export function calcular(ordens: OrdemSaude[], hoje: Dia, e: EntradasSaude = {})
   return out.sort((a, b) => b.risco - a.risco || a.saude - b.saude);
 }
 
-export interface ResumoSaude {
+interface ResumoSaude {
   ativos: number; media: number | null; criticos: number; criticosAlta: number; atencao: number; boaPct: number | null;
 }
 
@@ -292,7 +290,7 @@ export function resumo(t: LinhaSaude[]): ResumoSaude {
   };
 }
 
-export interface CelulaMatriz { criticidade: string; faixa: Faixa; equipamentos: number }
+interface CelulaMatriz { criticidade: string; faixa: Faixa; equipamentos: number }
 
 /** Criticidade × faixa de saúde (quantidade de equipamentos), com todas as combinações. */
 export function matriz(t: LinhaSaude[]): CelulaMatriz[] {
@@ -302,7 +300,7 @@ export function matriz(t: LinhaSaude[]): CelulaMatriz[] {
     FAIXAS.map((f) => ({ criticidade, faixa: f, equipamentos: cont.get(`${criticidade}|${f}`) ?? 0 })));
 }
 
-export interface PontoContribuinte { contribuinte: string; pontosPerdidos: number; peso: number }
+interface PontoContribuinte { contribuinte: string; pontosPerdidos: number; peso: number }
 
 /** Pontos que cada contribuinte tirou da saúde de um equipamento (para o gráfico da ficha). */
 export function contribuicao(linha: Pick<LinhaSaude, "pts">): PontoContribuinte[] {
