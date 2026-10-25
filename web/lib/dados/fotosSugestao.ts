@@ -231,12 +231,12 @@ function comPrazo<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, prazo]).finally(() => clearTimeout(t));
 }
 
-async function lerLimitado(corpo: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+async function lerLimitado(corpo: AsyncIterable<Uint8Array>, limite: number): Promise<Uint8Array> {
   const partes: Uint8Array[] = [];
   let total = 0;
   for await (const value of corpo) {
     total += value.length;
-    if (total > LIMITE_SUGESTAO) throw new SugestaoErro("imagem grande demais");
+    if (total > limite) throw new SugestaoErro("arquivo grande demais");
     partes.push(value);
   }
   const out = new Uint8Array(total);
@@ -263,18 +263,19 @@ const lookupPublico: LookupFunction = (host, opcoes, pronto) => {
     .catch((e: Error) => pronto(e as NodeJS.ErrnoException, "", 4));
 };
 
-interface Resposta { status: number; local: string | null; tamanho: number; corpo: AsyncIterable<Uint8Array> & { destroy(): void } }
+interface Resposta { status: number; local: string | null; tamanho: number; tipo: string; corpo: AsyncIterable<Uint8Array> & { destroy(): void } }
 
 /** Um pedido GET sem seguir redirecionamento, com a resolução de nome conferida e tempo limite. */
-function pedir(endereco: string, prazoMs: number): Promise<Resposta> {
+function pedir(endereco: string, prazoMs: number, aceitar: string): Promise<Resposta> {
   return new Promise((ok, falha) => {
     const req = request(endereco, {
       method: "GET",
       lookup: lookupPublico,
       timeout: prazoMs,
-      headers: { Accept: "image/jpeg,image/png,image/webp;q=0.9", "User-Agent": "Central-de-Manutencao/1.0 (foto sugerida)" },
+      headers: { Accept: aceitar, "User-Agent": "Central-de-Manutencao/1.0 (foto sugerida)" },
     }, (res) => {
-      ok({ status: res.statusCode ?? 0, local: res.headers.location ?? null, tamanho: Number(res.headers["content-length"] ?? 0), corpo: res });
+      ok({ status: res.statusCode ?? 0, local: res.headers.location ?? null, tamanho: Number(res.headers["content-length"] ?? 0),
+        tipo: String(res.headers["content-type"] ?? ""), corpo: res });
     });
     req.on("timeout", () => req.destroy(new SugestaoErro("tempo esgotado")));
     req.on("error", (e) => falha(e instanceof SugestaoErro ? e : new SugestaoErro("sem resposta")));
@@ -283,17 +284,18 @@ function pedir(endereco: string, prazoMs: number): Promise<Resposta> {
 }
 
 /**
- * Busca a imagem da sugestão no servidor: cada salto é conferido (máx. 3 redirecionamentos), tempo limite de 8 s no
- * total, até 6 MB, e o tipo vem da assinatura dos bytes. Erros não dizem o endereço (vão para o registro do servidor).
+ * Baixa um endereço conferido salto a salto (máx. 3 redirecionamentos, cada um checado; tempo limite no total; tamanho
+ * máximo; tipo recusado antes de ler o corpo, se `tipoOk` disser não). Erros não dizem o endereço.
  */
-export async function buscarImagemSugestao(urlInicial: string): Promise<{ bytes: Uint8Array; tipo: TipoImagem }> {
-  const prazo = Date.now() + PRAZO_BUSCA_MS;
+export async function baixarConferido(urlInicial: string, opcoes: { limite: number; prazoMs: number; aceitar: string;
+  tipoOk?: (tipo: string) => boolean }): Promise<{ bytes: Uint8Array; tipo: string }> {
+  const prazo = Date.now() + opcoes.prazoMs;
   let atual = urlInicial;
   for (let salto = 0; ; salto++) {
     const endereco = await urlSugestaoPublica(atual);
     const restante = prazo - Date.now();
     if (restante <= 0) throw new SugestaoErro("tempo esgotado");
-    const r = await pedir(endereco, restante);
+    const r = await pedir(endereco, restante, opcoes.aceitar);
     if ([301, 302, 303, 307, 308].includes(r.status)) {
       r.corpo.destroy();
       if (!r.local || salto >= MAX_REDIRECIONAMENTOS) throw new SugestaoErro("redirecionamentos demais");
@@ -304,20 +306,97 @@ export async function buscarImagemSugestao(urlInicial: string): Promise<{ bytes:
       r.corpo.destroy();
       throw new SugestaoErro(`resposta ${r.status}`);
     }
-    if (r.tamanho > LIMITE_SUGESTAO) {
+    if (opcoes.tipoOk && !opcoes.tipoOk(r.tipo)) {
       r.corpo.destroy();
-      throw new SugestaoErro("imagem grande demais");
+      throw new SugestaoErro("tipo de conteúdo recusado");
+    }
+    if (r.tamanho > opcoes.limite) {
+      r.corpo.destroy();
+      throw new SugestaoErro("arquivo grande demais");
     }
     const corpo = r.corpo;
     const tempo = setTimeout(() => corpo.destroy(), Math.max(0, prazo - Date.now()));
     try {
-      const bytes = await lerLimitado(corpo).catch((e) => { throw e instanceof SugestaoErro ? e : new SugestaoErro("leitura interrompida"); });
-      const tipo = tipoImagem(bytes);
-      if (!tipo) throw new SugestaoErro("o arquivo não é JPEG, PNG ou WebP");
-      return { bytes, tipo };
+      const bytes = await lerLimitado(corpo, opcoes.limite).catch((e) => { throw e instanceof SugestaoErro ? e : new SugestaoErro("leitura interrompida"); });
+      return { bytes, tipo: r.tipo };
     } finally {
       clearTimeout(tempo);
       corpo.destroy();
     }
   }
+}
+
+/** Busca a imagem da sugestão no servidor (JPEG, PNG ou WebP pela assinatura dos bytes, até 6 MB, 8 s). */
+export async function buscarImagemSugestao(urlInicial: string): Promise<{ bytes: Uint8Array; tipo: TipoImagem }> {
+  const { bytes } = await baixarConferido(urlInicial, { limite: LIMITE_SUGESTAO, prazoMs: PRAZO_BUSCA_MS,
+    aceitar: "image/jpeg,image/png,image/webp;q=0.9" });
+  const tipo = tipoImagem(bytes);
+  if (!tipo) throw new SugestaoErro("o arquivo não é JPEG, PNG ou WebP");
+  return { bytes, tipo };
+}
+
+const LIMITE_PAGINA = 2 * 1024 * 1024;
+const PRAZO_PAGINA_MS = 8_000;
+
+/** Baixa a página de origem (HTML, até 2 MB, 8 s) com as mesmas regras de endereço. Recusa o que não é text/html. */
+export async function baixarPagina(pagina: string): Promise<string> {
+  const { bytes } = await baixarConferido(pagina, { limite: LIMITE_PAGINA, prazoMs: PRAZO_PAGINA_MS,
+    aceitar: "text/html;q=0.9", tipoOk: (tipo) => /^\s*text\/html\b/i.test(tipo) });
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+// ---------------------------------------------------------------------------- imagem da página
+
+const TAG = /<(meta|link|img)\b([^>]*)>/gi;
+const ATRIBUTO = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+const IMAGEM_IGNORADA = /logo|sprite|icon|avatar|pixel|spacer|placeholder|blank/i;
+
+const decodificar = (s: string) => s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").trim();
+
+interface TagHtml { nome: string; attrs: Record<string, string> }
+
+function tagsDo(html: string): TagHtml[] {
+  return [...html.matchAll(TAG)].map((m) => {
+    const attrs: Record<string, string> = {};
+    for (const a of m[2].matchAll(ATRIBUTO)) attrs[a[1].toLowerCase()] = decodificar(a[2] ?? a[3] ?? a[4] ?? "");
+    return { nome: m[1].toLowerCase(), attrs };
+  });
+}
+
+/** Conteúdo de `<meta {campo}="{nome}" content="…">` (a primeira). */
+function metaConteudo(tags: TagHtml[], campo: "property" | "name", nome: string): string | undefined {
+  return tags.find((t) => t.nome === "meta" && (t.attrs[campo] ?? "").toLowerCase() === nome)?.attrs.content;
+}
+
+/** Endereço da imagem resolvido contra a página; só se passa na checagem (https, público). */
+function resolverImagem(src: string | undefined, base: string): string | null {
+  if (!src || /^data:/i.test(src)) return null;
+  let href: string;
+  try {
+    href = new URL(src, base).href;
+  } catch {
+    return null;
+  }
+  return urlSugestaoErro(href) ? null : href;
+}
+
+/**
+ * A imagem principal de uma página de produto, na ordem: og:image → twitter:image → link rel="image_src" → primeira
+ * <img> com src de produto (sem logo, sprite, ícone, svg ou data:). Relativa resolvida contra a página. null se nada serve.
+ */
+export function imagemDaPagina(html: string, pagina: string): string | null {
+  const tags = tagsDo(html);
+  const imgProduto = tags.find((t) => t.nome === "img" && !!t.attrs.src && !/^data:/i.test(t.attrs.src)
+    && !IMAGEM_IGNORADA.test(t.attrs.src) && !/\.svg(\?|#|$)/i.test(t.attrs.src))?.attrs.src;
+  const candidatos = [
+    metaConteudo(tags, "property", "og:image"),
+    metaConteudo(tags, "name", "twitter:image") ?? metaConteudo(tags, "property", "twitter:image"),
+    tags.find((t) => t.nome === "link" && /(^|\s)image_src(\s|$)/i.test(t.attrs.rel ?? ""))?.attrs.href,
+    imgProduto,
+  ];
+  for (const c of candidatos) {
+    const img = resolverImagem(c, pagina);
+    if (img) return img;
+  }
+  return null;
 }

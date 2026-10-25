@@ -91,6 +91,8 @@ export interface ItemComFoto {
   foto?: string | null;
   fotoRef?: FotoExterna | null;
   fotoTipo?: FotoExterna | null;
+  /** chave do cadastro de tipo que deu a foto ilustrativa (PDM, `sub:…` ou `cat:…`); sem ela, usa o `pdm` */
+  chaveTipo?: string | null;
 }
 
 /** Rótulo discreto de cada origem (a própria não tem rótulo). */
@@ -108,8 +110,9 @@ export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
     const q = new URLSearchParams({ m: codigo, k: it.fotoRef.k });
     return { origem: "referencia", url: `/api/estoque/foto/referencia?${q}`, pagina: it.fotoRef.pagina, titulo: it.fotoRef.titulo };
   }
-  if (it.fotoTipo && it.pdm) {
-    const q = new URLSearchParams({ p: it.pdm, k: it.fotoTipo.k });
+  const chaveTipo = it.chaveTipo ?? it.pdm;
+  if (it.fotoTipo && chaveTipo) {
+    const q = new URLSearchParams({ p: chaveTipo, k: it.fotoTipo.k });
     return { origem: "tipo", url: `/api/estoque/foto/tipo?${q}`, pagina: it.fotoTipo.pagina, titulo: it.fotoTipo.titulo };
   }
   return null;

@@ -68,6 +68,13 @@
 - Formato pedido pelo usuário: `docx` (Word), `pdf`, `pptx` (slides) ou `docs` (documento compartilhável).
 - Dados do informativo só de fontes reais do site (painel, indicadores); nada da empresa vai para o repositório.
 
+## Fotos automáticas
+- Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET`; o botão
+  "Buscar agora" em Fontes de dados chama o `POST` (editores, 10 buscas). Provedor e chave só nas variáveis da Vercel
+  (`BUSCA_IMAGENS_PROVEDOR`, `BUSCA_IMAGENS_CHAVE`, `BUSCA_IMAGENS_POR_DIA`; ver `web/README.md`). Lógica em
+  `lib/fotos/` (provedores, escolha, rodada) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json`,
+  `fotos_tipos.json` (PDM, `sub:` e `cat:`) e `fotos_busca_estado.json`.
+
 ## Estrutura
 - `web/`: o site (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer. É o único código do repositório:
   o site antigo (Streamlit), o robô do SAP, o sincronizador do PC e o Calendário de ordens foram apagados.

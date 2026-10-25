@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import type { FotoExterna } from "../fotoMaterial";
 import type { TipoImagem } from "./fotos";
-import { buscarImagemSugestao, chaveSugestao, SugestaoErro, urlSugestaoErro } from "./fotosSugestao";
+import { baixarPagina, buscarImagemSugestao, chaveSugestao, imagemDaPagina, SugestaoErro, urlSugestaoErro } from "./fotosSugestao";
 
 /**
  * Fotos que não são do material (cadastros `fotos_tipos.json` e `fotos_referencia.json`): cada item traz o endereço da
@@ -12,47 +12,63 @@ import { buscarImagemSugestao, chaveSugestao, SugestaoErro, urlSugestaoErro } fr
  * as mesmas regras de segurança da foto sugerida (https, host público, redirecionamentos conferidos, 8 s, 6 MB).
  */
 
-/** Um item de cadastro de foto, já conferido (o endereço da imagem passa na checagem). */
-export interface FotoCadastro { url: string; pagina: string | null; titulo: string; buscado_em: string }
+/**
+ * Um item de cadastro de foto, já conferido. `url` é o endereço da imagem (passa na checagem); pode faltar, e então
+ * só `pagina` (a página de produto) vale: o servidor tira a imagem principal dela na hora de mostrar.
+ */
+export interface FotoCadastro { url: string | null; pagina: string | null; titulo: string; buscado_em: string }
 
 /** Texto de cadastro sem caracteres de controle, cortado no tamanho pedido. */
 export const textoLimpo = (x: unknown, n: number): string =>
   typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, n) : "";
 
-/** Página de origem: link https, de até 2000 caracteres (o usuário abre; o servidor não busca). */
+/** Página de origem: link https, de até 2000 caracteres, que passa na checagem de endereço. */
 function linkPagina(x: unknown): string | null {
   if (typeof x !== "string" || !x.startsWith("https://") || x.length > 2000) return null;
   try {
-    return new URL(x).href;
+    const href = new URL(x).href;
+    return urlSugestaoErro(href) ? null : href;
   } catch {
     return null;
   }
 }
 
-/** Um item de cadastro de foto (`{ url, pagina, titulo, buscado_em }`), ou null se o endereço da imagem não serve. */
+/** Um item de cadastro de foto (`{ url?, pagina?, titulo, buscado_em }`): precisa de um endereço válido (imagem ou página). */
 export function fotoDoCadastro(item: unknown): FotoCadastro | null {
   if (!item || typeof item !== "object") return null;
   const r = item as Record<string, unknown>;
-  if (typeof r.url !== "string" || urlSugestaoErro(r.url)) return null;
+  const url = typeof r.url === "string" && !urlSugestaoErro(r.url) ? r.url : null;
+  const pagina = linkPagina(r.pagina);
+  if (!url && !pagina) return null;
   const quando = typeof r.buscado_em === "string" && !Number.isNaN(Date.parse(r.buscado_em))
     ? new Date(r.buscado_em).toISOString() : new Date(0).toISOString();
-  return { url: r.url, pagina: linkPagina(r.pagina), titulo: textoLimpo(r.titulo, 200), buscado_em: quando };
+  return { url, pagina, titulo: textoLimpo(r.titulo, 200), buscado_em: quando };
 }
+
+/** Chave da foto: o hash do endereço da imagem, ou da página quando só há a página. */
+export const chaveFoto = (f: FotoCadastro): string => chaveSugestao(f.url ?? f.pagina ?? "");
 
 /** O que a tela recebe de uma foto do cadastro: a chave, a página e o título (sem o endereço da imagem). */
 export function fotoExternaDe(f: FotoCadastro): FotoExterna {
-  return { k: chaveSugestao(f.url), pagina: f.pagina, titulo: f.titulo };
+  return { k: chaveFoto(f), pagina: f.pagina, titulo: f.titulo };
 }
 
 type Cadastro = Record<string, Record<string, unknown>>;
 const pegar = (c: Cadastro, chave: string) => (Object.hasOwn(c, chave) ? fotoDoCadastro(c[chave]) : null);
 
-/** As fotos de fabricante (pela referência do material) e de tipo (pelo PDM) de um item, prontas para a tela. */
-export function fotosExternasDoItem(material: string, pdm: string, cadRef: Cadastro, cadTipo: Cadastro):
-  { fotoRef: FotoExterna | null; fotoTipo: FotoExterna | null } {
+/**
+ * As fotos de um item prontas para a tela. Do fabricante: pela referência do material. Ilustrativa: pela primeira chave
+ * que tem foto entre o PDM, `sub:<SubCategoria>` e `cat:<Categoria>`; `chaveTipo` é a chave achada (vai na URL).
+ */
+export function fotosExternasDoItem(material: string, pdm: string, cadRef: Cadastro, cadTipo: Cadastro, sub = "", cat = ""):
+  { fotoRef: FotoExterna | null; fotoTipo: FotoExterna | null; chaveTipo: string | null } {
   const ref = pegar(cadRef, material);
-  const tipo = pdm ? pegar(cadTipo, pdm) : null;
-  return { fotoRef: ref ? fotoExternaDe(ref) : null, fotoTipo: tipo ? fotoExternaDe(tipo) : null };
+  const chaves = [pdm, sub.trim() ? `sub:${sub.trim()}` : "", cat.trim() ? `cat:${cat.trim()}` : ""].filter(Boolean);
+  for (const chave of chaves) {
+    const tipo = pegar(cadTipo, chave);
+    if (tipo) return { fotoRef: ref ? fotoExternaDe(ref) : null, fotoTipo: fotoExternaDe(tipo), chaveTipo: chave };
+  }
+  return { fotoRef: ref ? fotoExternaDe(ref) : null, fotoTipo: null, chaveTipo: null };
 }
 
 // cache em memória das imagens (por chave do endereço): até ~30 MB, sai a mais antiga. Guarda também as falhas por
@@ -96,18 +112,55 @@ async function imagem(url: string): Promise<{ bytes: Uint8Array; tipo: TipoImage
   return p;
 }
 
+// imagem principal de cada página de produto (chave = hash da página): o resultado fica; a falha, por 15 min
+const LIMITE_PAGINAS = 5_000;
+const paginasOk = new Map<string, string>();
+const paginasFalha = new Map<string, number>();
+const paginasAndando = new Map<string, Promise<string>>();
+
+/** Endereço da imagem principal da página (baixa o HTML com as regras de segurança; em cache). */
+async function imagemDaPaginaCache(pagina: string): Promise<string> {
+  const chave = chaveSugestao(pagina);
+  const pronta = paginasOk.get(chave);
+  if (pronta) return pronta;
+  const falhou = paginasFalha.get(chave);
+  if (falhou && Date.now() - falhou < PRAZO_FALHA_MS) throw new SugestaoErro("página falhou há pouco");
+  const andando = paginasAndando.get(chave);
+  if (andando) return andando;
+  const p = baixarPagina(pagina)
+    .then((html) => {
+      const img = imagemDaPagina(html, pagina);
+      if (!img) throw new SugestaoErro("a página não tem imagem de produto");
+      paginasFalha.delete(chave);
+      if (paginasOk.size >= LIMITE_PAGINAS) paginasOk.delete(paginasOk.keys().next().value!);
+      paginasOk.set(chave, img);
+      return img;
+    })
+    .catch((e) => {
+      paginasFalha.delete(chave);
+      paginasFalha.set(chave, Date.now());
+      if (paginasFalha.size > MAX_FALHAS) paginasFalha.delete(paginasFalha.keys().next().value!);
+      throw e;
+    })
+    .finally(() => paginasAndando.delete(chave));
+  paginasAndando.set(chave, p);
+  return p;
+}
+
 /**
- * Resposta com a imagem do cadastro (ou 404 se não há foto ou a busca falhou). Com a chave pedida igual à do endereço
- * atual, o navegador guarda por uma semana; se o cadastro mudou no meio, guarda nada.
+ * Resposta com a imagem do cadastro (ou 404 se não há foto ou a busca falhou). Sem endereço de imagem, a imagem sai da
+ * página de origem. Com a chave pedida igual à do endereço atual, o navegador guarda por uma semana; se o cadastro
+ * mudou no meio, guarda nada.
  */
 export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: string): Promise<NextResponse> {
   if (!f) return new NextResponse("Sem foto.", { status: 404 });
   try {
-    const img = await imagem(f.url);
+    const alvo = f.url ?? await imagemDaPaginaCache(f.pagina!);
+    const img = await imagem(alvo);
     return new NextResponse(Buffer.from(img.bytes), {
       headers: {
         "Content-Type": img.tipo,
-        "Cache-Control": chaveSugestao(f.url) === kPedida ? "private, max-age=604800" : "private, no-cache",
+        "Cache-Control": chaveFoto(f) === kPedida ? "private, max-age=604800" : "private, no-cache",
         "Content-Disposition": "inline",
         "Content-Security-Policy": "default-src 'none'; sandbox",
         "X-Content-Type-Options": "nosniff",
@@ -127,5 +180,8 @@ export function _limparCacheFotos() {
   cache.clear();
   falhas.clear();
   emAndamento.clear();
+  paginasOk.clear();
+  paginasFalha.clear();
+  paginasAndando.clear();
   bytesCache = 0;
 }

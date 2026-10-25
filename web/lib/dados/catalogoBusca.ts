@@ -6,6 +6,7 @@ import { lerCadastro } from "./cadastros";
 import { fotosExternasDoItem } from "./fotosExternas";
 import { ARQUIVO_REFERENCIA } from "./fotosReferencia";
 import { ARQUIVO_TIPOS } from "./fotosTipo";
+import { pdmEfetivo, pdmsConhecidos } from "./pdmDeducao";
 import { ATIVOS, INATIVOS, type ItemCatalogo } from "./materiais";
 import { casaBusca, normalizarBusca } from "./texto";
 
@@ -91,12 +92,13 @@ export async function buscarCatalogo(f: FiltroCatalogo) {
   }
   // as fotos só para a página pedida (o cadastro é lido de novo a cada pedido: é barato, tem cache pela versão)
   const [cadMat, cadRef, cadTipo] = await Promise.all([lerCadastro("cadastro_materiais.json"), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_TIPOS)]);
+  const pdms = pdmsConhecidos(ind.itens);
   const fatia = achados.slice(f.cursor, f.cursor + f.limite).map((i) => {
     const c = ind.itens[i];
     // o código pode vir com zeros à esquerda no Sysmat e sem eles no MB52 (onde as fotos são gravadas)
     const codigo = Object.hasOwn(cadMat, c.material) || Object.hasOwn(cadRef, c.material) ? c.material : semZeros(c.material);
     const foto = fotosDoCadastro(cadMat[codigo] as { foto?: unknown; fotos?: unknown } | undefined)[0] ?? null;
-    return { ...c, foto, ...(codigo !== c.material && { codigoFoto: codigo }), ...fotosExternasDoItem(codigo, c.pdm, cadRef, cadTipo) };
+    return { ...c, foto, ...(codigo !== c.material && { codigoFoto: codigo }), ...fotosExternasDoItem(codigo, pdmEfetivo(c.pdm, c.descricaoCurta, pdms), cadRef, cadTipo, c.subcategoria, c.categoria) };
   });
   const proximo = f.cursor + f.limite < achados.length ? f.cursor + f.limite : null;
   return { itens: fatia, total: achados.length, proximo };
