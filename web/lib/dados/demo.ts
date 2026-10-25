@@ -91,6 +91,9 @@ const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<s
   ["cadastro_materiais.json", {}],
   ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] } }],
   ["metas_wcm.json", orcamentoDemo(hoje())],
+  // uma sugestão de foto de exemplo (o endereço não existe: a tela mostra que não carregou)
+  ["sugestoes_fotos.json", { "500000": { sugestoes: [{ url: "https://exemplo.invalid/foto-sugerida.jpg",
+    pagina: "https://exemplo.invalid/produto", titulo: "Exemplo de sugestão (demonstração)" }], buscado_em: "2026-01-01T00:00:00+00:00" } }],
   ["tipos_ordem.json", { YM01: { descricao: "Preventiva" }, YM03: { descricao: "Preditiva / inspeção" },
     YM11: { descricao: "Corretiva Emergencial" }, YM12: { descricao: "Corretiva programada" }, YM13: { descricao: "Melhoria" } }],
 ]));

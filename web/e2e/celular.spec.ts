@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { entrarNaDemo, telaAbriu } from "./apoio";
 
-// no celular: o Estoque (única tela de Terceiro e Manutentor) abre e não rola para o lado
+// no celular: o Estoque (tela principal de Terceiro e Manutentor) abre e não rola para o lado
 test("estoque no celular", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/estoque");

@@ -8,12 +8,32 @@ import { useMemo, useRef, useState } from "react";
 import { Campo, Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
+import { LIMITE_DOCUMENTO, LIMITE_MANUAL_GRANDE, TAMANHO_PARTE } from "@/lib/limitesManual";
 
 export interface EqTela { codigo: string; nome: string; campo: string; area: string }
 export interface AcervoTela { titulo: string; url: string; fonte: string; area: string }
 
 const MAX_LOTE = 50;
 const MOSTRAR = 60;
+/** Até aqui, o arquivo vai num pedido só; acima, em partes (cada parte cabe no limite da Vercel). */
+const LIMITE_SIMPLES = LIMITE_DOCUMENTO;
+const LIMITE_GRANDE = LIMITE_MANUAL_GRANDE;
+/** Uma parte tem 3 tentativas (a 1ª e 2 novas) antes de desistir. */
+const TENTATIVAS_PARTE = 3;
+
+/** Falha de um pedido: `repetir` quando vale tentar de novo (rede ou erro do servidor), não quando a regra recusou. */
+class ErroEnvio extends Error {
+  constructor(mensagem: string, readonly repetir: boolean) {
+    super(mensagem);
+  }
+}
+
+async function pedir(url: string, init: RequestInit, padrao: string): Promise<Record<string, unknown>> {
+  const r = await fetch(url, { method: "POST", ...init }).catch(() => null);
+  const j = ((await r?.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
+  if (!r?.ok) throw new ErroEnvio(String(j.erro || padrao), !r || r.status >= 500);
+  return j;
+}
 
 /**
  * Vincular um manual (arquivo ou link) a um ou mais equipamentos. O link pode vir do acervo de referência do Suporte
@@ -30,6 +50,7 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
   const [buscaAcervo, setBuscaAcervo] = useState("");
   const [escolhidoAcervo, setEscolhidoAcervo] = useState("");
   const [estado, setEstado] = useState({ enviando: false, erro: "", ok: "" });
+  const [progresso, setProgresso] = useState<{ feitas: number; total: number } | null>(null);
 
   const achados = useMemo(() => equipamentos.filter((e) =>
     casaBusca(normalizarBusca([e.codigo, e.campo, e.nome, e.area].join(" ")), busca)), [equipamentos, busca]);
@@ -48,30 +69,82 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
     setUrl(item.url);
   };
 
+  /** Arquivo grande: inicia o envio, manda as partes em ordem (cada uma com novas tentativas) e conclui. */
+  const enviarEmPartes = async (f: File, eqs: string[], titulo: string) => {
+    const total = Math.ceil(f.size / TAMANHO_PARTE);
+    const { envio } = await pedir("/api/manuais/partes?acao=iniciar",
+      { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eqs, titulo, nome: f.name, tamanho: f.size }) },
+      "Não foi possível iniciar o envio.") as { envio: string };
+    setProgresso({ feitas: 0, total });
+    try {
+      for (let i = 0; i < total; i++) {
+        const parte = f.slice(i * TAMANHO_PARTE, Math.min(f.size, (i + 1) * TAMANHO_PARTE));
+        for (let t = 1; ; t++) {
+          const form = new FormData();
+          form.set("envio", envio);
+          form.set("indice", String(i));
+          form.append("arquivo", parte, f.name);
+          try {
+            await pedir("/api/manuais/partes?acao=parte", { body: form }, "Não foi possível enviar a parte.");
+            break;
+          } catch (e) {
+            const erroParte = e instanceof ErroEnvio ? e : new ErroEnvio("Não foi possível enviar a parte.", true);
+            if (!erroParte.repetir || t >= TENTATIVAS_PARTE) {
+              throw new ErroEnvio(`Não foi possível enviar a parte ${i + 1} de ${total}. ${erroParte.message} Tente de novo.`, false);
+            }
+          }
+        }
+        setProgresso({ feitas: i + 1, total });
+      }
+      const j = await pedir("/api/manuais/partes?acao=concluir", { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ envio }) },
+        "Não foi possível concluir o envio.");
+      return Number(j.vinculados) || eqs.length;
+    } catch (e) {
+      // desistiu: pede para apagar as partes já enviadas (se falhar, o servidor apaga quando o envio vencer)
+      void fetch("/api/manuais/partes?acao=cancelar", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ envio }) }).catch(() => undefined);
+      throw e;
+    }
+  };
+
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formulario = e.currentTarget;
     if (!marcados.length) { setEstado({ enviando: false, erro: "Escolha pelo menos um equipamento.", ok: "" }); return; }
-    const form = new FormData();
-    for (const c of marcados) form.append("eqs", c);
-    form.set("titulo", titulo);
-    if (modo === "arquivo") {
-      const f = arquivo.current?.files?.[0];
-      if (!f) { setEstado({ enviando: false, erro: "Escolha o arquivo (PDF ou imagem).", ok: "" }); return; }
-      if (f.size > 4_000_000) { setEstado({ enviando: false, erro: "O arquivo passou de 4 MB. Para manuais maiores, use o link.", ok: "" }); return; }
-      form.set("arquivo", f);
-    } else {
-      if (!url.trim()) { setEstado({ enviando: false, erro: "Informe o link.", ok: "" }); return; }
-      form.set("url", url.trim());
-    }
+    const eqs = marcados;
+    const tituloManual = titulo;
+    let n: number;
     setEstado({ enviando: true, erro: "", ok: "" });
-    const r = await fetch("/api/manuais", { method: "POST", body: form }).catch(() => null);
-    const j = await r?.json().catch(() => ({})) ?? {};
-    if (!r?.ok) {
-      setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo passou de 4 MB. Para manuais maiores, use o link." : "Não foi possível vincular."), ok: "" });
+    try {
+      if (modo === "arquivo") {
+        const f = arquivo.current?.files?.[0];
+        if (!f) { setEstado({ enviando: false, erro: "Escolha o arquivo (PDF ou imagem).", ok: "" }); return; }
+        if (f.size > LIMITE_GRANDE) { setEstado({ enviando: false, erro: "O arquivo passa de 100 MB. Para manuais maiores, use o link.", ok: "" }); return; }
+        if (f.size > LIMITE_SIMPLES) {
+          n = await enviarEmPartes(f, eqs, tituloManual);
+        } else {
+          const form = new FormData();
+          for (const c of eqs) form.append("eqs", c);
+          form.set("titulo", tituloManual);
+          form.set("arquivo", f);
+          const j = await pedir("/api/manuais", { body: form }, "Não foi possível vincular.");
+          n = Number(j.vinculados) || eqs.length;
+        }
+      } else {
+        if (!url.trim()) { setEstado({ enviando: false, erro: "Informe o link.", ok: "" }); return; }
+        const form = new FormData();
+        for (const c of eqs) form.append("eqs", c);
+        form.set("titulo", tituloManual);
+        form.set("url", url.trim());
+        const j = await pedir("/api/manuais", { body: form }, "Não foi possível vincular.");
+        n = Number(j.vinculados) || eqs.length;
+      }
+    } catch (err) {
+      setProgresso(null);
+      setEstado({ enviando: false, erro: err instanceof Error ? err.message : "Não foi possível vincular.", ok: "" });
       return;
     }
-    const n = Number(j.vinculados) || marcados.length;
+    setProgresso(null);
     formulario.reset();
     setMarcados([]);
     setTitulo("");
@@ -132,9 +205,10 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
             placeholder="Ex.: Manual de operação da prensa" />
           {modo === "arquivo" ? (
             <label className="block">
-              <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (até 4 MB)</span>
+              <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (até 100 MB)</span>
               <input ref={arquivo} name="arquivo" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
                 className="block min-h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 py-2 text-[13.5px] text-texto file:mr-3 file:rounded-lg file:border-0 file:bg-superficie-3 file:px-3 file:py-1.5 file:text-texto" />
+              <span className="mt-1.5 block text-[12px] text-texto-3">Acima de 4 MB, o envio é feito em partes. Não feche a página até terminar.</span>
             </label>
           ) : (
             <Campo rotulo="Link" name="url" type="url" inputMode="url" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -156,6 +230,18 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
         )}
       </fieldset>
 
+      {progresso && (
+        <div className="space-y-1.5">
+          <p className="text-[13px] text-texto-2" aria-live="polite">
+            {progresso.feitas < progresso.total ? `Enviando parte ${progresso.feitas + 1} de ${progresso.total}` : "Concluindo o envio…"}
+          </p>
+          <div role="progressbar" aria-label="Envio do manual" aria-valuemin={0} aria-valuemax={progresso.total} aria-valuenow={progresso.feitas}
+            aria-valuetext={`${progresso.feitas} de ${progresso.total} partes`}
+            className="h-2 w-full overflow-hidden rounded-full bg-superficie-3">
+            <div className="h-full bg-[var(--acao)] transition-[width]" style={{ width: `${(progresso.feitas / progresso.total) * 100}%` }} />
+          </div>
+        </div>
+      )}
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
       <div className="flex flex-wrap gap-2">

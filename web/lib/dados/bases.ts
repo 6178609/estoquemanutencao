@@ -1,6 +1,8 @@
 import "server-only";
 
 import { lerCadastro } from "./cadastros";
+import { sugestoesDosMateriais } from "./fotosSugestao";
+import type { SugestaoPublica } from "../fotoMaterial";
 import { dadosDemo } from "./demo";
 import { fonte } from "./fonte";
 import { lerParquet } from "./parquet";
@@ -130,6 +132,8 @@ export interface Almoxarifado {
   itens: ItemAlmox[];
   estoque: Base<ItemEstoque[]>;
   catalogo: Base<ItemCatalogo[]>;
+  /** Fotos sugeridas por material (só os do MB52), sem o endereço da imagem. */
+  sugestoes: Record<string, SugestaoPublica[]>;
 }
 
 export async function almoxarifado(): Promise<Almoxarifado> {
@@ -137,5 +141,6 @@ export async function almoxarifado(): Promise<Almoxarifado> {
     estoque(), catalogo(), lerCadastro("cadastro_materiais.json"), lerCadastro("cadastro_equipamentos.json"),
   ]);
   const itens = est.dados ? montarAlmox(est.dados, cat.dados, cadMat, usoDosMateriais(cadEq)) : [];
-  return { itens, estoque: est, catalogo: cat };
+  const sugestoes = await sugestoesDosMateriais(new Set(itens.map((i) => i.material)));
+  return { itens, estoque: est, catalogo: cat, sugestoes };
 }

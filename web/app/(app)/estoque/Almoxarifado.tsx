@@ -2,15 +2,15 @@
 
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
-import { Camera, Download, ImageOff, ImagePlus, LoaderCircle, PackageSearch, Save, Wrench } from "lucide-react";
-import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Camera, Check, ChevronLeft, ChevronRight, Download, ImageOff, ImagePlus, LoaderCircle, PackageSearch, Save, Star, Trash2, Wrench, X } from "lucide-react";
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
-import { urlFotoMaterial } from "@/lib/fotoMaterial";
+import { MAX_FOTOS, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMaterial";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
@@ -128,8 +128,10 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
   );
 }
 
-export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; edita: boolean }) {
+export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais }: { itens: ItemAlmox[]; edita: boolean;
+  sugestoes: Record<string, SugestaoPublica[]> }) {
   const [itens, setItens] = useState(iniciais);
+  const [sugestoes, setSugestoes] = useState(sugestoesIniciais);
   const [busca, setBusca] = useState("");
   const buscaAdiada = useDeferredValue(busca);
   const [situacao, setSituacao] = useState<Situacao>("todos");
@@ -138,6 +140,10 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
   const [depositos, setDepositos] = useState<string[]>([]);
   const [ordem, setOrdem] = useState<Ordem>("situacao");
   const [aberto, setAberto] = useState<ItemAlmox | null>(null);
+  // foto a mostrar no carrossel depois da próxima mudança da lista (guardada aqui, fora do estado: não redesenha a tela)
+  const pedido = useRef<PedidoFoto>(null);
+  const pedirFoto = useCallback((p: PedidoFoto) => { pedido.current = p; }, []);
+  const lerPedido = useCallback(() => pedido.current, []);
 
   const textoBusca = useMemo(() => itens.map((i) =>
     normalizarBusca([i.material, i.descricao, i.descrCompleta, i.fabricanteRef, i.sysmat, i.categoria].join(" "))), [itens]);
@@ -227,9 +233,17 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
     }));
     setAberto((a) => (a && a.material === material ? { ...a, minimo } : a));
   }, []);
-  const aoFoto = useCallback((material: string, foto: string) => {
-    setItens((atual) => atual.map((i) => (i.material === material ? { ...i, foto } : i)));
-    setAberto((a) => (a && a.material === material ? { ...a, foto } : a));
+  const aoFotos = useCallback((material: string, fotos: string[]) => {
+    setItens((atual) => atual.map((i) => (i.material === material ? { ...i, fotos, foto: fotos[0] ?? null } : i)));
+    setAberto((a) => (a && a.material === material ? { ...a, fotos, foto: fotos[0] ?? null } : a));
+  }, []);
+  const aoSugestoes = useCallback((material: string, lista: SugestaoPublica[]) => {
+    setSugestoes((atual) => {
+      const r = { ...atual };
+      if (lista.length) r[material] = lista;
+      else delete r[material];
+      return r;
+    });
   }, []);
 
   return (
@@ -250,7 +264,7 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
         {ordenar("ordem-celular")}
       </div>
 
-      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a visão geral, a ficha técnica e a foto (qualquer pessoa pode pôr ou trocar a foto){edita ? " e ajustar o mínimo" : ""}.</p>
+      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a visão geral, a ficha técnica e a foto (qualquer pessoa pode incluir ou trocar as fotos){edita ? " e ajustar o mínimo" : ""}.</p>
 
       <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {visiveis.length === 0 ? (
@@ -272,20 +286,70 @@ export function Almoxarifado({ itens: iniciais, edita }: { itens: ItemAlmox[]; e
       <Gaveta aberta={!!aberto} aoFechar={() => setAberto(null)}
         titulo={aberto && <><span className="num font-mono text-acao-500">{aberto.material}</span> · {aberto.descricao}</>}
         subtitulo={aberto && `${aberto.cadastro === "Ativo" ? "Cadastro ativo" : aberto.cadastro}${aberto.sysmat ? ` · Sysmat ${aberto.sysmat}` : ""}`}>
-        {aberto && <Detalhe it={aberto} edita={edita} aoSalvar={aoSalvar} aoFoto={aoFoto} />}
+        {aberto && <Detalhe it={aberto} edita={edita} aoSalvar={aoSalvar} aoFotos={aoFotos} sugestoes={sugestoes[aberto.material] ?? []} aoSugestoes={aoSugestoes}
+          pedirFoto={pedirFoto} lerPedido={lerPedido} />}
       </Gaveta>
     </div>
   );
 }
 
-/** A foto do material na visão geral: qualquer pessoa com acesso ao Estoque tira ou escolhe uma e envia. */
-function FotoMaterial({ it, aoFoto }: { it: ItemAlmox; aoFoto: (m: string, foto: string) => void }) {
+/** Chamada ao servidor: devolve o JSON, ou lança com a mensagem dele. */
+async function pedirJson<T>(url: string, init: RequestInit): Promise<T> {
+  const r = await fetch(url, init);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erro || "Não foi possível concluir agora; tente de novo.");
+  return j as T;
+}
+const JSON_HEADERS = { "Content-Type": "application/json" };
+/** Foto a mostrar no carrossel depois que a lista do material muda (a nova, a principal, a que sobrou). */
+type PedidoFoto = { material: string; k: number } | null;
+const FRAME = "relative aspect-[4/3] overflow-hidden rounded-2xl border border-borda bg-white";
+
+/**
+ * As fotos do material num carrossel (até 8): moldura 4:3 branca, foto inteira com folga (object-contain). No celular
+ * desliza com o dedo (scroll-snap); no teclado, ← e →; as setas e os pontos levam a cada foto.
+ */
+function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; aoFotos: (m: string, fotos: string[]) => void;
+  pedirFoto: (p: PedidoFoto) => void; lerPedido: () => PedidoFoto }) {
   const camera = useRef<HTMLInputElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
-  const [estado, setEstado] = useState<{ enviando: boolean; erro: string; ok: string }>({ enviando: false, erro: "", ok: "" });
-  const [falhou, setFalhou] = useState(false);
-  const url = urlFoto(it);
-  const tem = !!url && !falhou;
+  const trilho = useRef<HTMLDivElement>(null);
+  const fotos = it.fotos;
+  const n = fotos.length;
+  const cheio = n >= MAX_FOTOS;
+  const [atual, setAtual] = useState(0);
+  const [falhou, setFalhou] = useState<string[]>([]);
+  const [confirmar, setConfirmar] = useState(false);
+  const [estado, setEstado] = useState({ enviando: false, erro: "", ok: "" });
+
+  // a lista mudou (foto nova, principal trocada ou removida): mostra a foto certa
+  useEffect(() => {
+    const el = trilho.current;
+    const p = lerPedido();
+    const meu = !!p && p.material === it.material;
+    if (meu) pedirFoto(null);
+    const alvo = Math.min(Math.max(meu ? p.k : 0, 0), Math.max(fotos.length - 1, 0));
+    el?.scrollTo({ left: alvo * (el.clientWidth || 0), behavior: "auto" });
+    setAtual(alvo);
+  }, [fotos, it.material, lerPedido, pedirFoto]);
+
+  const aoRolar = () => {
+    const el = trilho.current;
+    if (!el || !el.clientWidth) return;
+    const k = Math.round(el.scrollLeft / el.clientWidth);
+    if (k !== atual) setAtual(k);
+  };
+  const irPara = (k: number) => {
+    const el = trilho.current;
+    const alvo = Math.min(Math.max(k, 0), n - 1);
+    el?.scrollTo({ left: alvo * (el.clientWidth || 0), behavior: "smooth" });
+    setAtual(alvo);
+  };
+  const teclas = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft") { e.preventDefault(); irPara(atual - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); irPara(atual + 1); }
+  };
+
   const enviar = async (alvo: HTMLInputElement) => {
     const arquivo = alvo.files?.[0];
     if (!arquivo) return;
@@ -296,55 +360,251 @@ function FotoMaterial({ it, aoFoto }: { it: ItemAlmox; aoFoto: (m: string, foto:
       corpo.set("material", it.material);
       corpo.set("foto", foto, "foto.jpg");
       if (mini) corpo.set("mini", mini, "mini.jpg");
-      const r = await fetch("/api/estoque/foto", { method: "POST", body: corpo });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.erro || "Não foi possível enviar a foto.");
-      setFalhou(false);
-      aoFoto(it.material, j.foto);
-      setEstado({ enviando: false, erro: "", ok: "Foto enviada." });
+      const j = await pedirJson<{ fotos: string[] }>("/api/estoque/foto", { method: "POST", body: corpo });
+      pedirFoto({ material: it.material, k: j.fotos.length - 1 }); // a foto nova aparece no fim
+      aoFotos(it.material, j.fotos);
+      setEstado({ enviando: false, erro: "", ok: "Foto adicionada." });
     } catch (e) {
       setEstado({ enviando: false, erro: (e as Error).message, ok: "" });
     } finally {
       alvo.value = "";
     }
   };
-  const botao = (rotulo: string, icone: React.ReactNode, principal: boolean, abrir: () => void) => (
-    <button type="button" onClick={abrir} disabled={estado.enviando} aria-busy={estado.enviando}
-      className={clsx(principal ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO, "flex-1")}>
+
+  const alterar = async (acao: "principal" | "remover", ref: string) => {
+    setEstado({ enviando: true, erro: "", ok: "" });
+    setConfirmar(false);
+    try {
+      const j = await pedirJson<{ fotos: string[] }>("/api/estoque/foto/alterar",
+        { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ material: it.material, acao, foto: ref }) });
+      pedirFoto({ material: it.material, k: acao === "principal" ? 0 : Math.min(atual, Math.max(j.fotos.length - 1, 0)) });
+      aoFotos(it.material, j.fotos);
+      setEstado({ enviando: false, erro: "", ok: acao === "principal" ? "Foto principal trocada." : "Foto removida." });
+    } catch (e) {
+      setEstado({ enviando: false, erro: (e as Error).message, ok: "" });
+    }
+  };
+
+  const botao = (rotulo: string, icone: React.ReactNode, principal: boolean, entrada: React.RefObject<HTMLInputElement | null>, desligado = false) => (
+    <button type="button" onClick={() => entrada.current?.click()} disabled={estado.enviando || desligado} aria-busy={estado.enviando}
+      className={clsx(principal ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO, "flex-1 sm:flex-none")}>
       {estado.enviando && principal ? <LoaderCircle className="size-4 animate-spin" /> : icone}
       {estado.enviando && principal ? "Enviando…" : rotulo}
     </button>
   );
+
   return (
     <section className="space-y-3">
-      <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl border border-borda bg-superficie-2">
-        {tem ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={`Foto do material ${it.material}`} className="size-full bg-white object-contain" onError={() => setFalhou(true)} />
-        ) : (
+      {n > 0 ? (
+        <div className="relative">
+          <div ref={trilho} role="region" aria-roledescription="carrossel" aria-label={`Fotos do material ${it.material}`}
+            tabIndex={0} onKeyDown={teclas} onScroll={aoRolar}
+            className="flex snap-x snap-mandatory overflow-x-auto rounded-2xl outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {fotos.map((ref, k) => {
+              const url = urlFotoMaterial(it.material, ref);
+              return (
+                <figure key={ref} role="group" aria-roledescription="slide" aria-label={`${k + 1} de ${n}`} className="w-full shrink-0 snap-start">
+                  <div className={FRAME}>
+                    {url && !falhou.includes(ref) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={url} alt={`Foto ${k + 1} de ${n} do material ${it.material}`} loading={k < 2 ? "eager" : "lazy"} decoding="async"
+                        className="size-full object-contain p-6" onError={() => setFalhou((f) => [...f, ref])} />
+                    ) : (
+                      <div className="grid size-full place-items-center gap-2 px-6 text-center text-[13.5px] text-texto-3">
+                        <ImageOff className="size-7" aria-hidden />Não foi possível carregar esta foto.
+                      </div>
+                    )}
+                  </div>
+                </figure>
+              );
+            })}
+          </div>
+          {n > 1 && (
+            <>
+              <button type="button" aria-label="Foto anterior" onClick={() => irPara(atual - 1)} disabled={atual === 0}
+                className="absolute left-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full border border-borda bg-white/95 shadow-cartao transition hover:bg-superficie-2 disabled:opacity-40">
+                <ChevronLeft className="size-5" aria-hidden />
+              </button>
+              <button type="button" aria-label="Próxima foto" onClick={() => irPara(atual + 1)} disabled={atual >= n - 1}
+                className="absolute right-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full border border-borda bg-white/95 shadow-cartao transition hover:bg-superficie-2 disabled:opacity-40">
+                <ChevronRight className="size-5" aria-hidden />
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className={clsx(FRAME, "grid place-items-center")}>
           <div className="flex flex-col items-center gap-2 px-6 text-center text-[13.5px] text-texto-3">
             <ImageOff className="size-7" aria-hidden />
             Este material ainda não tem foto.
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {n > 1 && (
+        <div className="flex items-center justify-between gap-3">
+          <div role="group" aria-label="Escolher foto" className="flex flex-wrap items-center">
+            {fotos.map((ref, k) => (
+              <button key={ref} type="button" onClick={() => irPara(k)} aria-label={`Ir para a foto ${k + 1}`} aria-current={atual === k}
+                className="grid size-9 place-items-center">
+                <span className={clsx("h-2 rounded-full transition-all", atual === k ? "w-6 bg-acao" : "w-2 bg-[var(--texto-4)]")} />
+              </button>
+            ))}
+          </div>
+          <p className="num text-sm font-medium text-texto-2">{atual + 1} de {n}</p>
+        </div>
+      )}
+
       {/* dois campos: com "capture" o celular abre direto a câmera; sem ele, deixa escolher da galeria */}
       <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden
         onChange={(e) => enviar(e.currentTarget)} />
       <input ref={galeria} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden
         onChange={(e) => enviar(e.currentTarget)} />
       <div className="flex flex-wrap gap-2">
-        {botao(tem ? "Nova foto" : "Tirar foto", <Camera className="size-4" />, true, () => camera.current?.click())}
-        {botao("Da galeria", <ImagePlus className="size-4" />, false, () => galeria.current?.click())}
+        {botao("Adicionar foto", <Camera className="size-4" />, true, camera, cheio)}
+        {botao("Da galeria", <ImagePlus className="size-4" />, false, galeria, cheio)}
       </div>
+      {cheio && <p className="text-sm text-texto-3">Este material já tem {MAX_FOTOS} fotos. Remova uma para pôr outra.</p>}
+
+      {n > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {atual === 0 ? (
+            <Selo cor="verde"><Star className="size-3" /> Foto principal</Selo>
+          ) : (
+            <button type="button" onClick={() => alterar("principal", fotos[atual])} disabled={estado.enviando} className={BOTAO_SECUNDARIO}>
+              <Star className="size-4" /> Tornar principal
+            </button>
+          )}
+          {!confirmar ? (
+            <button type="button" onClick={() => setConfirmar(true)} disabled={estado.enviando}
+              className="inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-[var(--selo-critico-texto)] hover:bg-[var(--selo-critico-fundo)] lg:h-9">
+              <Trash2 className="size-4" /> Remover
+            </button>
+          ) : (
+            <div role="group" aria-label="Confirmar remoção" className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--selo-critico-fundo)] px-3 py-2 text-sm text-[var(--selo-critico-texto)]">
+              <span>Remover esta foto do material?</span>
+              <button type="button" onClick={() => alterar("remover", fotos[atual])} className="font-semibold underline underline-offset-2">Sim, remover</button>
+              <button type="button" onClick={() => setConfirmar(false)} className="font-medium underline underline-offset-2">Cancelar</button>
+            </div>
+          )}
+        </div>
+      )}
+
       <p aria-live="polite" className={clsx("text-sm", estado.ok ? "text-[var(--selo-bom-texto)]" : "sr-only")}>{estado.ok}</p>
       {estado.erro && <p role="alert" className="rounded-lg bg-[var(--selo-critico-fundo)] px-3 py-2 text-sm text-[var(--selo-critico-texto)]">{estado.erro}</p>}
     </section>
   );
 }
 
-function Detalhe({ it, edita, aoSalvar, aoFoto }: { it: ItemAlmox; edita: boolean; aoSalvar: (m: string, v: number | null) => void;
-  aoFoto: (m: string, foto: string) => void }) {
+/** Uma foto sugerida: se o navegador não abre a imagem (o servidor recusou ou o site não responde), avisa no lugar. */
+function FotoSugerida({ src, titulo }: { src: string; titulo: string }) {
+  const [falhou, setFalhou] = useState(false);
+  if (falhou) {
+    return (
+      <div className="grid size-full place-items-center gap-2 px-4 text-center text-[13px] text-texto-3">
+        <ImageOff className="size-6" aria-hidden />Não foi possível carregar a sugestão.
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={`Foto sugerida: ${titulo || "sem título"}`} loading="lazy" decoding="async" className="size-full object-contain p-4" onError={() => setFalhou(true)} />;
+}
+
+/** Fotos sugeridas pela busca na web: a pessoa confere se é o mesmo item antes de aprovar. */
+function SugestoesFoto({ material, lista, cheio, aoFotos, aoSugestoes, pedirFoto }: { material: string; lista: SugestaoPublica[]; cheio: boolean;
+  aoFotos: (m: string, fotos: string[]) => void; aoSugestoes: (m: string, lista: SugestaoPublica[]) => void;
+  pedirFoto: (p: PedidoFoto) => void }) {
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [erro, setErro] = useState<{ k: string; msg: string } | null>(null);
+  const urlImagem = (s: SugestaoPublica) => `/api/estoque/foto/sugestao?m=${encodeURIComponent(material)}&i=${s.i}&k=${s.k}`;
+
+  const descartar = async (s: SugestaoPublica) => {
+    setOcupado(s.k);
+    setErro(null);
+    try {
+      const j = await pedirJson<{ sugestoes: SugestaoPublica[] }>("/api/estoque/foto/sugestao",
+        { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ material, k: s.k }) });
+      aoSugestoes(material, j.sugestoes);
+    } catch (e) {
+      setErro({ k: s.k, msg: (e as Error).message });
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const aprovar = async (s: SugestaoPublica) => {
+    setOcupado(s.k);
+    setErro(null);
+    let foto: Blob, mini: Blob | null;
+    try {
+      // a imagem vem pela rota do site (o endereço fica no cadastro), passa pela mesma redução da foto do aparelho
+      const r = await fetch(urlImagem(s));
+      if (!r.ok) throw new Error("Não foi possível carregar a sugestão. Tente de novo ou descarte.");
+      const blob = await r.blob();
+      ({ foto, mini } = await prepararFoto(new File([blob], "sugestao", { type: blob.type })));
+      const corpo = new FormData();
+      corpo.set("material", material);
+      corpo.set("foto", foto, "foto.jpg");
+      if (mini) corpo.set("mini", mini, "mini.jpg");
+      const j = await pedirJson<{ fotos: string[] }>("/api/estoque/foto", { method: "POST", body: corpo });
+      pedirFoto({ material, k: j.fotos.length - 1 }); // a sugestão aprovada vira a última foto
+      aoFotos(material, j.fotos);
+    } catch (e) {
+      setErro({ k: s.k, msg: (e as Error).message });
+      setOcupado(null);
+      return;
+    }
+    try {
+      const j = await pedirJson<{ sugestoes: SugestaoPublica[] }>("/api/estoque/foto/sugestao",
+        { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ material, k: s.k }) });
+      aoSugestoes(material, j.sugestoes);
+    } catch {
+      setErro({ k: s.k, msg: "A foto foi adicionada, mas a sugestão continua na lista. Use Descartar para tirá-la." });
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-dashed border-borda-forte p-4">
+      <div>
+        <h3 className="font-display font-bold">Fotos sugeridas</h3>
+        <p className="text-sm text-texto-3">Fotos encontradas na web. Confira se é o mesmo item antes de aprovar.</p>
+      </div>
+      {cheio && <p className="text-sm text-texto-3">Este material já tem {MAX_FOTOS} fotos; remova uma para aprovar outra.</p>}
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {lista.map((s) => (
+          <li key={s.k} className="grid gap-3 rounded-xl border border-borda bg-white p-3">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-borda bg-white">
+              <FotoSugerida src={urlImagem(s)} titulo={s.titulo} />
+            </div>
+            <div className="min-w-0 text-sm">
+              <div className="font-medium">{s.titulo || "Sem título"}</div>
+              {s.pagina && (
+                <a href={s.pagina} target="_blank" rel="noopener noreferrer" className="break-all text-acao underline underline-offset-2">Ver página de origem</a>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => aprovar(s)} disabled={ocupado !== null || cheio} aria-busy={ocupado === s.k}
+                className={clsx(BOTAO_PRIMARIO, "flex-1 sm:flex-none")}>
+                {ocupado === s.k ? <LoaderCircle className="size-4 animate-spin" /> : <Check className="size-4" />} Aprovar
+              </button>
+              <button type="button" onClick={() => descartar(s)} disabled={ocupado !== null} className={clsx(BOTAO_SECUNDARIO, "flex-1 sm:flex-none")}>
+                <X className="size-4" /> Descartar
+              </button>
+            </div>
+            {erro?.k === s.k && <p role="alert" className="rounded-lg bg-[var(--selo-critico-fundo)] px-3 py-2 text-sm text-[var(--selo-critico-texto)]">{erro.msg}</p>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFoto, lerPedido }: { it: ItemAlmox; edita: boolean;
+  aoSalvar: (m: string, v: number | null) => void; aoFotos: (m: string, fotos: string[]) => void;
+  sugestoes: SugestaoPublica[]; aoSugestoes: (m: string, lista: SugestaoPublica[]) => void;
+  pedirFoto: (p: PedidoFoto) => void; lerPedido: () => PedidoFoto }) {
   const [valor, setValor] = useState(it.minimo == null ? "" : String(it.minimo).replace(".", ","));
   const [estado, setEstado] = useState<{ gravando: boolean; msg: string; erro: boolean }>({ gravando: false, msg: "", erro: false });
   const salvar = async () => {
@@ -365,7 +625,11 @@ function Detalhe({ it, edita, aoSalvar, aoFoto }: { it: ItemAlmox; edita: boolea
   ];
   return (
     <>
-      <FotoMaterial key={it.material} it={it} aoFoto={aoFoto} />
+      <FotoMaterial key={it.material} it={it} aoFotos={aoFotos} pedirFoto={pedirFoto} lerPedido={lerPedido} />
+      {sugestoes.length > 0 && (
+        <SugestoesFoto key={it.material} material={it.material} lista={sugestoes} cheio={it.fotos.length >= MAX_FOTOS}
+          aoFotos={aoFotos} aoSugestoes={aoSugestoes} pedirFoto={pedirFoto} />
+      )}
       <div className="grid grid-cols-2 gap-3">
         {cartoes.map((c) => (
           <div key={c.r} className="rounded-2xl bg-superficie-2 p-3.5">

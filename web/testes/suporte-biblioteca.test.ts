@@ -23,7 +23,7 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]);
 const HTML = new TextEncoder().encode("<html><script>alert(1)</script>");
 
 // quem está "logado" nas rotas (mock da sessão): null = sem login
-let quem: { login: string; nome: string; perfil: string } | null = null;
+let quem: { login: string; nome: string; funcao?: string; perfil: string } | null = null;
 // nome da aba pedida à sessão (a rota tem de pedir "suporte", não a aba do equipamento)
 let abasPedidas: string[] = [];
 vi.mock("@/lib/auth/sessao", () => ({
@@ -105,7 +105,7 @@ describe("biblioteca técnica: armazenamento", () => {
 describe("rota /api/suporte/documento", () => {
   beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
   afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); quem = null; });
-  beforeEach(() => { quem = { login: "lider.teste", nome: "Pessoa Fictícia", perfil: "editor" }; abasPedidas = []; });
+  beforeEach(() => { quem = { login: "lider.teste", nome: "Pessoa Fictícia", funcao: "lider", perfil: "editor" }; abasPedidas = []; });
 
   const URL_ROTA = "http://localhost/api/suporte/documento";
   const enviar = (form: FormData, origem?: string) => new NextRequest(URL_ROTA, {
