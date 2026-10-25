@@ -58,14 +58,16 @@ export function FotoDetalhe({ f, className }: { f: FotoDoItem; className?: strin
           </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={f.url} alt={externa ? `${ROTULO_FOTO.referencia}${f.titulo ? `: ${f.titulo}` : ""}` : "Foto do material"}
+          <img src={f.url} alt={f.origem !== "propria" ? `${ROTULO_FOTO[f.origem]}${f.titulo ? `: ${f.titulo}` : ""}` : "Foto do material"}
             loading="lazy" decoding="async" className="size-full object-contain p-6" onError={() => setFalhou(true)} />
         )}
       </div>
-      {externa && (
+      {f.origem !== "propria" && (
         <figcaption className="space-y-1.5 text-sm text-texto-3">
-          <Selo>{ROTULO_FOTO.referencia}</Selo>
-          <p>Foto do fabricante, achada pela referência do item.</p>
+          <Selo>{ROTULO_FOTO[f.origem]}</Selo>
+          <p>{f.origem === "equivalente"
+            ? "Foto de um produto com a mesma especificação da descrição (o item não tem fabricante/referência cadastrados)."
+            : "Foto do fabricante, achada pela referência do item."}</p>
           {f.pagina && (
             <a href={f.pagina} target="_blank" rel="noopener noreferrer" className="block break-all text-acao underline underline-offset-2">
               Ver página de origem

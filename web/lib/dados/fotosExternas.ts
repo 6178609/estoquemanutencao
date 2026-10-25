@@ -16,7 +16,11 @@ import { baixarPagina, buscarImagemSugestao, chaveSugestao, imagemDaPagina, Suge
  * Um item de cadastro de foto, já conferido. `url` é o endereço da imagem (passa na checagem); pode faltar, e então
  * só `pagina` (a página de produto) vale: o servidor tira a imagem principal dela na hora de mostrar.
  */
-export interface FotoCadastro { url: string | null; pagina: string | null; titulo: string; buscado_em: string }
+export interface FotoCadastro {
+  url: string | null; pagina: string | null; titulo: string; buscado_em: string;
+  /** foto de um produto equivalente (mesma especificação), não do item exato: o item não tem fabricante/referência */
+  equivalente?: boolean;
+}
 
 /** Texto de cadastro sem caracteres de controle, cortado no tamanho pedido. */
 export const textoLimpo = (x: unknown, n: number): string =>
@@ -44,7 +48,7 @@ export function fotoDoCadastro(item: unknown): FotoCadastro | null {
   if (!url && !pagina) return null;
   const quando = typeof r.buscado_em === "string" && !Number.isNaN(Date.parse(r.buscado_em))
     ? new Date(r.buscado_em).toISOString() : new Date(0).toISOString();
-  return { url, pagina, titulo: textoLimpo(r.titulo, 200), buscado_em: quando };
+  return { url, pagina, titulo: textoLimpo(r.titulo, 200), buscado_em: quando, ...(r.equivalente === true && { equivalente: true }) };
 }
 
 /** Chave da foto: o hash do endereço da imagem, ou da página quando só há a página. */
@@ -53,7 +57,7 @@ export const chaveFoto = (f: FotoCadastro): string => chaveSugestao(f.url ?? `p2
 
 /** O que a tela recebe de uma foto do cadastro: a chave, a página e o título (sem o endereço da imagem). */
 export function fotoExternaDe(f: FotoCadastro): FotoExterna {
-  return { k: chaveFoto(f), pagina: f.pagina, titulo: f.titulo };
+  return { k: chaveFoto(f), pagina: f.pagina, titulo: f.titulo, ...(f.equivalente && { eq: true }) };
 }
 
 type Cadastro = Record<string, Record<string, unknown>>;

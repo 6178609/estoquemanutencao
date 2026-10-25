@@ -74,12 +74,13 @@ export function urlFotoMaterial(material: string, ref: unknown, mini = false): s
 }
 
 /**
- * Foto que não é do cadastro do material: a do fabricante, achada pela referência do item.
+ * Foto que não é do cadastro do material: a do fabricante, achada pela referência do item, ou (`eq`) a de um produto
+ * equivalente, com a mesma especificação da descrição, para o item sem fabricante/referência.
  * `k` é a chave do endereço no cadastro (um pedaço do hash); o endereço da imagem nunca vai para o navegador.
  */
-export interface FotoExterna { k: string; pagina: string | null; titulo: string }
+export interface FotoExterna { k: string; pagina: string | null; titulo: string; eq?: boolean }
 
-export type OrigemFoto = "propria" | "referencia";
+export type OrigemFoto = "propria" | "referencia" | "equivalente";
 export interface FotoDoItem { origem: OrigemFoto; url: string; pagina: string | null; titulo: string }
 
 /** Os campos de foto de um item da tela (o que o servidor manda junto). */
@@ -92,11 +93,13 @@ export interface ItemComFoto {
 }
 
 /** Rótulo discreto de cada origem (a própria não tem rótulo). */
-export const ROTULO_FOTO: Record<Exclude<OrigemFoto, "propria">, string> = { referencia: "Foto do fabricante" };
+export const ROTULO_FOTO: Record<Exclude<OrigemFoto, "propria">, string> = {
+  referencia: "Foto do fabricante", equivalente: "Foto de produto equivalente",
+};
 
 /**
- * A foto a mostrar no item, pela prioridade: foto própria (a principal) → do fabricante (referência do item) → nenhuma
- * (null: a tela segue sem foto). Usado no navegador e no servidor.
+ * A foto a mostrar no item, pela prioridade: foto própria (a principal) → do fabricante (referência do item) ou de
+ * produto equivalente (mesma especificação) → nenhuma (null: a tela segue sem foto). Usado no navegador e no servidor.
  */
 export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
   const codigo = it.codigoFoto ?? it.material;
@@ -104,7 +107,8 @@ export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
   if (propria) return { origem: "propria", url: propria, pagina: null, titulo: "" };
   if (it.fotoRef) {
     const q = new URLSearchParams({ m: codigo, k: it.fotoRef.k });
-    return { origem: "referencia", url: `/api/estoque/foto/referencia?${q}`, pagina: it.fotoRef.pagina, titulo: it.fotoRef.titulo };
+    return { origem: it.fotoRef.eq ? "equivalente" : "referencia", url: `/api/estoque/foto/referencia?${q}`,
+      pagina: it.fotoRef.pagina, titulo: it.fotoRef.titulo };
   }
   return null;
 }
