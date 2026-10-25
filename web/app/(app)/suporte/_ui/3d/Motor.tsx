@@ -1,11 +1,11 @@
-import { Vector2 } from "three";
-
-import { Mat, Parte, Peca } from "./Peca";
+import { RolamentoMini } from "./Comuns";
+import { anel, circulo, Mat, naAbertura, NoEixo, Parte, Peca, perfil, radial, Torneado } from "./Peca";
 import type { ModeloProps } from "./Peca";
 
 /**
- * Motor elétrico esquemático. Montado com o eixo em Y e deitado no X pelo grupo raiz; por isso os afastamentos da
- * vista explodida estão no sistema local (Y = ao longo do eixo; X = para cima no modelo deitado).
+ * Motor elétrico de indução em corte, deitado no X (eixo do motor = X; ponta de eixo à direita, ventilador à
+ * esquerda). Um quadrante aberto mostra estator com bobinas, rotor, rolamentos e o ventilador dentro da tampa.
+ * Vista explodida: tampas, rolamentos, ventilador e tampa do ventilador saem ao longo do eixo; a caixa de ligação sobe.
  * Cada peça é um grupo `name` = id de MODELOS.motor.
  */
 const PECA = {
@@ -24,154 +24,132 @@ const PECA = {
 /** Ids das peças desenhadas (testados contra MODELOS em testes/modelos3d.test.ts). */
 export const PECAS_MOTOR: readonly string[] = Object.values(PECA);
 
-const SEGMENTOS = 48;
-const ALETAS = 16;
-const ANGULO_ALETA = (2 * Math.PI) / ALETAS;
-const ANGULO_PA = (2 * Math.PI) / 8;
+const R_CARCACA = 0.62;
+const METADE = 0.85; // meio comprimento da carcaça
+const Y_ROLAMENTO = 0.97;
+const ALETAS = 20;
 
-/** Retângulo (r, y) fechado, para tubos e discos girados em torno do eixo Y. */
-function retangulo(r0: number, r1: number, y0: number, y1: number): Vector2[] {
-  return [new Vector2(r0, y0), new Vector2(r1, y0), new Vector2(r1, y1), new Vector2(r0, y1), new Vector2(r0, y0)];
-}
+/** Carcaça: tubo com reforço nas pontas (encaixe das tampas). */
+const PERFIL_CARCACA = perfil([
+  [R_CARCACA - 0.06, -METADE], [R_CARCACA + 0.04, -METADE], [R_CARCACA + 0.04, -METADE + 0.08],
+  [R_CARCACA, -METADE + 0.1], [R_CARCACA, METADE - 0.1], [R_CARCACA + 0.04, METADE - 0.08],
+  [R_CARCACA + 0.04, METADE], [R_CARCACA - 0.06, METADE],
+]);
+/** Tampa dianteira (y > 0): disco com cubo onde fica o rolamento. A traseira é o espelho. */
+const pares = (s: 1 | -1): [number, number][] => [
+  [0.2, s * 0.86], [R_CARCACA + 0.04, s * 0.86], [R_CARCACA + 0.04, s * 0.94], [0.36, s * 1.0],
+  [0.27, s * 1.07], [0.2, s * 1.07],
+];
+const PERFIL_TAMPA_DIANT = perfil(pares(1));
+const PERFIL_TAMPA_TRAS = perfil(pares(-1).reverse());
+const NUCLEO_ESTATOR = anel(0.45, R_CARCACA, -0.6, 0.6);
+const CABECAS_BOBINA = [circulo(0.52, 0.66, 0.065), circulo(0.52, -0.66, 0.065)];
+const NUCLEO_ROTOR = anel(0.07, 0.43, -0.6, 0.6);
+const ANEIS_ROTOR = [anel(0.3, 0.43, 0.6, 0.66), anel(0.3, 0.43, -0.66, -0.6)];
+const EIXO = anel(0, 0.07, -1.35, 1.65);
+const CHAVETA = anel(0, 0.072, 1.3, 1.55); // marca da ponta de eixo (rasgo de chaveta, só visual)
+/** Tampa do ventilador: chapa cilíndrica com fundo, a grade é sugerida pelo fundo vazado. */
+const PERFIL_TAMPA_VENT = perfil([
+  [R_CARCACA, -0.94], [R_CARCACA + 0.03, -0.94], [R_CARCACA + 0.03, -1.52], [0.14, -1.52], [0.14, -1.49],
+  [R_CARCACA, -1.49],
+]);
+const CUBO_VENT = anel(0.07, 0.12, -1.32, -1.16);
 
-const CARCACA = retangulo(0.62, 0.7, -0.85, 0.85);
-const TAMPA_FRONTAL = retangulo(0.22, 0.72, 0.84, 0.94);
-const TAMPA_TRASEIRA = retangulo(0.22, 0.72, -0.94, -0.84);
-const CUBO_FRONTAL = retangulo(0.22, 0.3, 0.84, 1.02);
-const CUBO_TRASEIRO = retangulo(0.22, 0.3, -1.02, -0.84);
-const NUCLEO = retangulo(0.46, 0.62, -0.7, 0.7);
-const ROLAMENTO_PERFIL = retangulo(0.1, 0.2, -0.05, 0.05);
-const TAMPA_VENTILADOR_FIM = retangulo(0.2, 0.46, -1.56, -1.53);
+/** Aletas da carcaça, fora do quadrante aberto. */
+const ALETAS_POS = Array.from({ length: ALETAS }, (_, k) => (2 * Math.PI * k) / ALETAS + 0.08)
+  .map((phi) => radial(phi, R_CARCACA + 0.06))
+  .filter((p) => !naAbertura(p.position[0], p.position[2], "x"));
+const PAS_VENT = Array.from({ length: 8 }, (_, k) => radial((2 * Math.PI * k) / 8, 0.33, -1.24));
 
 export function Motor({ explodir }: ModeloProps) {
   return (
-    <group rotation={[0, 0, Math.PI / 2]}>
-      <Peca id={PECA.carcaca} explodir={explodir} afastamento={[0.8, 0, 0]}>
-        <mesh>
-          <latheGeometry args={[CARCACA, SEGMENTOS]} />
-          <Mat cor="aco" />
-        </mesh>
-        {Array.from({ length: ALETAS }, (_, k) => {
-          const a = k * ANGULO_ALETA;
-          return (
-            <mesh key={k} position={[0.76 * Math.cos(a), 0, 0.76 * Math.sin(a)]} rotation={[0, -a, 0]}>
-              <boxGeometry args={[0.12, 1.5, 0.05]} />
-              <Mat cor="aco" />
+    <group>
+      <Peca id={PECA.carcaca} explodir={explodir}>
+        <NoEixo eixo="x">
+          <Torneado perfil={PERFIL_CARCACA} cor="azul" corte />
+          {ALETAS_POS.map((p, k) => (
+            <mesh key={k} {...p}>
+              <boxGeometry args={[0.12, 1.5, 0.035]} />
+              <Mat cor="azul" />
             </mesh>
-          );
-        })}
-      </Peca>
-
-      <Peca id={PECA.tampas}>
-        {/* cada tampa sai para o seu lado do eixo */}
-        <Parte explodir={explodir} afastamento={[0, 0.5, 0]}>
-          <mesh>
-            <latheGeometry args={[TAMPA_FRONTAL, SEGMENTOS]} />
-            <Mat cor="acoEscuro" />
-          </mesh>
-          <mesh>
-            <latheGeometry args={[CUBO_FRONTAL, SEGMENTOS]} />
-            <Mat cor="acoEscuro" />
-          </mesh>
-        </Parte>
-        <Parte explodir={explodir} afastamento={[0, -0.5, 0]}>
-          <mesh>
-            <latheGeometry args={[TAMPA_TRASEIRA, SEGMENTOS]} />
-            <Mat cor="acoEscuro" />
-          </mesh>
-          <mesh>
-            <latheGeometry args={[CUBO_TRASEIRO, SEGMENTOS]} />
-            <Mat cor="acoEscuro" />
-          </mesh>
-        </Parte>
-      </Peca>
-
-      <Peca id={PECA.estator} explodir={explodir} afastamento={[-0.5, 0, 0]}>
-        <mesh>
-          <latheGeometry args={[NUCLEO, SEGMENTOS]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-        {[-0.8, -0.74, 0.74, 0.8].map((y) => (
-          <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.54, 0.07, 12, 48]} />
-            <Mat cor="cobre" />
+          ))}
+        </NoEixo>
+        {/* pés de fixação */}
+        {[-0.5, 0.5].map((x) => (
+          <mesh key={x} position={[x, -R_CARCACA - 0.06, 0]}>
+            <boxGeometry args={[0.32, 0.16, 1.3]} />
+            <Mat cor="azul" />
           </mesh>
         ))}
       </Peca>
 
-      <Peca id={PECA.rotor} explodir={explodir} afastamento={[0, 0, 0.6]}>
-        <mesh>
-          <cylinderGeometry args={[0.42, 0.42, 1.3, 40]} />
-          <Mat cor="aco" />
-        </mesh>
+      <Peca id={PECA.tampas}>
+        <Parte explodir={explodir} afastamento={[0.85, 0, 0]}>
+          <NoEixo eixo="x"><Torneado perfil={PERFIL_TAMPA_DIANT} cor="acoEscuro" corte /></NoEixo>
+        </Parte>
+        <Parte explodir={explodir} afastamento={[-0.85, 0, 0]}>
+          <NoEixo eixo="x"><Torneado perfil={PERFIL_TAMPA_TRAS} cor="acoEscuro" corte /></NoEixo>
+        </Parte>
+      </Peca>
+
+      <Peca id={PECA.estator} explodir={explodir}>
+        <NoEixo eixo="x">
+          <Torneado perfil={NUCLEO_ESTATOR} cor="acoEscuro" corte />
+          {CABECAS_BOBINA.map((p, k) => <Torneado key={k} perfil={p} cor="cobre" corte />)}
+        </NoEixo>
+      </Peca>
+
+      <Peca id={PECA.rotor} explodir={explodir}>
+        <NoEixo eixo="x">
+          <Torneado perfil={NUCLEO_ROTOR} cor="aco" />
+          {ANEIS_ROTOR.map((p, k) => <Torneado key={k} perfil={p} cor="acoEscuro" />)}
+        </NoEixo>
       </Peca>
 
       <Peca id={PECA.eixo}>
-        <mesh position={[0, 0.025, 0]}>
-          <cylinderGeometry args={[0.07, 0.07, 2.65, 20]} />
+        <NoEixo eixo="x">
+          <Torneado perfil={EIXO} cor="acoClaro" segmentos={32} />
+          <Torneado perfil={CHAVETA} cor="aco" segmentos={32} />
+        </NoEixo>
+      </Peca>
+
+      <Peca id={PECA.rolamentoDianteiro} explodir={explodir} afastamento={[0.5, 0, 0]}>
+        <NoEixo eixo="x"><RolamentoMini y={Y_ROLAMENTO} rInt={0.07} rExt={0.2} largura={0.12} /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.rolamentoTraseiro} explodir={explodir} afastamento={[-0.5, 0, 0]}>
+        <NoEixo eixo="x"><RolamentoMini y={-Y_ROLAMENTO} rInt={0.07} rExt={0.2} largura={0.12} /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.ventilador} explodir={explodir} afastamento={[-1.0, 0, 0]}>
+        <NoEixo eixo="x">
+          <Torneado perfil={CUBO_VENT} cor="acoEscuro" segmentos={24} />
+          {PAS_VENT.map((p, k) => (
+            <mesh key={k} {...p}>
+              <boxGeometry args={[0.42, 0.14, 0.03]} />
+              <Mat cor="acoEscuro" />
+            </mesh>
+          ))}
+        </NoEixo>
+      </Peca>
+
+      <Peca id={PECA.tampaVentilador} explodir={explodir} afastamento={[-1.5, 0, 0]}>
+        <NoEixo eixo="x"><Torneado perfil={PERFIL_TAMPA_VENT} cor="aco" corte /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.caixaLigacao} explodir={explodir} afastamento={[0, 0.55, 0]}>
+        <mesh position={[0.15, R_CARCACA + 0.16, -0.12]}>
+          <boxGeometry args={[0.46, 0.26, 0.42]} />
+          <Mat cor="azul" />
+        </mesh>
+        <mesh position={[0.15, R_CARCACA + 0.31, -0.12]}>
+          <boxGeometry args={[0.5, 0.05, 0.46]} />
           <Mat cor="acoEscuro" />
         </mesh>
-      </Peca>
-
-      <Peca id={PECA.rolamentoDianteiro} explodir={explodir} afastamento={[0, 0.35, 0]}>
-        <group position={[0, 0.93, 0]}>
-          <mesh>
-            <latheGeometry args={[ROLAMENTO_PERFIL, 32]} />
-            <Mat cor="acoClaro" />
-          </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.15, 0.03, 10, 32]} />
-            <Mat cor="acoClaro" />
-          </mesh>
-        </group>
-      </Peca>
-
-      <Peca id={PECA.rolamentoTraseiro} explodir={explodir} afastamento={[0, -0.35, 0]}>
-        <group position={[0, -0.93, 0]}>
-          <mesh>
-            <latheGeometry args={[ROLAMENTO_PERFIL, 32]} />
-            <Mat cor="acoClaro" />
-          </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.15, 0.03, 10, 32]} />
-            <Mat cor="acoClaro" />
-          </mesh>
-        </group>
-      </Peca>
-
-      <Peca id={PECA.ventilador} explodir={explodir} afastamento={[0, -0.45, 0]}>
-        <group position={[0, -1.25, 0]}>
-          <mesh>
-            <cylinderGeometry args={[0.1, 0.1, 0.14, 20]} />
-            <Mat cor="acoEscuro" />
-          </mesh>
-          {Array.from({ length: 8 }, (_, k) => {
-            const a = k * ANGULO_PA;
-            return (
-              <mesh key={k} position={[0.25 * Math.cos(a), 0, 0.25 * Math.sin(a)]} rotation={[0.35, -a, 0]}>
-                <boxGeometry args={[0.24, 0.1, 0.05]} />
-                <Mat cor="acoEscuro" />
-              </mesh>
-            );
-          })}
-        </group>
-      </Peca>
-
-      <Peca id={PECA.tampaVentilador} explodir={explodir} afastamento={[0, -0.3, 0]}>
-        <mesh position={[0, -1.25, 0]}>
-          <cylinderGeometry args={[0.46, 0.46, 0.6, 36, 1, true]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh>
-          <latheGeometry args={[TAMPA_VENTILADOR_FIM, 36]} />
-          <Mat cor="aco" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.caixaLigacao} explodir={explodir} afastamento={[0.4, 0, 0]}>
-        <mesh position={[0.82, 0.1, 0]}>
-          <boxGeometry args={[0.34, 0.45, 0.36]} />
-          <Mat cor="aco" />
+        {/* prensa-cabo */}
+        <mesh position={[0.15, R_CARCACA + 0.16, 0.13]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 0.1, 16]} />
+          <Mat cor="borracha" />
         </mesh>
       </Peca>
     </group>

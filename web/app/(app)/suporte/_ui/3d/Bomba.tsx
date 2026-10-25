@@ -1,11 +1,11 @@
-import { Path, Shape, Vector2 } from "three";
-
-import { Mat, Peca } from "./Peca";
+import { RolamentoMini } from "./Comuns";
+import { anel, Mat, NoEixo, Parte, Peca, perfil, radial, Torneado } from "./Peca";
 import type { ModeloProps } from "./Peca";
 
 /**
- * Bomba centrífuga esquemática, eixo no Z: voluta em espiral (com furo para o rotor), rotor com seis pás, sucção
- * axial pela frente, recalque tangencial pela direita e, atrás, selo, rolamentos e acoplamento.
+ * Bomba centrífuga monoestágio em corte, eixo no X: sucção axial à esquerda, voluta com o rotor dentro, recalque
+ * vertical, selo mecânico, mancal com dois rolamentos e o acoplamento à direita. Um quadrante aberto mostra o interior.
+ * Vista explodida: as peças se afastam ao longo do eixo (a voluta e a sucção para a esquerda, o resto para a direita).
  * Cada peça é um grupo `name` = id de MODELOS.bomba.
  */
 const PECA = {
@@ -22,144 +22,111 @@ const PECA = {
 /** Ids das peças desenhadas (testados contra MODELOS em testes/modelos3d.test.ts). */
 export const PECAS_BOMBA: readonly string[] = Object.values(PECA);
 
-const RAIO_ROTOR = 0.58;
-const RAIO_CAMARA = 0.62;
-const ESPESSURA_VOLUTA = 0.22;
-const PAS = 6;
-const COMPRIMENTO_PA = 0.4;
-
-/** Cilindro com o eixo no Z: o cilindro do three.js tem o eixo em Y, então gira 90° em X. */
-const GIRO_Z: [number, number, number] = [Math.PI / 2, 0, 0];
-/** Cilindro com o eixo no X (bocal de recalque). */
-const GIRO_X: [number, number, number] = [0, 0, Math.PI / 2];
-
-/**
- * Contorno da voluta vista de frente: o raio cresce de 0,95 a 1,20 ao longo de uma volta (a espiral), e um furo
- * central (câmara do rotor) fica vazado na chapa.
- */
-function formaVoluta(): Shape {
-  const passos = 72;
-  const pontos: Vector2[] = [];
-  for (let i = 0; i < passos; i++) {
-    const t = i / passos;
-    const a = 2 * Math.PI * t;
-    const r = 0.95 + 0.25 * t;
-    pontos.push(new Vector2(r * Math.cos(a), r * Math.sin(a)));
-  }
-  const forma = new Shape(pontos);
-  const camara = new Path();
-  camara.absarc(0, 0, RAIO_CAMARA, 0, 2 * Math.PI, true);
-  forma.holes.push(camara);
-  return forma;
-}
-
-const VOLUTA_FORMA = formaVoluta();
-const EXTRUSAO_VOLUTA = { depth: ESPESSURA_VOLUTA, bevelEnabled: false, curveSegments: 1 };
+/** Carcaça (voluta) em casca: parede da frente com o bocal de sucção (olho), periferia e parede de trás com o furo do eixo. */
+const PERFIL_VOLUTA = perfil([
+  [0.26, -0.36], [0.33, -0.36], [0.33, -0.3], [0.8, -0.3], [1.05, -0.22], [1.13, 0], [1.05, 0.22], [0.8, 0.3],
+  [0.22, 0.3], [0.22, 0.24], [0.78, 0.24], [0.98, 0.17], [1.06, 0], [0.98, -0.17], [0.78, -0.24], [0.26, -0.24],
+]);
+const R_VOLUTA = 1.13;
+/** Rotor semiaberto: disco traseiro + cubo; as pás ficam entre o disco e a parede da frente. */
+const DISCO_ROTOR = anel(0.07, 0.72, 0.1, 0.14);
+const CUBO_ROTOR = perfil([[0.07, -0.16], [0.13, -0.18], [0.16, -0.1], [0.16, 0.1], [0.07, 0.1]]);
+const PAS = Array.from({ length: 6 }, (_, k) => radial((2 * Math.PI * k) / 6, 0.44, -0.03));
+const EIXO = anel(0, 0.07, -0.2, 1.8);
+/** Selo mecânico: sobreposta (em corte) com a sede fixa e a face girante dentro. */
+const SOBREPOSTA = perfil([[0.1, 0.3], [0.3, 0.3], [0.3, 0.52], [0.24, 0.52], [0.24, 0.36], [0.1, 0.36]]);
+const SEDE = anel(0.075, 0.2, 0.36, 0.41);
+const FACE = anel(0.075, 0.17, 0.41, 0.47);
+/** Mancal (suporte dos rolamentos) em corte. */
+const MANCAL = perfil([
+  [0.2, 0.6], [0.34, 0.6], [0.34, 1.4], [0.2, 1.4], [0.2, 1.34], [0.29, 1.34], [0.29, 0.66], [0.2, 0.66],
+]);
+const Y_ROLAMENTOS = [0.74, 1.26];
+const CUBO_ACOPLAMENTO = anel(0.07, 0.21, 1.5, 1.66);
+const ELASTICO = anel(0.07, 0.19, 1.66, 1.73);
+const CUBO_MOTOR = anel(0.07, 0.21, 1.73, 1.88);
+/** Bocal de sucção com flange, à esquerda da voluta. */
+const SUCCAO = perfil([[0.26, -1.25], [0.46, -1.25], [0.46, -1.19], [0.32, -1.19], [0.32, -0.36], [0.26, -0.36]]);
+/** Bocal de recalque vertical (eixo Y), tangente à voluta, na parte de trás (fora do corte). */
+const Z_RECALQUE = -0.6;
+const RECALQUE = perfil([[0.18, 0.85], [0.23, 0.85], [0.23, 1.5], [0.36, 1.5], [0.36, 1.56], [0.18, 1.56]]);
 
 export function Bomba({ explodir }: ModeloProps) {
-  // o eixo (Z local) fica horizontal na tela: a sucção à esquerda e o recalque virado para a câmera
   return (
-    <group rotation={[0, -Math.PI / 2, 0]}>
-      <Peca id={PECA.voluta} explodir={explodir} afastamento={[0, 0.9, 0]}>
-        <mesh position={[0, 0, -ESPESSURA_VOLUTA / 2]}>
-          <extrudeGeometry args={[VOLUTA_FORMA, EXTRUSAO_VOLUTA]} />
-          <Mat cor="acoClaro" />
+    <group position={[-0.3, 0, 0]}>
+      <Peca id={PECA.voluta} explodir={explodir} afastamento={[-0.55, 0, 0]}>
+        <NoEixo eixo="x"><Torneado perfil={PERFIL_VOLUTA} cor="azul" corte /></NoEixo>
+        {/* pé da voluta */}
+        <mesh position={[0, -R_VOLUTA - 0.08, 0]}>
+          <boxGeometry args={[0.5, 0.2, 0.9]} />
+          <Mat cor="azul" />
         </mesh>
       </Peca>
 
-      <Peca id={PECA.rotor} explodir={explodir} afastamento={[0, 0, 0.9]}>
-        <mesh rotation={GIRO_Z}>
-          <cylinderGeometry args={[RAIO_ROTOR, RAIO_ROTOR, 0.06, 48]} />
-          <Mat cor="acoClaro" />
-        </mesh>
-        {Array.from({ length: PAS }, (_, k) => {
-          const a = (k * 2 * Math.PI) / PAS;
-          const raioMedio = 0.15 + COMPRIMENTO_PA / 2;
-          return (
-            <mesh
-              key={k}
-              position={[raioMedio * Math.cos(a), raioMedio * Math.sin(a), 0]}
-              rotation={[0, 0, a]}
-            >
-              <boxGeometry args={[COMPRIMENTO_PA, 0.05, 0.14]} />
-              <Mat cor="acoEscuro" />
+      <Peca id={PECA.succao} explodir={explodir} afastamento={[-1.1, 0, 0]}>
+        <NoEixo eixo="x"><Torneado perfil={SUCCAO} cor="azul" corte /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.recalque} explodir={explodir} afastamento={[-0.55, 0.55, 0]}>
+        <group position={[0, 0, Z_RECALQUE]}><Torneado perfil={RECALQUE} cor="azul" corte /></group>
+      </Peca>
+
+      <Peca id={PECA.rotor} explodir={explodir}>
+        <NoEixo eixo="x">
+          <Torneado perfil={DISCO_ROTOR} cor="aco" />
+          <Torneado perfil={CUBO_ROTOR} cor="aco" segmentos={32} />
+          {PAS.map((p, k) => (
+            <mesh key={k} position={p.position} rotation={[0, p.rotation[1] + 0.45, 0]}>
+              <boxGeometry args={[0.52, 0.26, 0.035]} />
+              <Mat cor="aco" />
             </mesh>
-          );
-        })}
-        <mesh position={[0, 0, 0.1]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.14, 0.14, 0.2, 24]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
+          ))}
+        </NoEixo>
       </Peca>
 
-      <Peca id={PECA.eixo} explodir={explodir} afastamento={[0, 0, -0.5]}>
-        <mesh position={[0, 0, -0.35]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.07, 0.07, 2.5, 20]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
+      <Peca id={PECA.eixo} explodir={explodir} afastamento={[0.2, 0, 0]}>
+        <NoEixo eixo="x"><Torneado perfil={EIXO} cor="acoClaro" segmentos={32} /></NoEixo>
       </Peca>
 
-      <Peca id={PECA.seloMecanico} explodir={explodir} afastamento={[0, 0, -0.6]}>
-        <mesh position={[0, 0, -0.2]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.24, 0.24, 0.18, 32]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh position={[0, 0, -0.3]}>
-          <torusGeometry args={[0.14, 0.03, 12, 32]} />
-          <Mat cor="borracha" />
-        </mesh>
+      <Peca id={PECA.seloMecanico} explodir={explodir} afastamento={[0.45, 0, 0]}>
+        <NoEixo eixo="x">
+          <Torneado perfil={SOBREPOSTA} cor="aco" corte />
+          <Torneado perfil={SEDE} cor="acoClaro" corte />
+          <Torneado perfil={FACE} cor="borracha" corte />
+        </NoEixo>
       </Peca>
 
-      <Peca id={PECA.rolamentos} explodir={explodir} afastamento={[0, 0, -1.1]}>
-        <mesh position={[0, 0, -0.8]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.26, 0.26, 0.5, 40]} />
-          <Mat cor="acoClaro" />
-        </mesh>
-        <mesh position={[0, 0, -0.55]}>
-          <torusGeometry args={[0.2, 0.03, 12, 40]} />
-          <Mat cor="acoClaro" />
-        </mesh>
-        <mesh position={[0, 0, -1.05]}>
-          <torusGeometry args={[0.2, 0.03, 12, 40]} />
-          <Mat cor="acoClaro" />
-        </mesh>
+      {/* mancal: não é uma peça do diagnóstico, só o suporte dos rolamentos */}
+      <NoEixo eixo="x"><Torneado perfil={MANCAL} cor="azul" corte /></NoEixo>
+      {/* pé do mancal: alma e sapata */}
+      <mesh position={[1.0, -0.825, 0]}>
+        <boxGeometry args={[0.5, 0.97, 0.12]} />
+        <Mat cor="azul" />
+      </mesh>
+      <mesh position={[1.0, -1.28, 0]}>
+        <boxGeometry args={[0.6, 0.06, 0.5]} />
+        <Mat cor="azul" />
+      </mesh>
+      {/* base */}
+      <mesh position={[0.45, -R_VOLUTA - 0.22, 0]}>
+        <boxGeometry args={[3.1, 0.08, 1.1]} />
+        <Mat cor="acoEscuro" />
+      </mesh>
+
+      <Peca id={PECA.rolamentos} explodir={explodir}>
+        {Y_ROLAMENTOS.map((y, k) => (
+          <Parte key={y} explodir={explodir} afastamento={[0.55 + k * 0.35, 0, 0]}>
+            <NoEixo eixo="x"><RolamentoMini y={y} rInt={0.07} rExt={0.2} largura={0.12} /></NoEixo>
+          </Parte>
+        ))}
       </Peca>
 
-      <Peca id={PECA.acoplamento} explodir={explodir} afastamento={[0, 0, -1.7]}>
-        <mesh position={[0, 0, -1.25]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.18, 0.18, 0.3, 32]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh position={[0, 0, -1.5]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.09, 0.09, 0.16, 24]} />
-          <Mat cor="borracha" />
-        </mesh>
-        <mesh position={[0, 0, -1.7]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.18, 0.18, 0.22, 32]} />
-          <Mat cor="aco" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.succao} explodir={explodir} afastamento={[0, 0, 1.6]}>
-        <mesh position={[0, 0, 0.5]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.22, 0.22, 0.8, 32]} />
-          <Mat cor="azul" />
-        </mesh>
-        <mesh position={[0, 0, 0.94]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[0.32, 0.32, 0.08, 40]} />
-          <Mat cor="azul" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.recalque} explodir={explodir} afastamento={[0.4, 0, 0]}>
-        <mesh position={[1.35, 0, 0]} rotation={GIRO_X}>
-          <cylinderGeometry args={[0.2, 0.2, 0.75, 32]} />
-          <Mat cor="azul" />
-        </mesh>
-        <mesh position={[1.75, 0, 0]} rotation={GIRO_X}>
-          <cylinderGeometry args={[0.28, 0.28, 0.08, 40]} />
-          <Mat cor="azul" />
-        </mesh>
+      <Peca id={PECA.acoplamento} explodir={explodir} afastamento={[1.1, 0, 0]}>
+        <NoEixo eixo="x">
+          <Torneado perfil={CUBO_ACOPLAMENTO} cor="aco" corte />
+          <Torneado perfil={ELASTICO} cor="borracha" corte />
+          <Torneado perfil={CUBO_MOTOR} cor="aco" corte />
+        </NoEixo>
       </Peca>
     </group>
   );
