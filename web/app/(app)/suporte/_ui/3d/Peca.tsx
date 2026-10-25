@@ -3,7 +3,7 @@ import type { RefObject } from "react";
 import type { ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
-import { DoubleSide, Vector3 } from "three";
+import { DoubleSide, Shape, Vector2, Vector3 } from "three";
 import type { Group } from "three";
 
 /** Cores da cena, lidas dos tokens do site (CSS vars) em tempo de execução. Sem hex fixo aqui. */
@@ -164,15 +164,141 @@ export function Mat({ cor }: { cor: CorBase }) {
   const id = useContext(ContextoPeca);
   const realce = destaque === id;
   const aberta = destaque === null || realce;
+  const m = MATERIAIS[cor];
   return (
     <meshStandardMaterial
-      color={realce ? paleta.destaque : paleta[cor]}
-      roughness={0.55}
-      metalness={0.25}
+      color={realce ? paleta.destaque : m.cor}
+      emissive={realce ? paleta.destaque : "black"}
+      emissiveIntensity={realce ? 0.35 : 0}
+      roughness={realce ? 0.45 : m.rugosidade}
+      metalness={realce ? 0.1 : m.metal}
       side={DoubleSide}
       transparent={!aberta}
-      opacity={aberta ? 1 : 0.25}
+      opacity={aberta ? 1 : 0.22}
       depthWrite={aberta}
     />
   );
+}
+
+/**
+ * Materiais físicos da cena (cor base, metal, rugosidade). Ficam aqui, e não nos tokens de texto do site: o aço
+ * precisa de cinza claro e reflexo do ambiente (sem isso, metal renderiza quase preto). O destaque continua sendo o
+ * `--st-critico` do site.
+ */
+const MATERIAIS: Record<CorBase, { cor: string; metal: number; rugosidade: number }> = {
+  aco: { cor: "#c3c9cf", metal: 0.7, rugosidade: 0.36 },        // aço usinado (anéis, eixos, cubos)
+  acoClaro: { cor: "#e8ecef", metal: 0.85, rugosidade: 0.2 },   // aço polido/retificado (esferas, pistas, hastes)
+  acoEscuro: { cor: "#8f979e", metal: 0.4, rugosidade: 0.55 },  // ferro fundido / chapa (núcleos, bases, polias)
+  cobre: { cor: "#c8783a", metal: 0.8, rugosidade: 0.32 },      // cobre/latão (bobinas, gaiola de latão)
+  borracha: { cor: "#474d53", metal: 0, rugosidade: 0.85 },     // borracha/plástico (vedações, correias)
+  azul: { cor: "#2f6fb0", metal: 0.2, rugosidade: 0.45 },       // pintura industrial (carcaças, voluta)
+};
+
+/** Posição inicial da câmera (vista de 3/4, de cima): o corte das peças fica voltado para ela. */
+export const CAMERA_INICIAL: [number, number, number] = [2.4, 2.3, 3.2];
+
+/**
+ * Eixo de uma peça torneada: "y" (de pé, padrão), "x" (deitada ao longo da tela) ou "z" (apontando para a câmera).
+ * Dentro de `NoEixo`, o Y local vira o eixo pedido; o corte de cada `Torneado` continua voltado para a câmera.
+ */
+export type Eixo = "x" | "y" | "z";
+const ROTACAO_EIXO: Record<Eixo, [number, number, number]> = {
+  y: [0, 0, 0],
+  x: [0, 0, -Math.PI / 2], // Y local → +X; X local → -Y
+  z: [Math.PI / 2, 0, 0], // Y local → +Z; Z local → -Y
+};
+const [CAM_X, CAM_Y, CAM_Z] = CAMERA_INICIAL;
+/** Ângulo φ da lathe (ponto = (r·sen φ, y, r·cos φ)) que aponta para a câmera, em cada eixo. */
+const CENTRO_CORTE: Record<Eixo, number> = {
+  y: Math.atan2(CAM_X, CAM_Z),
+  x: Math.atan2(-CAM_Y, CAM_Z),
+  z: Math.atan2(CAM_X, -CAM_Y),
+};
+/** O corte abre 90° (um quadrante) centrado na câmera: a peça é desenhada em 270°. */
+export const CORTE_ABERTO = Math.PI * 1.5;
+const inicioCorte = (eixo: Eixo) => CENTRO_CORTE[eixo] + Math.PI / 4;
+
+const ContextoEixo = createContext<Eixo>("y");
+/** Eixo do grupo `NoEixo` mais próximo (para posicionar peças fora do corte). */
+export const useEixo = () => useContext(ContextoEixo);
+
+/** Grupo cujo Y local é o `eixo` pedido, na `posicao` dada (no sistema do pai). */
+export function NoEixo({ eixo, posicao, children }: {
+  eixo: Eixo; posicao?: [number, number, number]; children: ReactNode;
+}) {
+  return (
+    <ContextoEixo.Provider value={eixo}>
+      <group position={posicao} rotation={ROTACAO_EIXO[eixo]}>{children}</group>
+    </ContextoEixo.Provider>
+  );
+}
+
+/** Perfil fechado (x = raio, y = posição no eixo) a partir de pares; repete o primeiro ponto no fim. */
+export function perfil(pares: [number, number][]): Vector2[] {
+  const pts = pares.map(([x, y]) => new Vector2(x, y));
+  return [...pts, pts[0].clone()];
+}
+
+/** Anel retangular (tubo, disco ou bucha): raios r0..r1, de y0 a y1. */
+export const anel = (r0: number, r1: number, y0: number, y1: number) =>
+  perfil([[r0, y0], [r1, y0], [r1, y1], [r0, y1]]);
+
+/** Seção circular (para anéis de vedação e espiras em corte): centro (raio, y) e raio da seção. */
+export function circulo(raio: number, y: number, r: number, passos = 20): Vector2[] {
+  return perfil(Array.from({ length: passos }, (_, i): [number, number] => {
+    const a = (2 * Math.PI * i) / passos;
+    return [raio + r * Math.cos(a), y + r * Math.sin(a)];
+  }));
+}
+
+/**
+ * Peça de revolução em torno do Y local, a partir de um perfil fechado (x = raio, y = altura). Com `corte`, gira só
+ * 270° e fecha as duas faces do corte com o próprio perfil, como num desenho em corte: o interior fica visível e sólido.
+ * Passe perfis constantes (fora do componente): a geometria é refeita quando o array muda.
+ */
+export function Torneado({ perfil, cor, corte = false, segmentos = 64 }: {
+  perfil: Vector2[]; cor: CorBase; corte?: boolean; segmentos?: number;
+}) {
+  const eixo = useEixo();
+  const forma = useMemo(() => new Shape(perfil), [perfil]);
+  if (!corte) {
+    return (
+      <mesh>
+        <latheGeometry args={[perfil, segmentos]} />
+        <Mat cor={cor} />
+      </mesh>
+    );
+  }
+  const inicio = inicioCorte(eixo);
+  const segs = Math.round(segmentos * 0.75);
+  return (
+    <group>
+      <mesh>
+        <latheGeometry args={[perfil, segs, inicio, CORTE_ABERTO]} />
+        <Mat cor={cor} />
+      </mesh>
+      {/* faces do corte: o perfil (plano XY, raio em +X) girado para o início e o fim do arco */}
+      {[inicio, inicio + CORTE_ABERTO].map((phi) => (
+        <mesh key={phi} rotation={[0, phi - Math.PI / 2, 0]}>
+          <shapeGeometry args={[forma]} />
+          <Mat cor={cor} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Se o ponto (x, z) do sistema da lathe (φ = atan2(x, z)) cai no quadrante aberto pelo corte do `eixo`: peças soltas
+ * (esferas, aletas, pás) que ficariam ali não são desenhadas, como num desenho em corte.
+ */
+export function naAbertura(x: number, z: number, eixo: Eixo = "y"): boolean {
+  const volta = Math.PI * 2;
+  const rel = (((Math.atan2(x, z) - inicioCorte(eixo)) % volta) + volta) % volta; // ângulo a partir do início do arco
+  return rel > CORTE_ABERTO + 0.05 && rel < volta - 0.05;
+}
+
+/** Posição e giro de uma peça radial (aleta, pá) no ângulo φ e raio r, com o X dela apontando para fora. */
+export function radial(phi: number, r: number, y = 0): { position: [number, number, number]; rotation: [number, number, number] } {
+  return { position: [r * Math.sin(phi), y, r * Math.cos(phi)], rotation: [0, phi - Math.PI / 2, 0] };
 }

@@ -1,9 +1,12 @@
-import { Mat, Peca } from "./Peca";
+import { RolamentoMini } from "./Comuns";
+import { anel, circulo, Mat, NoEixo, Peca, Torneado } from "./Peca";
 import type { ModeloProps } from "./Peca";
 import { formaEngrenagem } from "./geometria";
 
 /**
- * Redutor de engrenagens esquemático, eixos em Z (vista de frente, carcaça aberta na frente para ver o engrenamento).
+ * Redutor de engrenagens de um estágio, eixos no Z (para a câmera). A tampa da frente foi retirada para mostrar o
+ * engrenamento; os rolamentos e os retentores ficam na parede de trás, por onde os eixos saem.
+ * Vista explodida: engrenagens e eixos saem pela frente; rolamentos e retentores saem por trás.
  * Cada peça é um grupo `name` = id de MODELOS.redutor.
  */
 const PECA = {
@@ -20,119 +23,118 @@ const PECA = {
 /** Ids das peças desenhadas (testados contra MODELOS em testes/modelos3d.test.ts). */
 export const PECAS_REDUTOR: readonly string[] = Object.values(PECA);
 
-/** Pinhão (12 dentes) e coroa (22 dentes) com o mesmo passo: a razão de redução é 22/12. */
-const PINHAO = { x: -0.64, rp: 0.38, dentes: 12 };
-const COROA = { x: 0.44, rp: 0.7, dentes: 22 };
-const ESPESSURA_ENGRENAGEM = 0.3;
-const RAIO_EIXO = 0.07;
-const COMPRIMENTO_EIXO = 2.3;
-/** Eixos no Z: do lado de trás da carcaça (z -1.3) até a ponta na frente (z 1.0). */
-const Z_EIXO = -0.15;
+/** Pinhão (12 dentes) e coroa (22 dentes) com o mesmo módulo: a razão de redução é 22/12. */
+const PINHAO = { x: -0.62, y: -0.05, rp: 0.38, dentes: 12 };
+const COROA = { x: 0.46, y: -0.05, rp: 0.7, dentes: 22 };
+const ESPESSURA_ENGRENAGEM = 0.26;
+const LARGURA = 2.8;
+const ALTURA = 2.0;
+const PAREDE = 0.08;
+const Z_FUNDO = -0.55; // face interna da parede de trás
+const PROFUNDIDADE = 1.0; // da parede de trás até a borda da frente
 
-const PINHAO_FORMA = formaEngrenagem(PINHAO.dentes, PINHAO.rp, 0.075);
-const COROA_FORMA = formaEngrenagem(COROA.dentes, COROA.rp, 0.075);
-const EXTRUSAO = { depth: ESPESSURA_ENGRENAGEM, bevelEnabled: false, curveSegments: 1 };
-
-/** Cilindro com o eixo no Z: o cilindro do three.js tem o eixo em Y, então gira 90° em X. */
-const GIRO_Z: [number, number, number] = [Math.PI / 2, 0, 0];
+const PINHAO_FORMA = formaEngrenagem(PINHAO.dentes, PINHAO.rp, 0.07);
+const COROA_FORMA = formaEngrenagem(COROA.dentes, COROA.rp, 0.07, 0.08, 0.1);
+const EXTRUSAO = { depth: ESPESSURA_ENGRENAGEM, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 1, curveSegments: 1 };
+/** Eixos (Y local = Z da cena): da ponta de trás até a frente da engrenagem. */
+const EIXO = anel(0, 0.07, -1.25, 0.25);
+const CUBO = anel(0.07, 0.17, -0.23, 0.1);
+const Y_ROLAMENTO = Z_FUNDO - PAREDE / 2;
+const ALOJAMENTO = anel(0.2, 0.28, Z_FUNDO - PAREDE - 0.16, Z_FUNDO - PAREDE);
+const RETENTOR = [anel(0.07, 0.19, Z_FUNDO - PAREDE - 0.15, Z_FUNDO - PAREDE - 0.09), circulo(0.1, Z_FUNDO - PAREDE - 0.12, 0.025, 12)];
+const VISOR_ARO = anel(0.1, 0.16, 0, 0.05);
+const VISOR_VIDRO = anel(0, 0.1, 0.005, 0.035);
+const Z_CENTRO = Z_FUNDO + PROFUNDIDADE / 2;
 
 export function Redutor({ explodir }: ModeloProps) {
+  const paredes: { p: [number, number, number]; t: [number, number, number] }[] = [
+    { p: [0, 0, Z_FUNDO - PAREDE / 2], t: [LARGURA, ALTURA, PAREDE] }, // fundo
+    { p: [0, ALTURA / 2 - PAREDE / 2, Z_CENTRO], t: [LARGURA, PAREDE, PROFUNDIDADE] }, // teto
+    { p: [0, -ALTURA / 2 + PAREDE / 2, Z_CENTRO], t: [LARGURA, PAREDE, PROFUNDIDADE] }, // piso
+    { p: [-LARGURA / 2 + PAREDE / 2, 0, Z_CENTRO], t: [PAREDE, ALTURA, PROFUNDIDADE] },
+    { p: [LARGURA / 2 - PAREDE / 2, 0, Z_CENTRO], t: [PAREDE, ALTURA, PROFUNDIDADE] },
+  ];
+  const zFrente = Z_FUNDO + PROFUNDIDADE;
   return (
     <group>
-      <Peca id={PECA.carcaca} explodir={explodir} afastamento={[0, 0, -0.9]}>
-        {/* fundo (por onde saem os eixos) e quatro paredes; a frente fica aberta para ver o engrenamento */}
-        <mesh position={[0, 0, -0.6]}>
-          <boxGeometry args={[2.7, 1.9, 0.1]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh position={[0, 0.9, 0]}>
-          <boxGeometry args={[2.7, 0.12, 1.1]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh position={[0, -0.9, 0]}>
-          <boxGeometry args={[2.7, 0.12, 1.1]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh position={[-1.29, 0, 0]}>
-          <boxGeometry args={[0.12, 1.8, 1.1]} />
-          <Mat cor="aco" />
-        </mesh>
-        <mesh position={[1.29, 0, 0]}>
-          <boxGeometry args={[0.12, 1.8, 1.1]} />
-          <Mat cor="aco" />
-        </mesh>
-        {/* pés de fixação */}
-        <mesh position={[-0.9, -1.05, 0]}>
-          <boxGeometry args={[0.5, 0.1, 0.9]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-        <mesh position={[0.9, -1.05, 0]}>
-          <boxGeometry args={[0.5, 0.1, 0.9]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.pinhao} explodir={explodir} afastamento={[0, 0, 0.8]}>
-        <mesh position={[PINHAO.x, 0, -ESPESSURA_ENGRENAGEM / 2]}>
-          <extrudeGeometry args={[PINHAO_FORMA, EXTRUSAO]} />
-          <Mat cor="azul" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.coroa} explodir={explodir} afastamento={[0, 0, 0.8]}>
-        <mesh position={[COROA.x, 0, -ESPESSURA_ENGRENAGEM / 2]}>
-          <extrudeGeometry args={[COROA_FORMA, EXTRUSAO]} />
-          <Mat cor="azul" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.eixoEntrada} explodir={explodir} afastamento={[0, 0, -0.35]}>
-        <mesh position={[PINHAO.x, 0, Z_EIXO]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[RAIO_EIXO, RAIO_EIXO, COMPRIMENTO_EIXO, 20]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.eixoSaida} explodir={explodir} afastamento={[0, 0, -0.35]}>
-        <mesh position={[COROA.x, 0, Z_EIXO]} rotation={GIRO_Z}>
-          <cylinderGeometry args={[RAIO_EIXO, RAIO_EIXO, COMPRIMENTO_EIXO, 20]} />
-          <Mat cor="acoEscuro" />
-        </mesh>
-      </Peca>
-
-      <Peca id={PECA.rolamentos} explodir={explodir} afastamento={[0, 0, -0.45]}>
-        {[PINHAO.x, COROA.x].map((x) => (
-          <group key={x}>
-            <mesh position={[x, 0, -0.46]} rotation={GIRO_Z}>
-              <cylinderGeometry args={[0.16, 0.16, 0.2, 32]} />
-              <Mat cor="acoClaro" />
-            </mesh>
-            <mesh position={[x, 0, -0.36]}>
-              <torusGeometry args={[0.16, 0.03, 12, 40]} />
-              <Mat cor="acoClaro" />
-            </mesh>
-          </group>
+      <Peca id={PECA.carcaca} explodir={explodir}>
+        {paredes.map(({ p, t }) => (
+          <mesh key={p.join(",")} position={p}>
+            <boxGeometry args={t} />
+            <Mat cor="azul" />
+          </mesh>
         ))}
-      </Peca>
-
-      <Peca id={PECA.retentores} explodir={explodir} afastamento={[0, 0, -0.6]}>
-        {[PINHAO.x, COROA.x].map((x) => (
-          <mesh key={x} position={[x, 0, -0.8]}>
-            <torusGeometry args={[0.1, 0.035, 12, 32]} />
-            <Mat cor="borracha" />
+        {/* flange da frente (onde a tampa é parafusada) */}
+        {[
+          { p: [0, ALTURA / 2 + 0.02, zFrente - 0.04], t: [LARGURA + 0.12, 0.12, 0.08] },
+          { p: [0, -ALTURA / 2 - 0.02, zFrente - 0.04], t: [LARGURA + 0.12, 0.12, 0.08] },
+          { p: [-LARGURA / 2 - 0.02, 0, zFrente - 0.04], t: [0.12, ALTURA + 0.12, 0.08] },
+          { p: [LARGURA / 2 + 0.02, 0, zFrente - 0.04], t: [0.12, ALTURA + 0.12, 0.08] },
+        ].map(({ p, t }) => (
+          <mesh key={p.join(",")} position={p as [number, number, number]}>
+            <boxGeometry args={t as [number, number, number]} />
+            <Mat cor="azul" />
+          </mesh>
+        ))}
+        {/* alojamentos dos rolamentos, por fora da parede de trás */}
+        {[PINHAO, COROA].map((g) => (
+          <NoEixo key={g.x} eixo="z" posicao={[g.x, g.y, 0]}><Torneado perfil={ALOJAMENTO} cor="azul" corte /></NoEixo>
+        ))}
+        {/* pés de fixação */}
+        {[-0.95, 0.95].map((x) => (
+          <mesh key={x} position={[x, -ALTURA / 2 - 0.1, Z_CENTRO]}>
+            <boxGeometry args={[0.6, 0.12, PROFUNDIDADE + 0.3]} />
+            <Mat cor="azul" />
           </mesh>
         ))}
       </Peca>
 
-      <Peca id={PECA.nivelOleo} explodir={explodir} afastamento={[-0.5, 0, 0]}>
-        <mesh position={[-1.41, -0.35, 0.2]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.13, 0.13, 0.12, 32]} />
+      <Peca id={PECA.pinhao} explodir={explodir} afastamento={[0, 0, 0.9]}>
+        <mesh position={[PINHAO.x, PINHAO.y, -ESPESSURA_ENGRENAGEM / 2]}>
+          <extrudeGeometry args={[PINHAO_FORMA, EXTRUSAO]} />
           <Mat cor="acoClaro" />
         </mesh>
-        <mesh position={[-1.47, -0.35, 0.2]} rotation={[0, Math.PI / 2, 0]}>
-          <torusGeometry args={[0.14, 0.03, 12, 32]} />
-          <Mat cor="acoEscuro" />
+        <NoEixo eixo="z" posicao={[PINHAO.x, PINHAO.y, 0]}><Torneado perfil={CUBO} cor="aco" segmentos={32} /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.coroa} explodir={explodir} afastamento={[0, 0, 0.9]}>
+        <mesh position={[COROA.x, COROA.y, -ESPESSURA_ENGRENAGEM / 2]}>
+          <extrudeGeometry args={[COROA_FORMA, EXTRUSAO]} />
+          <Mat cor="aco" />
         </mesh>
+        <NoEixo eixo="z" posicao={[COROA.x, COROA.y, 0]}><Torneado perfil={CUBO} cor="aco" segmentos={32} /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.eixoEntrada} explodir={explodir} afastamento={[0, 0, 1.4]}>
+        <NoEixo eixo="z" posicao={[PINHAO.x, PINHAO.y, 0]}><Torneado perfil={EIXO} cor="acoClaro" segmentos={24} /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.eixoSaida} explodir={explodir} afastamento={[0, 0, 1.4]}>
+        <NoEixo eixo="z" posicao={[COROA.x, COROA.y, 0]}><Torneado perfil={EIXO} cor="acoClaro" segmentos={24} /></NoEixo>
+      </Peca>
+
+      <Peca id={PECA.rolamentos} explodir={explodir} afastamento={[0, 0, -0.55]}>
+        {[PINHAO, COROA].map((g) => (
+          <NoEixo key={g.x} eixo="z" posicao={[g.x, g.y, 0]}>
+            <RolamentoMini y={Y_ROLAMENTO - 0.03} rInt={0.07} rExt={0.2} largura={0.12} />
+          </NoEixo>
+        ))}
+      </Peca>
+
+      <Peca id={PECA.retentores} explodir={explodir} afastamento={[0, 0, -0.95]}>
+        {[PINHAO, COROA].map((g) => (
+          <NoEixo key={g.x} eixo="z" posicao={[g.x, g.y, 0]}>
+            {RETENTOR.map((p, k) => <Torneado key={k} perfil={p} cor="borracha" corte segmentos={40} />)}
+          </NoEixo>
+        ))}
+      </Peca>
+
+      <Peca id={PECA.nivelOleo} explodir={explodir} afastamento={[0.45, 0, 0]}>
+        {/* visor de nível na lateral direita */}
+        <NoEixo eixo="x" posicao={[LARGURA / 2, -0.45, Z_CENTRO]}>
+          <Torneado perfil={VISOR_ARO} cor="acoEscuro" segmentos={32} />
+          <Torneado perfil={VISOR_VIDRO} cor="acoClaro" segmentos={32} />
+        </NoEixo>
       </Peca>
     </group>
   );

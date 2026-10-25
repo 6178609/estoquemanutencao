@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentRef, ComponentType } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import { Box3, Camera, MathUtils, Object3D, TOUCH, Vector3 } from "three";
 import type { Group, PerspectiveCamera } from "three";
 
 import type { ModeloComCena } from "@/lib/suporte/modelos3d";
 
-import { ContextoCena, lerPaleta } from "./Peca";
+import { CAMERA_INICIAL, ContextoCena, lerPaleta } from "./Peca";
 import type { ModeloProps, Paleta } from "./Peca";
 import { Bomba } from "./Bomba";
 import { Cilindro } from "./Cilindro";
@@ -60,7 +60,7 @@ export function Cena(props: CenaProps) {
     <Canvas
       frameloop={props.naTela ? "demand" : "never"}
       dpr={[1, 2]}
-      camera={{ position: [2.6, 1.4, 3.4], fov: 35 }}
+      camera={{ position: CAMERA_INICIAL, fov: 35 }}
       gl={{ antialias: true, alpha: true }}
       style={{ position: "absolute", inset: 0 }}
       onCreated={({ gl }) => {
@@ -113,6 +113,9 @@ function enquadrar(
 function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recentrar, aoClicarPeca }: CenaProps) {
   const Modelo = COMPONENTES[modelo];
   const raiz = useRef<Group>(null);
+  const fase = useRef(0);
+  /** a sombra de contato fica logo abaixo do modelo montado (cada modelo tem um tamanho) */
+  const [sombraY, setSombraY] = useState(-1.25);
   const controles = useRef<ControlesOrbita>(null);
   /** foco animado: para onde a câmera e o alvo devem ir */
   const foco = useRef<{ alvo: Vector3; posicao: Vector3 } | null>(null);
@@ -129,6 +132,13 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recen
     () => ({ destaque, paleta, reduzir, aoClicarPeca }),
     [destaque, paleta, reduzir, aoClicarPeca],
   );
+
+  useEffect(() => {
+    const g = raiz.current;
+    if (!g) return;
+    const b = new Box3().setFromObject(g);
+    if (!b.isEmpty()) setSombraY(b.min.y - 0.08);
+  }, [modelo]);
 
   // Ao trocar a peça ou ao recentrar, prepara o enquadramento da peça ou do modelo inteiro.
   useEffect(() => {
@@ -195,16 +205,28 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recen
     }
     const g = raiz.current;
     if (g && girar) {
-      g.rotation.y += dt * 0.3;
+      // oscila ±20° em vez de girar a volta inteira: o corte continua voltado para quem olha
+      fase.current += dt * 0.6;
+      g.rotation.y = 0.35 * Math.sin(fase.current);
       estadoQuadro.invalidate();
     }
   });
 
   return (
     <>
-      <ambientLight intensity={0.75} />
-      <directionalLight position={[3, 4, 5]} intensity={1.1} />
-      <directionalLight position={[-3, -2, -4]} intensity={0.35} />
+      {/* iluminação de estúdio: ambiente gerado no próprio navegador (sem baixar arquivos), para o metal refletir */}
+      <Environment resolution={256} frames={1}>
+        {/* fundo cinza de estúdio: sem ele, o metal polido reflete preto onde não há painel de luz */}
+        <color attach="background" args={["#7d858c"]} />
+        <Lightformer form="rect" intensity={2.2} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[10, 10, 1]} />
+        <Lightformer form="rect" intensity={1.4} position={[-5, 1, 2]} rotation-y={Math.PI / 2} scale={[6, 3, 1]} />
+        <Lightformer form="rect" intensity={1.1} position={[5, 1, -1]} rotation-y={-Math.PI / 2} scale={[6, 3, 1]} />
+        <Lightformer form="ring" intensity={0.8} position={[2, 2, 5]} scale={2} />
+        <Lightformer form="rect" intensity={0.5} position={[0, -4, 0]} rotation-x={-Math.PI / 2} scale={[10, 10, 1]} />
+      </Environment>
+      <ambientLight intensity={0.25} />
+      <directionalLight position={[3, 5, 4]} intensity={1.2} />
+      <ContactShadows position={[0, sombraY, 0]} opacity={0.35} scale={8} blur={2.6} far={3} />
       {/* toque: um dedo gira (o gesto vertical rola a página, por touch-action no contêiner); dois dedos aproximam e giram; sem arrastar lateral */}
       <OrbitControls
         ref={controles}
