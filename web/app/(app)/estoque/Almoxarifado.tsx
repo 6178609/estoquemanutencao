@@ -14,7 +14,7 @@ import { MAX_FOTOS, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMate
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
-type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado";
+type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "sugerida";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
@@ -175,7 +175,10 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
   }, [itens, textoBusca, buscaAdiada, cadastros, categorias, depositos]);
 
   const visiveis = useMemo(() => {
-    const r = recorte.filter((i) => situacao === "vinculado" ? !!i.usadoEm : situacao === "todos" || i.situacao === situacao);
+    const r = recorte.filter((i) => situacao === "vinculado" ? !!i.usadoEm
+      : situacao === "com_foto" ? !!urlFoto(i)
+      : situacao === "sugerida" ? !!sugestoes[i.material]?.length
+      : situacao === "todos" || i.situacao === situacao);
     const peso = { Zerado: 0, "Abaixo do mínimo": 1, OK: 2 };
     const cmp: Record<Ordem, (a: ItemAlmox, b: ItemAlmox) => number> = {
       situacao: (a, b) => peso[a.situacao] - peso[b.situacao] || a.descricao.localeCompare(b.descricao, "pt-BR"),
@@ -184,7 +187,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       valor: (a, b) => b.valor - a.valor,
     };
     return r.sort(cmp[ordem]);
-  }, [recorte, situacao, ordem]);
+  }, [recorte, situacao, ordem, sugestoes]);
 
   const listaRef = useRef<HTMLDivElement>(null);
   const [margem, setMargem] = useState(0);
@@ -204,6 +207,11 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
     { valor: "Zerado" as const, rotulo: "Zerados", n: n("Zerado") },
     { valor: "OK" as const, rotulo: "OK", n: n("OK") },
     { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: recorte.filter((i) => i.usadoEm).length },
+    { valor: "com_foto" as const, rotulo: "Com foto", n: recorte.filter((i) => urlFoto(i)).length },
+    // só aparece quando há sugestões importadas (busca de fotos na web) esperando aprovação
+    ...(Object.keys(sugestoes).length
+      ? [{ valor: "sugerida" as const, rotulo: "Foto sugerida", n: recorte.filter((i) => sugestoes[i.material]?.length).length }]
+      : []),
   ];
   const filtros = (
     <div className="flex flex-wrap gap-2">

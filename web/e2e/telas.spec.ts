@@ -39,6 +39,19 @@ test("busca no estoque filtra a lista", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
+test("estoque: filtros de foto (com foto e foto sugerida)", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/estoque");
+  const grupo = page.getByRole("group", { name: "Situação do material" });
+  // a demonstração começa sem fotos: "Com foto" filtra para nenhum material
+  await grupo.getByRole("button", { name: /^Com foto/ }).click();
+  await expect(page.getByText("Nenhum material com esses filtros.")).toBeVisible();
+  // a demonstração tem uma sugestão de foto fictícia no material 500000
+  await grupo.getByRole("button", { name: /^Foto sugerida · 1/ }).click();
+  await expect(page.getByText("ITEM SEM CADASTRO 1", { exact: true })).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
 test("modos de causa: a nuvem de palavras abre os apontamentos da palavra clicada", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/indicadores_sim?visao=causas&atalho=Tudo");
