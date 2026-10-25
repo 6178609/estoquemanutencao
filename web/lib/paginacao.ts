@@ -1,5 +1,5 @@
 /** Linhas por página nas listas (equipamentos, manuais). */
-export const LINHAS_POR_PAGINA = 50;
+const LINHAS_POR_PAGINA = 50;
 
 /** Uma página (50 por vez); a página pedida fora da faixa cai na mais próxima. */
 export function paginar<T>(itens: T[], pedida: number, tamanho = LINHAS_POR_PAGINA) {
