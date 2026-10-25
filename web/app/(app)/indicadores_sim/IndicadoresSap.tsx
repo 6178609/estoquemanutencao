@@ -79,7 +79,7 @@ export async function IndicadoresSap({ mes, rotulo, deck }: { mes: string; rotul
         <div className="bg-marca-700 px-4 py-2.5 text-white">
           <h3 className="font-display text-[15px] font-medium">KPIs do pilar MP — calculados pelo SAP × planilha do SIM</h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse">
             <thead><tr className="border-b border-borda">
               <th className={clsx(TH, "text-left")}>Indicador</th><th className={TH}>Tipo</th>
@@ -113,7 +113,7 @@ export async function IndicadoresSap({ mes, rotulo, deck }: { mes: string; rotul
               <h3 className="font-display text-[15px] font-medium">{g.titulo}</h3>
               <span className="text-[12.5px] text-texto-3">{cm.length ? `${cm.filter((l) => l.farol === "verde").length} de ${cm.length} na meta` : "sem meta cadastrada"}</span>
             </div>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[820px] border-collapse">
                 <thead><tr className="border-b border-borda">
                   <th className={clsx(TH, "text-left")}>Indicador</th><th className={TH}>Tipo</th><th className={TH}>Meta</th>

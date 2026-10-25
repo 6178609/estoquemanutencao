@@ -109,7 +109,7 @@ export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: Linha
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
           <h2 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por indicador de manutenção</h2>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse">
               <thead><tr className="border-b border-borda">
                 <th className={TH}>Indicador</th><th className={TH}>Áreas na meta ({MESES[i]})</th><th className={TH}>Acumulado</th><th className={TH}>No ano</th>
@@ -133,7 +133,7 @@ export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: Linha
         </section>
         <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
           <h2 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por área <span className="text-[12.5px] font-normal text-texto-3">(as piores primeiro)</span></h2>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse">
               <thead><tr className="border-b border-borda">
                 <th className={TH}>Área</th><th className={TH}>Na meta ({MESES[i]})</th><th className={TH}>Fora da meta</th>

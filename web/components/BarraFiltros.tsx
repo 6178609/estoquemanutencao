@@ -108,7 +108,7 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimens
   const algum = sel.area.length + sel.setor.length + sel.centro.length + sel.tipo.length > 0;
 
   return (
-    <div className="nao-imprimir sticky top-[57px] z-20 -mx-4 border-b border-borda bg-fundo/90 px-4 py-3 backdrop-blur lg:top-0 sm:-mx-8 sm:px-8">
+    <div className="nao-imprimir z-20 -mx-4 border-b border-borda bg-fundo/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:sticky lg:top-0">
       <div className="flex flex-wrap items-center gap-2">
         {periodo && (
           <div className="relative flex max-w-full items-center gap-1.5">
