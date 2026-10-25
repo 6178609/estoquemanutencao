@@ -15,7 +15,7 @@ import { FotoDetalhe, MiniaturaFoto } from "./FotoItem";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
-type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto";
+type Situacao = "todos" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
@@ -202,7 +202,6 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
   const pilulas = [
     { valor: "todos" as const, rotulo: "Todos", n: recorte.length },
     { valor: "Abaixo do mínimo" as const, rotulo: "Abaixo do mínimo", n: n("Abaixo do mínimo") },
-    { valor: "Zerado" as const, rotulo: "Zerados", n: n("Zerado") },
     { valor: "OK" as const, rotulo: "OK", n: n("OK") },
     { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: recorte.filter((i) => i.usadoEm).length },
     { valor: "com_foto" as const, rotulo: "Com foto", n: recorte.filter(temFoto).length },
