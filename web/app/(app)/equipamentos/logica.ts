@@ -15,7 +15,6 @@ export const CATEGORIAS = ["Mecânico", "Elétrico", "Instrumentação", "Hidrá
 export const SEM_CLASSE = "Sem classe";
 export const NAO_CLASSIFICADO = "(não classificado)";
 const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
-const POR_PAGINA = 50;
 export const V_ATIVOS = "Gestão de ativos", V_CADASTRO = "Cadastro de equipamentos", V_ANALISE = "Análise pelas ordens (IW38)";
 export const VISOES = [V_ATIVOS, V_CADASTRO, V_ANALISE];
 /** Rótulo da coluna/campo com o campo de ordenação geral do equipamento (o mesmo do Calendário e da Gestão de MRO). */
@@ -36,14 +35,7 @@ export const param = (p: Params, k: string): string => {
 export const listaParam = (p: Params, k: string): string[] =>
   param(p, k).split(",").map((x) => x.trim()).filter((x) => x && x !== "-").slice(0, 60);
 
-interface Pagina<T> { itens: T[]; pag: number; paginas: number; total: number; inicio: number }
-
-export function paginar<T>(xs: T[], pag: number, tamanho = POR_PAGINA): Pagina<T> {
-  const paginas = Math.max(1, Math.ceil(xs.length / tamanho));
-  const p = Math.min(Math.max(1, Math.floor(pag) || 1), paginas);
-  const inicio = (p - 1) * tamanho;
-  return { itens: xs.slice(inicio, inicio + tamanho), pag: p, paginas, total: xs.length, inicio };
-}
+export { paginar } from "@/lib/paginacao";
 
 /** CSV que o Excel em português abre direto (BOM, ponto e vírgula, vírgula decimal). */
 export function csv(colunas: string[], linhas: unknown[][]): string {

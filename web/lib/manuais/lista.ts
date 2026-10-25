@@ -11,7 +11,6 @@ interface VinculoManual {
   doc: { id: string; titulo: string; tipo: string; url?: string; origem?: { tag: string; id: string } };
 }
 export type TipoManual = "pdf" | "imagem" | "link";
-const TAMANHO_PAGINA = 50;
 
 /** Números do topo: vínculos, equipamentos com e sem manual e a cobertura (0–100, inteiro). */
 export function resumoManuais(ativos: { codigo: string }[], vinculos: { tag: string }[]) {
@@ -50,10 +49,4 @@ export function filtrarManuais<V extends VinculoManual>(vinculos: V[], f: Filtro
   });
 }
 
-/** Uma página (50 por vez); a página pedida fora da faixa cai na mais próxima. */
-export function paginar<T>(itens: T[], pedida: number, tamanho = TAMANHO_PAGINA) {
-  const paginas = Math.max(1, Math.ceil(itens.length / tamanho));
-  const pag = Math.min(Math.max(1, Math.floor(Number(pedida)) || 1), paginas);
-  const inicio = (pag - 1) * tamanho;
-  return { pag, paginas, total: itens.length, inicio, itens: itens.slice(inicio, inicio + tamanho) };
-}
+export { paginar } from "@/lib/paginacao";
