@@ -74,6 +74,8 @@
   (`BUSCA_IMAGENS_PROVEDOR`, `BUSCA_IMAGENS_CHAVE`, `BUSCA_IMAGENS_POR_DIA`; ver `web/README.md`). Lógica em
   `lib/fotos/` (provedores, escolha, rodada) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json` e
   `fotos_busca_estado.json`.
+- **Só o almoxarifado (MB52):** a busca de fotos é só para os materiais do almoxarifado; o catálogo do Sysmat não é buscado
+  (só empresta a descrição com FAB/REF).
 - **Só foto real do item:** própria ou do fabricante, cujo título/página traz a referência (REF) do material. Foto genérica
   por tipo, subcategoria ou categoria (ilustrativa) não é usada: mostrava peça diferente da descrição. Sem foto exata, o
   item fica sem foto.

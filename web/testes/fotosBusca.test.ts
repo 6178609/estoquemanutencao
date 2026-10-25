@@ -285,32 +285,34 @@ describe("planejamento da busca", () => {
       descrCompleta: "FAB: GATES - REF: A-42.", descricaoCurta: "CORREIA A42" }),
   ];
   const base = (over: Partial<DadosBusca> = {}): DadosBusca => ({
-    estoque: [{ material: "100", descricao: "ROLAMENTO RIGIDO ESFER RO-1418" }, { material: "200", descricao: "PARAFUSO SEXTAVADO" }],
+    estoque: [{ material: "100", descricao: "ROLAMENTO RIGIDO ESFER RO-1418" }, { material: "200", descricao: "PARAFUSO SEXTAVADO" },
+      { material: "400", descricao: "CORREIA A42" }],
     catalogo, refs: {}, estado: {}, agora, ...over,
   });
 
-  it("só busca foto exata: materiais do estoque com referência primeiro, depois os do catálogo; nada por tipo", () => {
+  it("só busca foto exata dos materiais do almoxarifado com referência; nada por tipo nem do catálogo sem estoque", () => {
     const alvos = planejarBusca(base());
     const chaves = alvos.map((a) => a.chave);
-    // o 000100 do catálogo é o 100 do estoque: buscado uma vez só
+    // o 000100 do catálogo é o 100 do estoque; o 300 (sem referência) e os do catálogo fora do estoque não entram
     expect(chaves).toEqual(["m:100", "m:400"]);
+    expect(planejarBusca(base({ estoque: [] }))).toEqual([]);
     expect(alvos[0].consulta).toBe("SKF 6205-2Z ROLAMENTO RIGIDO ESFERAS");
     expect(chaves.some((c) => c.startsWith("t:"))).toBe(false);
   });
 
   it("não repete o que já tem foto nem o que foi tentado nos últimos 60 dias", () => {
     const estado = { "m:100": { data: "2026-10-01T00:00:00Z", resultado: "sem" }, "m:400": { data: "2025-01-01T00:00:00Z", resultado: "sem" } };
-    // m:100 foi tentado há menos de 60 dias (e o 000100 do catálogo é ele); m:400, há mais: tenta de novo
+    // m:100 foi tentado há menos de 60 dias; m:400, há mais: tenta de novo
     expect(planejarBusca(base({ estado })).map((a) => a.chave)).toEqual(["m:400"]);
     expect(planejarBusca(base({ refs: { "100": {} } })).map((a) => a.chave)).toEqual(["m:400"]);
-    // foto gravada com zeros (só o Sysmat a acha): o 100 do estoque ainda busca a sua, o catálogo não repete
     expect(planejarBusca(base({ refs: { "000100": {} } })).map((a) => a.chave)).toEqual(["m:100", "m:400"]);
   });
 
   it("orçamento: a rodada para no teto e o restante do dia conta", async () => {
     const buscar = vi.fn(async () => []);
     const mais = [...catalogo, item({ material: "500", pdm: "CORREIA", descrCompleta: "FAB: GATES - REF: B-50.", descricaoCurta: "CORREIA B50" })];
-    const r = await rodadaFotos({ limiteDia: 2, porRodada: 10, dados: async () => base({ catalogo: mais }), buscar });
+    const r = await rodadaFotos({ limiteDia: 2, porRodada: 10, buscar, dados: async () => base({ catalogo: mais,
+      estoque: [...base().estoque, { material: "500", descricao: "CORREIA B50" }] }) });
     expect(r.buscados).toBe(2);
     expect(buscar).toHaveBeenCalledTimes(2);
     expect(r.motivo).toBe("orçamento da rodada");
