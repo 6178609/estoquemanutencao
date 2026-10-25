@@ -11,6 +11,11 @@
 - Toda alteração é **publicada no site**: commit → push no ramo de trabalho → PR para `main` → merge →
   realinhar o ramo com `main`.
 - Antes de publicar: `cd web && npx tsc --noEmit && npx vitest run`.
+- **Publicar sempre o que já está pronto (padrão definitivo):** ao terminar cada resposta, e sempre antes de o uso
+  (limite da sessão) acabar, tudo que já está concluído e verificado vai para o site (commit → push → PR → merge →
+  conferir o deploy). Só fica sem publicar o que ainda está em andamento (agente trabalhando, teste falhando, revisão
+  pendente) — e isso é dito ao usuário. Trabalho grande vai em partes publicáveis, sem acumular. Dados encontrados por
+  agentes (ex.: fotos dos materiais) também são gravados no repositório de dados assim que validados.
 
 ## Segurança (inegociável — o repositório é público)
 - Nunca gravar em arquivo, commit ou log: senhas, usuário do SAP, tokens (GitHub, Vercel) ou chaves.
