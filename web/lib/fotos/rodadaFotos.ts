@@ -12,8 +12,8 @@ import { consultaFotoExata, escolherFotoExata } from "./escolha";
 
 /**
  * Rotina de busca automática de fotos, só a foto exata do material (pela referência do fabricante; foto genérica do tipo
- * não serve). Ordem: (a) materiais do estoque com referência e sem foto do fabricante; (b) materiais do catálogo com
- * referência. Cada tentativa fica no cadastro `fotos_busca_estado.json`
+ * não serve), só dos materiais do almoxarifado (MB52) com referência e sem foto do fabricante; o catálogo do Sysmat só
+ * empresta a descrição com FAB/REF. Cada tentativa fica no cadastro `fotos_busca_estado.json`
  * (não repete por 60 dias); o orçamento do dia é contado nesse mesmo cadastro.
  */
 
@@ -81,16 +81,6 @@ export function planejarBusca(d: DadosBusca): Alvo[] {
     incluir({ chave: `m:${e.material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material: e.material, fab: par.fab, ref: par.ref, pdm });
   }
 
-  // (b) materiais do catálogo com referência, pelo código sem zeros à esquerda (o do MB52: a foto aparece nas duas abas
-  // e o mesmo material não é buscado duas vezes)
-  for (const c of d.catalogo) {
-    const material = semZeros(c.material);
-    if (!material) continue;
-    const par = fabricantesERefs(c.descrCompleta).find((p) => p.fab && p.ref);
-    if (!par || !sem(d.refs, material) || !sem(d.refs, c.material) || !ok(`m:${material}`) || !ok(`m:${c.material}`)) continue;
-    const pdm = pdmEfetivo(c.pdm, c.descricaoCurta, pdms);
-    incluir({ chave: `m:${material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material, fab: par.fab, ref: par.ref, pdm });
-  }
   return out;
 }
 
@@ -218,7 +208,6 @@ export interface ResumoFotos {
   provedor: string | null;
   ultima: { em: string; buscados: number; achados: number; motivo: string } | null;
   almoxarifado: Cobertura;
-  cadastrado: Cobertura;
   orcamentoHoje: { usadas: number; limite: number };
 }
 
@@ -234,7 +223,7 @@ export function cobertura(itens: { material: string; propria: boolean; cadRef: C
   return r;
 }
 
-/** Resumo para o cartão de Fontes de dados: provedor, última rodada e cobertura do almoxarifado e do cadastrado. */
+/** Resumo para o cartão de Fontes de dados: provedor, última rodada e cobertura do almoxarifado. */
 // o resumo percorre o catálogo inteiro (~98 mil itens): guardado por 5 min (a tela de Fontes de dados é dinâmica)
 let resumoGuardado: { em: number; r: ResumoFotos } | null = null;
 export async function resumoFotosAutomaticas(): Promise<ResumoFotos> {
@@ -254,9 +243,6 @@ async function calcularResumoFotos(): Promise<ResumoFotos> {
     cadRef: d.refs,
   });
   const almox = d.estoque.map((e) => base(e.material));
-  const vistos = new Set<string>();
-  const cadastrado = d.catalogo.filter((c) => c.material && !vistos.has(c.material) && vistos.add(c.material))
-    .map((c) => base(c.material));
   const ultima = d.estado[CHAVE_ULTIMA] as { em?: unknown; buscados?: unknown; achados?: unknown; motivo?: unknown } | undefined;
   const dia = d.estado[CHAVE_DIA] as { dia?: unknown; usadas?: unknown } | undefined;
   return {
@@ -265,7 +251,6 @@ async function calcularResumoFotos(): Promise<ResumoFotos> {
     ultima: ultima && typeof ultima.em === "string" ? { em: ultima.em, buscados: Number(ultima.buscados) || 0,
       achados: Number(ultima.achados) || 0, motivo: String(ultima.motivo ?? "") } : null,
     almoxarifado: cobertura(almox),
-    cadastrado: cobertura(cadastrado),
     orcamentoHoje: { usadas: dia?.dia === dataDe(d.agora) && typeof dia.usadas === "number" ? dia.usadas : 0, limite: limiteDiario() },
   };
 }

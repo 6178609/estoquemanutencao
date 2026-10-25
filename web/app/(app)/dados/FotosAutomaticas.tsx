@@ -69,10 +69,7 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
         {" "}Orçamento de hoje: {resumo.orcamentoHoje.usadas} de {resumo.orcamentoHoje.limite} buscas.
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Linha rotulo="Almoxarifado (MB52)" c={resumo.almoxarifado} />
-        <Linha rotulo="Material cadastrado (Sysmat)" c={resumo.cadastrado} />
-      </div>
+      <Linha rotulo="Almoxarifado (MB52)" c={resumo.almoxarifado} />
 
       <p role="status" aria-live="polite" className="text-[13px]">
         {estado.msg && <span className={estado.erro ? "text-[var(--selo-critico-texto)]" : "text-[var(--selo-bom-texto)]"}>{estado.msg}</span>}
