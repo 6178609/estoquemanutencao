@@ -10,9 +10,8 @@ export const dynamic = "force-dynamic";
 const LIMITE_ARQUIVO = 8_000_000;
 
 /**
- * Importa o arquivo de fotos (por tipo de material e/ou por código de material). Só editores e administradores com
- * acesso a Fontes de dados. As fotos entram direto no material (sem aprovação) e a prioridade é: própria, do fabricante,
- * ilustrativa.
+ * Importa o arquivo de fotos do fabricante por código de material. Só editores e administradores com acesso a Fontes de
+ * dados. As fotos entram direto no material (sem aprovação); a foto própria continua na frente.
  */
 export async function POST(req: NextRequest) {
   const origem = req.headers.get("origin");

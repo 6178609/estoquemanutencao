@@ -152,12 +152,10 @@ export interface ItemAlmox extends ItemEstoque {
   foto: string | null;
   /** Todas as fotos do material, na ordem (a 1ª é a principal; até 8). */
   fotos: string[];
-  /** PDM (tipo de material) do catálogo: chave da foto ilustrativa. */
+  /** PDM (tipo de material) do catálogo. */
   pdm: string;
   /** Foto do fabricante (pela referência do item), se o cadastro de fotos tem uma. */
   fotoRef: FotoExterna | null;
-  /** Foto ilustrativa do tipo de material, se o cadastro de fotos tem uma. */
-  fotoTipo: FotoExterna | null;
   usadoEm: string;
 }
 
@@ -191,7 +189,7 @@ export function montarAlmox(
       sysmat: c?.sysmat || "", categoria: c?.categoria || "", subcategoria: c?.subcategoria || "", ncm: c?.ncm || "",
       descrCompleta: c?.descrCompleta || "", fabricanteRef: c?.fabricanteRef || "", status: c?.status || "",
       substituto: c?.substituto || "", foto: fotos[0] ?? null, fotos,
-      pdm: c?.pdm || "", fotoRef: null, fotoTipo: null,
+      pdm: c?.pdm || "", fotoRef: null,
       usadoEm: (usoPorMaterial.get(e.material) || []).join(", "),
     };
   });

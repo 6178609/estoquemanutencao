@@ -17,15 +17,14 @@ export function ImportarFotos() {
     const r = await fetch("/api/estoque/foto/importar", { method: "POST", body: corpo }).catch(() => null);
     const j = r ? await r.json().catch(() => ({})) : {};
     if (!r?.ok) return setEstado({ enviando: false, ok: "", erro: j.erro || "Não foi possível importar." });
-    setEstado({ enviando: false, erro: "", ok: `${Number(j.tipos) || 0} tipos e ${Number(j.materiais) || 0} materiais com foto.` });
+    setEstado({ enviando: false, erro: "", ok: `${Number(j.materiais) || 0} materiais com foto.` });
   }
 
   return (
     <Cartao className="p-5">
       <div className="font-display text-[16px] font-medium">Fotos dos materiais</div>
       <p className="mt-1 text-[13px] text-texto-3">
-        Importe o arquivo JSON de fotos. Ele pode trazer <code>&quot;tipos&quot;</code> (foto ilustrativa por tipo de material) e/ou{" "}
-        <code>&quot;materiais&quot;</code> (foto do fabricante, por código). As fotos entram direto no Estoque; a foto própria,
+        Importe o arquivo JSON de fotos com <code>&quot;materiais&quot;</code> (foto do fabricante, por código). As fotos entram direto no Estoque; a foto própria,
         quando existir, continua na frente.
       </p>
       <label className={`${BOTAO_SECUNDARIO} mt-3 cursor-pointer`}>

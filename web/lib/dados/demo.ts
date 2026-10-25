@@ -94,9 +94,7 @@ const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<s
   // uma sugestão de foto de exemplo (o endereço não existe: a tela mostra que não carregou)
   ["sugestoes_fotos.json", { "500000": { sugestoes: [{ url: "https://exemplo.invalid/foto-sugerida.jpg",
     pagina: "https://exemplo.invalid/produto", titulo: "Exemplo de sugestão (demonstração)" }], buscado_em: "2026-01-01T00:00:00+00:00" } }],
-  // foto ilustrativa de um tipo (ROLAMENTO) e foto do fabricante de um item: endereços que não existem (a tela cai no ícone)
-  ["fotos_tipos.json", { ROLAMENTO: { url: "https://exemplo.invalid/tipo.jpg", pagina: null,
-    titulo: "Rolamento (ilustração de demonstração)", buscado_em: "2026-01-01T00:00:00+00:00" } }],
+  // foto do fabricante de um item: endereço que não existe (a tela cai no ícone)
   ["fotos_referencia.json", { "900000": { url: "https://exemplo.invalid/referencia.jpg", pagina: "https://exemplo.invalid/produto",
     titulo: "Foto de referência (demonstração)", buscado_em: "2026-01-01T00:00:00+00:00" } }],
   ["tipos_ordem.json", { YM01: { descricao: "Preventiva" }, YM03: { descricao: "Preditiva / inspeção" },

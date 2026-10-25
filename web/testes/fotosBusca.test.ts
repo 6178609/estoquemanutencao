@@ -27,12 +27,11 @@ vi.mock("node:https", () => ({
 import { NextResponse } from "next/server";
 import { _limparCacheFotos, fotoDoCadastro, respostaFotoExterna, chaveFoto } from "@/lib/dados/fotosExternas";
 import { imagemDaPagina } from "@/lib/dados/fotosSugestao";
-import { deduzirPdm, pdmEfetivo, pdmsConhecidos, chaveSubcategoria } from "@/lib/dados/pdmDeducao";
-import { bancoDeImagem, consultaFotoExata, consultaTipo, escolherFotoExata, escolherFotoTipo, imagemAceitavel, refNormalizada } from "@/lib/fotos/escolha";
+import { deduzirPdm, pdmEfetivo, pdmsConhecidos } from "@/lib/dados/pdmDeducao";
+import { bancoDeImagem, consultaFotoExata, escolherFotoExata, imagemAceitavel, refNormalizada } from "@/lib/fotos/escolha";
 import { normalizarBrave, normalizarFirecrawl, normalizarSerpapi, normalizarSerper, buscarImagens, CotaErro, BuscaErro } from "@/lib/fotos/buscaImagem";
 import { planejarBusca, rodadaFotos, limiteDiario, type DadosBusca } from "@/lib/fotos/rodadaFotos";
 import { ARQUIVO_REFERENCIA } from "@/lib/dados/fotosReferencia";
-import { ARQUIVO_TIPOS } from "@/lib/dados/fotosTipo";
 import { lerCadastro } from "@/lib/dados/cadastros";
 import { fabricantesERefs, fabricanteRef, type ItemCatalogo } from "@/lib/dados/materiais";
 
@@ -68,9 +67,8 @@ describe("dedução do PDM pelo texto breve", () => {
     expect(pdmEfetivo("PARAFUSO SEXTAVADO", "ROLAMENTO RIGIDO", pdms)).toBe("PARAFUSO SEXTAVADO");
     expect(pdmEfetivo("", "ROLAMENTO RIGIDO ESFER RO-1418", pdms)).toBe("ROLAMENTO RIGIDO ESFERAS");
   });
-  it("PDMs conhecidos e chaves de grupo", () => {
+  it("PDMs conhecidos", () => {
     expect(pdmsConhecidos([{ pdm: " A " }, { pdm: "" }, { pdm: "A" }])).toEqual(["A"]);
-    expect(chaveSubcategoria("ROLAMENTO")).toBe("sub:ROLAMENTO");
   });
 });
 
@@ -94,23 +92,10 @@ describe("escolha da imagem", () => {
   });
   it("consultas", () => {
     expect(consultaFotoExata("SKF", "6205-2Z", "ROLAMENTO RIGIDO ESFERAS DE CONTATO")).toBe("SKF 6205-2Z ROLAMENTO RIGIDO ESFERAS");
-    expect(consultaTipo("ROLAMENTO RIGIDO ESFERAS", "ROLAMENTO")).toBe("ROLAMENTO RIGIDO ESFERAS ROLAMENTO produto");
-    expect(consultaTipo("PARAFUSO")).toBe("PARAFUSO produto");
   });
-  it("foto ilustrativa: palavra significativa no título e fora de banco de imagem", () => {
-    const r = escolherFotoTipo([
-      { imagem: `${loja}/ruim.jpg`, pagina: null, titulo: "Rolamento de esferas" },
-      { imagem: "https://www.shutterstock.com/img.jpg", pagina: null, titulo: "Rolamento de esferas" },
-      { imagem: `${loja}/bom.webp`, pagina: "https://www.123rf.com/x", titulo: "Rolamento de esferas" },
-      { imagem: `${loja}/ok.jpg`, pagina: `${loja}/p`, titulo: "Rolamento rígido de esferas" },
-    ], "ROLAMENTO RIGIDO ESFERAS");
-    expect(r?.imagem).toBe(`${loja}/ruim.jpg`);
-    const so = escolherFotoTipo([
-      { imagem: "https://www.shutterstock.com/img.jpg", pagina: null, titulo: "Rolamento" },
-      { imagem: `${loja}/ok.jpg`, pagina: `${loja}/p`, titulo: "Rolamento rígido de esferas" },
-    ], "ROLAMENTO RIGIDO ESFERAS");
-    expect(so?.imagem).toBe(`${loja}/ok.jpg`);
-    expect(escolherFotoTipo([{ imagem: `${loja}/x.jpg`, pagina: null, titulo: "Parafuso" }], "ROLAMENTO")).toBeNull();
+  it("foto exata: imagem de banco de imagens não serve, mesmo com a referência", () => {
+    expect(escolherFotoExata([{ imagem: "https://www.shutterstock.com/6205-2Z.jpg", pagina: null, titulo: "SKF 6205-2Z" }], "SKF", "6205-2Z")).toBeNull();
+    expect(escolherFotoExata([{ imagem: `${loja}/a.jpg`, pagina: "https://www.123rf.com/6205-2Z", titulo: "SKF 6205-2Z" }], "SKF", "6205-2Z")).toBeNull();
   });
   it("extensão e banco de imagem", () => {
     expect(imagemAceitavel(`${loja}/foto`)).toBe(true);
@@ -262,39 +247,36 @@ describe("planejamento da busca", () => {
       descrCompleta: "FAB: SKF - REF: 6205-2Z.", descricaoCurta: "ROLAMENTO 6205" }),
     item({ material: "200", pdm: "", subcategoria: "PARAFUSO", categoria: "FIXACAO", descricaoCurta: "PARAFUSO 8" }),
     item({ material: "300", pdm: "ROLAMENTO RIGIDO ESFERAS", subcategoria: "ROLAMENTO", categoria: "MECANICA", descricaoCurta: "ROLAMENTO 6206" }),
+    item({ material: "400", pdm: "CORREIA", subcategoria: "CORREIA", categoria: "MECANICA",
+      descrCompleta: "FAB: GATES - REF: A-42.", descricaoCurta: "CORREIA A42" }),
   ];
   const base = (over: Partial<DadosBusca> = {}): DadosBusca => ({
     estoque: [{ material: "100", descricao: "ROLAMENTO RIGIDO ESFER RO-1418" }, { material: "200", descricao: "PARAFUSO SEXTAVADO" }],
-    catalogo, refs: {}, tipos: {}, estado: {}, agora, ...over,
+    catalogo, refs: {}, estado: {}, agora, ...over,
   });
 
-  it("ordem: materiais com referência, tipos do estoque, subcategorias, categorias, PDMs do catálogo", () => {
-    const chaves = planejarBusca(base({ catalogo: [...catalogo] })).map((a) => a.chave);
-    expect(chaves[0]).toBe("m:100");
-    expect(chaves.indexOf("t:ROLAMENTO RIGIDO ESFERAS")).toBeGreaterThan(0);
-    expect(chaves.indexOf("t:sub:ROLAMENTO")).toBeGreaterThan(chaves.indexOf("t:ROLAMENTO RIGIDO ESFERAS"));
-    expect(chaves.indexOf("t:cat:MECANICA")).toBeGreaterThan(chaves.indexOf("t:sub:ROLAMENTO"));
-    expect(new Set(chaves).size).toBe(chaves.length);
+  it("só busca foto exata: materiais do estoque com referência primeiro, depois os do catálogo; nada por tipo", () => {
+    const alvos = planejarBusca(base());
+    const chaves = alvos.map((a) => a.chave);
+    // o 000100 do catálogo é o 100 do estoque: buscado uma vez só
+    expect(chaves).toEqual(["m:100", "m:400"]);
+    expect(alvos[0].consulta).toBe("SKF 6205-2Z ROLAMENTO RIGIDO ESFERAS");
+    expect(chaves.some((c) => c.startsWith("t:"))).toBe(false);
   });
 
   it("não repete o que já tem foto nem o que foi tentado nos últimos 60 dias", () => {
-    const estado = { "m:100": { data: "2026-10-01T00:00:00Z", resultado: "sem" }, "t:sub:ROLAMENTO": { data: "2025-01-01T00:00:00Z", resultado: "sem" } };
-    const chaves = planejarBusca(base({ estado, refs: {}, tipos: { "cat:MECANICA": {} } })).map((a) => a.chave);
-    expect(chaves).not.toContain("m:100");
-    expect(chaves).toContain("t:sub:ROLAMENTO");
-    expect(chaves).not.toContain("t:cat:MECANICA");
-  });
-
-  it("PDM deduzido do texto breve quando o Sysmat não tem", () => {
-    const alvos = planejarBusca(base());
-    const tipo200 = alvos.find((a) => a.chave === "t:PARAFUSO");
-    expect(tipo200).toBeUndefined();
-    expect(alvos.some((a) => a.chave === "t:ROLAMENTO RIGIDO ESFERAS")).toBe(true);
+    const estado = { "m:100": { data: "2026-10-01T00:00:00Z", resultado: "sem" }, "m:400": { data: "2025-01-01T00:00:00Z", resultado: "sem" } };
+    // m:100 foi tentado há menos de 60 dias (e o 000100 do catálogo é ele); m:400, há mais: tenta de novo
+    expect(planejarBusca(base({ estado })).map((a) => a.chave)).toEqual(["m:400"]);
+    expect(planejarBusca(base({ refs: { "100": {} } })).map((a) => a.chave)).toEqual(["m:400"]);
+    // foto gravada com zeros (só o Sysmat a acha): o 100 do estoque ainda busca a sua, o catálogo não repete
+    expect(planejarBusca(base({ refs: { "000100": {} } })).map((a) => a.chave)).toEqual(["m:100", "m:400"]);
   });
 
   it("orçamento: a rodada para no teto e o restante do dia conta", async () => {
     const buscar = vi.fn(async () => []);
-    const r = await rodadaFotos({ limiteDia: 2, porRodada: 10, dados: async () => base({ catalogo }), buscar });
+    const mais = [...catalogo, item({ material: "500", pdm: "CORREIA", descrCompleta: "FAB: GATES - REF: B-50.", descricaoCurta: "CORREIA B50" })];
+    const r = await rodadaFotos({ limiteDia: 2, porRodada: 10, dados: async () => base({ catalogo: mais }), buscar });
     expect(r.buscados).toBe(2);
     expect(buscar).toHaveBeenCalledTimes(2);
     expect(r.motivo).toBe("orçamento da rodada");
@@ -328,12 +310,10 @@ describe("rodada grava os achados nos cadastros", () => {
       ? [{ imagem: "https://loja.achado.com.br/6205.jpg", pagina: "https://loja.achado.com.br/p/6205-2Z", titulo: "Rolamento SKF 6205-2Z" }]
       : [];
     const r = await rodadaFotos({ limiteDia: 30, porRodada: 30, buscar, dados: async () => ({
-      estoque: [{ material: "900111", descricao: "ROLAMENTO RIGIDO ESFERAS" }], catalogo: cat, refs: {}, tipos: {}, estado: {}, agora: Date.now() }) });
+      estoque: [{ material: "900111", descricao: "ROLAMENTO RIGIDO ESFERAS" }], catalogo: cat, refs: {}, estado: {}, agora: Date.now() }) });
     expect(r.achados).toBeGreaterThanOrEqual(1);
     const refs = await lerCadastro(ARQUIVO_REFERENCIA);
     expect(refs["900111"]).toMatchObject({ url: "https://loja.achado.com.br/6205.jpg", pagina: "https://loja.achado.com.br/p/6205-2Z" });
-    const tipos = await lerCadastro(ARQUIVO_TIPOS);
-    expect(Object.keys(tipos)).toEqual(["ROLAMENTO"]); // só o que já vinha no cadastro
   });
 
   it("sem o provedor configurado, nada roda", async () => {

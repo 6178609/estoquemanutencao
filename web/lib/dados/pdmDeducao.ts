@@ -80,7 +80,3 @@ export function pdmEfetivo(pdm: string | null | undefined, descricao: string, pd
   const p = (pdm ?? "").trim();
   return p || deduzirPdm(descricao, pdms) || "";
 }
-
-/** Chaves de grupo no cadastro de fotos por tipo: `sub:<SubCategoria>` e `cat:<Categoria>`. */
-export const chaveSubcategoria = (sub: string) => (sub.trim() ? `sub:${sub.trim()}` : "");
-export const chaveCategoria = (cat: string) => (cat.trim() ? `cat:${cat.trim()}` : "");

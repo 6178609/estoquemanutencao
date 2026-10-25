@@ -7,7 +7,7 @@ import type { TipoImagem } from "./fotos";
 import { baixarPagina, buscarImagemSugestao, chaveSugestao, imagemDaPagina, SugestaoErro, urlSugestaoErro } from "./fotosSugestao";
 
 /**
- * Fotos que não são do material (cadastros `fotos_tipos.json` e `fotos_referencia.json`): cada item traz o endereço da
+ * Fotos do fabricante (cadastro `fotos_referencia.json`), que não são do cadastro do material: cada item traz o endereço da
  * imagem, a página de origem e o título. O navegador pede pela chave (`k`); o servidor busca o endereço DO CADASTRO com
  * as mesmas regras de segurança da foto sugerida (https, host público, redirecionamentos conferidos, 8 s, 6 MB).
  */
@@ -57,18 +57,12 @@ type Cadastro = Record<string, Record<string, unknown>>;
 const pegar = (c: Cadastro, chave: string) => (Object.hasOwn(c, chave) ? fotoDoCadastro(c[chave]) : null);
 
 /**
- * As fotos de um item prontas para a tela. Do fabricante: pela referência do material. Ilustrativa: pela primeira chave
- * que tem foto entre o PDM, `sub:<SubCategoria>` e `cat:<Categoria>`; `chaveTipo` é a chave achada (vai na URL).
+ * A foto do fabricante de um item, pronta para a tela (pela referência do material). Foto genérica do tipo de material
+ * não entra: a foto mostrada tem de ser a do próprio item.
  */
-export function fotosExternasDoItem(material: string, pdm: string, cadRef: Cadastro, cadTipo: Cadastro, sub = "", cat = ""):
-  { fotoRef: FotoExterna | null; fotoTipo: FotoExterna | null; chaveTipo: string | null } {
+export function fotosExternasDoItem(material: string, cadRef: Cadastro): { fotoRef: FotoExterna | null } {
   const ref = pegar(cadRef, material);
-  const chaves = [pdm, sub.trim() ? `sub:${sub.trim()}` : "", cat.trim() ? `cat:${cat.trim()}` : ""].filter(Boolean);
-  for (const chave of chaves) {
-    const tipo = pegar(cadTipo, chave);
-    if (tipo) return { fotoRef: ref ? fotoExternaDe(ref) : null, fotoTipo: fotoExternaDe(tipo), chaveTipo: chave };
-  }
-  return { fotoRef: ref ? fotoExternaDe(ref) : null, fotoTipo: null, chaveTipo: null };
+  return { fotoRef: ref ? fotoExternaDe(ref) : null };
 }
 
 // cache em memória das imagens (por chave do endereço): até ~30 MB, sai a mais antiga. Guarda também as falhas por

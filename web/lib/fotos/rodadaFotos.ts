@@ -6,15 +6,14 @@ import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fotosDoCadastro } from "../fotoMaterial";
 import { fotosExternasDoItem } from "../dados/fotosExternas";
 import { ARQUIVO_REFERENCIA } from "../dados/fotosReferencia";
-import { ARQUIVO_TIPOS } from "../dados/fotosTipo";
-import { chaveCategoria, chaveSubcategoria, pdmEfetivo, pdmsConhecidos } from "../dados/pdmDeducao";
+import { pdmEfetivo, pdmsConhecidos } from "../dados/pdmDeducao";
 import { buscarImagens, configuracaoBusca, CotaErro, type ImagemBusca } from "./buscaImagem";
-import { consultaFotoExata, consultaTipo, escolherFotoExata, escolherFotoTipo } from "./escolha";
+import { consultaFotoExata, escolherFotoExata } from "./escolha";
 
 /**
- * Rotina de busca automática de fotos. Ordem: (a) materiais do estoque com referência e sem foto do fabricante; (b)
- * tipos (PDM) dos materiais do estoque; (b2) subcategorias e categorias sem foto; (c) PDMs do catálogo, do mais
- * frequente; (d) materiais do catálogo com referência. Cada tentativa fica no cadastro `fotos_busca_estado.json`
+ * Rotina de busca automática de fotos, só a foto exata do material (pela referência do fabricante; foto genérica do tipo
+ * não serve). Ordem: (a) materiais do estoque com referência e sem foto do fabricante; (b) materiais do catálogo com
+ * referência. Cada tentativa fica no cadastro `fotos_busca_estado.json`
  * (não repete por 60 dias); o orçamento do dia é contado nesse mesmo cadastro.
  */
 
@@ -32,20 +31,17 @@ type Cadastro = Record<string, Record<string, unknown>>;
 /** Material do estoque (MB52) com o texto breve. */
 export interface MaterialEstoque { material: string; descricao: string }
 
-/** Os dados que a rotina lê: estoque, catálogo, os três cadastros de foto e a hora. */
+/** Os dados que a rotina lê: estoque, catálogo, o cadastro de fotos do fabricante, o estado e a hora. */
 export interface DadosBusca {
   estoque: MaterialEstoque[];
   catalogo: ItemCatalogo[];
   refs: Cadastro;
-  tipos: Cadastro;
   estado: Cadastro;
   agora: number;
 }
 
 /** Uma busca a fazer: a chave do estado, a consulta e o que procurar. */
-export type Alvo =
-  | { chave: string; consulta: string; tipo: "material"; material: string; fab: string; ref: string; pdm: string }
-  | { chave: string; consulta: string; tipo: "tipo"; chaveTipo: string; nome: string; subcategoria: string };
+export interface Alvo { chave: string; consulta: string; material: string; fab: string; ref: string; pdm: string }
 
 const DIA_MS = 86_400_000;
 const semZeros = (c: string) => c.replace(/^0+/, "");
@@ -76,59 +72,24 @@ export function planejarBusca(d: DadosBusca): Alvo[] {
   const ok = (chave: string) => !vistos.has(chave) && !tentouRecente(d.estado, chave, d.agora);
   const sem = (cad: Cadastro, chave: string) => !Object.hasOwn(cad, chave);
   const incluir = (a: Alvo) => { vistos.add(a.chave); out.push(a); };
-  const tipoAlvo = (chaveTipo: string, nome: string, subcategoria = ""): Alvo => ({
-    chave: `t:${chaveTipo}`, consulta: consultaTipo(nome, subcategoria), tipo: "tipo", chaveTipo, nome, subcategoria,
-  });
-
   // (a) materiais do estoque com referência e sem foto do fabricante
   for (const e of d.estoque) {
     const c = cat.get(semZeros(e.material));
     const par = c ? fabricantesERefs(c.descrCompleta).find((p) => p.fab && p.ref) : undefined;
     if (!c || !par || !sem(d.refs, e.material) || !ok(`m:${e.material}`)) continue;
     const pdm = pdmEfetivo(c.pdm, e.descricao, pdms);
-    incluir({ chave: `m:${e.material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), tipo: "material",
-      material: e.material, fab: par.fab, ref: par.ref, pdm });
+    incluir({ chave: `m:${e.material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material: e.material, fab: par.fab, ref: par.ref, pdm });
   }
 
-  // (b) tipos dos materiais do estoque
-  for (const e of d.estoque) {
-    const c = cat.get(semZeros(e.material));
-    const pdm = pdmEfetivo(c?.pdm, e.descricao, pdms);
-    if (!pdm || !sem(d.tipos, pdm) || !ok(`t:${pdm}`)) continue;
-    incluir(tipoAlvo(pdm, pdm, c?.subcategoria ?? ""));
-  }
-
-  // (b2) subcategorias e depois categorias sem foto
-  const subs = [...new Set(d.catalogo.map((c) => c.subcategoria.trim()).filter(Boolean))].sort();
-  const cats = [...new Set(d.catalogo.map((c) => c.categoria.trim()).filter(Boolean))].sort();
-  for (const s of subs) {
-    const chave = chaveSubcategoria(s);
-    if (sem(d.tipos, chave) && ok(`t:${chave}`)) incluir(tipoAlvo(chave, s));
-  }
-  for (const k of cats) {
-    const chave = chaveCategoria(k);
-    if (sem(d.tipos, chave) && ok(`t:${chave}`)) incluir(tipoAlvo(chave, k));
-  }
-
-  // (c) PDMs do catálogo, do mais frequente para o menos
-  const contagem = new Map<string, { n: number; sub: string }>();
+  // (b) materiais do catálogo com referência, pelo código sem zeros à esquerda (o do MB52: a foto aparece nas duas abas
+  // e o mesmo material não é buscado duas vezes)
   for (const c of d.catalogo) {
-    const pdm = pdmEfetivo(c.pdm, c.descricaoCurta, pdms);
-    if (!pdm) continue;
-    const atual = contagem.get(pdm);
-    contagem.set(pdm, { n: (atual?.n ?? 0) + 1, sub: atual?.sub || c.subcategoria });
-  }
-  [...contagem.entries()].sort((a, b) => b[1].n - a[1].n || (a[0] < b[0] ? -1 : 1)).forEach(([pdm, v]) => {
-    if (sem(d.tipos, pdm) && ok(`t:${pdm}`)) incluir(tipoAlvo(pdm, pdm, v.sub));
-  });
-
-  // (d) materiais do catálogo com referência
-  for (const c of d.catalogo) {
-    if (!c.material) continue;
+    const material = semZeros(c.material);
+    if (!material) continue;
     const par = fabricantesERefs(c.descrCompleta).find((p) => p.fab && p.ref);
-    if (!par || !sem(d.refs, c.material) || !ok(`m:${c.material}`)) continue;
-    incluir({ chave: `m:${c.material}`, consulta: consultaFotoExata(par.fab, par.ref, pdmEfetivo(c.pdm, c.descricaoCurta, pdms)),
-      tipo: "material", material: c.material, fab: par.fab, ref: par.ref, pdm: pdmEfetivo(c.pdm, c.descricaoCurta, pdms) });
+    if (!par || !sem(d.refs, material) || !sem(d.refs, c.material) || !ok(`m:${material}`) || !ok(`m:${c.material}`)) continue;
+    const pdm = pdmEfetivo(c.pdm, c.descricaoCurta, pdms);
+    incluir({ chave: `m:${material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material, fab: par.fab, ref: par.ref, pdm });
   }
   return out;
 }
@@ -153,8 +114,8 @@ const vazio = (motivo: string, ligada: boolean): ResumoRodada => ({
 
 /** Lê o que a rotina precisa (estoque, catálogo e os cadastros de foto). */
 export async function carregarDados(): Promise<DadosBusca> {
-  const [est, cat, refs, tipos, estado] = await Promise.all([
-    estoque(), catalogo(), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_TIPOS), lerCadastro(ARQUIVO_ESTADO),
+  const [est, cat, refs, estado] = await Promise.all([
+    estoque(), catalogo(), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_ESTADO),
   ]);
   const vistos = new Set<string>();
   const mb52: MaterialEstoque[] = [];
@@ -163,7 +124,7 @@ export async function carregarDados(): Promise<DadosBusca> {
     vistos.add(e.material);
     mb52.push({ material: e.material, descricao: e.descricao });
   }
-  return { estoque: mb52, catalogo: cat.dados ?? [], refs, tipos, estado, agora: Date.now() };
+  return { estoque: mb52, catalogo: cat.dados ?? [], refs, estado, agora: Date.now() };
 }
 
 /** Orçamento do dia (por padrão 30; máx. 200), da variável BUSCA_IMAGENS_POR_DIA. */
@@ -207,7 +168,7 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
     const alvos = planejarBusca(d);
     const prazo = o.prazoMs ?? PRAZO_RODADA_MS;
     const buscar = o.buscar ?? buscarImagens;
-    const achouRef: Cadastro = {}, achouTipo: Cadastro = {}, novos: Cadastro = {};
+    const achouRef: Cadastro = {}, novos: Cadastro = {};
     const em = new Date(d.agora).toISOString();
     let chamadas = 0, achados = 0, semResultado = 0, erros = 0, motivo = "fim da fila";
     if (teto <= 0) motivo = "orçamento do dia esgotado";
@@ -224,15 +185,11 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
         erros++; // falha comum: não grava a tentativa, tenta de novo amanhã
         continue;
       }
-      const achei = alvo.tipo === "material"
-        ? escolherFotoExata(lista, alvo.fab, alvo.ref)
-        : escolherFotoTipo(lista, alvo.nome);
+      const achei = escolherFotoExata(lista, alvo.fab, alvo.ref);
       novos[alvo.chave] = { data: em, resultado: achei ? "achou" : "sem" };
       if (!achei) { semResultado++; continue; }
       achados++;
-      const item = { url: achei.imagem, pagina: achei.pagina, titulo: achei.titulo, buscado_em: em };
-      if (alvo.tipo === "material") achouRef[alvo.material] = item;
-      else achouTipo[alvo.chaveTipo] = item;
+      achouRef[alvo.material] = { url: achei.imagem, pagina: achei.pagina, titulo: achei.titulo, buscado_em: em };
     }
     const resumo: ResumoRodada = { ligada: true, motivo, buscados: chamadas, achados, semResultado, erros,
       orcamento: teto, alvos: alvos.length, em };
@@ -240,7 +197,6 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
     const soSeVazio = (c: Cadastro) => Object.fromEntries(Object.entries(c).map(([k, item]) =>
       [k, (atual: Record<string, unknown> | undefined) => (atual ? undefined : item)]));
     if (Object.keys(achouRef).length) await gravarCadastroLote(ARQUIVO_REFERENCIA, soSeVazio(achouRef), "busca automática", false);
-    if (Object.keys(achouTipo).length) await gravarCadastroLote(ARQUIVO_TIPOS, soSeVazio(achouTipo), "busca automática", false);
     await gravarCadastroLote(ARQUIVO_ESTADO, {
       ...novos,
       [CHAVE_ULTIMA]: { em, buscados: chamadas, achados, sem_resultado: semResultado, erros, motivo, orcamento: teto },
@@ -266,16 +222,13 @@ export interface ResumoFotos {
   orcamentoHoje: { usadas: number; limite: number };
 }
 
-export interface Cobertura { total: number; exata: number; ilustrativa: number; sem: number }
+export interface Cobertura { total: number; exata: number; sem: number }
 
-/** Cobertura de um conjunto de materiais: com foto exata (própria ou do fabricante), ilustrativa ou sem foto. */
-export function cobertura(itens: { material: string; pdm: string; sub: string; cat: string; propria: boolean; cadRef: Cadastro; cadTipo: Cadastro }[]): Cobertura {
-  const r = { total: itens.length, exata: 0, ilustrativa: 0, sem: 0 };
+/** Cobertura de um conjunto de materiais: com foto exata (própria ou do fabricante) ou sem foto. */
+export function cobertura(itens: { material: string; propria: boolean; cadRef: Cadastro }[]): Cobertura {
+  const r = { total: itens.length, exata: 0, sem: 0 };
   for (const i of itens) {
-    if (i.propria) { r.exata++; continue; }
-    const f = fotosExternasDoItem(i.material, i.pdm, i.cadRef, i.cadTipo, i.sub, i.cat);
-    if (f.fotoRef) r.exata++;
-    else if (f.fotoTipo) r.ilustrativa++;
+    if (i.propria || fotosExternasDoItem(i.material, i.cadRef).fotoRef) r.exata++;
     else r.sem++;
   }
   return r;
@@ -295,17 +248,15 @@ async function calcularResumoFotos(): Promise<ResumoFotos> {
   const cfg = configuracaoBusca();
   const d = await carregarDados();
   const cadMat = await lerCadastro("cadastro_materiais.json");
-  const cat = catalogoPorMaterial(d.catalogo);
-  const pdms = pdmsConhecidos(d.catalogo);
-  const base = (material: string, descricao: string, c: ItemCatalogo | undefined) => ({
-    material, pdm: pdmEfetivo(c?.pdm, descricao, pdms), sub: c?.subcategoria ?? "", cat: c?.categoria ?? "",
+  const base = (material: string) => ({
+    material,
     propria: fotosDoCadastro(cadMat[material] as { foto?: unknown; fotos?: unknown } | undefined).length > 0,
-    cadRef: d.refs, cadTipo: d.tipos,
+    cadRef: d.refs,
   });
-  const almox = d.estoque.map((e) => base(e.material, e.descricao, cat.get(semZeros(e.material))));
+  const almox = d.estoque.map((e) => base(e.material));
   const vistos = new Set<string>();
   const cadastrado = d.catalogo.filter((c) => c.material && !vistos.has(c.material) && vistos.add(c.material))
-    .map((c) => base(c.material, c.descricaoCurta, c));
+    .map((c) => base(c.material));
   const ultima = d.estado[CHAVE_ULTIMA] as { em?: unknown; buscados?: unknown; achados?: unknown; motivo?: unknown } | undefined;
   const dia = d.estado[CHAVE_DIA] as { dia?: unknown; usadas?: unknown } | undefined;
   return {

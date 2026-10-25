@@ -3,8 +3,6 @@ import "server-only";
 import { lerCadastro } from "./cadastros";
 import { fotosExternasDoItem } from "./fotosExternas";
 import { ARQUIVO_REFERENCIA } from "./fotosReferencia";
-import { ARQUIVO_TIPOS } from "./fotosTipo";
-import { pdmEfetivo, pdmsConhecidos } from "./pdmDeducao";
 import { sugestoesDosMateriais } from "./fotosSugestao";
 import type { SugestaoPublica } from "../fotoMaterial";
 import { dadosDemo } from "./demo";
@@ -138,19 +136,16 @@ interface Almoxarifado {
   catalogo: Base<ItemCatalogo[]>;
   /** Fotos sugeridas por material (só os do MB52), sem o endereço da imagem. */
   sugestoes: Record<string, SugestaoPublica[]>;
-  /** Há fotos ilustrativas por tipo no cadastro (a tela mostra o filtro só então). */
-  temTipos: boolean;
 }
 
 export async function almoxarifado(): Promise<Almoxarifado> {
-  const [est, cat, cadMat, cadEq, cadRef, cadTipo] = await Promise.all([
+  const [est, cat, cadMat, cadEq, cadRef] = await Promise.all([
     estoque(), catalogo(), lerCadastro("cadastro_materiais.json"), lerCadastro("cadastro_equipamentos.json"),
-    lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_TIPOS),
+    lerCadastro(ARQUIVO_REFERENCIA),
   ]);
-  const pdms = pdmsConhecidos(cat.dados ?? []);
   const itens = est.dados ? montarAlmox(est.dados, cat.dados, cadMat, usoDosMateriais(cadEq)).map((i) => ({
-    ...i, ...fotosExternasDoItem(i.material, pdmEfetivo(i.pdm, i.descricao, pdms), cadRef, cadTipo, i.subcategoria, i.categoria),
+    ...i, ...fotosExternasDoItem(i.material, cadRef),
   })) : [];
   const sugestoes = await sugestoesDosMateriais(new Set(itens.map((i) => i.material)));
-  return { itens, estoque: est, catalogo: cat, sugestoes, temTipos: Object.keys(cadTipo).length > 0 };
+  return { itens, estoque: est, catalogo: cat, sugestoes };
 }
