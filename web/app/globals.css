@@ -19,10 +19,8 @@
 
   /* verde SIM (marca, ação principal) */
   --color-marca-50: #e8f7ef;
-  --color-marca-100: #c9eedb;
   --color-marca-200: #93dcb6;
   --color-marca-300: #57c58c;
-  --color-marca-400: #22b068;
   --color-marca-500: #009c48;
   --color-marca-600: #008a40;
   --color-marca-700: #007134;
@@ -30,22 +28,13 @@
   --color-marca-900: #003f1d;
 
   /* espectro Alpargatas (dados, categorias, status) */
-  --color-alp-vermelho: #e41824;
   --color-alp-laranja: #f07818;
   --color-alp-amarelo: #fcb40c;
   --color-alp-azul: #006cb4;
-  --color-alp-ciano: #009cd8;
-  --color-alp-celeste: #6cccf0;
-  --color-alp-lima: #a8c024;
-  --color-alp-verde: #009c48;
 
   /* nomes de uso (status) apontando para a paleta das logos */
   --color-acao-500: #006cb4;
-  --color-acao-600: #005a96;
-  --color-alerta-500: #f07818;
   --color-perigo-500: #e41824;
-  --color-sol-400: #fcb40c;
-  --color-sim-cinza: #6d6e71;
 
   --shadow-cartao: 0 1px 2px rgb(9 9 11 / 0.04);
   --shadow-flutuante: 0 24px 48px -16px rgb(9 9 11 / 0.22), 0 2px 6px rgb(9 9 11 / 0.06);
