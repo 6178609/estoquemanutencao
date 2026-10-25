@@ -1,6 +1,11 @@
 import "server-only";
 
+import { type FotoExterna, fotosDoCadastro } from "../fotoMaterial";
 import { catalogo, estoque } from "./bases";
+import { lerCadastro } from "./cadastros";
+import { fotosExternasDoItem } from "./fotosExternas";
+import { ARQUIVO_REFERENCIA } from "./fotosReferencia";
+import { ARQUIVO_TIPOS } from "./fotosTipo";
 import { ATIVOS, INATIVOS, type ItemCatalogo } from "./materiais";
 import { casaBusca, normalizarBusca } from "./texto";
 
@@ -16,6 +21,10 @@ interface FiltroCatalogo {
 export interface ItemCatalogoTela extends ItemCatalogo {
   noAlmox: boolean;
   estoque: number | null;
+  /** Foto própria (a principal do cadastro de materiais), a do fabricante e a ilustrativa do tipo. */
+  foto: string | null;
+  fotoRef: FotoExterna | null;
+  fotoTipo: FotoExterna | null;
 }
 
 interface Indice {
@@ -38,7 +47,7 @@ async function montar(): Promise<Indice | null> {
   for (const e of est.dados || []) saldo.set(semZeros(e.material), (saldo.get(semZeros(e.material)) || 0) + e.estoque);
   const itens: ItemCatalogoTela[] = cat.dados.map((c) => {
     const s = c.material ? saldo.get(semZeros(c.material)) : undefined;
-    return { ...c, noAlmox: s !== undefined, estoque: s ?? null };
+    return { ...c, noAlmox: s !== undefined, estoque: s ?? null, foto: null, fotoRef: null, fotoTipo: null };
   });
   // no almoxarifado primeiro, depois pela descrição
   itens.sort((a, b) => Number(b.noAlmox) - Number(a.noAlmox) || a.descricaoCurta.localeCompare(b.descricaoCurta, "pt-BR"));
@@ -80,7 +89,13 @@ export async function buscarCatalogo(f: FiltroCatalogo) {
     if (f.q && !casaBusca(ind.busca[i], f.q)) continue;
     achados.push(i);
   }
-  const fatia = achados.slice(f.cursor, f.cursor + f.limite).map((i) => ind.itens[i]);
+  // as fotos só para a página pedida (o cadastro é lido de novo a cada pedido: é barato, tem cache pela versão)
+  const [cadMat, cadRef, cadTipo] = await Promise.all([lerCadastro("cadastro_materiais.json"), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_TIPOS)]);
+  const fatia = achados.slice(f.cursor, f.cursor + f.limite).map((i) => {
+    const c = ind.itens[i];
+    const foto = fotosDoCadastro(cadMat[c.material] as { foto?: unknown; fotos?: unknown } | undefined)[0] ?? null;
+    return { ...c, foto, ...fotosExternasDoItem(c.material, c.pdm, cadRef, cadTipo) };
+  });
   const proximo = f.cursor + f.limite < achados.length ? f.cursor + f.limite : null;
   return { itens: fatia, total: achados.length, proximo };
 }

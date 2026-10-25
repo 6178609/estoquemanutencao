@@ -8,8 +8,10 @@ import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha, Segmentos } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
 import { Selo } from "@/components/ui";
+import { fotoDoItem } from "@/lib/fotoMaterial";
 import type { ItemCatalogoTela } from "@/lib/dados/catalogoBusca";
 import { inteiro, numero } from "@/lib/formato";
+import { FotoDetalhe, MiniaturaFoto, MOLDURA_FOTO } from "./FotoItem";
 
 type Onde = "todos" | "almox" | "fora";
 const INATIVOS = new Set(["BLOQUEADO", "CANCELADO", "DUPLICADO"]);
@@ -24,6 +26,8 @@ function Linha({ c, aoAbrir }: { c: ItemCatalogoTela; aoAbrir: () => void }) {
   return (
     <button onClick={aoAbrir}
       className="grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_130px]">
+      <div className="flex min-w-0 gap-3">
+      <MiniaturaFoto it={c} />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="num font-mono text-[13px] font-medium text-alp-azul">{c.material || "—"}</span>
@@ -34,6 +38,7 @@ function Linha({ c, aoAbrir }: { c: ItemCatalogoTela; aoAbrir: () => void }) {
           <Selo cor={INATIVOS.has(c.status) ? (c.status === "CANCELADO" ? "vermelho" : "laranja") : "verde"}>{c.status || "sem status"}</Selo>
           {c.categoria && <Selo>{c.categoria}</Selo>}
         </div>
+      </div>
       </div>
       <DescrCorrida texto={c.descrCompleta} />
       <div className="md:text-right">
@@ -154,6 +159,11 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
         subtitulo={aberto && `Sysmat ${aberto.sysmat} · ${aberto.status}`}>
         {aberto && (
           <>
+            {fotoDoItem(aberto) ? <FotoDetalhe f={fotoDoItem(aberto)!} /> : (
+              <div className={`${MOLDURA_FOTO} grid place-items-center`}>
+                <p className="px-6 text-center text-[13.5px] text-texto-3">Este material ainda não tem foto.</p>
+              </div>
+            )}
             <section>
               <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><BookOpen className="size-4" /> Ficha técnica (Descr Completa)</h3>
               <FichaTecnica texto={aberto.descrCompleta} />
