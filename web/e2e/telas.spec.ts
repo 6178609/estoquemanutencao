@@ -44,6 +44,9 @@ test("estoque: sem foto genérica do tipo; as pílulas de sugestão e de ilustra
   await telaAbriu(page, "/estoque");
   const grupo = page.getByRole("group", { name: "Situação do material" });
   await expect(grupo.getByRole("button", { name: /^Com foto · \d/ })).toBeVisible();
+  // "Sem foto": para a equipe fotografar no almoxarifado o que a internet não resolveu
+  await grupo.getByRole("button", { name: /^Sem foto · \d/ }).click();
+  await expect(page.getByText("Nenhum material com esses filtros.")).toHaveCount(0);
   await expect(grupo.getByRole("button", { name: /^Foto sugerida/ })).toHaveCount(0);
   await expect(grupo.getByRole("button", { name: /^Foto ilustrativa/ })).toHaveCount(0);
   // material zerado não aparece na aba (a demonstração tem itens com saldo zero)
