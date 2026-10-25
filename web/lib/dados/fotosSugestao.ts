@@ -352,7 +352,29 @@ const TAG = /<(meta|link|img)\b([^<>]{0,4000})>/gi;
 /** Só o começo da página é analisado (o <head> e o início do corpo, onde ficam og:image e a foto principal). */
 const LIMITE_ANALISE = 300_000;
 const ATRIBUTO = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
-const IMAGEM_IGNORADA = /logo|sprite|icon|avatar|pixel|spacer|placeholder|blank/i;
+/**
+ * Imagem que não é foto de produto: logo da loja, ícone, banner, selo de segurança da loja… em qualquer parte do
+ * endereço. "Selo"/"seal" sozinhos não entram: selo mecânico e retentor são peças.
+ */
+const NAO_PRODUTO_CAMINHO = new RegExp("(^|[^a-z])(logos?|logotipo|logomarca|favicon|icons?|sprites?|avatar|spacer|placeholder"
+  + "|banners?|pagamentos?|payments?|selo[-_ ]?(seguranca|site|ssl|ra)|trust[-_]?seal)([^a-z]|$)", "i");
+/** Só no nome do arquivo (pastas como `/default/` aparecem em CDN de foto de produto): imagem padrão de compartilhamento. */
+const NAO_PRODUTO_ARQUIVO = /(^|[-_.])(og[-_]?)?(default|image|share|social|flags?|badges?|pixel|blank)([-_.]|$)/i;
+function naoProduto(s: string | undefined): boolean {
+  if (!s) return false;
+  const t = safeDecode(s);
+  const arquivo = (t.split(/[?#]/)[0].split("/").pop() ?? "").replace(/\.[a-z0-9]{2,5}$/i, "");
+  return NAO_PRODUTO_CAMINHO.test(t) || /^og[-_]?image$/i.test(arquivo) || (NAO_PRODUTO_ARQUIVO.test(arquivo) && !/\d{3,}/.test(arquivo));
+}
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+/** Pista de foto principal do produto nos atributos da <img>. */
+const PISTA_PRODUTO = /product|produto|zoom|galer|gallery|principal|primary|main-?image|hero/i;
 
 const decodificar = (s: string) => s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").trim();
 
@@ -383,23 +405,83 @@ function resolverImagem(src: string | undefined, base: string): string | null {
   return urlSugestaoErro(href) ? null : href;
 }
 
+/** Imagens do Product dos blocos JSON-LD (schema.org) da página: o jeito mais confiável de achar a foto do produto. */
+function imagensJsonLd(html: string): string[] {
+  const out: string[] = [];
+  const minusculo = html.toLowerCase();
+  let de = 0;
+  // varredura linear (indexOf), sem regex sobre a página inteira; até 20 blocos de 200 KB
+  for (let n = 0; n < 20; n++) {
+    const ini = minusculo.indexOf("application/ld+json", de);
+    if (ini < 0) break;
+    const abre = minusculo.indexOf(">", ini);
+    const fecha = abre < 0 ? -1 : minusculo.indexOf("</script", abre);
+    if (fecha < 0) break;
+    de = fecha + 8;
+    if (fecha - abre > 200_000) continue;
+    let json: unknown;
+    try {
+      json = JSON.parse(html.slice(abre + 1, fecha));
+    } catch {
+      continue;
+    }
+    const pilha: unknown[] = [json];
+    for (let k = 0; pilha.length && k < 500; k++) {
+      const no = pilha.pop();
+      if (Array.isArray(no)) { pilha.push(...no); continue; }
+      if (!no || typeof no !== "object") continue;
+      const o = no as Record<string, unknown>;
+      const tipo = ([] as unknown[]).concat(o["@type"] ?? []).map(String);
+      if (tipo.some((t) => /(^|[/:])(Product|ProductGroup|ProductModel|IndividualProduct)$/i.test(t))) {
+        for (const img of ([] as unknown[]).concat(o.image ?? [])) {
+          const url = typeof img === "string" ? img
+            : img && typeof img === "object" ? (img as Record<string, unknown>).url ?? (img as Record<string, unknown>).contentUrl : null;
+          if (typeof url === "string") out.push(url);
+        }
+      }
+      if (o["@graph"]) pilha.push(o["@graph"]);
+      if (o.mainEntity) pilha.push(o.mainEntity);
+      if (o.itemListElement) pilha.push(o.itemListElement);
+      if (o.hasVariant) pilha.push(o.hasVariant);
+      if (o.isVariantOf) pilha.push(o.isVariantOf);
+    }
+  }
+  return out;
+}
+
+/** O src útil da <img> (src, ou o de carregamento tardio / zoom, ou o 1º do srcset). */
+function srcDa(attrs: Record<string, string>): string | undefined {
+  const c = attrs["data-zoom-image"] || attrs["data-large_image"] || attrs["data-src"] || attrs["data-lazy-src"] || attrs.src
+    || attrs.srcset?.split(",")[0]?.trim().split(/\s+/)[0];
+  return c && !/^data:/i.test(c) && !/\.svg(\?|#|$)/i.test(c) ? c : undefined;
+}
+
 /**
- * A imagem principal de uma página de produto, na ordem: og:image → twitter:image → link rel="image_src" → primeira
- * <img> com src de produto (sem logo, sprite, ícone, svg ou data:). Relativa resolvida contra a página. null se nada serve.
+ * A imagem principal de uma página de produto, na ordem: Product do JSON-LD → og:image → itemprop="image" →
+ * twitter:image → link rel="image_src" → a <img> com mais cara de foto do produto. Em todas, logo da loja, ícone, selo,
+ * banner e imagem padrão de compartilhamento ficam de fora (era a causa das fotos com a logo da empresa). Relativa
+ * resolvida contra a página. null se nada serve.
  */
 export function imagemDaPagina(html: string, pagina: string): string | null {
   const tags = tagsDo(html);
-  const imgProduto = tags.find((t) => t.nome === "img" && !!t.attrs.src && !/^data:/i.test(t.attrs.src)
-    && !IMAGEM_IGNORADA.test(t.attrs.src) && !/\.svg(\?|#|$)/i.test(t.attrs.src))?.attrs.src;
+  const icones = new Set(tags.filter((t) => t.nome === "link" && /icon/i.test(t.attrs.rel ?? "")).map((t) => resolverImagem(t.attrs.href, pagina)));
+  const itemprop = tags.find((t) => (t.attrs.itemprop ?? "").toLowerCase() === "image")?.attrs;
+  const imgs = tags.filter((t) => t.nome === "img").map((t) => ({ src: srcDa(t.attrs), attrs: t.attrs }))
+    .filter((x) => x.src && !naoProduto(x.src) && !/(^|[^a-z])logo/i.test(`${x.attrs.alt ?? ""} ${x.attrs.class ?? ""} ${x.attrs.id ?? ""}`));
+  const pista = (x: { attrs: Record<string, string> }) => PISTA_PRODUTO.test(`${x.attrs.class ?? ""} ${x.attrs.id ?? ""} ${x.attrs.itemprop ?? ""}`);
+  const imgProduto = (imgs.find(pista) ?? imgs[0])?.src;
   const candidatos = [
+    ...imagensJsonLd(html),
     metaConteudo(tags, "property", "og:image"),
+    itemprop?.content ?? itemprop?.href ?? (itemprop ? srcDa(itemprop) : undefined),
     metaConteudo(tags, "name", "twitter:image") ?? metaConteudo(tags, "property", "twitter:image"),
     tags.find((t) => t.nome === "link" && /(^|\s)image_src(\s|$)/i.test(t.attrs.rel ?? ""))?.attrs.href,
     imgProduto,
   ];
   for (const c of candidatos) {
+    if (naoProduto(c)) continue;
     const img = resolverImagem(c, pagina);
-    if (img) return img;
+    if (img && !icones.has(img)) return img;
   }
   return null;
 }
