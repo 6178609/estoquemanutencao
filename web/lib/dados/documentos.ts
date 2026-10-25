@@ -9,6 +9,7 @@ import { tipoImagem } from "./fotos";
 import {
   apagarEnvio,
   apagarPartesDoEnvio,
+  enviosAbertos,
   type Envio,
   envioExpirado,
   envioIdValido,
@@ -38,7 +39,8 @@ import {
  */
 export const ARQ_DOCUMENTOS = "documentos_equipamentos.json";
 export const ARQ_DOCUMENTOS_TECNICOS = "documentos_tecnicos.json";
-export const LIMITE_DOCUMENTO = 4_000_000; // a Vercel recebe até ~4,5 MB por pedido
+export { LIMITE_DOCUMENTO } from "../limitesManual";
+import { LIMITE_DOCUMENTO } from "../limitesManual";
 const PASTA = "app/documentos/equipamentos";
 const PASTA_TECNICOS = "app/documentos/tecnicos";
 const MAX_POR_EQUIPAMENTO = 50;
@@ -220,6 +222,12 @@ async function referenciasA(c: Colecao, chave: string, id: string, fresco = fals
   return Object.keys(cadastro).flatMap((k) => lista(cadastro[k]).filter((d) => d.origem?.tag === chave && d.origem.id === id));
 }
 
+/** Documentos (de qualquer equipamento) cujo arquivo são as partes deste envio. */
+async function documentosComEnvio(envio: string, fresco = false): Promise<Documento[]> {
+  const cadastro = await lerCadastro(ARQ_DOCUMENTOS, { fresco });
+  return Object.keys(cadastro).flatMap((k) => lista(cadastro[k]).filter((d) => d.partes?.envio === envio));
+}
+
 const msgComReferencias = (n: number) => `Este manual está vinculado a ${n} ${n === 1 ? "outro equipamento" : "outros equipamentos"}. `
   + "Tire o vínculo deles antes de remover.";
 
@@ -243,7 +251,10 @@ async function removerDaColecao(c: Colecao, chave: string, id: string, por: stri
     throw new FonteErro(msgComReferencias(agora.length));
   }
   // manual em partes: apaga as partes (o último vínculo saiu); senão, o arquivo único
-  if (doc.partes) await apagarPartesDoEnvio(doc.partes.envio, por);
+  if (doc.partes) {
+    // só apaga se nenhum outro documento usa as mesmas partes
+    if (!(await documentosComEnvio(doc.partes.envio, true)).length) await apagarPartesDoEnvio(doc.partes.envio, por);
+  }
   else await apagarArquivo(c, chave, id, por);
 }
 
@@ -335,6 +346,10 @@ async function registrarVarios(entradas: { tag: string; doc: Documento }[], por:
   const itens: Record<string, Alteracao> = {};
   for (const { tag, doc } of entradas) {
     itens[tag] = (atual) => {
+      // manual em partes concluído duas vezes (dois cliques, ou nova tentativa): a 2ª não grava outra cópia
+      if (doc.partes && lista(atual).some((d) => d.partes?.envio === doc.partes!.envio)) {
+        throw new FonteErro("Este manual já foi concluído; atualize a página.");
+      }
       if (lista(atual).length >= MAX_POR_EQUIPAMENTO) {
         throw new FonteErro(`O equipamento ${tag} já tem ${MAX_POR_EQUIPAMENTO} documentos; remova algum antes.`);
       }
@@ -396,11 +411,35 @@ export async function iniciarManualEmPartes(tags: string[], d: { titulo: string;
   for (const tag of lote) {
     if (lista(cadastro[tag]).length >= MAX_POR_EQUIPAMENTO) throw new FonteErro(`O equipamento ${tag} já tem ${MAX_POR_EQUIPAMENTO} documentos; remova algum antes.`);
   }
+  await limparEnviosVencidos(por).catch(() => undefined);
   const envio = novoEnvio();
   const total = numeroDePartes(d.tamanho);
   await gravarEnvio({ envio, login, por, titulo, nome: nomeDoArquivo(d.nome), tamanho: d.tamanho, total, tags: lote,
     expiraEm: new Date(Date.now() + PRAZO_ENVIO_MS).toISOString() });
   return { envio, total };
+}
+
+/**
+ * Apaga as partes de envios abandonados (passaram do prazo sem concluir): no máximo 5 por vez, e nunca as de um envio
+ * que já virou documento.
+ */
+async function limparEnviosVencidos(por: string): Promise<void> {
+  for (const envio of (await enviosAbertos()).slice(0, 5)) {
+    const e = await lerEnvio(envio);
+    if (e && !envioExpirado(e)) continue;
+    if ((await documentosComEnvio(envio)).length) continue;
+    await apagarPartesDoEnvio(envio, por);
+  }
+}
+
+/** Desiste do envio (a tela chama quando uma parte falha): apaga as partes e o estado. Só quem começou. */
+export async function cancelarManualEmPartes(envio: string, login: string): Promise<void> {
+  if (!envioIdValido(envio)) throw new FonteErro("Envio inválido.");
+  const e = await lerEnvio(envio);
+  if (!e) return;
+  if (e.login !== login) throw new FonteErro("Só quem começou o envio pode continuar.");
+  if ((await documentosComEnvio(envio)).length) return;
+  await apagarPartesDoEnvio(envio, e.por);
 }
 
 /** Grava uma parte do envio (só quem começou; índice dentro do total; até 3,5 MB). */

@@ -8,6 +8,7 @@ import { useMemo, useRef, useState } from "react";
 import { Campo, Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
+import { LIMITE_DOCUMENTO, LIMITE_MANUAL_GRANDE, TAMANHO_PARTE } from "@/lib/limitesManual";
 
 export interface EqTela { codigo: string; nome: string; campo: string; area: string }
 export interface AcervoTela { titulo: string; url: string; fonte: string; area: string }
@@ -15,9 +16,8 @@ export interface AcervoTela { titulo: string; url: string; fonte: string; area: 
 const MAX_LOTE = 50;
 const MOSTRAR = 60;
 /** Até aqui, o arquivo vai num pedido só; acima, em partes (cada parte cabe no limite da Vercel). */
-const LIMITE_SIMPLES = 4_000_000;
-const LIMITE_GRANDE = 100_000_000;
-const TAMANHO_PARTE = 3_500_000;
+const LIMITE_SIMPLES = LIMITE_DOCUMENTO;
+const LIMITE_GRANDE = LIMITE_MANUAL_GRANDE;
 /** Uma parte tem 3 tentativas (a 1ª e 2 novas) antes de desistir. */
 const TENTATIVAS_PARTE = 3;
 
@@ -76,28 +76,35 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
       { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eqs, titulo, nome: f.name, tamanho: f.size }) },
       "Não foi possível iniciar o envio.") as { envio: string };
     setProgresso({ feitas: 0, total });
-    for (let i = 0; i < total; i++) {
-      const parte = f.slice(i * TAMANHO_PARTE, Math.min(f.size, (i + 1) * TAMANHO_PARTE));
-      for (let t = 1; ; t++) {
-        const form = new FormData();
-        form.set("envio", envio);
-        form.set("indice", String(i));
-        form.append("arquivo", parte, f.name);
-        try {
-          await pedir("/api/manuais/partes?acao=parte", { body: form }, "Não foi possível enviar a parte.");
-          break;
-        } catch (e) {
-          const erroParte = e instanceof ErroEnvio ? e : new ErroEnvio("Não foi possível enviar a parte.", true);
-          if (!erroParte.repetir || t >= TENTATIVAS_PARTE) {
-            throw new ErroEnvio(`Não foi possível enviar a parte ${i + 1} de ${total}. ${erroParte.message} Tente de novo.`, false);
+    try {
+      for (let i = 0; i < total; i++) {
+        const parte = f.slice(i * TAMANHO_PARTE, Math.min(f.size, (i + 1) * TAMANHO_PARTE));
+        for (let t = 1; ; t++) {
+          const form = new FormData();
+          form.set("envio", envio);
+          form.set("indice", String(i));
+          form.append("arquivo", parte, f.name);
+          try {
+            await pedir("/api/manuais/partes?acao=parte", { body: form }, "Não foi possível enviar a parte.");
+            break;
+          } catch (e) {
+            const erroParte = e instanceof ErroEnvio ? e : new ErroEnvio("Não foi possível enviar a parte.", true);
+            if (!erroParte.repetir || t >= TENTATIVAS_PARTE) {
+              throw new ErroEnvio(`Não foi possível enviar a parte ${i + 1} de ${total}. ${erroParte.message} Tente de novo.`, false);
+            }
           }
         }
+        setProgresso({ feitas: i + 1, total });
       }
-      setProgresso({ feitas: i + 1, total });
+      const j = await pedir("/api/manuais/partes?acao=concluir", { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ envio }) },
+        "Não foi possível concluir o envio.");
+      return Number(j.vinculados) || eqs.length;
+    } catch (e) {
+      // desistiu: pede para apagar as partes já enviadas (se falhar, o servidor apaga quando o envio vencer)
+      void fetch("/api/manuais/partes?acao=cancelar", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ envio }) }).catch(() => undefined);
+      throw e;
     }
-    const j = await pedir("/api/manuais/partes?acao=concluir", { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ envio }) },
-      "Não foi possível concluir o envio.");
-    return Number(j.vinculados) || eqs.length;
   };
 
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {

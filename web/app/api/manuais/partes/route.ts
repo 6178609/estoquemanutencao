@@ -2,12 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
-import { concluirManualEmPartes, enviarParteManual, iniciarManualEmPartes } from "@/lib/dados/documentos";
+import { cancelarManualEmPartes, concluirManualEmPartes, enviarParteManual, iniciarManualEmPartes } from "@/lib/dados/documentos";
 import { FonteErro } from "@/lib/dados/fonte";
 import { podeIniciarEnvio } from "@/lib/dados/manuaisPartes";
 
 export const dynamic = "force-dynamic";
-// concluir relê todas as partes (até 100 MB) da fonte: o mesmo prazo da leitura de um arquivo grande
+// iniciar varre envios abandonados (apaga partes); dá folga ao prazo
 export const maxDuration = 300;
 
 /** Quem vincula manuais: o mesmo da rota de arquivo único (editor ou administrador que vê a aba Equipamentos inteira). */
@@ -28,7 +28,8 @@ function erro(e: unknown) {
  * Envio de manual grande em três passos (`?acao=`):
  * - `iniciar` (JSON: eqs, titulo, nome, tamanho) devolve o `envio` e o nº de partes;
  * - `parte` (formulário: envio, indice, arquivo de até 3,5 MB);
- * - `concluir` (JSON: envio) confere as partes e grava o manual nos equipamentos.
+ * - `concluir` (JSON: envio) confere as partes e grava o manual nos equipamentos;
+ * - `cancelar` (JSON: envio) desiste do envio e apaga as partes (a tela chama quando uma parte falha).
  * Só quem iniciou o envio manda as partes e conclui.
  */
 export async function POST(req: NextRequest) {
@@ -65,6 +66,11 @@ export async function POST(req: NextRequest) {
       const c = await lerCorpo(req);
       const vinculados = await concluirManualEmPartes(String(c.envio ?? ""), login);
       return NextResponse.json({ ok: true, vinculados: vinculados.length });
+    }
+    if (acao === "cancelar") {
+      const c = await lerCorpo(req);
+      await cancelarManualEmPartes(String(c.envio ?? ""), login);
+      return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ erro: "Ação inválida." }, { status: 400 });
   } catch (e) {

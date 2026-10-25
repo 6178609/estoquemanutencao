@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  cancelarManualEmPartes,
   concluirManualEmPartes,
   documentoEmPartes,
   documentosDe,
@@ -14,6 +15,9 @@ import {
   envioExpirado,
   envioIdValido,
   fluxoDoEnvio,
+  gravarEnvio,
+  gravarParte,
+  novoEnvio,
   indiceValido,
   LIMITE_MANUAL_GRANDE,
   MAX_PARTES,
@@ -183,5 +187,23 @@ describe("manuais em partes: envio completo (demonstração)", () => {
   it("tamanho do manual fora de 4 MB a 100 MB é recusado antes de começar", async () => {
     await expect(iniciarManualEmPartes(["PRE-04"], { titulo: "Pequeno", nome: "p.pdf", tamanho: 1_000 }, "u", "U")).rejects.toThrow(/entre 4 MB e 100 MB/);
     await expect(iniciarManualEmPartes(["PRE-04"], { titulo: "Grande", nome: "g.pdf", tamanho: LIMITE_MANUAL_GRANDE + 1 }, "u", "U")).rejects.toThrow(/entre 4 MB e 100 MB/);
+  });
+
+  it("cancelar apaga as partes (só quem começou); envio vencido é varrido no próximo início", async () => {
+    const ini = await iniciarManualEmPartes(["PRE-05"], { titulo: "Cancelado", nome: "c.pdf", tamanho: TAMANHO }, "usuario-c", "C");
+    await enviarParteManual(ini.envio, 0, original.slice(0, TAMANHO_PARTE), "usuario-c");
+    await expect(cancelarManualEmPartes(ini.envio, "outra-pessoa")).rejects.toThrow(/Só quem começou/);
+    await cancelarManualEmPartes(ini.envio, "usuario-c");
+    expect(await partesFaltando(ini.envio, 2)).toEqual([0, 1]);
+    await expect(concluirManualEmPartes(ini.envio, "usuario-c")).rejects.toThrow(/não encontrado/);
+
+    // um envio abandonado (prazo vencido) some quando alguém começa outro
+    const velho = novoEnvio();
+    await gravarEnvio({ envio: velho, login: "usuario-v", por: "V", titulo: "Velho", nome: "v.pdf", tamanho: TAMANHO, total: 2,
+      tags: ["PRE-06"], expiraEm: new Date(Date.now() - 1000).toISOString() });
+    await gravarParte(velho, 0, original.slice(0, TAMANHO_PARTE), 2);
+    expect(await partesFaltando(velho, 2)).toEqual([1]);
+    await iniciarManualEmPartes(["PRE-07"], { titulo: "Novo", nome: "n.pdf", tamanho: TAMANHO }, "usuario-n", "N");
+    expect(await partesFaltando(velho, 2)).toEqual([0, 1]);
   });
 });

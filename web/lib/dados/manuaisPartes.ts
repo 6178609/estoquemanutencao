@@ -11,8 +11,9 @@ import { FonteErro, fonte } from "./fonte";
  * arquivo do manual). Em demonstração, tudo fica na memória (limitado em tamanho).
  */
 
-export const LIMITE_MANUAL_GRANDE = 100_000_000;
-export const TAMANHO_PARTE = 3_500_000;
+import { LIMITE_MANUAL_GRANDE, TAMANHO_PARTE } from "../limitesManual";
+
+export { LIMITE_MANUAL_GRANDE, TAMANHO_PARTE };
 export const MAX_PARTES = Math.ceil(LIMITE_MANUAL_GRANDE / TAMANHO_PARTE); // 29
 export const PRAZO_ENVIO_MS = 2 * 60 * 60_000; // um envio que não termina em 2 h é descartado
 export const PASTA_PARTES = "app/documentos/partes";
@@ -139,6 +140,14 @@ function indicesSem(mapa: Map<string, string>, envio: string, total: number): nu
   const out: number[] = [];
   for (let i = 0; i < total; i++) if (!mapa.has(caminhoParte(envio, i))) out.push(i);
   return out;
+}
+
+/** Envios com estado gravado (ainda não concluídos nem cancelados): os ids. */
+export async function enviosAbertos(): Promise<string[]> {
+  const f = fonte();
+  const caminhos = f ? [...(await f.versoes()).keys()] : [...demo.keys()];
+  const re = new RegExp(`^${PASTA_PARTES}/([0-9a-f]{24})/info\\.json$`);
+  return caminhos.flatMap((c) => re.exec(c)?.[1] ?? []);
 }
 
 /** Bytes de uma parte (null se não existe). */

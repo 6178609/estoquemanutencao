@@ -1,6 +1,7 @@
 /**
  * Estoque (MB52) e catálogo de materiais (Sysmat) — funções puras, testadas em testes/materiais.test.ts.
  */
+import { fotosDoCadastro } from "../fotoMaterial";
 import { acharColuna, paraNumero, texto } from "./texto";
 
 export type Linha = Record<string, unknown>;
@@ -141,7 +142,10 @@ export interface ItemAlmox extends ItemEstoque {
   fabricanteRef: string;
   status: string;
   substituto: string;
+  /** A foto principal (a 1ª de `fotos`). */
   foto: string | null;
+  /** Todas as fotos do material, na ordem (a 1ª é a principal; até 8). */
+  fotos: string[];
   usadoEm: string;
 }
 
@@ -167,13 +171,14 @@ export function montarAlmox(
     const info = cadMat[e.material] || {};
     const minimoBruto = info.minimo;
     const minimo = typeof minimoBruto === "number" && Number.isFinite(minimoBruto) ? minimoBruto : null;
+    const fotos = fotosDoCadastro(info);
     const situacao = e.estoque <= 0 ? "Zerado" : minimo !== null && e.estoque < minimo ? "Abaixo do mínimo" : "OK";
     return {
       ...e, minimo, situacao,
       cadastro: catalogo ? situacaoCadastro(!!c, c?.status || "") : "Sem catálogo",
       sysmat: c?.sysmat || "", categoria: c?.categoria || "", subcategoria: c?.subcategoria || "", ncm: c?.ncm || "",
       descrCompleta: c?.descrCompleta || "", fabricanteRef: c?.fabricanteRef || "", status: c?.status || "",
-      substituto: c?.substituto || "", foto: typeof info.foto === "string" ? info.foto : null,
+      substituto: c?.substituto || "", foto: fotos[0] ?? null, fotos,
       usadoEm: (usoPorMaterial.get(e.material) || []).join(", "),
     };
   });
