@@ -37,6 +37,8 @@ function linkPagina(x: unknown): string | null {
 export function fotoDoCadastro(item: unknown): FotoCadastro | null {
   if (!item || typeof item !== "object") return null;
   const r = item as Record<string, unknown>;
+  // a conferência não conseguiu carregar a imagem: fica fora da tela até a próxima conferência dar certo
+  if (typeof r.falhas === "number" && r.falhas > 0) return null;
   const url = typeof r.url === "string" && !urlSugestaoErro(r.url) ? r.url : null;
   const pagina = linkPagina(r.pagina);
   if (!url && !pagina) return null;
@@ -86,12 +88,12 @@ function guardar(chave: string, img: { bytes: Uint8Array; tipo: TipoImagem }) {
   }
 }
 
-async function imagem(url: string): Promise<{ bytes: Uint8Array; tipo: TipoImagem }> {
+async function imagem(url: string, ignorarFalhaRecente = false): Promise<{ bytes: Uint8Array; tipo: TipoImagem }> {
   const chave = chaveSugestao(url);
   const pronta = cache.get(chave);
   if (pronta) return pronta;
   const falhou = falhas.get(chave);
-  if (falhou && Date.now() - falhou < PRAZO_FALHA_MS) throw new SugestaoErro("falhou há pouco");
+  if (!ignorarFalhaRecente && falhou && Date.now() - falhou < PRAZO_FALHA_MS) throw new SugestaoErro("falhou há pouco");
   const andando = emAndamento.get(chave);
   if (andando) return andando;
   const p = buscarImagemSugestao(url)
@@ -114,12 +116,12 @@ const paginasFalha = new Map<string, number>();
 const paginasAndando = new Map<string, Promise<string>>();
 
 /** Endereço da imagem principal da página (baixa o HTML com as regras de segurança; em cache). */
-async function imagemDaPaginaCache(pagina: string): Promise<string> {
+async function imagemDaPaginaCache(pagina: string, ignorarFalhaRecente = false): Promise<string> {
   const chave = chaveSugestao(pagina);
   const pronta = paginasOk.get(chave);
   if (pronta) return pronta;
   const falhou = paginasFalha.get(chave);
-  if (falhou && Date.now() - falhou < PRAZO_FALHA_MS) throw new SugestaoErro("página falhou há pouco");
+  if (!ignorarFalhaRecente && falhou && Date.now() - falhou < PRAZO_FALHA_MS) throw new SugestaoErro("página falhou há pouco");
   const andando = paginasAndando.get(chave);
   if (andando) return andando;
   const p = baixarPagina(pagina)
@@ -140,6 +142,24 @@ async function imagemDaPaginaCache(pagina: string): Promise<string> {
     .finally(() => paginasAndando.delete(chave));
   paginasAndando.set(chave, p);
   return p;
+}
+
+/**
+ * Confere uma foto do cadastro como o site a mostraria (a imagem direta, ou a principal da página) e devolve o endereço
+ * da imagem que carregou. Lança se não carrega (loja bloqueou, página sem foto, imagem quebrada).
+ */
+export async function conferirFotoExterna(f: FotoCadastro): Promise<string> {
+  // a conferência tenta de verdade: uma falha guardada há pouco (de quem abriu a tela) não conta
+  const alvo = f.url ?? await imagemDaPaginaCache(f.pagina!, true);
+  await imagem(alvo, true);
+  return alvo;
+}
+
+/** Falha passageira (tempo, rede, loja fora do ar ou limitando acesso): não conta contra a foto. */
+export function falhaPassageira(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e);
+  return /^(prazo|tempo esgotado|sem resposta|nome não resolvido|leitura interrompida|falhou há pouco|página falhou há pouco)$/.test(m)
+    || /^resposta (408|425|429|5\d\d)$/.test(m);
 }
 
 /**

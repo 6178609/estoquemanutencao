@@ -28,7 +28,7 @@ function Linha({ rotulo, c }: { rotulo: string; c: Cobertura }) {
   );
 }
 
-/** Cartão de Fotos automáticas: provedor, última rodada, cobertura em % e o botão "Buscar agora" (editores). */
+/** Cartão de Fotos automáticas: provedor, última rodada, cobertura em % e o botão de conferir e buscar agora (editores). */
 export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: boolean }) {
   const [estado, setEstado] = useState<{ enviando: boolean; msg: string; erro: boolean }>({ enviando: false, msg: "", erro: false });
 
@@ -36,9 +36,13 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
     setEstado({ enviando: true, msg: "", erro: false });
     const r = await fetch("/api/fotos/buscar", { method: "POST" }).catch(() => null);
     const j = r ? await r.json().catch(() => ({})) : {};
-    if (!r?.ok) return setEstado({ enviando: false, msg: j.erro || "Não foi possível buscar agora.", erro: true });
-    if (!j.ligada) return setEstado({ enviando: false, msg: "A busca de fotos está desligada.", erro: true });
-    setEstado({ enviando: false, erro: false, msg: `${Number(j.buscados) || 0} buscas: ${Number(j.achados) || 0} fotos achadas (${j.motivo}).` });
+    if (!r?.ok) return setEstado({ enviando: false, msg: j.erro || "Não foi possível conferir agora.", erro: true });
+    const c = j.conferencia ?? {};
+    const conferiu = `${Number(c.conferidas) || 0} fotos conferidas: ${Number(c.ok) || 0} ok, ${Number(c.falharam) || 0} não carregaram`
+      + ` (saíram da tela)${Number(c.passageiras) ? `, ${Number(c.passageiras)} sem resposta agora` : ""}`
+      + `${Number(c.pendentes) ? `; faltam ${Number(c.pendentes)}` : ""}.`;
+    const buscou = j.ligada ? ` ${Number(j.buscados) || 0} buscas: ${Number(j.achados) || 0} fotos achadas (${j.motivo}).` : "";
+    setEstado({ enviando: false, erro: false, msg: conferiu + buscou });
   }
 
   return (
@@ -54,10 +58,10 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
               : <>Busca desligada: configure <code>BUSCA_IMAGENS_PROVEDOR</code> e <code>BUSCA_IMAGENS_CHAVE</code> nas variáveis da Vercel.</>}
           </p>
         </div>
-        {pode && resumo.ligada && (
+        {pode && (
           <button type="button" onClick={() => void buscar()} disabled={estado.enviando} className={BOTAO_SECUNDARIO}>
             {estado.enviando ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <RefreshCw className="size-4" aria-hidden />}
-            {estado.enviando ? "Buscando…" : "Buscar agora"}
+            {estado.enviando ? "Conferindo…" : resumo.ligada ? "Conferir e buscar agora" : "Conferir fotos agora"}
           </button>
         )}
       </div>
