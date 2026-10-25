@@ -3,10 +3,26 @@ import { NextResponse, type NextRequest } from "next/server";
 import { veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { FonteErro } from "@/lib/dados/fonte";
-import { gravarDocumento, gravarLink, LIMITE_DOCUMENTO, lerDocumento, removerDocumento } from "@/lib/dados/documentos";
+import { documentoEmPartes, gravarDocumento, gravarLink, LIMITE_DOCUMENTO, lerDocumento, removerDocumento } from "@/lib/dados/documentos";
 import { podeEnviar } from "@/lib/dados/fotos";
+import { fluxoDoEnvio, partesFaltando } from "@/lib/dados/manuaisPartes";
 
 export const dynamic = "force-dynamic";
+// manual em partes (até 100 MB) sai em fluxo: o download pode levar mais que o padrão
+export const maxDuration = 300;
+
+/** Cabeçalhos de quem baixa: os mesmos de sempre (o tipo vem da assinatura do arquivo). */
+function cabecalhos(tipo: string, nome: string, tamanho?: number): Record<string, string> {
+  return {
+    "Content-Type": tipo,
+    ...(tamanho === undefined ? {} : { "Content-Length": String(tamanho) }),
+    "Content-Disposition": `inline; filename="${nome}"`,
+    "Cache-Control": "private, max-age=31536000, immutable", // o id é único e o arquivo nunca muda
+    "X-Content-Type-Options": "nosniff",
+    // o tipo vem da assinatura do arquivo (só PDF ou imagem); a imagem ainda abre isolada
+    ...(tipo === "application/pdf" ? {} : { "Content-Security-Policy": "default-src 'none'; sandbox" }),
+  };
+}
 
 /** Quem mexe na biblioteca: editor ou administrador que vê a aba Equipamentos inteira (o mesmo do cadastro). */
 async function quemEdita(req: NextRequest) {
@@ -26,24 +42,29 @@ function erro(e: unknown) {
 export async function GET(req: NextRequest) {
   if (!(await autorizar("manuais")) && !(await autorizar("equipamentos"))) return new NextResponse("Sem acesso.", { status: 403 });
   const p = req.nextUrl.searchParams;
+  const eq = p.get("eq") ?? "", id = p.get("id") ?? "";
+  // manual em partes: as partes saem em fluxo, sem juntar tudo na memória
+  let emPartes: Awaited<ReturnType<typeof documentoEmPartes>> = null;
+  try {
+    emPartes = await documentoEmPartes(eq, id);
+  } catch (e) {
+    if (e instanceof FonteErro) return new NextResponse(e.message, { status: 404 });
+    throw e;
+  }
+  if (emPartes) {
+    const { partes, nome, tipo, tamanho } = emPartes;
+    if ((await partesFaltando(partes.envio, partes.total)).length) return new NextResponse("Arquivo incompleto.", { status: 404 });
+    return new NextResponse(fluxoDoEnvio(partes.envio, partes.total), { headers: cabecalhos(tipo, nome.replace(/[^\w.\- ]/g, "_"), tamanho) });
+  }
   let r: Awaited<ReturnType<typeof lerDocumento>> = null;
   try {
-    r = await lerDocumento(p.get("eq") ?? "", p.get("id") ?? "");
+    r = await lerDocumento(eq, id);
   } catch (e) {
     if (e instanceof FonteErro) return new NextResponse(e.message, { status: 404 });
   }
   if (!r) return new NextResponse("Documento não encontrado.", { status: 404 });
   const nome = (r.doc.nome || "documento").replace(/[^\w.\- ]/g, "_");
-  return new NextResponse(Buffer.from(r.bytes), {
-    headers: {
-      "Content-Type": r.tipo,
-      "Content-Disposition": `inline; filename="${nome}"`,
-      "Cache-Control": "private, max-age=31536000, immutable", // o id é único e o arquivo nunca muda
-      "X-Content-Type-Options": "nosniff",
-      // o tipo vem da assinatura do arquivo (só PDF ou imagem); a imagem ainda abre isolada
-      ...(r.tipo === "application/pdf" ? {} : { "Content-Security-Policy": "default-src 'none'; sandbox" }),
-    },
-  });
+  return new NextResponse(Buffer.from(r.bytes), { headers: cabecalhos(r.tipo, nome) });
 }
 
 /** Põe um arquivo (PDF/imagem até 4 MB) ou um link na biblioteca do equipamento. */

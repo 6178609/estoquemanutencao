@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { acessoTotal, ehAdmin, podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
+import { acessoTotal, ehAdmin, podeEditar, podeEditarSuporte, podeVer, veInteira } from "@/lib/auth/acesso";
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { GRUPOS, TODAS } from "@/lib/navegacao";
 
@@ -16,24 +16,56 @@ describe("acesso por função", () => {
   });
   it("conta antiga sem função e abas escolhidas", () => {
     expect(acessoTotal({ login: "a", perfil: "admin" })).toBe(true);
-    expect(TODAS.filter((p) => podeVer({ login: "e", perfil: "editor" }, p))).toEqual(["equipamentos", "estoque"]);
+    expect(TODAS.filter((p) => podeVer({ login: "e", perfil: "editor" }, p))).toEqual(["suporte", "equipamentos", "estoque"]);
     const pers = { login: "p", perfil: "editor", abas: ["ordens", "planos"] };
     expect(podeVer(pers, "ordens") && podeVer(pers, "planos") && podeVer(pers, "estoque")).toBe(true);
     expect(podeVer(pers, "painel")).toBe(false);
     expect(podeVer(null, "estoque")).toBe(false);
   });
-  it("terceiro e manutentor só veem o Estoque — mesmo com lista de abas ou perfil administrador", () => {
+  it("terceiro e manutentor só veem o Estoque e o Suporte Técnico — mesmo com lista de abas ou perfil administrador", () => {
     for (const funcao of ["terceiro", "manutentor"]) {
       for (const u of [{ login: "t", funcao, perfil: "leitor" }, { login: "t", funcao, perfil: "editor" }, { login: "t", funcao, perfil: "admin" },
         { login: "t", funcao, abas: TODAS }, { login: "t", funcao, abas: ["ordens", "mro", "equipamentos"] }]) {
-        expect(TODAS.filter((p) => podeVer(u, p))).toEqual(["estoque"]);
-        expect(TODAS.filter((p) => veInteira(u, p))).toEqual(["estoque"]);
+        expect(TODAS.filter((p) => podeVer(u, p))).toEqual(["suporte", "estoque"]);
+        expect(TODAS.filter((p) => veInteira(u, p))).toEqual(["suporte", "estoque"]);
         expect(acessoTotal(u)).toBe(false);
       }
     }
     expect(ehAdmin({ login: "t", funcao: "terceiro", perfil: "admin" })).toBe(false);
     // manutentor que já era administrador segue administrando usuários (o site não fica sem administrador)
     expect(ehAdmin({ login: "m", funcao: "manutentor", perfil: "admin" })).toBe(true);
+  });
+  it("suporte técnico é liberado para qualquer função, com ou sem lista de abas", () => {
+    const usuarios = [
+      { login: "l", funcao: "lider", perfil: "leitor" },
+      { login: "a", funcao: "analista", perfil: "leitor" },
+      { login: "m", funcao: "manutentor", perfil: "leitor" },
+      { login: "t", funcao: "terceiro", perfil: "leitor" },
+      { login: "s", perfil: "leitor" },
+      { login: "p", funcao: "analista", perfil: "leitor", abas: ["ordens"] },
+      { login: "q", funcao: "manutentor", perfil: "editor", abas: ["ordens"] },
+    ];
+    for (const u of usuarios) expect(podeVer(u, "suporte")).toBe(true);
+    expect(podeVer(null, "suporte")).toBe(false);
+  });
+  it("manutentor e terceiro continuam sem as demais abas (ex.: custos, manuais)", () => {
+    for (const funcao of ["manutentor", "terceiro"]) {
+      const u = { login: "x", funcao, perfil: "editor", abas: ["custos", "manuais"] };
+      expect(podeVer(u, "custos")).toBe(false);
+      expect(podeVer(u, "manuais")).toBe(false);
+      expect(podeVer(u, "suporte")).toBe(true);
+    }
+  });
+  it("gravar na biblioteca técnica segue a regra antiga: editor com a aba (ou função de acesso total), nunca Terceiro/Manutentor", () => {
+    expect(podeEditarSuporte({ login: "l", funcao: "lider", perfil: "editor" })).toBe(true);
+    expect(podeEditarSuporte({ login: "a", funcao: "analista", perfil: "admin" })).toBe(true);
+    expect(podeEditarSuporte({ login: "l", funcao: "lider", perfil: "leitor" })).toBe(false);
+    expect(podeEditarSuporte({ login: "m", funcao: "manutentor", perfil: "admin" })).toBe(false);
+    expect(podeEditarSuporte({ login: "t", funcao: "terceiro", perfil: "editor", abas: ["suporte"] })).toBe(false);
+    expect(podeEditarSuporte({ login: "s", perfil: "editor" })).toBe(false);
+    expect(podeEditarSuporte({ login: "e", funcao: "analista", perfil: "editor", abas: ["ordens"] })).toBe(false);
+    expect(podeEditarSuporte({ login: "e", funcao: "analista", perfil: "editor", abas: ["ordens", "suporte"] })).toBe(true);
+    expect(podeEditarSuporte(null)).toBe(false);
   });
   it("perfil de edição", () => {
     expect(podeEditar({ login: "a", perfil: "editor" })).toBe(true);

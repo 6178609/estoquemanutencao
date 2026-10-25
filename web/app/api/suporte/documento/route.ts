@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { podeEditarSuporte } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { FonteErro } from "@/lib/dados/fonte";
 import {
@@ -16,11 +17,15 @@ export const dynamic = "force-dynamic";
 
 const areaValida = (a: string): a is Area => AREAS.some((x) => x.id === a);
 
-/** Quem mexe na biblioteca técnica: editor ou administrador com a aba Suporte (o pedido vem do próprio site). */
+/**
+ * Quem mexe na biblioteca técnica: editor ou administrador que já tinha a aba Suporte antes de ela ser livre
+ * (podeEditarSuporte; o pedido vem do próprio site).
+ */
 async function quemEdita(req: NextRequest) {
   const origem = req.headers.get("origin");
   if (origem && origem !== req.nextUrl.origin) return null;
-  return autorizar("suporte", true);
+  const u = await autorizar("suporte", true);
+  return u && podeEditarSuporte(u) ? u : null;
 }
 
 function erro(e: unknown) {

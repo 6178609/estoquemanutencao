@@ -76,7 +76,7 @@ function EscolhaAbas({ abas, marcadas, escolher, setEscolher }: {
               {a.titulo}
             </label>
           ))}
-          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque é sempre liberado; a Gestão de ativos também, mesmo sem marcar Equipamentos. Para Manutentor e Terceiro vale sempre só o Estoque.</p>
+          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque e o Suporte Técnico são sempre liberados para todos; a Gestão de ativos também, mesmo sem marcar Equipamentos. Para Manutentor e Terceiro vale sempre só o Estoque e o Suporte Técnico.</p>
         </div>
       )}
     </fieldset>

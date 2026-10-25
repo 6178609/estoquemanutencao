@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     if (url) return NextResponse.json({ ok: true, vinculados: (await gravarLinkEmVarios(eqs, { titulo, url }, por)).length });
     if (!(arquivo instanceof File)) return NextResponse.json({ erro: "Escolha um arquivo ou informe um link." }, { status: 400 });
-    if (arquivo.size > LIMITE_DOCUMENTO) return NextResponse.json({ erro: "O arquivo passou de 4 MB. Para manuais maiores, use “Adicionar link”." }, { status: 413 });
+    if (arquivo.size > LIMITE_DOCUMENTO) return NextResponse.json({ erro: "Este arquivo passa de 4 MB: envie pela tela de Manuais (ela divide em partes até 100 MB)." }, { status: 413 });
     const feitos = await gravarDocumentoEmVarios(eqs, { titulo, nome: arquivo.name, bytes: new Uint8Array(await arquivo.arrayBuffer()) }, por);
     return NextResponse.json({ ok: true, vinculados: feitos.length });
   } catch (e) {

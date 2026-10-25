@@ -6,6 +6,26 @@ import { AREAS, type Area } from "../suporte/guias";
 import { type Alteracao, gravarCadastroLote, lerCadastro } from "./cadastros";
 import { fonte, FonteErro } from "./fonte";
 import { tipoImagem } from "./fotos";
+import {
+  apagarEnvio,
+  apagarPartesDoEnvio,
+  type Envio,
+  envioExpirado,
+  envioIdValido,
+  gravarEnvio,
+  gravarParte,
+  indiceValido,
+  lerEnvio,
+  lerParte,
+  LIMITE_MANUAL_GRANDE,
+  MAX_PARTES,
+  novoEnvio,
+  numeroDePartes,
+  parteValida,
+  tamanhoDaParte,
+  partesFaltando,
+  PRAZO_ENVIO_MS,
+} from "./manuaisPartes";
 
 /**
  * Bibliotecas de documentos. O arquivo vai para o repositório de dados (privado) e a lista fica num cadastro, separada
@@ -38,7 +58,11 @@ export interface Documento {
   nome?: string;
   /** referência: o arquivo está no documento da origem (mesmo manual em vários equipamentos; sem bytes próprios) */
   origem?: { tag: string; id: string };
+  /** manual grande (acima de 4 MB): o arquivo são as partes do envio na fonte (ver manuaisPartes.ts) */
+  partes?: Partes;
 }
+
+export interface Partes { envio: string; total: number }
 
 interface Origem { tag: string; id: string }
 
@@ -113,13 +137,17 @@ const origemValida = (o: unknown) => o === undefined || (!!o && typeof o === "ob
   && typeof (o as Origem).tag === "string" && tagValida((o as Origem).tag)
   && typeof (o as Origem).id === "string" && idValido((o as Origem).id));
 
+const partesValidas = (p: unknown) => p === undefined || (!!p && typeof p === "object"
+  && envioIdValido((p as Partes).envio) && Number.isInteger((p as Partes).total)
+  && (p as Partes).total >= 1 && (p as Partes).total <= MAX_PARTES);
+
 function lista(item: unknown): Documento[] {
   const d = (item as { documentos?: unknown } | undefined)?.documentos;
   // só o que tem a forma certa (o link ainda é conferido de novo: ele vira href na tela)
   return Array.isArray(d) ? (d.filter((x) => {
     const y = x as Documento;
     return !!y && typeof y === "object" && typeof y.id === "string" && typeof y.titulo === "string" && typeof y.tipo === "string"
-      && typeof y.em === "string" && (y.tipo !== "link" || linkValido(y.url)) && origemValida(y.origem);
+      && typeof y.em === "string" && (y.tipo !== "link" || linkValido(y.url)) && origemValida(y.origem) && partesValidas(y.partes);
   }) as Documento[]) : [];
 }
 
@@ -214,7 +242,9 @@ async function removerDaColecao(c: Colecao, chave: string, id: string, por: stri
     await registrar(c, chave, doc, por).catch(() => undefined);
     throw new FonteErro(msgComReferencias(agora.length));
   }
-  await apagarArquivo(c, chave, id, por);
+  // manual em partes: apaga as partes (o último vínculo saiu); senão, o arquivo único
+  if (doc.partes) await apagarPartesDoEnvio(doc.partes.envio, por);
+  else await apagarArquivo(c, chave, id, por);
 }
 
 /** Quando a lista de arquivos de cada biblioteca foi relida (no máximo a cada 15 s). */
@@ -241,11 +271,12 @@ async function bytesDe(c: Colecao, chave: string, id: string): Promise<Uint8Arra
 async function lerDaColecao(c: Colecao, chave: string, id: string): Promise<{ doc: Documento; bytes: Uint8Array; tipo: TipoDocumento } | null> {
   if (!c.chaveValida(chave) || !idValido(id)) return null;
   const doc = (await documentosDeColecao(c, chave)).find((x) => x.id === id);
-  if (!doc || doc.tipo === "link") return null;
+  if (!doc || doc.tipo === "link" || doc.partes) return null;
   const origem: Origem = doc.origem ?? { tag: chave, id };
   if (doc.origem) {
-    const existe = c.chaveValida(origem.tag) && (await documentosDeColecao(c, origem.tag)).some((x) => x.id === origem.id);
-    if (!existe) throw new FonteErro("Arquivo de origem não encontrado. Refaça o vínculo deste manual.");
+    const origemDoc = c.chaveValida(origem.tag) ? (await documentosDeColecao(c, origem.tag)).find((x) => x.id === origem.id) : undefined;
+    if (!origemDoc) throw new FonteErro("Arquivo de origem não encontrado. Refaça o vínculo deste manual.");
+    if (origemDoc.partes) return null; // manual em partes: sai por documentoEmPartes
   }
   const bytes = await bytesDe(c, origem.tag, origem.id);
   const tipo = bytes && tipoDocumento(bytes);
@@ -333,6 +364,100 @@ export async function gravarDocumentoEmVarios(tags: string[], d: { titulo: strin
     throw e;
   }
   return entradas;
+}
+
+// ---------------------------------------------------------------------------- manual grande (envio em partes)
+
+const nomeDoArquivo = (nome: string) => limparTitulo(nome).replace(/[^\w.\- ]/g, "_") || "documento";
+
+/** Envio de quem começou, dentro do prazo (senão, apaga o que ficou e recusa). */
+async function envioDe(envio: string, login: string): Promise<Envio> {
+  if (!envioIdValido(envio)) throw new FonteErro("Envio inválido.");
+  const e = await lerEnvio(envio);
+  if (!e) throw new FonteErro("Envio não encontrado. Comece o envio de novo.");
+  if (e.login !== login) throw new FonteErro("Só quem começou o envio pode continuar.");
+  if (envioExpirado(e)) {
+    await apagarPartesDoEnvio(envio, e.por).catch(() => undefined);
+    throw new FonteErro("O envio passou de 2 horas e expirou. Comece de novo.");
+  }
+  return e;
+}
+
+/** Começa um envio de manual grande (entre 4 MB e 100 MB) para os equipamentos. Devolve o id e o nº de partes. */
+export async function iniciarManualEmPartes(tags: string[], d: { titulo: string; nome: string; tamanho: number }, login: string, por: string):
+  Promise<{ envio: string; total: number }> {
+  const lote = tagsDoLote(tags);
+  const titulo = tituloDoLote(d.titulo);
+  if (!Number.isInteger(d.tamanho) || d.tamanho <= LIMITE_DOCUMENTO || d.tamanho > LIMITE_MANUAL_GRANDE) {
+    throw new FonteErro("Manual em partes: o arquivo tem de ter entre 4 MB e 100 MB.");
+  }
+  // recusa já aqui um equipamento cheio (a conferência final é na gravação da lista)
+  const cadastro = await lerCadastro(ARQ_DOCUMENTOS);
+  for (const tag of lote) {
+    if (lista(cadastro[tag]).length >= MAX_POR_EQUIPAMENTO) throw new FonteErro(`O equipamento ${tag} já tem ${MAX_POR_EQUIPAMENTO} documentos; remova algum antes.`);
+  }
+  const envio = novoEnvio();
+  const total = numeroDePartes(d.tamanho);
+  await gravarEnvio({ envio, login, por, titulo, nome: nomeDoArquivo(d.nome), tamanho: d.tamanho, total, tags: lote,
+    expiraEm: new Date(Date.now() + PRAZO_ENVIO_MS).toISOString() });
+  return { envio, total };
+}
+
+/** Grava uma parte do envio (só quem começou; índice dentro do total; até 3,5 MB). */
+export async function enviarParteManual(envio: string, indice: number, bytes: Uint8Array, login: string): Promise<void> {
+  const e = await envioDe(envio, login);
+  if (!indiceValido(indice, e.total)) throw new FonteErro("Parte fora do envio.");
+  if (!parteValida(bytes.length) || bytes.length !== tamanhoDaParte(indice, e.tamanho))
+    throw new FonteErro("Parte com tamanho inválido. Envie o manual de novo.");
+  await gravarParte(envio, indice, bytes, e.total);
+}
+
+/**
+ * Conclui o envio: confere que as partes existem (cada uma já foi conferida no tamanho exato ao chegar), que o tipo é
+ * PDF ou imagem (pela parte 0)
+ * e grava o documento nos equipamentos (um arquivo só; os outros equipamentos recebem referência). Sem copiar bytes.
+ */
+export async function concluirManualEmPartes(envio: string, login: string): Promise<{ tag: string; doc: Documento }[]> {
+  const e = await envioDe(envio, login);
+  const faltam = await partesFaltando(envio, e.total);
+  if (faltam.length) throw new FonteErro(`Faltam ${faltam.length} ${faltam.length === 1 ? "parte" : "partes"} do manual. Envie de novo.`);
+  // cada parte foi conferida no tamanho exato ao chegar: aqui só a 1ª é relida, para conferir o tipo pelos bytes
+  const primeira = await lerParte(envio, 0);
+  if (!primeira) throw new FonteErro("A parte 1 não foi encontrada. Envie o manual de novo.");
+  const soma = e.tamanho;
+  const tipo = primeira ? tipoDocumento(primeira) : null;
+  if (!tipo) {
+    await apagarPartesDoEnvio(envio, e.por).catch(() => undefined);
+    throw new FonteErro("Envie um PDF ou uma imagem (JPEG, PNG ou WebP).");
+  }
+  const em = new Date().toISOString();
+  const origem: Documento = { id: novoId(), titulo: e.titulo, tipo, tamanho: soma, em, por: e.por, nome: e.nome,
+    partes: { envio, total: e.total } };
+  const [tagOrigem, ...demais] = e.tags;
+  const entradas = [{ tag: tagOrigem, doc: origem }, ...demais.map((tag) => ({ tag, doc: {
+    id: novoId(), titulo: e.titulo, tipo, tamanho: soma, em, por: e.por, nome: e.nome, origem: { tag: tagOrigem, id: origem.id } } as Documento }))];
+  await registrarVarios(entradas, e.por);
+  // a lista já tem o manual: só agora tira o estado do envio (sem ele, não se conclui de novo)
+  await apagarEnvio(envio, e.por);
+  return entradas;
+}
+
+/**
+ * Manual em partes (o documento ou a referência a ele): quem baixa lê as partes na ordem. Null se não é um manual
+ * em partes (ou é link, ou não existe).
+ */
+export async function documentoEmPartes(tag: string, id: string):
+  Promise<{ partes: Partes; nome: string; tipo: TipoDocumento; tamanho: number } | null> {
+  if (!ATIVO.chaveValida(tag) || !idValido(id)) return null;
+  const doc = (await documentosDeColecao(ATIVO, tag)).find((x) => x.id === id);
+  if (!doc || doc.tipo === "link") return null;
+  let partes = doc.partes;
+  if (!partes && doc.origem) {
+    const origem = doc.origem;
+    partes = (await documentosDeColecao(ATIVO, origem.tag)).find((x) => x.id === origem.id)?.partes;
+  }
+  if (!partes) return null;
+  return { partes, nome: doc.nome || "documento", tipo: doc.tipo as TipoDocumento, tamanho: doc.tamanho };
 }
 
 /** Um link em vários equipamentos: uma entrada de link por equipamento, numa só alteração. */

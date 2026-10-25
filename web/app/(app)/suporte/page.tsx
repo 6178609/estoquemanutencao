@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Cabecalho, Pagina } from "@/components/ui";
-import { podeEditar } from "@/lib/auth/acesso";
+import { podeEditarSuporte } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { AREAS, type Area } from "@/lib/suporte/guias";
 import type { ItemAcervo } from "@/lib/suporte/acervo";
@@ -50,7 +50,7 @@ export default async function Suporte(props: { searchParams: Promise<Params> }) 
       {visao === "guias" && <Guias q={q} area={area} guia={um(params, "guia") || undefined} />}
       {visao === "diagnostico" && <Diagnostico params={params} u={u} />}
       {visao === "biblioteca" && (
-        <Biblioteca u={u} edita={podeEditar(u)} filtros={{
+        <Biblioteca u={u} edita={podeEditarSuporte(u)} filtros={{
           q,
           area,
           tipo: TIPOS.find((t) => t === um(params, "tipo")) as ItemAcervo["tipo"] | undefined,

@@ -17,10 +17,11 @@ export const metadata: Metadata = { title: "Usuários" };
 export const dynamic = "force-dynamic";
 
 function descrever(u: Pessoa): string {
-  if (FUNCOES_SO_ESTOQUE.has(u.funcao)) return "Só Estoque";
-  if (Array.isArray(u.abas)) return `${u.abas.filter((a) => TODAS.includes(String(a))).length + 1} aba(s) escolhida(s)`;
+  if (FUNCOES_SO_ESTOQUE.has(u.funcao)) return "Só Estoque e Suporte";
+  // as abas livres (Estoque e Suporte Técnico) já contam; a lista guarda só as outras
+  if (Array.isArray(u.abas)) return `${u.abas.filter((a) => TODAS.includes(String(a)) && !PAGINAS_LIVRES.has(String(a))).length + PAGINAS_LIVRES.size} aba(s) escolhida(s)`;
   if (u.funcao && u.funcao in FUNCOES) return "Todas";
-  return u.perfil === "admin" ? "Todas" : "Estoque + Gestão de ativos";
+  return u.perfil === "admin" ? "Todas" : "Estoque, Suporte e Gestão de ativos";
 }
 
 export default async function Usuarios(props: { searchParams: Promise<{ primeiro?: string }> }) {

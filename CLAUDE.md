@@ -21,8 +21,11 @@
 ## Acesso às abas novas
 - Toda aba nova entra liberada **100% para Líder e Analista** e **bloqueada para as demais funções** até o administrador
   liberar (lista de abas do usuário em Usuários). Regra única em `web/lib/auth/acesso.ts`.
-- **Terceiro e Manutentor veem só o Estoque** (`FUNCOES_SO_ESTOQUE` / `PAGINAS_SO_ESTOQUE`), mesmo com lista de abas ou perfil
-  administrador (não podem ser administradores); o Início manda direto para o Estoque. Teste em `testes/acesso.test.ts`.
+- **Suporte Técnico é liberado para qualquer função** (`PAGINAS_LIVRES`), como o Estoque: todo usuário logado e ativo vê.
+  Gravar na biblioteca técnica segue a regra de antes (`podeEditarSuporte`): editor com a aba, nunca Terceiro/Manutentor.
+- **Terceiro e Manutentor veem só o Estoque e o Suporte Técnico** (`FUNCOES_SO_ESTOQUE` / `PAGINAS_SO_ESTOQUE`), mesmo com
+  lista de abas ou perfil administrador (não podem ser administradores); o Início manda direto para o Estoque. Teste em
+  `web/testes/acesso.test.ts`.
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

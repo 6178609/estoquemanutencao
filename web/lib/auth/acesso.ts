@@ -6,15 +6,16 @@ import { TODAS } from "../navegacao";
 export const FUNCOES: Record<string, string> = { lider: "Líder de manutenção", analista: "Analista", manutentor: "Manutentor", terceiro: "Terceiro" };
 export const PERFIS: Record<string, string> = { admin: "Administrador", editor: "Editor", leitor: "Leitor" };
 const FUNCOES_ACESSO_TOTAL = new Set(["lider", "analista"]);
-export const PAGINAS_LIVRES = new Set(["estoque"]);
+/** Abas que todo usuário logado e ativo vê, de qualquer função e perfil (Estoque e Suporte Técnico). */
+export const PAGINAS_LIVRES = new Set(["estoque", "suporte"]);
 export const PAGINAS_PARCIAIS: Record<string, string> = { equipamentos: "Gestão de ativos" };
 /**
- * Terceiro e Manutentor: só o Estoque — nada de parte parcial, lista personalizada de abas ou administração
- * (mesmo que a lista de abas do usuário diga outra coisa).
+ * Terceiro e Manutentor: só o Estoque e o Suporte Técnico — nada de parte parcial, lista personalizada de abas ou
+ * administração (mesmo que a lista de abas do usuário diga outra coisa).
  */
 export const FUNCOES_SO_ESTOQUE = new Set(["terceiro", "manutentor"]);
-/** As únicas abas de quem é "só Estoque". */
-export const PAGINAS_SO_ESTOQUE = new Set(["estoque"]);
+/** As únicas abas de quem é "só Estoque" (Estoque e Suporte Técnico, que é livre para todos). */
+export const PAGINAS_SO_ESTOQUE = new Set(["estoque", "suporte"]);
 
 /** "Terceiro não pode ser administrador…" (vale para toda função só-Estoque). */
 export function erroAdminSoEstoque(funcao: string): string {
@@ -76,6 +77,16 @@ export function podeVer(u: Usuario | null, pagina: string): boolean {
 
 export function podeEditar(u: Usuario | null): boolean {
   return !!u && (u.perfil === "admin" || u.perfil === "editor");
+}
+
+/**
+ * Grava na biblioteca técnica (Suporte Técnico): quem vê a aba por lista própria ou pela função (não pela regra
+ * livre), com perfil de edição e fora de Terceiro e Manutentor. Ver a aba é de todos; enviar documento não.
+ */
+export function podeEditarSuporte(u: Usuario | null): boolean {
+  if (!u || soEstoque(u) || !podeEditar(u)) return false;
+  const pers = abasPersonalizadas(u);
+  return pers ? pers.has("suporte") : acessoTotal(u);
 }
 
 export function nomeFuncao(u: Usuario | null): string {
