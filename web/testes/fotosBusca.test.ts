@@ -26,7 +26,7 @@ vi.mock("node:https", () => ({
 
 import { NextResponse } from "next/server";
 import { _limparCacheFotos, fotoDoCadastro, respostaFotoExterna, chaveFoto } from "@/lib/dados/fotosExternas";
-import { imagemDaPagina } from "@/lib/dados/fotosSugestao";
+import { chaveSugestao, imagemDaPagina } from "@/lib/dados/fotosSugestao";
 import { deduzirPdm, pdmEfetivo, pdmsConhecidos } from "@/lib/dados/pdmDeducao";
 import { bancoDeImagem, consultaFotoExata, escolherFotoExata, imagemAceitavel, refNormalizada } from "@/lib/fotos/escolha";
 import { normalizarBrave, normalizarFirecrawl, normalizarSerpapi, normalizarSerper, buscarImagens, CotaErro, BuscaErro } from "@/lib/fotos/buscaImagem";
@@ -175,6 +175,38 @@ describe("imagem da página", () => {
     const html = '<img src="/img/logo.png"><img src="data:image/gif;base64,AAA"><img src="/sprite.svg"><img src="img/prod%20a.jpg?x=1&amp;y=2">';
     expect(imagemDaPagina(html, pagina)).toBe("https://loja.exemplo.com.br/produto/img/prod%20a.jpg?x=1&y=2");
   });
+  it("logo da loja não vira foto: o Product do JSON-LD vem antes do og:image", () => {
+    const html = '<meta property="og:image" content="https://cdn.exemplo.com.br/logo-loja.png">'
+      + '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","logo":"https://cdn.exemplo.com.br/l.png"},'
+      + '{"@type":"Product","name":"Rolamento 6205","image":["https://cdn.exemplo.com.br/6205.jpg"]}]}</script>';
+    expect(imagemDaPagina(html, pagina)).toBe("https://cdn.exemplo.com.br/6205.jpg");
+    // JSON-LD com image como objeto, e quebrado (ignorado)
+    expect(imagemDaPagina('<script type="application/ld+json">{oops</script><script type="application/ld+json">'
+      + '{"@type":"Product","image":{"@type":"ImageObject","url":"/p.webp"}}</script>', pagina)).toBe("https://loja.exemplo.com.br/p.webp");
+  });
+  it("og:image de logo, de compartilhamento padrão ou igual ao ícone é pulado; a img do produto serve", () => {
+    const html = '<link rel="apple-touch-icon" href="https://cdn.exemplo.com.br/marca.png">'
+      + '<meta property="og:image" content="https://cdn.exemplo.com.br/marca.png">'
+      + '<img src="/static/logo_header.png" alt="Loja"><img src="/selo-seguranca.png">'
+      + '<img class="foto" src="/img/outra.jpg"><img class="product-image" data-src="/img/6205-2Z.jpg">';
+    expect(imagemDaPagina(html, pagina)).toBe("https://loja.exemplo.com.br/img/6205-2Z.jpg");
+    expect(imagemDaPagina('<meta property="og:image" content="https://cdn.exemplo.com.br/og-default.jpg"><img src="/a/b.jpg">', pagina))
+      .toBe("https://loja.exemplo.com.br/a/b.jpg");
+    expect(imagemDaPagina('<meta property="og:image" content="https://cdn.exemplo.com.br/assets/Logo%20Loja.jpg">', pagina)).toBeNull();
+    // peças com "selo"/"seal", pasta "default" de CDN e reserva do Cloudinary continuam valendo
+    for (const ok of ["https://cdn.exemplo.com.br/img/selo-mecanico-21.jpg", "https://cdn.exemplo.com.br/industrial-seals/cr-seal.jpg",
+      "https://www.exemplo.com.br/on/demandware.static/-/Sites-master/default/dw12/images/6205.jpg",
+      "https://res.cloudinary.com/x/image/upload/d_default.png/v1/p/6205.jpg"])
+      expect(imagemDaPagina(`<meta property="og:image" content="${ok}">`, pagina)).toBe(ok);
+    expect(imagemDaPagina('<img class="product-image" alt="Selo mecanico 21" src="/s21.jpg">', pagina)).toBe("https://loja.exemplo.com.br/s21.jpg");
+    expect(imagemDaPagina('<meta property="og:image" content="https://cdn.exemplo.com.br/og-image.png">', pagina)).toBeNull();
+    // ProductGroup (variantes) e @type com prefixo
+    expect(imagemDaPagina('<script type="application/ld+json">{"@type":"ProductGroup","hasVariant":[{"@type":"http://schema.org/Product",'
+      + '"image":"https://cdn.exemplo.com.br/v1.jpg"}]}</script>', pagina)).toBe("https://cdn.exemplo.com.br/v1.jpg");
+    // "silicone" não é "icon"
+    expect(imagemDaPagina('<meta property="og:image" content="https://cdn.exemplo.com.br/mangueira-silicone.jpg">', pagina))
+      .toBe("https://cdn.exemplo.com.br/mangueira-silicone.jpg");
+  });
   it("sem imagem, ou só endereço http/privado, nada", () => {
     expect(imagemDaPagina("<p>nada</p>", pagina)).toBeNull();
     expect(imagemDaPagina('<meta property="og:image" content="http://cdn.exemplo.com.br/x.jpg"><img src="http://10.0.0.1/a.jpg">', pagina)).toBeNull();
@@ -189,6 +221,8 @@ describe("foto só com a página (fetch simulado)", () => {
     const f = base("https://loja.um.com.br/p1");
     expect(f.url).toBeNull();
     expect(chaveFoto(f)).toMatch(/^[0-9a-f]{12}$/);
+    // chave nova para a imagem tirada da página (a regra sem logo trocou a imagem): o navegador não usa a antiga
+    expect(chaveFoto(f)).not.toBe(chaveSugestao("https://loja.um.com.br/p1"));
     expect(fotoDoCadastro({ pagina: "http://loja.um.com.br/p" })).toBeNull();
     expect(fotoDoCadastro({ url: "https://192.168.0.1/a.jpg" })).toBeNull();
   });

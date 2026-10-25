@@ -46,7 +46,8 @@ export function fotoDoCadastro(item: unknown): FotoCadastro | null {
 }
 
 /** Chave da foto: o hash do endereço da imagem, ou da página quando só há a página. */
-export const chaveFoto = (f: FotoCadastro): string => chaveSugestao(f.url ?? f.pagina ?? "");
+// "p2|": a imagem tirada da página mudou de regra (sem logo da loja): chave nova, o navegador não usa a imagem guardada
+export const chaveFoto = (f: FotoCadastro): string => chaveSugestao(f.url ?? `p2|${f.pagina ?? ""}`);
 
 /** O que a tela recebe de uma foto do cadastro: a chave, a página e o título (sem o endereço da imagem). */
 export function fotoExternaDe(f: FotoCadastro): FotoExterna {
