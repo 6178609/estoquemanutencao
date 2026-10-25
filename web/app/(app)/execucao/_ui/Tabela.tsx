@@ -16,8 +16,8 @@ import { dataBr } from "@/lib/wcm/util";
  * cabeçalho, rolagem virtual dentro do cartão (aguenta alguns milhares de linhas), baixar CSV e abrir o detalhe da
  * linha. Tudo serializável: as colunas e as linhas vêm do servidor.
  */
-export type Celula = string | number | null;
-export type Linha = Record<string, Celula>;
+type Celula = string | number | null;
+type Linha = Record<string, Celula>;
 export type TipoColuna = "texto" | "num" | "data" | "situacao" | "barra" | "pct" | "h" | "R$" | "link" | "codigo";
 
 export interface Coluna {
@@ -33,8 +33,8 @@ export interface Coluna {
   /** máximo da barra (padrão: o maior valor da coluna) */
   max?: number;
 }
-export interface Faceta { id: string; rotulo: string; lista?: boolean; ordem?: string[] }
-export interface Alternancia { id: string; rotulo: string; campo: string; padrao: boolean; dica?: string }
+interface Faceta { id: string; rotulo: string; lista?: boolean; ordem?: string[] }
+interface Alternancia { id: string; rotulo: string; campo: string; padrao: boolean; dica?: string }
 
 const LARGURA: Record<TipoColuna, number> = { texto: 180, num: 92, data: 100, situacao: 180, barra: 150, pct: 86, h: 86, "R$": 120,
   link: 90, codigo: 110 };
@@ -43,7 +43,7 @@ const n = (casas: number) => new Intl.NumberFormat("pt-BR", { minimumFractionDig
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function formatarCelula(c: Coluna, v: Celula): string {
+function formatarCelula(c: Coluna, v: Celula): string {
   if (v == null || v === "") return "";
   switch (c.tipo) {
     case "data": return typeof v === "number" ? dataBr(v) : String(v);

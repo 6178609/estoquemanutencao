@@ -7,7 +7,7 @@ import { MultiEscolha } from "@/components/Filtros";
 import { TabelaDados, type Celula, type Coluna } from "../confiabilidade/_comum/TabelaDados";
 
 /** Horas por pessoa com busca e filtros de especialidade e área (colunas 3 e 4). */
-export const COLUNAS_PESSOAS: Coluna[] = [
+const COLUNAS_PESSOAS: Coluna[] = [
   { rotulo: "Nº pessoal", formato: "codigo" }, { rotulo: "Nome", largo: true }, { rotulo: "Cargo" }, { rotulo: "Especialidade" },
   { rotulo: "Área" }, { rotulo: "Turma" }, { rotulo: "Centro (mais apontado)" }, { rotulo: "HH apontadas", formato: "num1" },
   { rotulo: "Utilização", formato: "%", barra: 100, dica: "HH apontadas ÷ horas disponíveis da pessoa no período (Gerenciador de HH: jornada × % disponível, menos férias e ausências)" },

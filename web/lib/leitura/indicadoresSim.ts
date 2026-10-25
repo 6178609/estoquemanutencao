@@ -6,7 +6,7 @@ import type { Tabela } from "./leitura";
  * linhas do pilar MP (Manutenção Profissional) e só as colunas de indicador (sem responsável, backup e afins).
  * Feito no navegador: o que não é do MP nem sai do computador. Testado em testes/indicadoresSim.test.ts.
  */
-export const PILAR = "MP";
+const PILAR = "MP";
 /** Só as colunas que a tela usa (lista de inclusão: uma coluna nova com nomes de pessoas nunca sai do computador). */
 const USADAS = /^(PILAR|AREA|TIPO|KPIS? INDUSTRIA\w*|MES ANO|META MES|FCST MES|REAL MES|YTD META|YTD REAL|FY META|FY ESTIMATIVA|FY \d{4}|SEMANA [1-5])$/;
 

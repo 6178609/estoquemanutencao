@@ -34,7 +34,7 @@ export async function listasDosAtivos(c: Contexto): Promise<Map<string, ListaTar
 }
 
 /** Ativos e materiais (MB52 + catálogo Sysmat) no formato da alocação automática. */
-export function textosParaAlocacao(inv: LinhaAtivo[], bm: BaseMateriais, campos: Map<string, string>): { ativos: AtivoTexto[]; materiais: MaterialTexto[] } {
+function textosParaAlocacao(inv: LinhaAtivo[], bm: BaseMateriais, campos: Map<string, string>): { ativos: AtivoTexto[]; materiais: MaterialTexto[] } {
   const ativos: AtivoTexto[] = inv.map((a) => ({ codigo: a.codigo, nome: a.equipamento, campo: campos.get(a.codigo) ?? "", fabricante: a.fabricante,
     modelo: a.modelo, desativado: a.situacao === DESATIVADO }));
   const materiais = new Map<string, MaterialTexto>();

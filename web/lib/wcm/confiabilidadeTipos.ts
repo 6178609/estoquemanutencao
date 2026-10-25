@@ -13,8 +13,8 @@ import { partes, type Dia } from "./util";
  */
 export const TIPO_QUEBRA = "YM11";
 
-export interface Evento { ordem: string; tipo: string; equip: string; objeto: string; data: Dia; horas: number | null; custo: number }
-export interface Resumo {
+interface Evento { ordem: string; tipo: string; equip: string; objeto: string; data: Dia; horas: number | null; custo: number }
+interface Resumo {
   ordens: number; equipamentos: number; mtbf: number | null; mttr: number | null; disponibilidade: number | null;
   horas: number; cobertura: number | null; custo: number;
 }
@@ -55,7 +55,7 @@ export function porTipo(ev: Evento[], dias: number): (Resumo & { tipo: string })
   return [...g].map(([tipo, xs]) => ({ tipo, ...resumir(xs, dias) })).sort((a, b) => b.ordens - a.ordens || a.tipo.localeCompare(b.tipo));
 }
 
-export interface LinhaEquipTipo extends Resumo { equip: string; nome: string; tipos: string; ultima: Dia }
+interface LinhaEquipTipo extends Resumo { equip: string; nome: string; tipos: string; ultima: Dia }
 
 /** Uma linha por equipamento: ordens, MTBF (dias ÷ ordens do equipamento), MTTR, horas, custo e os tipos. */
 export function porEquipamento(ev: Evento[], dias: number): LinhaEquipTipo[] {

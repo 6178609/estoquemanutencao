@@ -7,7 +7,7 @@ import { faixa, somarPor } from "./_comum/agregar";
 /**
  * Contas da aba Confiabilidade, puras para testar (testes/confiabilidade.test.ts).
  */
-export const ABC_PARA_CRITICIDADE: Record<string, string> = { A: "Alta", B: "Média", C: "Baixa" };
+const ABC_PARA_CRITICIDADE: Record<string, string> = { A: "Alta", B: "Média", C: "Baixa" };
 
 /** Dimensões do Pareto: rótulo → campo da quebra. */
 export const DIMENSOES: Record<string, "equipChave" | "local" | "centroTrabalho" | "localizacao" | "tipoNota"> = {
@@ -15,7 +15,7 @@ export const DIMENSOES: Record<string, "equipChave" | "local" | "centroTrabalho"
   "Tipo de nota": "tipoNota",
 };
 
-export interface LinhaEquip {
+interface LinhaEquip {
   codigo: string; nome: string; criticidade: string; abc: string; area: string; local: string; quebras: number; reincidencias: number;
   mtbf: number; mttr: number | null; reparo: number; ordens: number; custo: number; ultima: Dia | null;
 }

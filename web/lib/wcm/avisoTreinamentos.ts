@@ -6,7 +6,7 @@
 import type { Reciclagem } from "./treinamentos";
 import { dataBr, type Dia } from "./util";
 
-export interface PessoaAviso { nome: string; cargo?: string; turma?: string }
+interface PessoaAviso { nome: string; cargo?: string; turma?: string }
 export interface ItemAviso {
   np: string; nome: string; cargo: string; turma: string; titulo: string; validade: Dia; dias: number; vencido: boolean;
 }
@@ -25,7 +25,7 @@ export function itensAviso(rec: Reciclagem[], pessoas: Map<string, PessoaAviso>)
 const esc = (t: string) => t.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const prazo = (i: ItemAviso) => (i.vencido ? `vencido há ${-i.dias} dia(s)` : i.dias === 0 ? "vence hoje" : `vence em ${i.dias} dia(s)`);
 
-export interface Email { assunto: string; texto: string; html: string }
+interface Email { assunto: string; texto: string; html: string }
 
 /** O e-mail (texto puro e HTML) com a lista; `site` é o endereço da aba para o líder abrir. */
 export function montarEmail(itens: ItemAviso[], hoje: Dia, site: string): Email {

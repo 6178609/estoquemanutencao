@@ -100,7 +100,7 @@ async function envioRecente(): Promise<number> {
 const ARQUIVOS_WCM = [DESTINO.iw38, DESTINO.iw38op, DESTINO.iw47, DESTINO.iw28, DESTINO.ih08, DESTINO.equipe, DESTINO.requisicoes,
   DESTINO.ip19, DESTINO.af, DESTINO.acoes_af];
 
-export const ORIGEM_CADASTRO = "Cadastro da Gestão de HH";
+const ORIGEM_CADASTRO = "Cadastro da Gestão de HH";
 
 /**
  * A equipe do cadastro manual da Gestão de HH (null = ninguém cadastrado ainda: vale a última planilha). Guardada pela
@@ -198,11 +198,3 @@ export async function equipeDaPlanilha(): Promise<Base<Pessoa[]>> {
   return lerBase(DESTINO.equipe, (l) => prepararEquipe(l));
 }
 
-/** Os cadastros do app que os indicadores usam (metas, equipamentos, materiais, HH). */
-export async function cadastros() {
-  const [metas, equipamentos, materiais, preferencias] = await Promise.all([
-    lerCadastro("metas_wcm.json"), lerCadastro("cadastro_equipamentos.json"), lerCadastro("cadastro_materiais.json"),
-    lerCadastro("preferencias.json"),
-  ]);
-  return { metas, equipamentos, materiais, preferencias };
-}

@@ -47,7 +47,7 @@ function guardado<T>(chave: string, fn: () => T): T {
 const assinatura = (b: Bases) => [b.ordens, b.notas, b.operacoes, b.confirmacoes, b.equipamentos, b.equipe, b.requisicoes,
   b.cruas.ip19, b.cruas.af, b.cruas.acoesAf].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${b.hoje}`;
 
-export function todosCentros(b: Bases): string[] {
+function todosCentros(b: Bases): string[] {
   const s = new Set<string>();
   for (const xs of [b.ordens.dados, b.operacoes.dados, b.confirmacoes.dados, b.notas.dados])
     for (const x of xs ?? []) if (x.centroTrabalho.trim()) s.add(x.centroTrabalho);

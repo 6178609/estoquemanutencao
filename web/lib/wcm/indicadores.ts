@@ -271,7 +271,7 @@ function janela(datas: (Dia | null)[]): [Dia, Dia] | null {
 }
 
 /** Fração do período [ini, fim] coberta por cada base. */
-export function cobertura(d: Dados, ini: Dia, fim: Dia): Record<"iw38" | "notas" | "hh", number> {
+function cobertura(d: Dados, ini: Dia, fim: Dia): Record<"iw38" | "notas" | "hh", number> {
   const dias = Math.max(fim - ini + 1, 1);
   const jan = {
     iw38: memo(d, "jan_iw38", (x) => janela(validas(x.ordens).map((o) => o.data))),
@@ -382,11 +382,11 @@ export function comparavel(anterior: Resultado, minimo = 0.5): Resultado {
   return out;
 }
 
-export const IDS_SEMEQ = ["semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dias", "semeq_atrasadas"] as const;
+const IDS_SEMEQ = ["semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dias", "semeq_atrasadas"] as const;
 export const anomaliasSemeq = (d: Dados) => memo(d, "semeq", (x) =>
   preditiva.anomalias(x.notas, x.ordens, x.oper, x.confTodos ?? x.conf, x.equipe, x.hoje));
 
-export function indicadoresSemeq(d: Dados, ini: Dia, fim: Dia): Resultado {
+function indicadoresSemeq(d: Dados, ini: Dia, fim: Dia): Resultado {
   const vazio = Object.fromEntries(IDS_SEMEQ.map((x) => [x, null]));
   try {
     const an = anomaliasSemeq(d);
@@ -398,10 +398,10 @@ export function indicadoresSemeq(d: Dados, ini: Dia, fim: Dia): Resultado {
   }
 }
 
-export const IDS_AF = ["taxa_quebra_a", "af_execucao", "af_no_prazo", "af_atrasadas"] as const;
-export const IDS_ACOES_AF = ["acoes_execucao", "acoes_no_prazo", "acoes_atrasadas"] as const;
+const IDS_AF = ["taxa_quebra_a", "af_execucao", "af_no_prazo", "af_atrasadas"] as const;
+const IDS_ACOES_AF = ["acoes_execucao", "acoes_no_prazo", "acoes_atrasadas"] as const;
 
-export function indicadoresAf(d: Dados, ini: Dia, fim: Dia): Resultado {
+function indicadoresAf(d: Dados, ini: Dia, fim: Dia): Resultado {
   const r: Resultado = Object.fromEntries([...IDS_AF, ...IDS_ACOES_AF].map((x) => [x, null]));
   if (d.afs == null && d.acoesAf == null) return r;
   const v = af.indicadores(d.afs ?? [], d.acoesAf ?? [], ini, fim, d.hoje) as unknown as Record<string, number | null>;
@@ -410,7 +410,7 @@ export function indicadoresAf(d: Dados, ini: Dia, fim: Dia): Resultado {
   return r;
 }
 
-export interface PecaCritica { material: string; descricao: string; estoque: number; minimo: number | null; equipamentos: string }
+interface PecaCritica { material: string; descricao: string; estoque: number; minimo: number | null; equipamentos: string }
 
 /** Materiais vinculados a equipamentos de criticidade Alta sem saldo suficiente. */
 export function pecasCriticasEmFalta(d: Dados): PecaCritica[] {

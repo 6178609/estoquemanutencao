@@ -22,7 +22,7 @@ export type Celula = string | number | null;
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const n1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export function formatarCelula(v: Celula, f: FormatoCol = "texto"): string {
+function formatarCelula(v: Celula, f: FormatoCol = "texto"): string {
   if (v == null || v === "" || (typeof v === "number" && Number.isNaN(v))) return f === "texto" || f === "codigo" ? "" : "—";
   if (typeof v === "string") return v;
   switch (f) {

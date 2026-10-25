@@ -9,7 +9,7 @@ import { casa, ligado, lista, ordenar, termos, um, type Params } from "../ordens
  * Notas (IW28) : recorte global (área e centro), período pela data da nota e os filtros
  * da página. Usado pela página e pela exportação (/api/notas).
  */
-export interface FiltroNotas { q: string; tipo: string[]; abc: string[]; sem: boolean; par: boolean }
+interface FiltroNotas { q: string; tipo: string[]; abc: string[]; sem: boolean; par: boolean }
 
 export const lerFiltro = (p: Params): FiltroNotas =>
   ({ q: um(p.q), tipo: lista(p.tipo_nota), abc: lista(p.abc), sem: ligado(p.sem), par: ligado(p.par) });
@@ -26,7 +26,7 @@ const palheiro = (n: Nota) => {
 };
 
 /** Notas do recorte global no período. */
-export function doRecorte(c: Contexto): Nota[] {
+function doRecorte(c: Contexto): Nota[] {
   const areas = c.f.areas, centros = c.centros;
   return (c.b.notas.dados ?? []).filter((n) => (!areas.length || areas.includes(n.localizacao))
     && (!centros.length || centros.includes(n.centroTrabalho)) && n.data != null && n.data >= c.f.ini && n.data <= c.f.fim);

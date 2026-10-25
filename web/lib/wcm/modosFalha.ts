@@ -39,7 +39,7 @@ export function palavras(texto: string): string[] {
 }
 
 /** Os modos de causa e os começos de palavra que os indicam (sem acento, em maiúsculas). */
-export const MODOS: { modo: string; termos: string[] }[] = [
+const MODOS: { modo: string; termos: string[] }[] = [
   { modo: "Rolamentos e mancais", termos: ["ROLAMENT", "MANCAL", "MANCAI", "BUCHA", "ROLETE"] },
   { modo: "Transmissão (correia, corrente, engrenagem)", termos: ["CORREIA", "CORRENTE", "ENGRENAG", "POLIA", "ACOPLAMENT", "REDUTOR", "PINHAO", "EIXO", "CHAVETA"] },
   { modo: "Pneumática e hidráulica", termos: ["PNEUMAT", "HIDRAUL", "CILINDRO", "VALVULA", "MANGUEIRA", "VAZAMENT", "VAZANDO", "CONEXAO", "ENGATE", "PRESSAO"] },
@@ -52,16 +52,16 @@ export const MODOS: { modo: string; termos: string[] }[] = [
 ];
 
 /** O período dos filtros (de/até, inclusive); sem período = todo o histórico. */
-export interface Periodo { ini: Dia; fim: Dia }
+interface Periodo { ini: Dia; fim: Dia }
 const noPeriodo = (d: Dia | null, p?: Periodo) => !p || (d != null && d >= p.ini && d <= p.fim);
 
 const modosDa = (ps: string[]): string[] =>
   MODOS.filter((m) => ps.some((p) => m.termos.some((t) => p.startsWith(t)))).map((m) => m.modo);
 
 /** termo = chave (sem acento, vai no endereço); rotulo = a grafia mais comum nos textos. */
-export interface ContaTermo { termo: string; rotulo: string; ordens: number }
+interface ContaTermo { termo: string; rotulo: string; ordens: number }
 export interface ModoCausa { modo: string; ordens: number; pct: number; exemplos: string[] }
-export interface AnaliseModos {
+interface AnaliseModos {
   ordens: number;          // ordens YM11 com texto de confirmação
   apontamentos: number;    // confirmações YM11 com texto
   semTexto: number;        // ordens YM11 confirmadas sem texto nenhum

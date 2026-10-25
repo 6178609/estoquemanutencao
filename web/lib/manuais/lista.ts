@@ -6,12 +6,12 @@ import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 
 export interface EquipamentoManual { codigo: string; nome: string; campo: string; area: string }
 /** Um vínculo: o documento (manual ou link) ligado a um equipamento. */
-export interface VinculoManual {
+interface VinculoManual {
   tag: string;
   doc: { id: string; titulo: string; tipo: string; url?: string; origem?: { tag: string; id: string } };
 }
 export type TipoManual = "pdf" | "imagem" | "link";
-export const TAMANHO_PAGINA = 50;
+const TAMANHO_PAGINA = 50;
 
 /** Números do topo: vínculos, equipamentos com e sem manual e a cobertura (0–100, inteiro). */
 export function resumoManuais(ativos: { codigo: string }[], vinculos: { tag: string }[]) {
@@ -33,7 +33,7 @@ export function equipamentosSemManual<E extends { codigo: string; area: string }
     .sort((a, b) => a.codigo.localeCompare(b.codigo, "pt-BR", { numeric: true }));
 }
 
-export interface FiltrosManuais { q?: string; tipo?: TipoManual; area?: string }
+interface FiltrosManuais { q?: string; tipo?: TipoManual; area?: string }
 
 /** Busca (equipamento ou título, sem acento e sem maiúscula), tipo e área do equipamento. */
 export function filtrarManuais<V extends VinculoManual>(vinculos: V[], f: FiltrosManuais, ativos: EquipamentoManual[]): V[] {

@@ -23,7 +23,7 @@ export interface PessoaLinha {
   jornada: number; disponivel: number; conta: boolean; obs: string; diasAusente: number;
   horasBrutas: number; horasAusente: number; horasDisp: number;
 }
-export interface AusenciaLinha {
+interface AusenciaLinha {
   np: string; id: string; tipo: string; de: number; ate: number; obs: string; titulo: string; horas: number | null; entidade: string;
   validade: number | null;
 }

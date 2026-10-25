@@ -6,7 +6,7 @@ import type { Farol } from "@/lib/wcm/indicadores";
 import { escopoRequisicoes } from "@/lib/wcm/solicitantes";
 
 /** Cinco cartões do topo da aba Custos. Valores já calculados pela página; null = sem dado (mostra "—"). */
-export interface Kpis360Props {
+interface Kpis360Props {
   total: number;
   /** variação % do total contra o período anterior de mesma duração; null esconde (sem ordens lá) */
   variacao: number | null;

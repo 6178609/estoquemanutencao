@@ -1,9 +1,9 @@
 import { createHash, pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
 
 /** Hash do cadastro de usuários: PBKDF2-SHA256, 260.000 iterações, sal em hex. */
-export const ITERACOES = 260_000;
+const ITERACOES = 260_000;
 
-export function hashSenha(senha: string, salHex: string): Promise<string> {
+function hashSenha(senha: string, salHex: string): Promise<string> {
   return new Promise((ok, erro) =>
     pbkdf2(Buffer.from(senha, "utf-8"), Buffer.from(salHex, "hex"), ITERACOES, 32, "sha256", (e, k) =>
       e ? erro(e) : ok(k.toString("hex"))));

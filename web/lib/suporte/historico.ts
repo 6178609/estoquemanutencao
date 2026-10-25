@@ -8,7 +8,7 @@ import type { Confirmacao } from "@/lib/wcm/preparo";
 
 export interface OrdemDoHistorico { ordem: string; tipo: string; equipChave: string }
 
-export interface HistoricoDoEquipamento { quebras: Quebra[]; modos: ModoCausa[] }
+interface HistoricoDoEquipamento { quebras: Quebra[]; modos: ModoCausa[] }
 
 /**
  * `quebras`: todas as quebras do recorte (filtra pelo equipamento). `ordens`: todas as ordens (só as do equipamento

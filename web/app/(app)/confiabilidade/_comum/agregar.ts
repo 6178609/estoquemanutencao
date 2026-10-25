@@ -23,7 +23,7 @@ export function maiores(m: Map<string, number>, n = Infinity): [string, number][
   return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, n);
 }
 
-export interface ItemPareto { item: string; valor: number; pct: number; acumulado: number; vital: boolean }
+interface ItemPareto { item: string; valor: number; pct: number; acumulado: number; vital: boolean }
 
 /**
  * Pareto (80/20): itens do maior para o menor com % e % acumulado; `vital` = está entre os poucos que somam 80%

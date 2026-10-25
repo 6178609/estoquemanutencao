@@ -6,7 +6,7 @@ import type { Tabela } from "./leitura";
  * Tabela → parquet (tudo como texto), feito no navegador. A Vercel aceita no máximo
  * ~4,5 MB por requisição: uma base maior (o catálogo do Sysmat) vai em partes, cada uma um parquet completo.
  */
-export const LIMITE_PARTE = 3_000_000;
+const LIMITE_PARTE = 3_000_000;
 
 export function paraParquet(t: Tabela, ini = 0, fim = t.linhas.length): Uint8Array {
   const linhas = t.linhas.slice(ini, fim);

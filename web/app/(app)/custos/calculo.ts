@@ -17,7 +17,7 @@ export function ordensDoPeriodo(ordens: Ordem[], ini: Dia, fim: Dia, tipos: Reco
     .map((o) => ({ ...o, classe: classe(o.tipo), tipoNome: ind.rotuloTipo(o.tipo, tipos) }));
 }
 
-export interface Resumo { total: number; comPlano: number; backlog: number; emergencial: number; comCusto: number; ordens: number; meses: number }
+interface Resumo { total: number; comPlano: number; backlog: number; emergencial: number; comCusto: number; ordens: number; meses: number }
 
 export function resumo(o: OrdemCusto[], ini: Dia, fim: Dia): Resumo {
   let total = 0, comPlano = 0, emergencial = 0, comCusto = 0;
@@ -51,7 +51,7 @@ export function porMes(o: OrdemCusto[], ini: Dia, fim: Dia) {
 export const custoPor = (o: OrdemCusto[], chave: (x: OrdemCusto) => string, n: number, vazio?: string) =>
   maiores(somarPor(o, chave, (x) => x.custoReal, vazio), n);
 
-export interface LinhaEquipCusto { codigo: string; nome: string; custo: number; ordens: number; backlog: number; medio: number; acumulado: number; vital: boolean }
+interface LinhaEquipCusto { codigo: string; nome: string; custo: number; ordens: number; backlog: number; medio: number; acumulado: number; vital: boolean }
 
 /** Pareto de custo por equipamento (só os com custo > 0). */
 export function porEquipamento(o: OrdemCusto[]): { linhas: LinhaEquipCusto[]; n80: number } {

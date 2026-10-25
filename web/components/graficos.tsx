@@ -26,7 +26,7 @@ export interface Serie {
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const compacto = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
-export const fmtPadrao = (v: number) => (Math.abs(v) >= 10_000 ? compacto.format(v) : Math.abs(v) < 10 ? n1.format(v) : n0.format(v));
+const fmtPadrao = (v: number) => (Math.abs(v) >= 10_000 ? compacto.format(v) : Math.abs(v) < 10 ? n1.format(v) : n0.format(v));
 
 /** Formatos nomeados (o servidor não pode passar funções para estes componentes do navegador). */
 export type Formato = "padrao" | "inteiro" | "un" | "%" | "h" | "dias" | "sem" | "R$" | "ind";
@@ -268,7 +268,7 @@ function barraH(x: number, y: number, w: number, h: number, r: number) {
 // ----------------------------------------------------------------------------
 // Barras horizontais (ranking): rótulo à esquerda, valor na ponta
 // ----------------------------------------------------------------------------
-export interface ItemBarra { rotulo: string; valor: number; detalhe?: string; cor?: Cor; href?: string; partes?: { nome: string; valor: number; cor: Cor }[] }
+interface ItemBarra { rotulo: string; valor: number; detalhe?: string; cor?: Cor; href?: string; partes?: { nome: string; valor: number; cor: Cor }[] }
 
 export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo = 160, meta, aoClicar }: {
   itens: ItemBarra[]; formato?: Formato; max?: number; larguraRotulo?: number; meta?: number | null;

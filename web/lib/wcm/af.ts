@@ -27,7 +27,7 @@ export const AF_NO_PRAZO = "Analisada no prazo", AF_FORA_PRAZO = "Analisada fora
   AF_RISCO = "Risco de atraso", AF_ANDAMENTO = "Em andamento", AF_CANCELADA = "Cancelada";
 export const SITUACOES_AF = [AF_NO_PRAZO, AF_FORA_PRAZO, AF_ATRASADA, AF_RISCO, AF_ANDAMENTO, AF_CANCELADA] as const;
 export type SituacaoAf = (typeof SITUACOES_AF)[number];
-export const AF_CONCLUIDAS: readonly SituacaoAf[] = [AF_NO_PRAZO, AF_FORA_PRAZO];
+const AF_CONCLUIDAS: readonly SituacaoAf[] = [AF_NO_PRAZO, AF_FORA_PRAZO];
 export const AF_ABERTAS: readonly SituacaoAf[] = [AF_ATRASADA, AF_RISCO, AF_ANDAMENTO];
 
 export const AC_NO_PRAZO = "Concluída no prazo", AC_FORA_PRAZO = "Concluída fora do prazo", AC_ATRASADA = "Atrasada",
@@ -203,7 +203,7 @@ export function prepararAfs(cru: Crua[], hoje: Dia = hojeLocal()): Af[] {
   return out;
 }
 
-export function situacaoAf(a: Pick<Af, "status" | "ajuste" | "dataAnalise" | "dataLimite">, hoje: Dia): SituacaoAf {
+function situacaoAf(a: Pick<Af, "status" | "ajuste" | "dataAnalise" | "dataLimite">, hoje: Dia): SituacaoAf {
   const st = a.status, analise = a.dataAnalise, limite = a.dataLimite;
   if (st === "CANCELADA" || a.ajuste.toUpperCase().startsWith("CANCEL")) return AF_CANCELADA;
   if (st === "AP") return AF_NO_PRAZO;
@@ -257,7 +257,7 @@ export function prepararAcoes(cru: Crua[], hoje: Dia = hojeLocal(), afs: Af[] | 
   return out;
 }
 
-export function situacaoAcao(a: Pick<AcaoAf, "status" | "dataRealizada" | "dataLimite">, hoje: Dia): SituacaoAcao {
+function situacaoAcao(a: Pick<AcaoAf, "status" | "dataRealizada" | "dataLimite">, hoje: Dia): SituacaoAcao {
   const st = a.status, feita = a.dataRealizada, limite = a.dataLimite;
   if (st.startsWith("CANCEL")) return AC_CANCELADA;
   if (feita != null && st === "AP") return AC_NO_PRAZO;
@@ -349,7 +349,7 @@ export const IND_TAXA_A = "Taxa de análise de quebra crítica (A)", IND_EXECUCA
   IND_ACOES_AF = "Ações de AFs";
 export const INDICADORES_SEMANAIS = [IND_TAXA_A, IND_EXECUCAO_AF, IND_ACOES_AF] as const;
 
-export interface LinhaSemanal {
+interface LinhaSemanal {
   /** Segunda-feira da semana. */
   semana: Dia;
   indicador: (typeof INDICADORES_SEMANAIS)[number];
@@ -428,7 +428,6 @@ export const ORDEM_SITUACAO_AF: Record<SituacaoAf, number> = {
 export const G_NO_PRAZO = "Analisada no prazo", G_FORA = "Analisada fora do prazo", G_ABERTO = "Em aberto",
   G_ATRASADA = "Atrasada";
 export const GRUPOS_AF = [G_NO_PRAZO, G_FORA, G_ABERTO, G_ATRASADA] as const;
-export const CORES_GRUPO_AF = [COR[AF_NO_PRAZO], COR[AF_FORA_PRAZO], COR[AF_ANDAMENTO], COR[AF_ATRASADA]];
 export const GRUPO_DA_SITUACAO_AF: Partial<Record<SituacaoAf, (typeof GRUPOS_AF)[number]>> = {
   [AF_NO_PRAZO]: G_NO_PRAZO, [AF_FORA_PRAZO]: G_FORA, [AF_ATRASADA]: G_ATRASADA, [AF_RISCO]: G_ABERTO,
   [AF_ANDAMENTO]: G_ABERTO,

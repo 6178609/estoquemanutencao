@@ -146,7 +146,7 @@ export function linhasPorAtivo(inv: AtivoBase[], materiaisDe: (codigo: string) =
     || (a.codigo < b.codigo ? -1 : a.codigo > b.codigo ? 1 : 0));
 }
 
-export interface FiltroAtivos { q: string; crits: string[]; areas: string[]; mro: string[]; desativados: boolean }
+interface FiltroAtivos { q: string; crits: string[]; areas: string[]; mro: string[]; desativados: boolean }
 
 export function lerFiltroAtivos(p: Params): FiltroAtivos {
   return { q: param(p, "q"), crits: listaParam(p, "crit"), areas: listaParam(p, "area"), mro: listaParam(p, "smro"), desativados: param(p, "desat") === "1" };
@@ -171,7 +171,7 @@ export function filtrarAtivos(t: AtivoMro[], f: FiltroAtivos): AtivoMro[] {
 // Por material (onde é usado)
 // ----------------------------------------------------------------------------
 export interface UsoAtivo { codigo: string; campo: string; nome: string; criticidade: string }
-export interface MaterialMro extends PecaMro { ativos: UsoAtivo[]; nAlta: number }
+interface MaterialMro extends PecaMro { ativos: UsoAtivo[]; nAlta: number }
 
 /** Cada material vinculado com os ativos (não desativados) que o usam: em falta e de ativos Alta primeiro. */
 export function linhasPorMaterial(t: AtivoMro[]): MaterialMro[] {
@@ -189,7 +189,7 @@ export function linhasPorMaterial(t: AtivoMro[]): MaterialMro[] {
     || (a.codigo < b.codigo ? -1 : 1));
 }
 
-export interface FiltroMateriais { q: string; falta: boolean; alta: boolean }
+interface FiltroMateriais { q: string; falta: boolean; alta: boolean }
 
 export function lerFiltroMateriais(p: Params): FiltroMateriais {
   return { q: param(p, "mq"), falta: param(p, "mfalta") === "1", alta: param(p, "malta") === "1" };
@@ -211,7 +211,7 @@ export function filtrarMateriais(t: MaterialMro[], f: FiltroMateriais): Material
 // ----------------------------------------------------------------------------
 // Números do topo
 // ----------------------------------------------------------------------------
-export interface ResumoMro {
+interface ResumoMro {
   ativos: number; comPecas: number; cobertura: number | null; alta: number; altaComPecas: number; coberturaAlta: number | null;
   materiais: number; materiaisEmFalta: number; criticosEmFalta: number; ativosComFalta: number;
 }
@@ -289,6 +289,6 @@ const COLS_PECA = ["Material", "Descrição", "Estoque (MB52)", "UM", "Mínimo",
 const celulasPeca = (p: PecaMro): unknown[] => [p.codigo, p.descricao, p.estoque ?? "", p.um, p.minimo ?? "", p.valor ?? "", p.depositos,
   TEXTO_STATUS[p.status], p.sysmat, p.cadastro, p.fabricanteRef, p.categoria, p.substituto, p.descrCompleta];
 
-export const TEXTO_STATUS: Record<SituacaoPeca["status"], string> = {
+const TEXTO_STATUS: Record<SituacaoPeca["status"], string> = {
   ok: "Em estoque", baixo: "Abaixo do mínimo", zerado: "Zerado", ausente: "Não encontrado no MB52/Sysmat",
 };

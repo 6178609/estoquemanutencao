@@ -4,7 +4,7 @@ import Link from "next/link";
 import { brl, brlCurto } from "@/lib/formato";
 
 /** Termômetro: custo de cada dia do mês (ou de cada mês do ano) pela rampa --seq; dias ≤ 0 ficam neutros. */
-export interface TermometroProps {
+interface TermometroProps {
   ano: number;
   mes: number;
   modo: "mensal" | "anual";

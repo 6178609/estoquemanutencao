@@ -41,7 +41,7 @@ export function prepararRoadmap(linhas: Record<string, unknown>[]): MaquinaRoadm
 }
 
 /** Situação de um mês: na meta (realizado ≥ previsto), atrasada, ou sem dado (sem previsto ou sem realizado). */
-export type Situacao = "ok" | "atrasada" | "sem";
+type Situacao = "ok" | "atrasada" | "sem";
 export function situacao(previsto: number | null, realizado: number | null): Situacao {
   if (previsto == null || realizado == null) return "sem";
   return realizado >= previsto ? "ok" : "atrasada";
@@ -62,7 +62,7 @@ export function familia(maquina: string): string {
   return (semNumero !== base ? semNumero : base.replace(/\s+[A-Z]$/i, "")).trim() || maquina;
 }
 
-export interface ResumoRoadmap { total: number; ok: number; atrasadas: number; semDado: number; passoMedio: number | null; metaFimAno: number | null }
+interface ResumoRoadmap { total: number; ok: number; atrasadas: number; semDado: number; passoMedio: number | null; metaFimAno: number | null }
 
 /** Resumo do mês escolhido. */
 export function resumir(ms: MaquinaRoadmap[], mes: number): ResumoRoadmap {
@@ -82,7 +82,7 @@ export function resumir(ms: MaquinaRoadmap[], mes: number): ResumoRoadmap {
 // Vale o manual (até alguém voltar ao da planilha); o da planilha continua guardado para comparar.
 // ----------------------------------------------------------------------------
 export const ARQ_COMENTARIOS = "roadmap_comentarios.json";
-export const MAX_COMENTARIO = 500;
+const MAX_COMENTARIO = 500;
 const RESERVADAS = new Set(["__proto__", "constructor", "prototype"]);
 
 /** Chave da máquina no cadastro de comentários. */

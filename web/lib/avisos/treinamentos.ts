@@ -15,7 +15,7 @@ import { abrirEnvio, codigoErro, emailConfigurado, type Enviar } from "./email";
  * toda segunda pela Vercel (vercel.json → /api/avisos/treinamentos) e, se precisar, pelo botão "Enviar agora".
  * O registro do último envio fica no cadastro `avisos.json` (uma vez por semana, salvo envio manual).
  */
-export const ARQ_AVISOS = "avisos.json";
+const ARQ_AVISOS = "avisos.json";
 const CHAVE = "treinamentos";
 
 export interface Destinatario { login: string; nome: string; email: string }

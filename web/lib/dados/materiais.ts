@@ -4,7 +4,7 @@
 import { fotosDoCadastro } from "../fotoMaterial";
 import { acharColuna, paraNumero, texto } from "./texto";
 
-export type Linha = Record<string, unknown>;
+type Linha = Record<string, unknown>;
 
 export interface ItemEstoque {
   material: string;

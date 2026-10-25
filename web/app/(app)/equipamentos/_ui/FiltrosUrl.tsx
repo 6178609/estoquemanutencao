@@ -11,7 +11,7 @@ import { CampoBusca, MultiEscolha } from "@/components/Filtros";
  * Filtros locais de uma tela, guardados no endereço (?param=…): a página (servidor) relê e filtra. Mudar um filtro
  * volta para a página 1 e fecha o item aberto (`zerar`). Lista vazia com padrão não vazio vira "-" (= todos).
  */
-export type CampoFiltro =
+type CampoFiltro =
   | { tipo: "busca"; param: string; placeholder: string }
   | { tipo: "multi"; param: string; rotulo: string; opcoes: { valor: string; rotulo?: string; n?: number }[]; padrao?: string[] }
   | { tipo: "pilulas"; param: string; rotulo: string; opcoes: string[]; padrao?: string[] }

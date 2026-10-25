@@ -17,7 +17,7 @@ export interface ItemMenu {
   href: string;
 }
 
-export interface Pessoa {
+interface Pessoa {
   nome: string;
   funcao: string;
   perfil: string;

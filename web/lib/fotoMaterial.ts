@@ -19,7 +19,7 @@ export interface SugestaoPublica {
   pagina: string | null;
 }
 
-export interface RefFoto {
+interface RefFoto {
   material: string;
   id: string | null;
   versao: string;

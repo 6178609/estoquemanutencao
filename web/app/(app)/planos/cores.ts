@@ -11,8 +11,8 @@ export const COR_SITUACAO: Record<planos.SituacaoChamada, Cor> = {
   [planos.PROGRAMADA]: "neutro", [planos.SALTADA]: "neutro", [planos.SEM_STATUS]: "neutro",
 };
 
-export const corCss = (c: Cor) => (c === "neutro" ? "var(--texto-4)" : `var(--${c})`);
-export const tinta = (c: Cor, pct = 16) => `color-mix(in srgb, ${corCss(c)} ${pct}%, transparent)`;
+const corCss = (c: Cor) => (c === "neutro" ? "var(--texto-4)" : `var(--${c})`);
+const tinta = (c: Cor, pct = 16) => `color-mix(in srgb, ${corCss(c)} ${pct}%, transparent)`;
 
 /** Estilo da célula do calendário (fundo, borda, texto): o texto fica sempre na cor do texto, nunca na da série. */
 export function estiloCelula(s: planos.SituacaoChamada): { background: string; border: string; color: string } {

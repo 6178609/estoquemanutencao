@@ -14,7 +14,7 @@ export interface Tabela {
   linhas: string[][]; // tudo como texto, no formato do repositório de dados
 }
 
-export interface Achado {
+interface Achado {
   tipo: Tipo;
   aba: string | null;
   linhaCab: number | null;
@@ -45,7 +45,7 @@ export function paraTexto(v: Valor | undefined): string {
 // ----------------------------------------------------------------------------
 // Texto
 // ----------------------------------------------------------------------------
-export function decodificar(b: Uint8Array): string {
+function decodificar(b: Uint8Array): string {
   const semBom = b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf ? b.subarray(3) : b;
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(semBom);
@@ -55,7 +55,7 @@ export function decodificar(b: Uint8Array): string {
 }
 
 /** Primeira linha com 3+ células preenchidas vira cabeçalho; repetições dele (o SAP repete a cada página) saem. */
-export function tabelaComCabecalho(tabela: string[][]): Tabela {
+function tabelaComCabecalho(tabela: string[][]): Tabela {
   const idx = tabela.findIndex((ln) => ln.filter((c) => c).length >= 3);
   if (idx < 0) throw new LeituraErro("não encontrei uma linha de cabeçalho");
   const original = tabela[idx];
@@ -164,7 +164,7 @@ export function lerHtml(html: string): Tabela {
 const tokens = (linha: string) => linha.trim().split(/\s{2,}/).filter(Boolean);
 
 /** Número no padrão do SAP (1.234,500); o sinal pode vir no fim (12,500- = −12,5). */
-export function numBr(t: string): number | null {
+function numBr(t: string): number | null {
   t = t.trim();
   const negativo = t.endsWith("-");
   const s = t.replace(/-+$/, "").replaceAll(".", "").replace(",", ".");
@@ -182,7 +182,7 @@ const TOTAL = /^\s*\*+\s*total/i;
  * recuados (UM + quantidade) ou de lote (nº + UM + quantidade). A linha é classificada pela posição, não pelo
  * "jeito de número" — o texto do material pode ter números. Os saldos de cada material são somados.
  */
-export function listaAgrupadaMb52(linhas: string[]): Tabela {
+function listaAgrupadaMb52(linhas: string[]): Tabela {
   const grupos: { material: string; texto: string; um: string; livre: number }[] = [];
   let atual: (typeof grupos)[number] | null = null;
   for (const linha of linhas) {
@@ -216,7 +216,7 @@ const ehXlsx = (b: Uint8Array) => b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x0
 const ehXls = (b: Uint8Array) => b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
 
 /** Exports filtrados (ordens_filtradas, IW38_filtrado.csv…): nunca viram a base. */
-export function ehRecorte(nome: string): boolean {
+function ehRecorte(nome: string): boolean {
   return /filtrad/i.test(nome.replace(/\.[^.]*$/, ""));
 }
 

@@ -13,7 +13,7 @@ import { Gaveta } from "@/components/Gaveta";
  * para o endereço (?q=…) e o servidor filtra e pagina — o navegador nunca recebe a base inteira.
  * No celular (< md) só a busca fica à vista; o resto abre numa gaveta pelo botão "Filtros · N" (N = filtros ligados).
  */
-export type Campo =
+type Campo =
   | { tipo: "busca"; chave: string; placeholder: string }
   | { tipo: "multi"; chave: string; rotulo: string; opcoes: { valor: string; rotulo?: string; n?: number }[]; soComputador?: boolean }
   | { tipo: "alternar"; chave: string; rotulo: string; dica?: string; padrao?: boolean }

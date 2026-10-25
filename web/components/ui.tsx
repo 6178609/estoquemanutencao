@@ -85,27 +85,13 @@ export function Kpi({ rotulo, valor, detalhe, icone, tom = "verde", dica, status
   );
 }
 
-/** Faixa de números grandes (como a do template): o que a tela tem, em uma linha. */
-export function FaixaNumeros({ itens }: { itens: { valor: string; rotulo: string; tom?: Tom }[] }) {
-  return (
-    <div className="grid grid-cols-2 gap-y-6 rounded-cartao border border-borda bg-superficie-2 px-4 py-7 sm:grid-cols-4">
-      {itens.map((i) => (
-        <div key={i.rotulo} className="text-center">
-          <div className="num font-display text-[34px] font-medium leading-none tracking-[-0.03em]"
-            style={i.tom && i.tom !== "neutro" ? { color: ESPECTRO[i.tom] } : undefined}>{i.valor}</div>
-          <div className="mt-2 text-[12.5px] text-texto-3">{i.rotulo}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** Cor de cada selo → par de tokens de status (fundo claro, texto escuro; sempre com o nome do status). */
 const SELO: Record<string, string> = {
   verde: "bom", amarelo: "atencao", laranja: "serio", vermelho: "critico", azul: "info", ciano: "info", cinza: "neutro",
 };
 
-export type CorSelo = "verde" | "azul" | "laranja" | "vermelho" | "amarelo" | "ciano" | "cinza";
+type CorSelo = "verde" | "azul" | "laranja" | "vermelho" | "amarelo" | "ciano" | "cinza";
 
 export function Selo({ cor = "cinza", children, className }: { cor?: CorSelo;
   children: React.ReactNode; className?: string }) {

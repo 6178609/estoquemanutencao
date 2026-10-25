@@ -16,8 +16,8 @@ import { dataBr, dia, hoje as hojeLocal, partes, soma, type Dia } from "./util";
  */
 
 export const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] as const;
-export type DiaSemana = (typeof DIAS)[number];
-export const PESO_CRITICIDADE: Record<string, number> = { Alta: 0, "Média": 1, Baixa: 2 };
+type DiaSemana = (typeof DIAS)[number];
+const PESO_CRITICIDADE: Record<string, number> = { Alta: 0, "Média": 1, Baixa: 2 };
 /** SMRP: 90% ou mais da programação cumprida na semana é classe mundial. */
 export const META_ADERENCIA = 90;
 
@@ -38,7 +38,7 @@ export function semanasParaEscolher(hoje: Dia, antes = 8, depois = 6): Dia[] {
 export const semanaPadrao = (hoje: Dia): Dia => segunda(hoje) + (diaDaSemana(hoje) >= 3 ? 7 : 0);
 
 /** Semana ISO (01–53) da data. */
-export function semanaIso(d: Dia): number {
+function semanaIso(d: Dia): number {
   const quinta = d - diaDaSemana(d) + 3;
   const jan1 = dia(partes(quinta).ano, 1, 1)!;
   return Math.floor((quinta - jan1) / 7) + 1;
@@ -57,7 +57,7 @@ const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 // ----------------------------------------------------------------------------
 // O que está programado na semana
 // ----------------------------------------------------------------------------
-export interface Programada extends Atividade { dia: DiaSemana; pronta: boolean }
+interface Programada extends Atividade { dia: DiaSemana; pronta: boolean }
 
 /** Operações (não canceladas) com a data programada na semana, com o dia e se a ordem está liberada. */
 export function programadas(ops: Atividade[] | null | undefined, seg: Dia): Programada[] {
@@ -72,9 +72,9 @@ export function programadas(ops: Atividade[] | null | undefined, seg: Dia): Prog
 // ----------------------------------------------------------------------------
 // Capacidade e carga
 // ----------------------------------------------------------------------------
-export interface Capacidade { centroTrabalho: string; capacidade: number | null; origem: string }
+interface Capacidade { centroTrabalho: string; capacidade: number | null; origem: string }
 /** Horas realizadas com data (IW47 ou operações concluídas do IW38OP) */
-export interface HorasExecutadas { centroTrabalho: string; horas: number; fimReal: Dia | null }
+interface HorasExecutadas { centroTrabalho: string; horas: number; fimReal: Dia | null }
 
 /** Arredondamento sem casas (empate exato vai para o par). */
 function inteiroPy(x: number): string {
@@ -114,7 +114,7 @@ export function capacidade(centros: string[], equipe: { centroTrabalho: string }
   });
 }
 
-export interface CargaCentro {
+interface CargaCentro {
   centroTrabalho: string; hhProgramadas: number; operacoes: number; ordens: number; prontasPct: number;
   capacidade: number | null; origem: string | null; cargaPct: number | null; folga: number | null;
 }
@@ -142,7 +142,7 @@ export function faixaCarga(cargaPct: number | null): (typeof FAIXAS_CARGA)[numbe
   return cargaPct <= 85 ? "Folga" : cargaPct <= 100 ? "Cheia" : "Sobrecarga";
 }
 
-export type LinhaPorDia = { centroTrabalho: string } & Record<DiaSemana, number>;
+type LinhaPorDia = { centroTrabalho: string } & Record<DiaSemana, number>;
 
 /** HH programadas por dia da semana e centro (para o quadro da semana). */
 export function porDia(prog: Programada[]): LinhaPorDia[] {
@@ -158,7 +158,7 @@ export function porDia(prog: Programada[]): LinhaPorDia[] {
   return [...m.values()].sort((a, b) => cmp(a.centroTrabalho, b.centroTrabalho));
 }
 
-export interface ResumoSemana {
+interface ResumoSemana {
   hhProgramadas: number; operacoes: number; ordens: number; capacidade: number; centrosComCapacidade: number;
   centros: number; cargaPct: number | null; liberadasPct: number | null; hhAtrasadas: number; atrasadas: number;
 }
@@ -176,7 +176,7 @@ export function resumoSemana(prog: Programada[], carga: CargaCentro[], cand: Can
   };
 }
 
-export interface FiltroProgramacao { busca?: string; centros?: string[]; soNaoProntas?: boolean }
+interface FiltroProgramacao { busca?: string; centros?: string[]; soNaoProntas?: boolean }
 
 /** A lista da programação com busca (ordem, textos, equipamento, objeto), centro e "só não liberadas". */
 export function filtrarProgramacao(prog: Programada[], f: FiltroProgramacao = {}): Programada[] {
@@ -196,7 +196,7 @@ export function filtrarProgramacao(prog: Programada[], f: FiltroProgramacao = {}
 // ----------------------------------------------------------------------------
 // Para completar a folga
 // ----------------------------------------------------------------------------
-export interface Candidata extends Atividade {
+interface Candidata extends Atividade {
   criticidade: string; riscoEquipamento: number; pronta: boolean; diasAtraso: number;
 }
 
@@ -239,7 +239,7 @@ export function folgaPorCentro(carga: CargaCentro[], livres: Capacidade[]): Map<
 // ----------------------------------------------------------------------------
 // Aderência à programação
 // ----------------------------------------------------------------------------
-export interface AderenciaSemana {
+interface AderenciaSemana {
   semana: Dia; programadas: number; naSemana: number; depois: number; pendentes: number; aderenciaPct: number;
   hhProgramadas: number; hhNaSemana: number; aderenciaHhPct: number | null;
 }

@@ -15,7 +15,7 @@ export const PERIODOS = [
   { valor: "ano", rotulo: "Ano atual" }, { valor: "tudo", rotulo: "Tudo" },
 ];
 
-export interface FiltroReq { q: string; pend: boolean; apr: string[]; sol: string[]; ini: Dia | null; fim: Dia | null; per: string }
+interface FiltroReq { q: string; pend: boolean; apr: string[]; sol: string[]; ini: Dia | null; fim: Dia | null; per: string }
 
 export function lerFiltro(p: Params, hoje: Dia): FiltroReq {
   const de = deIsoDia(um(p.de)), ate = deIsoDia(um(p.ate));

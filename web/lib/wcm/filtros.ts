@@ -14,8 +14,8 @@ export interface Filtros {
 }
 
 export const COOKIE_FILTROS = "cm_filtros";
-export const ATALHOS = ["Mês atual", "Mês passado", "Últimos 3 meses", "Próximos 30 dias", "Ano atual", "Últimos 12 meses", "Tudo"] as const;
-export type Atalho = (typeof ATALHOS)[number];
+const ATALHOS = ["Mês atual", "Mês passado", "Últimos 3 meses", "Próximos 30 dias", "Ano atual", "Últimos 12 meses", "Tudo"] as const;
+type Atalho = (typeof ATALHOS)[number];
 
 const iso = (d: Dia) => { const p = partes(d); return `${p.ano}-${String(p.mes).padStart(2, "0")}-${String(p.dia).padStart(2, "0")}`; };
 const deIso = (s: string | undefined | null): Dia | null => {
@@ -23,7 +23,7 @@ const deIso = (s: string | undefined | null): Dia | null => {
   return m ? dia(Number(m[1]), Number(m[2]), Number(m[3])) : null;
 };
 
-export function periodoDoAtalho(a: Atalho, hoje: Dia, minimo?: Dia | null, maximo?: Dia | null): [Dia, Dia] {
+function periodoDoAtalho(a: Atalho, hoje: Dia, minimo?: Dia | null, maximo?: Dia | null): [Dia, Dia] {
   const mes = inicioDoMes(hoje);
   switch (a) {
     case "Mês atual": return [mes, hoje];
@@ -36,7 +36,7 @@ export function periodoDoAtalho(a: Atalho, hoje: Dia, minimo?: Dia | null, maxim
   }
 }
 
-export function padrao(hoje = hojeLocal()): Filtros {
+function padrao(hoje = hojeLocal()): Filtros {
   return { ini: inicioDoMes(hoje), fim: hoje, areas: [], setores: [], centros: [], tipos: [] };
 }
 
@@ -58,15 +58,6 @@ export function lerFiltros(params: Record<string, string | string[] | undefined>
   return { ini, fim, areas: lista(v("area") as string), setores: lista(v("setor") as string), centros: lista(v("centro") as string), tipos: lista(v("tipo") as string) };
 }
 
-/** Filtros → parâmetros do endereço (e o mesmo JSON do cookie). */
-export function paraParams(f: Filtros): Record<string, string> {
-  const out: Record<string, string> = { ini: iso(f.ini), fim: iso(f.fim) };
-  if (f.areas.length) out.area = f.areas.join(",");
-  if (f.setores.length) out.setor = f.setores.join(",");
-  if (f.centros.length) out.centro = f.centros.join(",");
-  if (f.tipos.length) out.tipo = f.tipos.join(",");
-  return out;
-}
 
 export const paraIso = iso;
 export const deIsoDia = deIso;

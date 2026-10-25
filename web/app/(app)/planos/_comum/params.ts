@@ -14,8 +14,8 @@ export const diaDe = (p: Params, k: string): Dia | null => deIsoDia(um(p, k));
 export const iso = paraIso;
 
 export const fimDoMes = (d: Dia): Dia => somarMeses(inicioDoMes(d), 1) - 1;
-export const segundaDe = (d: Dia): Dia => d - ((partes(d).semana + 6) % 7);
-export const domingoDe = (d: Dia): Dia => d - partes(d).semana;
+const segundaDe = (d: Dia): Dia => d - ((partes(d).semana + 6) % 7);
+const domingoDe = (d: Dia): Dia => d - partes(d).semana;
 
 /** Período (de, até) dos parâmetros, com o padrão quando faltam; sempre em ordem. */
 export function periodo(p: Params, de: string, ate: string, padrao: [Dia, Dia]): [Dia, Dia] {

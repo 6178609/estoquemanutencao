@@ -12,7 +12,7 @@ import { Selo } from "@/components/ui";
 import { TabelaDados, type Celula, type Coluna } from "./_comum/TabelaDados";
 
 /** Tabela "Confiabilidade por equipamento" com filtros (criticidade, só reincidentes) e a gaveta de histórico. */
-export const COLUNAS_EQUIP: Coluna[] = [
+const COLUNAS_EQUIP: Coluna[] = [
   { rotulo: "Campo de ordenação" }, { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true }, { rotulo: "Criticidade" }, { rotulo: "ABC" },
   { rotulo: "Área" }, { rotulo: "Quebras", formato: "inteiro" }, { rotulo: "Reincidências", formato: "inteiro" },
   { rotulo: "MTBF (dias)", formato: "inteiro", dica: "Dias do período ÷ quebras do equipamento" },

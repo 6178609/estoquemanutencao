@@ -35,7 +35,7 @@ const COMPONENTES: Record<ModeloComCena, ComponentType<ModeloProps>> = {
 const DISTANCIA_MINIMA = 0.5;
 const DISTANCIA_MAXIMA = 9;
 
-export interface CenaProps {
+interface CenaProps {
   modelo: ModeloComCena;
   /** id da peça em destaque (vermelho, com a câmera focada nela); null = modelo inteiro */
   destaque: string | null;

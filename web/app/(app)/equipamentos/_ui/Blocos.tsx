@@ -69,7 +69,7 @@ export function BarraSaude({ valor, faixa }: { valor: number | null; faixa: stri
 // ----------------------------------------------------------------------------
 // Tabela com linha clicável (link no código) e rolagem dentro do cartão
 // ----------------------------------------------------------------------------
-export interface ColunaT { rotulo: string; dir?: boolean; dica?: string; larga?: boolean }
+interface ColunaT { rotulo: string; dir?: boolean; dica?: string; larga?: boolean }
 export interface LinhaT { chave: string; href?: string; ativa?: boolean; celulas: React.ReactNode[] }
 
 export function TabelaT({ colunas, linhas, vazio = "Nada para mostrar com estes filtros.", alta }: {

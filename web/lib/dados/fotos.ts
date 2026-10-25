@@ -44,7 +44,7 @@ export function caminhoFoto(material: string, mini = false, id?: string): string
 
 const ALFABETO = "abcdefghijklmnopqrstuvwxyz0123456789";
 /** Id curto e aleatório da foto extra (10 caracteres de [a-z0-9]). */
-export function novoIdFoto(): string {
+function novoIdFoto(): string {
   let s = "";
   for (let i = 0; i < 10; i++) s += ALFABETO[randomInt(ALFABETO.length)];
   return s;

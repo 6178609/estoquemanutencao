@@ -36,7 +36,7 @@ export function casa(palheiro: string, ts: string[]): boolean {
   return true;
 }
 
-export const POR_PAGINA = 50;
+const POR_PAGINA = 50;
 
 export function paginar<T>(xs: T[], pag: string | string[] | undefined, porPagina = POR_PAGINA): { itens: T[]; pagina: number; paginas: number } {
   const paginas = Math.max(1, Math.ceil(xs.length / porPagina));
@@ -58,7 +58,7 @@ export function ordenar<T>(xs: T[], valor: (x: T) => unknown, desc: boolean): T[
 }
 
 /** Faixas de idade em dias: [rótulo, mínimo, máximo]. */
-export type Faixa = readonly [string, number, number];
+type Faixa = readonly [string, number, number];
 export function faixaDe(dias: number, faixas: readonly Faixa[]): number {
   const i = faixas.findIndex(([, a, b]) => dias >= a && dias <= b);
   return i < 0 ? faixas.length - 1 : i;

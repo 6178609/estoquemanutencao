@@ -118,7 +118,7 @@ export function registrar(quem: string, acao: string, alvo = "", detalhe?: Recor
   return feito;
 }
 
-export interface Filtro { quem?: string; alvo?: string; acao?: string; desde?: string; ate?: string; limite?: number }
+interface Filtro { quem?: string; alvo?: string; acao?: string; desde?: string; ate?: string; limite?: number }
 
 /** Os eventos mais novos primeiro, com os filtros (quem, alvo e ação exatos; desde/até = dias "2026-10-01", hora de Brasília). */
 export async function eventos(f: Filtro = {}): Promise<Evento[]> {

@@ -15,7 +15,7 @@ export interface DataCelula {
   soHora: boolean;
 }
 
-export interface AbaXlsx {
+interface AbaXlsx {
   nome: string;
   visivel: boolean;
   arquivo: string;

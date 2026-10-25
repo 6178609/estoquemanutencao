@@ -8,9 +8,9 @@ import { csv, dataCsv, listaParam, param, type Params } from "../equipamentos/lo
  * Fila de ataque da Saúde dos ativos: busca por código/nome/área/centro, faixa
  * (padrão: Crítica + Atenção), criticidade e principal causa. Testado em testes/saude-tela.test.ts.
  */
-export const FAIXA_PADRAO = [saude.CRITICA, saude.ATENCAO];
+const FAIXA_PADRAO = [saude.CRITICA, saude.ATENCAO];
 
-export interface FiltroFila { q: string; faixas: string[]; crits: string[]; causas: string[] }
+interface FiltroFila { q: string; faixas: string[]; crits: string[]; causas: string[] }
 
 export function lerFiltroFila(p: Params): FiltroFila {
   // sem o parâmetro = padrão (críticos e em atenção); "-" = todas as faixas

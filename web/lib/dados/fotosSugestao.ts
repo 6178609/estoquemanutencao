@@ -15,13 +15,13 @@ import { materialValido, tipoImagem, type TipoImagem } from "./fotos";
  * o endereço da imagem: pede pelo índice e pela chave (um pedaço do hash do endereço), e o servidor busca a imagem
  * do cadastro, com as regras de segurança abaixo.
  */
-export const ARQUIVO_SUGESTOES = "sugestoes_fotos.json";
-export const LIMITE_SUGESTAO = 6 * 1024 * 1024;
+const ARQUIVO_SUGESTOES = "sugestoes_fotos.json";
+const LIMITE_SUGESTAO = 6 * 1024 * 1024;
 const PRAZO_BUSCA_MS = 8_000;
 const MAX_REDIRECIONAMENTOS = 3;
 const PRAZO_DNS_MS = 3_000;
 
-export interface Sugestao { url: string; pagina: string | null; titulo: string }
+interface Sugestao { url: string; pagina: string | null; titulo: string }
 
 export class SugestaoErro extends Error {}
 
@@ -86,8 +86,8 @@ export async function removerSugestao(material: string, k: string, por: string):
 // ---------------------------------------------------------------------------- importação
 
 /** Até quantos materiais um arquivo de importação traz, e até quantas sugestões por material. */
-export const MAX_MATERIAIS_IMPORTACAO = 5_000;
-export const MAX_SUGESTOES_POR_MATERIAL = 3;
+const MAX_MATERIAIS_IMPORTACAO = 5_000;
+const MAX_SUGESTOES_POR_MATERIAL = 3;
 
 /**
  * Lê o arquivo gerado pela busca de fotos (`{ "<material>": { "sugestoes": [...], "buscado_em" } }`) e devolve só o que
@@ -213,7 +213,7 @@ export function urlSugestaoErro(texto: string): string | null {
 }
 
 /** Confere o endereço (sintaxe e, para nome, o DNS: todo endereço que ele resolve tem de ser público). */
-export async function urlSugestaoPublica(texto: string): Promise<string> {
+async function urlSugestaoPublica(texto: string): Promise<string> {
   const erro = urlSugestaoErro(texto);
   if (erro) throw new SugestaoErro(erro);
   const u = new URL(texto);

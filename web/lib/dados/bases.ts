@@ -11,7 +11,7 @@ import {
 } from "./materiais";
 
 /** As bases gravadas no repositório de dados pelo envio em Fontes de dados. */
-export const ARQUIVOS = {
+const ARQUIVOS = {
   mb52: "bases/MB52.parquet",
   catalogo: "bases/CATALOGO_MATERIAIS.parquet",
 } as const;
@@ -40,7 +40,7 @@ const gl = globalThis as unknown as { __cmLendo?: Map<string, Promise<unknown>> 
 const lendo = (gl.__cmLendo ??= new Map());
 
 /** Quanto custou a última leitura de cada base neste servidor (para achar onde está a lentidão): tamanho e milissegundos. */
-export interface TempoBase { kb: number; linhas: number; baixar_ms: number; ler_ms: number; preparar_ms: number; em: string }
+interface TempoBase { kb: number; linhas: number; baixar_ms: number; ler_ms: number; preparar_ms: number; em: string }
 const gt = globalThis as unknown as { __cmTemposBases?: Map<string, TempoBase> };
 const tempos = (gt.__cmTemposBases ??= new Map());
 export function anotarTempo(nome: string, t: TempoBase) {
@@ -128,7 +128,7 @@ export async function catalogo(): Promise<Base<ItemCatalogo[]>> {
   return lerBase(ARQUIVOS.catalogo, prepararCatalogo);
 }
 
-export interface Almoxarifado {
+interface Almoxarifado {
   itens: ItemAlmox[];
   estoque: Base<ItemEstoque[]>;
   catalogo: Base<ItemCatalogo[]>;

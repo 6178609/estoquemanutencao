@@ -1,7 +1,7 @@
 import "server-only";
 
 import { ordensEnriquecidas, type Contexto, type OrdemEnriquecida } from "@/lib/wcm/contexto";
-import { NAT_BACKLOG, NAT_PLANO, PENDENTES, SITUACOES, STATUS_USUARIO } from "@/lib/wcm/preparo";
+import { NAT_BACKLOG, NAT_PLANO, SITUACOES, STATUS_USUARIO } from "@/lib/wcm/preparo";
 import { casa, ligado, lista, ordenar, termos, um, type Params } from "./_comum/url";
 import type { Coluna, Linha } from "./_comum/TabelaDados";
 
@@ -9,7 +9,7 @@ import type { Coluna, Linha } from "./_comum/TabelaDados";
  * Ordens (IW38) : recorte global (área/centro/tipo + período pela data da ordem),
  * filtros da página e as colunas da tabela. Usado pela página e pela exportação (/api/ordens).
  */
-export interface FiltroOrdens { q: string; sit: string[]; nat: string; st: string[]; cls: string[]; atr: boolean; cst: boolean }
+interface FiltroOrdens { q: string; sit: string[]; nat: string; st: string[]; cls: string[]; atr: boolean; cst: boolean }
 
 export function lerFiltro(p: Params): FiltroOrdens {
   return { q: um(p.q), sit: lista(p.sit), nat: um(p.nat), st: lista(p.st), cls: lista(p.cls), atr: ligado(p.atr), cst: ligado(p.cst) };
@@ -36,8 +36,7 @@ export function filtrar(xs: OrdemEnriquecida[], f: FiltroOrdens): OrdemEnriqueci
 }
 
 export const NATUREZAS = [{ valor: "todas", rotulo: "Todas" }, { valor: "plano", rotulo: NAT_PLANO }, { valor: "backlog", rotulo: NAT_BACKLOG }];
-export const rotuloStatus = (t: string) => (STATUS_USUARIO[t] ? `${t} · ${STATUS_USUARIO[t]}` : t);
-export const pendente = (o: OrdemEnriquecida) => PENDENTES.has(o.situacao);
+const rotuloStatus = (t: string) => (STATUS_USUARIO[t] ? `${t} · ${STATUS_USUARIO[t]}` : t);
 
 // ----------------------------------------------------------------------------
 // Colunas
@@ -80,8 +79,8 @@ export const COLUNAS: Coluna[] = [
   { chave: "duracao", rotulo: "Duração (dias)", tipo: "int" },
   { chave: "pessoasApontaram", rotulo: "Pessoas que apontaram", tipo: "int" },
 ];
-export const ESSENCIAIS = COLUNAS.slice(0, 20).map((c) => c.chave);
-export const POR_CHAVE = Object.fromEntries(COLUNAS.map((c) => [c.chave, c]));
+const ESSENCIAIS = COLUNAS.slice(0, 20).map((c) => c.chave);
+const POR_CHAVE = Object.fromEntries(COLUNAS.map((c) => [c.chave, c]));
 
 export function colunasEscolhidas(p: Params): { colunas: Coluna[]; escolhidas: boolean } {
   const sel = lista(p.cols).filter((k) => k in POR_CHAVE);
