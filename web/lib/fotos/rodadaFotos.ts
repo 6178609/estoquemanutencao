@@ -236,13 +236,20 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
     }
     const resumo: ResumoRodada = { ligada: true, motivo, buscados: chamadas, achados, semResultado, erros,
       orcamento: teto, alvos: alvos.length, em };
-    if (Object.keys(achouRef).length) await gravarCadastroLote(ARQUIVO_REFERENCIA, achouRef, "busca automática", false);
-    if (Object.keys(achouTipo).length) await gravarCadastroLote(ARQUIVO_TIPOS, achouTipo, "busca automática", false);
+    // só grava onde ainda não há foto na hora da gravação (uma importação ou edição no meio da rodada não é apagada)
+    const soSeVazio = (c: Cadastro) => Object.fromEntries(Object.entries(c).map(([k, item]) =>
+      [k, (atual: Record<string, unknown> | undefined) => (atual ? undefined : item)]));
+    if (Object.keys(achouRef).length) await gravarCadastroLote(ARQUIVO_REFERENCIA, soSeVazio(achouRef), "busca automática", false);
+    if (Object.keys(achouTipo).length) await gravarCadastroLote(ARQUIVO_TIPOS, soSeVazio(achouTipo), "busca automática", false);
     await gravarCadastroLote(ARQUIVO_ESTADO, {
       ...novos,
       [CHAVE_ULTIMA]: { em, buscados: chamadas, achados, sem_resultado: semResultado, erros, motivo, orcamento: teto },
-      [CHAVE_DIA]: { dia: hoje, usadas: usadasHoje + chamadas },
+      // soma sobre o valor gravado na hora (outra rodada pode ter gravado no meio)
+      [CHAVE_DIA]: (atual: Record<string, unknown> | undefined) => ({
+        dia: hoje, usadas: (atual?.dia === hoje && typeof atual.usadas === "number" ? atual.usadas : 0) + chamadas,
+      }),
     }, "busca automática", false);
+    resumoGuardado = null; // a cobertura mudou
     console.info(`busca de fotos: ${chamadas} buscas, ${achados} achados, ${semResultado} sem resultado, ${erros} erros (${motivo})`);
     return resumo;
   } finally {
@@ -275,7 +282,16 @@ export function cobertura(itens: { material: string; pdm: string; sub: string; c
 }
 
 /** Resumo para o cartão de Fontes de dados: provedor, última rodada e cobertura do almoxarifado e do cadastrado. */
+// o resumo percorre o catálogo inteiro (~98 mil itens): guardado por 5 min (a tela de Fontes de dados é dinâmica)
+let resumoGuardado: { em: number; r: ResumoFotos } | null = null;
 export async function resumoFotosAutomaticas(): Promise<ResumoFotos> {
+  if (resumoGuardado && Date.now() - resumoGuardado.em < 5 * 60_000) return resumoGuardado.r;
+  const r = await calcularResumoFotos();
+  resumoGuardado = { em: Date.now(), r };
+  return r;
+}
+
+async function calcularResumoFotos(): Promise<ResumoFotos> {
   const cfg = configuracaoBusca();
   const d = await carregarDados();
   const cadMat = await lerCadastro("cadastro_materiais.json");

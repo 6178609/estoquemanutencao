@@ -11,9 +11,43 @@ export const palavrasDe = (s: string): string[] => normalizarBusca(s).split(/[^A
 /** Uma palavra do texto casa com a do PDM: igual, ou abreviada (pelo menos 4 letras, prefixo da palavra do PDM). */
 const casa = (t: string, p: string) => t === p || (t.length >= 4 && p.startsWith(t));
 
-/** Os PDMs conhecidos (do catálogo), sem repetir e sem vazios. */
+/** Os PDMs conhecidos (do catálogo), sem repetir e sem vazios. Guardado por lista de itens (o catálogo é reaproveitado). */
+const pdmsPorItens = new WeakMap<object, string[]>();
 export function pdmsConhecidos(itens: { pdm: string }[]): string[] {
-  return [...new Set(itens.map((i) => i.pdm.trim()).filter(Boolean))];
+  const guardado = pdmsPorItens.get(itens);
+  if (guardado) return guardado;
+  const r = [...new Set(itens.map((i) => i.pdm.trim()).filter(Boolean))];
+  pdmsPorItens.set(itens, r);
+  return r;
+}
+
+interface EntradaPdm { pdm: string; palavras: string[] }
+interface IndicePdm { porPrefixo: Map<string, EntradaPdm[]>; memo: Map<string, string | null> }
+
+/**
+ * Índice dos PDMs pela 1ª palavra e pelos prefixos dela (4+ letras), montado uma vez por lista de PDMs: a dedução olha
+ * só os PDMs que podem casar a 1ª palavra do texto (antes, todos os ~9,5 mil a cada material).
+ */
+const indices = new WeakMap<string[], IndicePdm>();
+function indiceDe(pdms: string[]): IndicePdm {
+  let ind = indices.get(pdms);
+  if (ind) return ind;
+  const porPrefixo = new Map<string, EntradaPdm[]>();
+  for (const pdm of pdms) {
+    const palavras = palavrasDe(pdm);
+    const w = palavras[0];
+    if (!w) continue;
+    const chaves = new Set([w]);
+    for (let i = 4; i < w.length; i++) chaves.add(w.slice(0, i));
+    for (const k of chaves) {
+      const lista = porPrefixo.get(k);
+      if (lista) lista.push({ pdm, palavras });
+      else porPrefixo.set(k, [{ pdm, palavras }]);
+    }
+  }
+  ind = { porPrefixo, memo: new Map() };
+  indices.set(pdms, ind);
+  return ind;
 }
 
 /**
@@ -23,9 +57,11 @@ export function pdmsConhecidos(itens: { pdm: string }[]): string[] {
 export function deduzirPdm(descricao: string, pdms: string[]): string | null {
   const t = palavrasDe(descricao);
   if (!t.length) return null;
+  const ind = indiceDe(pdms);
+  const chave = t.join(" ");
+  if (ind.memo.has(chave)) return ind.memo.get(chave)!;
   let melhor: { pdm: string; n: number; palavras: number } | null = null;
-  for (const pdm of pdms) {
-    const p = palavrasDe(pdm);
+  for (const { pdm, palavras: p } of ind.porPrefixo.get(t[0]) ?? []) {
     let n = 0;
     while (n < t.length && n < p.length && casa(t[n], p[n])) n++;
     if (!n) continue;
@@ -33,7 +69,10 @@ export function deduzirPdm(descricao: string, pdms: string[]): string | null {
       || (n === melhor.n && (p.length < melhor.palavras || (p.length === melhor.palavras && pdm < melhor.pdm)));
     if (ganha) melhor = { pdm, n, palavras: p.length };
   }
-  return melhor?.pdm ?? null;
+  const r = melhor?.pdm ?? null;
+  if (ind.memo.size > 50_000) ind.memo.clear();
+  ind.memo.set(chave, r);
+  return r;
 }
 
 /** O PDM a usar para o item: o do cadastro; sem ele, o deduzido do texto breve; "" se nada casa. */

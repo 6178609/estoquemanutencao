@@ -347,7 +347,10 @@ export async function baixarPagina(pagina: string): Promise<string> {
 
 // ---------------------------------------------------------------------------- imagem da página
 
-const TAG = /<(meta|link|img)\b([^>]*)>/gi;
+// atributos limitados a 4 mil caracteres: uma tag sem ">" não faz a busca crescer ao quadrado (HTML de terceiros)
+const TAG = /<(meta|link|img)\b([^<>]{0,4000})>/gi;
+/** Só o começo da página é analisado (o <head> e o início do corpo, onde ficam og:image e a foto principal). */
+const LIMITE_ANALISE = 300_000;
 const ATRIBUTO = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
 const IMAGEM_IGNORADA = /logo|sprite|icon|avatar|pixel|spacer|placeholder|blank/i;
 
@@ -356,7 +359,7 @@ const decodificar = (s: string) => s.replace(/&amp;/g, "&").replace(/&quot;/g, '
 interface TagHtml { nome: string; attrs: Record<string, string> }
 
 function tagsDo(html: string): TagHtml[] {
-  return [...html.matchAll(TAG)].map((m) => {
+  return [...html.slice(0, LIMITE_ANALISE).matchAll(TAG)].map((m) => {
     const attrs: Record<string, string> = {};
     for (const a of m[2].matchAll(ATRIBUTO)) attrs[a[1].toLowerCase()] = decodificar(a[2] ?? a[3] ?? a[4] ?? "");
     return { nome: m[1].toLowerCase(), attrs };

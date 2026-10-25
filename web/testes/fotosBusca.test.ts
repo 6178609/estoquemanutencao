@@ -360,3 +360,21 @@ describe("rota de busca automática", () => {
     delete process.env.CRON_SECRET;
   });
 });
+
+describe("desempenho (catálogo e páginas grandes)", () => {
+  it("deduz o tipo de 1.200 materiais contra 9.500 PDMs em menos de 1 s", () => {
+    const itens = Array.from({ length: 9_500 }, (_, i) => ({ pdm: `TIPO${i % 700} PECA${i} PARTE` }));
+    itens.push({ pdm: "ROLAMENTO RIGIDO ESFERAS" }, { pdm: "ROLAMENTO" });
+    const pdms = pdmsConhecidos(itens);
+    const t = performance.now();
+    for (let i = 0; i < 1_200; i++) deduzirPdm(`ROLAMENTO RIGIDO ESFER RO-${i}`, pdms);
+    expect(performance.now() - t).toBeLessThan(1_000);
+    expect(deduzirPdm("ROLAMENTO RIGIDO ESFER RO-1418", pdms)).toBe("ROLAMENTO RIGIDO ESFERAS");
+  });
+
+  it("página de 2 MB com tag sem fechamento não trava a extração da imagem", () => {
+    const t = performance.now();
+    expect(imagemDaPagina("<img ".repeat(400_000), "https://exemplo.com.br/p")).toBeNull();
+    expect(performance.now() - t).toBeLessThan(1_000);
+  });
+});
