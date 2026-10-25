@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { veInteira } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
 import { FonteErro } from "@/lib/dados/fonte";
 import { documentoEmPartes, gravarDocumento, gravarLink, LIMITE_DOCUMENTO, lerDocumento, removerDocumento } from "@/lib/dados/documentos";
 import { podeEnviar } from "@/lib/dados/fotos";
 import { fluxoDoEnvio, partesFaltando } from "@/lib/dados/manuaisPartes";
+import { quemEditaEquipamentos } from "@/lib/auth/editor";
 
 export const dynamic = "force-dynamic";
 // manual em partes (até 100 MB) sai em fluxo: o download pode levar mais que o padrão
@@ -22,14 +22,6 @@ function cabecalhos(tipo: string, nome: string, tamanho?: number): Record<string
     // o tipo vem da assinatura do arquivo (só PDF ou imagem); a imagem ainda abre isolada
     ...(tipo === "application/pdf" ? {} : { "Content-Security-Policy": "default-src 'none'; sandbox" }),
   };
-}
-
-/** Quem mexe na biblioteca: editor ou administrador que vê a aba Equipamentos inteira (o mesmo do cadastro). */
-async function quemEdita(req: NextRequest) {
-  const origem = req.headers.get("origin");
-  if (origem && origem !== req.nextUrl.origin) return null;
-  const u = await autorizar("equipamentos", true);
-  return u && veInteira(u, "equipamentos") ? u : null;
 }
 
 function erro(e: unknown) {
@@ -69,7 +61,7 @@ export async function GET(req: NextRequest) {
 
 /** Põe um arquivo (PDF/imagem até 4 MB) ou um link na biblioteca do equipamento. */
 export async function POST(req: NextRequest) {
-  const u = await quemEdita(req);
+  const u = await quemEditaEquipamentos(req);
   if (!u) return NextResponse.json({ erro: "Só editor ou administrador põe documentos na biblioteca." }, { status: 403 });
   let form: FormData;
   try {
@@ -92,7 +84,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const u = await quemEdita(req);
+  const u = await quemEditaEquipamentos(req);
   if (!u) return NextResponse.json({ erro: "Só editor ou administrador remove documentos." }, { status: 403 });
   const p = req.nextUrl.searchParams;
   try {

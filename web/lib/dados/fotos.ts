@@ -16,7 +16,6 @@ import { fonte, FonteErro } from "./fonte";
  */
 export const LIMITE_FOTO = 1_500_000; // o navegador já reduz a foto antes de enviar (≤ 1600 px, JPEG)
 export const LIMITE_MINI = 120_000;
-export { MAX_FOTOS };
 const PASTA = "app/fotos/materiais";
 const CADASTRO = "cadastro_materiais.json";
 

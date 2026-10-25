@@ -1,22 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { veInteira } from "@/lib/auth/acesso";
-import { autorizar } from "@/lib/auth/sessao";
 import { cancelarManualEmPartes, concluirManualEmPartes, enviarParteManual, iniciarManualEmPartes } from "@/lib/dados/documentos";
 import { FonteErro } from "@/lib/dados/fonte";
 import { podeIniciarEnvio } from "@/lib/dados/manuaisPartes";
+import { quemEditaEquipamentos } from "@/lib/auth/editor";
 
 export const dynamic = "force-dynamic";
 // iniciar varre envios abandonados (apaga partes); dá folga ao prazo
 export const maxDuration = 300;
-
-/** Quem vincula manuais: o mesmo da rota de arquivo único (editor ou administrador que vê a aba Equipamentos inteira). */
-async function quemEdita(req: NextRequest) {
-  const origem = req.headers.get("origin");
-  if (origem && origem !== req.nextUrl.origin) return null;
-  const u = await autorizar("equipamentos", true);
-  return u && veInteira(u, "equipamentos") ? u : null;
-}
 
 function erro(e: unknown) {
   if (e instanceof FonteErro) return NextResponse.json({ erro: e.message }, { status: 400 });
@@ -33,7 +24,7 @@ function erro(e: unknown) {
  * Só quem iniciou o envio manda as partes e conclui.
  */
 export async function POST(req: NextRequest) {
-  const u = await quemEdita(req);
+  const u = await quemEditaEquipamentos(req);
   if (!u) return NextResponse.json({ erro: "Só editor ou administrador vincula manuais." }, { status: 403 });
   const acao = req.nextUrl.searchParams.get("acao");
   const login = u.login;
