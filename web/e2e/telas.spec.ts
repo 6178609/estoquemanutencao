@@ -53,12 +53,15 @@ test("estoque: sem foto genérica do tipo; as pílulas de sugestão e de ilustra
   expect(erros).toEqual([]);
 });
 
-test("material cadastrado: a lista traz a foto do fabricante pela referência, sem erro", async ({ page }) => {
+test("material cadastrado: foto do fabricante que não carrega não fica quebrada, sem erro", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/estoque?aba=cadastrado");
-  // a demonstração tem foto do fabricante para o material 900000 (endereço fictício: a tela mostra o ícone padrão)
+  // a demonstração tem foto do fabricante para o material 900000 com endereço que não existe: em vez de quadro quebrado,
+  // a miniatura some depois da falha
   await page.getByPlaceholder(/Buscar no catálogo/).fill("900000");
-  await expect(page.getByText("Foto do fabricante", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/^900000$|900000/).first()).toBeVisible();
+  await expect(page.getByText("Foto do fabricante", { exact: true })).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByText("Não foi possível carregar esta foto.")).toHaveCount(0);
   await page.getByPlaceholder(/Buscar no catálogo/).fill("ROLAMENTO");
   await expect(page.getByText("Foto ilustrativa", { exact: true })).toHaveCount(0);
   expect(erros).toEqual([]);

@@ -17,7 +17,8 @@ export const MOLDURA_FOTO = "relative aspect-[4/3] overflow-hidden rounded-2xl b
 export function MiniaturaFoto({ it }: { it: ItemComFoto }) {
   const [falhou, setFalhou] = useState(false);
   const f = fotoDoItem(it, true);
-  if (!f) return null;
+  // sem foto, ou a do fabricante que não carregou: a miniatura some (nada de quadro quebrado na lista)
+  if (!f || (falhou && f.origem !== "propria")) return null;
   return (
     <div className="flex w-16 shrink-0 flex-col items-center gap-1">
       {falhou ? (
@@ -40,6 +41,14 @@ export function MiniaturaFoto({ it }: { it: ItemComFoto }) {
 export function FotoDetalhe({ f, className }: { f: FotoDoItem; className?: string }) {
   const [falhou, setFalhou] = useState(false);
   const externa = f.origem !== "propria";
+  // a do fabricante que não carrega (loja bloqueou, página mudou) não fica quebrada na tela: o item aparece sem foto
+  if (externa && falhou) return (
+    <div className={clsx(MOLDURA_FOTO, "grid place-items-center", className)}>
+      <div className="flex flex-col items-center gap-2 px-6 text-center text-[13.5px] text-texto-3">
+        <ImageOff className="size-7" aria-hidden />Este material ainda não tem foto.
+      </div>
+    </div>
+  );
   return (
     <figure className={clsx("space-y-3", className)}>
       <div className={MOLDURA_FOTO}>
