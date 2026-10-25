@@ -61,6 +61,9 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
 | `SUPABASE_URL` | endereço do projeto Supabase dos cadastros |
 | `SUPABASE_SECRET_KEY` | chave **secreta** do Supabase (Project Settings › API Keys › Secret keys), marcada como *Sensitive* |
+| `BUSCA_IMAGENS_PROVEDOR` | provedor da busca automática de fotos: `brave`, `serper`, `serpapi` ou `firecrawl` (sem ele, a busca fica desligada) |
+| `BUSCA_IMAGENS_CHAVE` | chave de API desse provedor, marcada como *Sensitive* |
+| `BUSCA_IMAGENS_POR_DIA` | buscas por dia (padrão 30; máximo 200) |
 
 Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
 cada push no `main` publica em produção (https://estoquemanutencao.vercel.app) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para

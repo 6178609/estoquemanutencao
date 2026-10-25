@@ -84,15 +84,21 @@ const ORIGEM: Record<keyof Omit<ItemCatalogo, "fabricanteRef">, string[]> = {
 
 const FAB = /FAB:\s*([^;]*?)\s*-\s*REF:\s*([^;]*?)\s*(?:;|\.?$)/gi;
 
-/** "…; FAB: SKF - REF: 6205-2Z." → "SKF 6205-2Z" (vários fabricantes separados por " | "). */
-export function fabricanteRef(info: string): string {
-  const pares: string[] = [];
+/** Cada "FAB: <fabricante> - REF: <ref>" da Descr Completa, como pares (sem repetir). */
+export function fabricantesERefs(info: string): { fab: string; ref: string }[] {
+  const pares: { fab: string; ref: string }[] = [];
   for (const m of (info || "").matchAll(FAB)) {
     const limpar = (s: string) => s.trim().replace(/^[ .*]+|[ .*]+$/g, "");
-    const par = [limpar(m[1]), limpar(m[2])].filter(Boolean).join(" ");
-    if (par && !pares.includes(par)) pares.push(par);
+    const par = { fab: limpar(m[1]), ref: limpar(m[2]) };
+    if ((par.fab || par.ref) && !pares.some((p) => p.fab === par.fab && p.ref === par.ref)) pares.push(par);
   }
-  return pares.join(" | ");
+  return pares;
+}
+
+/** "…; FAB: SKF - REF: 6205-2Z." → "SKF 6205-2Z" (vários fabricantes separados por " | "). */
+export function fabricanteRef(info: string): string {
+  const textos = fabricantesERefs(info).map(({ fab, ref }) => [fab, ref].filter(Boolean).join(" ")).filter(Boolean);
+  return [...new Set(textos)].join(" | ");
 }
 
 /** A Descr Completa quebrada nos atributos (um por linha), sem os "*****" de campo vazio. */

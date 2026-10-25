@@ -97,9 +97,9 @@ describe("chave e cadastro", () => {
     expect(r.fotoRef?.titulo).toBe("R");
     expect(r.fotoTipo?.titulo).toBe("T");
     const semNada = fotosExternasDoItem("999", "", ref, tipos);
-    expect(semNada).toEqual({ fotoRef: null, fotoTipo: null });
+    expect(semNada).toEqual({ fotoRef: null, fotoTipo: null, chaveTipo: null });
     // chaves do próprio objeto, não as herdadas (ex.: "constructor")
-    expect(fotosExternasDoItem("constructor", "constructor", {}, {})).toEqual({ fotoRef: null, fotoTipo: null });
+    expect(fotosExternasDoItem("constructor", "constructor", {}, {})).toEqual({ fotoRef: null, fotoTipo: null, chaveTipo: null });
   });
 });
 

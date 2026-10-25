@@ -10,6 +10,8 @@ import { dataHora, idade, inteiro } from "@/lib/formato";
 import { DESTINO, NOMES_BASE, TIPOS } from "@/lib/leitura/tipos";
 import { Envio } from "./Envio";
 import { ImportarFotos } from "./ImportarFotos";
+import { FotosAutomaticas } from "./FotosAutomaticas";
+import { resumoFotosAutomaticas } from "@/lib/fotos/rodadaFotos";
 
 export const metadata: Metadata = { title: "Fontes de dados" };
 export const dynamic = "force-dynamic";
@@ -33,12 +35,15 @@ export default async function FontesDeDados() {
     return { tipo, nome: NOMES_BASE[tipo], info, carregada, velha };
   });
   const carregadas = bases.filter((b) => b.carregada).length;
+  const fotos = await resumoFotosAutomaticas();
 
   return (
     <Pagina>
       <Cabecalho titulo="Fontes de dados," destaque="os exports do SAP num lugar só."
         sobre={<Pilula>{modo() === "demo" ? "Demonstração" : `${carregadas} de ${bases.length} bases carregadas`}</Pilula>}
         subtitulo="Anexe os exports (IW38, MB52, IW28, IH08, IP19, IW47, requisições, Sysmat, Gestão de HH, Gerenciador de AF). O site reconhece cada base pelos cabeçalhos, compacta no seu navegador e grava no repositório de dados — vale sempre o envio mais recente." />
+
+      <FotosAutomaticas resumo={fotos} pode={podeEditar(u)} />
 
       {podeEditar(u) && <ImportarFotos />}
 
