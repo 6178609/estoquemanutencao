@@ -66,7 +66,7 @@ export function Roadmap({ maquinas, params, enviada, edita }: { maquinas: Maquin
         <Numero rotulo="Passo médio previsto em dezembro" valor={n1(r.metaFimAno)} detalhe="a meta de fim de ano" />
       </GradeNumeros>
       <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[1100px] border-collapse">
             <thead>
               <tr className="border-b border-borda bg-marca-700 text-white">

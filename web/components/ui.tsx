@@ -38,7 +38,7 @@ export function Titulo({ titulo, destaque, nivel = 1, className }: { titulo: str
   const H = nivel === 1 ? "h1" : "h2";
   return (
     <H className={clsx("font-display font-semibold tracking-[-0.03em] text-texto",
-      nivel === 1 ? "text-[34px] leading-[1.06] sm:text-[46px]" : "text-[28px] leading-[1.1] sm:text-[34px]", className)}>
+      nivel === 1 ? "text-[27px] leading-[1.1] sm:text-[46px]" : "text-[22px] leading-[1.15] sm:text-[34px]", className)}>
       {titulo}{destaque && <> <span className="tom2">{destaque}</span></>}
     </H>
   );
@@ -51,7 +51,7 @@ export function Cabecalho({ titulo, destaque, subtitulo, sobre, acoes }: { titul
       <div className="space-y-4">
         {sobre && <div>{typeof sobre === "string" ? <Pilula>{sobre}</Pilula> : sobre}</div>}
         <Titulo titulo={titulo} destaque={destaque} />
-        {subtitulo && <p className="max-w-2xl text-[15px] leading-relaxed text-texto-3">{subtitulo}</p>}
+        {subtitulo && <p className="max-w-2xl text-[14px] leading-relaxed text-texto-3 sm:text-[15px]">{subtitulo}</p>}
       </div>
       {acoes && <div className="flex shrink-0 flex-wrap items-center gap-2">{acoes}</div>}
     </div>
@@ -109,7 +109,7 @@ export function Cartao({ children, className }: { children: React.ReactNode; cla
 }
 
 export function Pagina({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto w-full max-w-[1240px] space-y-10 px-4 py-8 sm:px-8 sm:py-12">{children}</div>;
+  return <div className="mx-auto w-full max-w-[1240px] space-y-8 px-4 py-6 sm:space-y-10 sm:px-8 sm:py-12">{children}</div>;
 }
 
 /** Cores da marca Alpargatas, na ordem do espectro (vermelho → azul). */

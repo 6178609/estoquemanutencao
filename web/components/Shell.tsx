@@ -4,7 +4,9 @@ import clsx from "clsx";
 import { ChevronsLeft, LoaderCircle, LogOut, Menu, Search, X } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { Carregando } from "./Carregando";
 
 import { Icone } from "./Icone";
 import { Marca } from "./Marca";
@@ -29,25 +31,38 @@ function iniciais(nome: string) {
 }
 
 /** Girando ao lado da aba clicada enquanto ela abre (resposta imediata ao clique). */
-function Abrindo() {
+function Abrindo({ aoTerminar }: { aoTerminar?: () => void }) {
   const { pending } = useLinkStatus();
+  // a navegação deste link terminou (mesmo se caiu na mesma rota, ex.: Início que redireciona para o Estoque): avisa
+  const antes = useRef(false);
+  useEffect(() => {
+    if (antes.current && !pending) aoTerminar?.();
+    antes.current = pending;
+  }, [pending, aoTerminar]);
   return <LoaderCircle aria-hidden className={clsx("size-3.5 shrink-0 animate-spin text-menu-apoio transition-opacity", pending ? "opacity-100" : "opacity-0")} />;
 }
 
-function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string; itens: ItemMenu[] }[];
-  aoNavegar?: () => void; recolhido?: boolean }) {
+function Navegacao({ grupos, aoNavegar, aoTerminar, recolhido }: { grupos: { titulo: string; itens: ItemMenu[] }[];
+  aoNavegar?: (href: string) => void; aoTerminar?: () => void; recolhido?: boolean }) {
   const rota = usePathname();
-  // sem pré-carregar as ~20 abas ao abrir a página (cada uma é uma chamada ao servidor): só ao passar o mouse/focar
+  // sem pré-carregar as ~20 abas ao abrir a página (cada uma é uma chamada ao servidor): só ao passar o mouse, focar
+  // ou encostar o dedo (no celular não há "passar o mouse": o toque começa a buscar a aba antes de o dedo sair da tela)
   const router = useRouter();
   const preparar = (href: string) => () => router.prefetch(href);
+  // Ctrl/Cmd/Shift/Alt + clique abre em outra aba ou janela: a tela atual não muda, então nada de esqueleto
+  const clicar = (href: string) => (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || e.defaultPrevented) return;
+    aoNavegar?.(href);
+  };
   // a própria rota ou uma subpágina dela ("/confiabilidade" não acende em "/confiabilidade_tipos")
   const ativo = (href: string) => (href === "/" ? rota === "/" : rota === href || rota.startsWith(`${href}/`));
   return (
     <nav className="space-y-5">
-      <Link prefetch={false} href="/" onClick={aoNavegar}
+      <Link prefetch={false} href="/" onClick={clicar("/")}
         className={clsx("flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition",
           ativo("/") ? "bg-menu-2 font-semibold text-white shadow-[inset_3px_0_0_var(--menu-marcador)]" : "text-menu-texto hover:bg-white/8")}>
-        <Icone nome="Home" className="size-4 shrink-0" strokeWidth={1.75} />{!recolhido && "Início"}
+        <Icone nome="Home" className="size-4 shrink-0" strokeWidth={1.75} />{!recolhido && <span className="flex-1">Início</span>}
+        <Abrindo aoTerminar={aoTerminar} />
       </Link>
       {grupos.map((g) => (
         <div key={g.titulo}>
@@ -55,13 +70,13 @@ function Navegacao({ grupos, aoNavegar, recolhido }: { grupos: { titulo: string;
           <ul className="space-y-0.5">
             {g.itens.map((it) => (
               <li key={it.id}>
-                <Link prefetch={false} href={it.href} onClick={aoNavegar} title={it.titulo}
-                  onMouseEnter={preparar(it.href)} onFocus={preparar(it.href)}
+                <Link prefetch={false} href={it.href} onClick={clicar(it.href)} title={it.titulo}
+                  onMouseEnter={preparar(it.href)} onFocus={preparar(it.href)} onTouchStart={preparar(it.href)}
                   className={clsx("flex min-h-11 items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] transition",
                     ativo(it.href) ? "bg-menu-2 font-semibold text-white shadow-[inset_3px_0_0_var(--menu-marcador)]" : "text-menu-texto hover:bg-white/8")}>
                   <Icone nome={it.icone} className="size-4 shrink-0" strokeWidth={1.75} />
                   {!recolhido && <span className="flex-1 truncate">{it.titulo}</span>}
-                  <Abrindo />
+                  <Abrindo aoTerminar={aoTerminar} />
                 </Link>
               </li>
             ))}
@@ -93,8 +108,23 @@ export function Shell({ grupos, pessoa, sair, children }: {
 }) {
   const [aberto, setAberto] = useState(false);
   const [recolhido, setRecolhido] = useState(false);
+  // aba tocada no menu, enquanto o servidor monta a página: barra no topo e esqueleto NA HORA (sem isso, o menu fecha e a
+  // tela antiga fica parada até a resposta chegar, o que no celular parece travado)
+  const [destino, setDestino] = useState<string | null>(null);
   const rota = usePathname();
-  useEffect(() => setAberto(false), [rota]);
+  useEffect(() => { setAberto(false); setDestino(null); }, [rota]);
+  // se a navegação não acontecer (erro de rede), não fica preso no esqueleto
+  useEffect(() => {
+    if (!destino) return;
+    const t = setTimeout(() => setDestino(null), 20_000);
+    return () => clearTimeout(t);
+  }, [destino]);
+  const navegar = (href: string) => {
+    setAberto(false);
+    if (href !== rota) setDestino(href);
+  };
+  const carregando = destino !== null && destino !== rota;
+  const terminou = useCallback(() => setDestino(null), []);
   const caminho = caminhoDe(grupos, rota);
   // a busca só aparece para quem pode abrir /busca (o layout já filtra os grupos por função)
   const temBusca = grupos.some((g) => g.itens.some((i) => i.id === "busca"));
@@ -128,7 +158,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
           <Marca compacta={recolhido} claro />
         </div>
         <div className="flex-1 overflow-y-auto px-3 pb-4">
-          <Navegacao grupos={grupos} recolhido={recolhido} />
+          <Navegacao grupos={grupos} recolhido={recolhido} aoNavegar={navegar} aoTerminar={terminou} />
         </div>
         <div className="space-y-2 border-t border-white/10 p-3">
           <div className={clsx("flex", recolhido ? "justify-center" : "justify-end")}>
@@ -156,22 +186,26 @@ export function Shell({ grupos, pessoa, sair, children }: {
           </button>
         </div>
       </header>
-      {aberto && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setAberto(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-menu text-menu-texto shadow-flutuante">
-            <div className="flex items-center justify-between p-4">
-              <Marca claro />
-              <button onClick={() => setAberto(false)} aria-label="Fechar menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-3 pb-4"><Navegacao grupos={grupos} aoNavegar={() => setAberto(false)} /></div>
-            <div className="border-t border-white/10 p-3">{rodape(false)}</div>
+      {/* a gaveta fica montada (só escondida) para o link tocado avisar quando a navegação terminar */}
+      <div className={clsx("fixed inset-0 z-40 lg:hidden", !aberto && "hidden")} aria-hidden={!aberto}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setAberto(false)} />
+        <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-menu text-menu-texto shadow-flutuante">
+          <div className="flex items-center justify-between p-4">
+            <Marca claro />
+            <button onClick={() => setAberto(false)} aria-label="Fechar menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
+              <X className="size-5" />
+            </button>
           </div>
+          <div className="flex-1 overflow-y-auto px-3 pb-4"><Navegacao grupos={grupos} aoNavegar={navegar} aoTerminar={terminou} /></div>
+          <div className="border-t border-white/10 p-3">{rodape(false)}</div>
+        </div>
+      </div>
+
+      {carregando && (
+        <div aria-hidden className="nao-imprimir fixed inset-x-0 top-0 z-50 h-1 overflow-hidden bg-transparent">
+          <div className="barra-progresso h-full w-1/3 rounded-full bg-[var(--acao)]" />
         </div>
       )}
-
       <main className="min-w-0 flex-1">
         <FaixaMarca />
         {/* barra do computador: caminho da página à esquerda; busca à direita */}
@@ -197,7 +231,9 @@ export function Shell({ grupos, pessoa, sair, children }: {
             Modo demonstração — dados fictícios. Ligue o repositório de dados nas variáveis da Vercel para ver os dados reais.
           </div>
         )}
-        {children}
+        {/* a página antiga fica montada (escondida) até a nova chegar: se a navegação falhar, nada se perde */}
+        {carregando && <Carregando />}
+        <div className={carregando ? "hidden" : undefined}>{children}</div>
       </main>
     </div>
   );

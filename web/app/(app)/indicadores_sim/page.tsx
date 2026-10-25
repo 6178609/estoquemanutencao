@@ -65,7 +65,7 @@ function TabelaArea({ area, linhas, mes }: { area: string; linhas: LinhaDeck[]; 
       <div className="flex items-center gap-2 bg-marca-700 px-4 py-2.5 text-white">
         <h2 className="font-display text-[15px] font-medium">{area}</h2>
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[980px] border-collapse">
           <thead>
             <tr className="border-b border-borda">
