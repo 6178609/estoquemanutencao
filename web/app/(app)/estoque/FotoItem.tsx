@@ -11,7 +11,7 @@ import { type FotoDoItem, fotoDoItem, type ItemComFoto, ROTULO_FOTO } from "@/li
 export const MOLDURA_FOTO = "relative aspect-[4/3] overflow-hidden rounded-2xl border border-borda bg-white";
 
 /**
- * Miniatura da lista: a foto de maior prioridade (própria → do fabricante → ilustrativa). Sem nenhuma, não mostra nada.
+ * Miniatura da lista: a foto de maior prioridade (própria → do fabricante). Sem nenhuma, não mostra nada.
  * Foto que não carrega vira um quadro com o ícone padrão; a foto de origem externa tem um rótulo discreto embaixo.
  */
 export function MiniaturaFoto({ it }: { it: ItemComFoto }) {
@@ -49,18 +49,14 @@ export function FotoDetalhe({ f, className }: { f: FotoDoItem; className?: strin
           </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={f.url} alt={externa ? `${ROTULO_FOTO[f.origem as "referencia" | "tipo"]}${f.titulo ? `: ${f.titulo}` : ""}` : "Foto do material"}
+          <img src={f.url} alt={externa ? `${ROTULO_FOTO.referencia}${f.titulo ? `: ${f.titulo}` : ""}` : "Foto do material"}
             loading="lazy" decoding="async" className="size-full object-contain p-6" onError={() => setFalhou(true)} />
         )}
       </div>
       {externa && (
         <figcaption className="space-y-1.5 text-sm text-texto-3">
-          <Selo>{ROTULO_FOTO[f.origem as "referencia" | "tipo"]}</Selo>
-          <p>
-            {f.origem === "tipo"
-              ? "Imagem do tipo de material, não do item exato."
-              : "Foto do fabricante, achada pela referência do item."}
-          </p>
+          <Selo>{ROTULO_FOTO.referencia}</Selo>
+          <p>Foto do fabricante, achada pela referência do item.</p>
           {f.pagina && (
             <a href={f.pagina} target="_blank" rel="noopener noreferrer" className="block break-all text-acao underline underline-offset-2">
               Ver página de origem

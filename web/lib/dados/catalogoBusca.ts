@@ -5,8 +5,6 @@ import { catalogo, estoque } from "./bases";
 import { lerCadastro } from "./cadastros";
 import { fotosExternasDoItem } from "./fotosExternas";
 import { ARQUIVO_REFERENCIA } from "./fotosReferencia";
-import { ARQUIVO_TIPOS } from "./fotosTipo";
-import { pdmEfetivo, pdmsConhecidos } from "./pdmDeducao";
 import { ATIVOS, INATIVOS, type ItemCatalogo } from "./materiais";
 import { casaBusca, normalizarBusca } from "./texto";
 
@@ -22,10 +20,9 @@ interface FiltroCatalogo {
 export interface ItemCatalogoTela extends ItemCatalogo {
   noAlmox: boolean;
   estoque: number | null;
-  /** Foto própria (a principal do cadastro de materiais), a do fabricante e a ilustrativa do tipo. */
+  /** Foto própria (a principal do cadastro de materiais) e a do fabricante. */
   foto: string | null;
   fotoRef: FotoExterna | null;
-  fotoTipo: FotoExterna | null;
 }
 
 interface Indice {
@@ -48,7 +45,7 @@ async function montar(): Promise<Indice | null> {
   for (const e of est.dados || []) saldo.set(semZeros(e.material), (saldo.get(semZeros(e.material)) || 0) + e.estoque);
   const itens: ItemCatalogoTela[] = cat.dados.map((c) => {
     const s = c.material ? saldo.get(semZeros(c.material)) : undefined;
-    return { ...c, noAlmox: s !== undefined, estoque: s ?? null, foto: null, fotoRef: null, fotoTipo: null };
+    return { ...c, noAlmox: s !== undefined, estoque: s ?? null, foto: null, fotoRef: null };
   });
   // no almoxarifado primeiro, depois pela descrição
   itens.sort((a, b) => Number(b.noAlmox) - Number(a.noAlmox) || a.descricaoCurta.localeCompare(b.descricaoCurta, "pt-BR"));
@@ -91,14 +88,13 @@ export async function buscarCatalogo(f: FiltroCatalogo) {
     achados.push(i);
   }
   // as fotos só para a página pedida (o cadastro é lido de novo a cada pedido: é barato, tem cache pela versão)
-  const [cadMat, cadRef, cadTipo] = await Promise.all([lerCadastro("cadastro_materiais.json"), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_TIPOS)]);
-  const pdms = pdmsConhecidos(ind.itens);
+  const [cadMat, cadRef] = await Promise.all([lerCadastro("cadastro_materiais.json"), lerCadastro(ARQUIVO_REFERENCIA)]);
   const fatia = achados.slice(f.cursor, f.cursor + f.limite).map((i) => {
     const c = ind.itens[i];
     // o código pode vir com zeros à esquerda no Sysmat e sem eles no MB52 (onde as fotos são gravadas)
     const codigo = Object.hasOwn(cadMat, c.material) || Object.hasOwn(cadRef, c.material) ? c.material : semZeros(c.material);
     const foto = fotosDoCadastro(cadMat[codigo] as { foto?: unknown; fotos?: unknown } | undefined)[0] ?? null;
-    return { ...c, foto, ...(codigo !== c.material && { codigoFoto: codigo }), ...fotosExternasDoItem(codigo, pdmEfetivo(c.pdm, c.descricaoCurta, pdms), cadRef, cadTipo, c.subcategoria, c.categoria) };
+    return { ...c, foto, ...(codigo !== c.material && { codigoFoto: codigo }), ...fotosExternasDoItem(codigo, cadRef) };
   });
   const proximo = f.cursor + f.limite < achados.length ? f.cursor + f.limite : null;
   return { itens: fatia, total: achados.length, proximo };

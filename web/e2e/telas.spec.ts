@@ -39,24 +39,25 @@ test("busca no estoque filtra a lista", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
-test("estoque: foto ilustrativa por tipo aparece e filtra; a pílula de sugestão saiu da tela", async ({ page }) => {
+test("estoque: sem foto genérica do tipo; as pílulas de sugestão e de ilustrativa saíram da tela", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/estoque");
   const grupo = page.getByRole("group", { name: "Situação do material" });
+  await expect(grupo.getByRole("button", { name: /^Com foto · \d/ })).toBeVisible();
   await expect(grupo.getByRole("button", { name: /^Foto sugerida/ })).toHaveCount(0);
-  // a demonstração tem foto ilustrativa para o tipo ROLAMENTO (endereço fictício: a tela mostra o ícone padrão)
-  await grupo.getByRole("button", { name: /^Foto ilustrativa · \d/ }).click();
-  await expect(page.getByText("Nenhum material com esses filtros.")).toHaveCount(0);
-  await expect(page.getByText("Foto ilustrativa", { exact: true }).first()).toBeVisible();
+  await expect(grupo.getByRole("button", { name: /^Foto ilustrativa/ })).toHaveCount(0);
+  await expect(page.getByText("Foto ilustrativa", { exact: true })).toHaveCount(0);
   expect(erros).toEqual([]);
 });
 
-test("material cadastrado: abre e a lista traz a foto por tipo sem erro", async ({ page }) => {
+test("material cadastrado: a lista traz a foto do fabricante pela referência, sem erro", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/estoque?aba=cadastrado");
-  // a busca do catálogo pega o tipo (PDM): os ROLAMENTO da demonstração trazem a foto ilustrativa
+  // a demonstração tem foto do fabricante para o material 900000 (endereço fictício: a tela mostra o ícone padrão)
+  await page.getByPlaceholder(/Buscar no catálogo/).fill("900000");
+  await expect(page.getByText("Foto do fabricante", { exact: true }).first()).toBeVisible();
   await page.getByPlaceholder(/Buscar no catálogo/).fill("ROLAMENTO");
-  await expect(page.getByText("Foto ilustrativa", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Foto ilustrativa", { exact: true })).toHaveCount(0);
   expect(erros).toEqual([]);
 });
 

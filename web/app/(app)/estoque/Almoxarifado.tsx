@@ -15,7 +15,7 @@ import { FotoDetalhe, MiniaturaFoto } from "./FotoItem";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
-type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "ilustrativa";
+type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
@@ -41,10 +41,8 @@ function baixarCsv(itens: ItemAlmox[]) {
   URL.revokeObjectURL(a.href);
 }
 
-/** Tem foto do próprio material ou do fabricante (o filtro "Com foto"). A ilustrativa do tipo não conta. */
+/** Tem foto do próprio material ou do fabricante (o filtro "Com foto"). */
 const temFoto = (it: ItemAlmox) => !!it.foto || !!it.fotoRef;
-/** Só a ilustrativa do tipo de material (sem foto própria nem do fabricante). */
-const soIlustrativa = (it: ItemAlmox) => !temFoto(it) && !!it.fotoTipo;
 
 /** Redesenha a foto com no máximo `lado` px, em JPEG (tira também os dados de localização do arquivo). */
 async function reduzir(img: ImageBitmap, lado: number, qualidade: number): Promise<Blob> {
@@ -129,8 +127,8 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
   );
 }
 
-export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais, temTipos }: { itens: ItemAlmox[]; edita: boolean;
-  sugestoes: Record<string, SugestaoPublica[]>; temTipos: boolean }) {
+export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais }: { itens: ItemAlmox[]; edita: boolean;
+  sugestoes: Record<string, SugestaoPublica[]> }) {
   const [itens, setItens] = useState(iniciais);
   const [sugestoes, setSugestoes] = useState(sugestoesIniciais);
   const [busca, setBusca] = useState("");
@@ -178,7 +176,6 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
   const visiveis = useMemo(() => {
     const r = recorte.filter((i) => situacao === "vinculado" ? !!i.usadoEm
       : situacao === "com_foto" ? temFoto(i)
-      : situacao === "ilustrativa" ? soIlustrativa(i)
       : situacao === "todos" || i.situacao === situacao);
     const peso = { Zerado: 0, "Abaixo do mínimo": 1, OK: 2 };
     const cmp: Record<Ordem, (a: ItemAlmox, b: ItemAlmox) => number> = {
@@ -209,10 +206,6 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
     { valor: "OK" as const, rotulo: "OK", n: n("OK") },
     { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: recorte.filter((i) => i.usadoEm).length },
     { valor: "com_foto" as const, rotulo: "Com foto", n: recorte.filter(temFoto).length },
-    // só aparece quando o cadastro de fotos por tipo tem itens
-    ...(temTipos
-      ? [{ valor: "ilustrativa" as const, rotulo: "Foto ilustrativa", n: recorte.filter(soIlustrativa).length }]
-      : []),
   ];
   const filtros = (
     <div className="flex flex-wrap gap-2">
@@ -443,7 +436,7 @@ function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; ao
           )}
         </div>
       ) : (
-        // sem foto própria: a do fabricante, a ilustrativa do tipo, ou o quadro vazio
+        // sem foto própria: a do fabricante ou o quadro vazio
         externa ? <FotoDetalhe f={externa} /> : (
         <div className={clsx(FRAME, "grid place-items-center")}>
           <div className="flex flex-col items-center gap-2 px-6 text-center text-[13.5px] text-texto-3">

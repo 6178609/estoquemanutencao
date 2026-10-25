@@ -17,13 +17,11 @@ function Linha({ rotulo, c }: { rotulo: string; c: Cobertura }) {
         <span className="text-texto-3">{c.total} itens</span>
       </div>
       <div className="flex h-2 overflow-hidden rounded-full bg-superficie-2" role="img"
-        aria-label={`${pct(c.exata, c.total)}% com foto exata, ${pct(c.ilustrativa, c.total)}% ilustrativa, ${pct(c.sem, c.total)}% sem foto`}>
+        aria-label={`${pct(c.exata, c.total)}% com foto exata, ${pct(c.sem, c.total)}% sem foto`}>
         <div className="bg-[var(--selo-bom-texto)]" style={{ width: `${pct(c.exata, c.total)}%` }} />
-        <div className="bg-[var(--acao)] opacity-60" style={{ width: `${pct(c.ilustrativa, c.total)}%` }} />
       </div>
       <div className="text-[12.5px] text-texto-3">
         <b className="text-texto-2">{pct(c.exata, c.total)}%</b> com foto exata ({c.exata}) ·{" "}
-        <b className="text-texto-2">{pct(c.ilustrativa, c.total)}%</b> ilustrativa ({c.ilustrativa}) ·{" "}
         <b className="text-texto-2">{pct(c.sem, c.total)}%</b> sem foto ({c.sem})
       </div>
     </div>
@@ -49,8 +47,8 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
         <div>
           <div className="font-display text-[16px] font-medium">Fotos automáticas</div>
           <p className="mt-1 text-[13px] text-texto-3">
-            Todo dia, de madrugada, o site procura foto de fabricante (pela referência) e ilustrativa (pelo tipo, subcategoria
-            ou categoria) para os materiais sem foto.{" "}
+            Todo dia, de madrugada, o site procura a foto do fabricante pela referência dos materiais sem foto. Só entra
+            foto cujo título ou página traz a referência do item; foto genérica do tipo de material não é usada.{" "}
             {resumo.ligada
               ? <>Busca ligada ({resumo.provedor}).</>
               : <>Busca desligada: configure <code>BUSCA_IMAGENS_PROVEDOR</code> e <code>BUSCA_IMAGENS_CHAVE</code> nas variáveis da Vercel.</>}
