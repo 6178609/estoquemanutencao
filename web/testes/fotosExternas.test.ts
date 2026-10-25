@@ -122,3 +122,12 @@ describe("leitura em modo demonstração", () => {
     expect(await respostaFotoExterna(null, "000000000000")).toHaveProperty("status", 404);
   });
 });
+
+describe("foto do item com código diferente no Sysmat", () => {
+  it("usa o codigoFoto nas URLs da foto própria e do fabricante", () => {
+    const propria = fotoDoItem({ material: "000100200", codigoFoto: "100200", foto: "app/fotos/materiais/100200?v=0123456789abcdef" });
+    expect(propria?.url).toContain("m=100200");
+    const ref = fotoDoItem({ material: "000100200", codigoFoto: "100200", fotoRef: { k: "0123456789ab", pagina: null, titulo: "" } });
+    expect(ref?.url).toContain("m=100200");
+  });
+});

@@ -85,6 +85,8 @@ export interface FotoDoItem { origem: OrigemFoto; url: string; pagina: string | 
 /** Os campos de foto de um item da tela (o que o servidor manda junto). */
 export interface ItemComFoto {
   material: string;
+  /** código usado nas fotos quando difere do `material` (zeros à esquerda no Sysmat, sem eles no MB52) */
+  codigoFoto?: string;
   pdm?: string;
   foto?: string | null;
   fotoRef?: FotoExterna | null;
@@ -99,10 +101,11 @@ export const ROTULO_FOTO: Record<Exclude<OrigemFoto, "propria">, string> = { ref
  * de material (ilustrativa) → nenhuma (null: a tela segue sem foto). Usado no navegador e no servidor.
  */
 export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
-  const propria = urlFotoMaterial(it.material, it.foto ?? null, mini);
+  const codigo = it.codigoFoto ?? it.material;
+  const propria = urlFotoMaterial(codigo, it.foto ?? null, mini);
   if (propria) return { origem: "propria", url: propria, pagina: null, titulo: "" };
   if (it.fotoRef) {
-    const q = new URLSearchParams({ m: it.material, k: it.fotoRef.k });
+    const q = new URLSearchParams({ m: codigo, k: it.fotoRef.k });
     return { origem: "referencia", url: `/api/estoque/foto/referencia?${q}`, pagina: it.fotoRef.pagina, titulo: it.fotoRef.titulo };
   }
   if (it.fotoTipo && it.pdm) {

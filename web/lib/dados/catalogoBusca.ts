@@ -93,8 +93,10 @@ export async function buscarCatalogo(f: FiltroCatalogo) {
   const [cadMat, cadRef, cadTipo] = await Promise.all([lerCadastro("cadastro_materiais.json"), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_TIPOS)]);
   const fatia = achados.slice(f.cursor, f.cursor + f.limite).map((i) => {
     const c = ind.itens[i];
-    const foto = fotosDoCadastro(cadMat[c.material] as { foto?: unknown; fotos?: unknown } | undefined)[0] ?? null;
-    return { ...c, foto, ...fotosExternasDoItem(c.material, c.pdm, cadRef, cadTipo) };
+    // o código pode vir com zeros à esquerda no Sysmat e sem eles no MB52 (onde as fotos são gravadas)
+    const codigo = Object.hasOwn(cadMat, c.material) || Object.hasOwn(cadRef, c.material) ? c.material : semZeros(c.material);
+    const foto = fotosDoCadastro(cadMat[codigo] as { foto?: unknown; fotos?: unknown } | undefined)[0] ?? null;
+    return { ...c, foto, ...(codigo !== c.material && { codigoFoto: codigo }), ...fotosExternasDoItem(codigo, c.pdm, cadRef, cadTipo) };
   });
   const proximo = f.cursor + f.limite < achados.length ? f.cursor + f.limite : null;
   return { itens: fatia, total: achados.length, proximo };

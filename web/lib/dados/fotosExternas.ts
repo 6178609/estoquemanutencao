@@ -55,27 +55,45 @@ export function fotosExternasDoItem(material: string, pdm: string, cadRef: Cadas
   return { fotoRef: ref ? fotoExternaDe(ref) : null, fotoTipo: tipo ? fotoExternaDe(tipo) : null };
 }
 
-// cache em memória das imagens (por chave do endereço): até ~30 MB, sai a mais antiga
+// cache em memória das imagens (por chave do endereço): até ~30 MB, sai a mais antiga. Guarda também as falhas por
+// 15 min (um endereço quebrado não faz cada miniatura esperar até 8 s de novo) e junta pedidos iguais simultâneos.
 const LIMITE_CACHE = 30_000_000;
-const LIMITE_UNITARIO = 2_000_000;
+const PRAZO_FALHA_MS = 15 * 60_000;
+const MAX_FALHAS = 5_000;
 const cache = new Map<string, { bytes: Uint8Array; tipo: TipoImagem }>();
+const falhas = new Map<string, number>();
+const emAndamento = new Map<string, Promise<{ bytes: Uint8Array; tipo: TipoImagem }>>();
 let bytesCache = 0;
+
+function guardar(chave: string, img: { bytes: Uint8Array; tipo: TipoImagem }) {
+  cache.set(chave, img);
+  bytesCache += img.bytes.length;
+  for (const [k, v] of cache) {
+    if (bytesCache <= LIMITE_CACHE) break;
+    cache.delete(k);
+    bytesCache -= v.bytes.length;
+  }
+}
 
 async function imagem(url: string): Promise<{ bytes: Uint8Array; tipo: TipoImagem }> {
   const chave = chaveSugestao(url);
   const pronta = cache.get(chave);
   if (pronta) return pronta;
-  const img = await buscarImagemSugestao(url);
-  if (img.bytes.length <= LIMITE_UNITARIO) {
-    cache.set(chave, img);
-    bytesCache += img.bytes.length;
-    for (const [k, v] of cache) {
-      if (bytesCache <= LIMITE_CACHE) break;
-      cache.delete(k);
-      bytesCache -= v.bytes.length;
-    }
-  }
-  return img;
+  const falhou = falhas.get(chave);
+  if (falhou && Date.now() - falhou < PRAZO_FALHA_MS) throw new SugestaoErro("falhou há pouco");
+  const andando = emAndamento.get(chave);
+  if (andando) return andando;
+  const p = buscarImagemSugestao(url)
+    .then((img) => { falhas.delete(chave); guardar(chave, img); return img; })
+    .catch((e) => {
+      falhas.delete(chave);
+      falhas.set(chave, Date.now());
+      if (falhas.size > MAX_FALHAS) falhas.delete(falhas.keys().next().value!);
+      throw e;
+    })
+    .finally(() => emAndamento.delete(chave));
+  emAndamento.set(chave, p);
+  return p;
 }
 
 /**
@@ -97,9 +115,17 @@ export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: strin
     });
   } catch (e) {
     console.warn("foto externa não carregou:", e instanceof SugestaoErro ? e.message : e);
-    return new NextResponse("Sem foto.", { status: 404 });
+    // a falha fica guardada no servidor por 15 min; o navegador também não pede de novo nesse tempo
+    return new NextResponse("Sem foto.", { status: 404, headers: { "Cache-Control": "private, max-age=900" } });
   }
 }
 
 /** Só para os testes: quantas imagens estão em cache e quantos bytes. */
 export const _estadoCache = () => ({ itens: cache.size, bytes: bytesCache });
+/** Só para os testes: esvazia o cache, as falhas guardadas e os pedidos em andamento. */
+export function _limparCacheFotos() {
+  cache.clear();
+  falhas.clear();
+  emAndamento.clear();
+  bytesCache = 0;
+}
