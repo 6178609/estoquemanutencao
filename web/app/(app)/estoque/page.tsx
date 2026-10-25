@@ -71,7 +71,7 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
               <Link prefetch={false} href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
-          <Almoxarifado itens={itensAlmox} edita={podeEditar(u)} sugestoes={almox.sugestoes} />
+          <Almoxarifado itens={itensAlmox} edita={podeEditar(u)} sugestoes={almox.sugestoes} temTipos={almox.temTipos} />
         </>
       )}
       {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} /> : (

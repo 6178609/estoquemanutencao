@@ -39,16 +39,24 @@ test("busca no estoque filtra a lista", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
-test("estoque: filtros de foto (com foto e foto sugerida)", async ({ page }) => {
+test("estoque: foto ilustrativa por tipo aparece e filtra; a pílula de sugestão saiu da tela", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/estoque");
   const grupo = page.getByRole("group", { name: "Situação do material" });
-  // a demonstração começa sem fotos: "Com foto" filtra para nenhum material
-  await grupo.getByRole("button", { name: /^Com foto/ }).click();
-  await expect(page.getByText("Nenhum material com esses filtros.")).toBeVisible();
-  // a demonstração tem uma sugestão de foto fictícia no material 500000
-  await grupo.getByRole("button", { name: /^Foto sugerida · 1/ }).click();
-  await expect(page.getByText("ITEM SEM CADASTRO 1", { exact: true })).toBeVisible();
+  await expect(grupo.getByRole("button", { name: /^Foto sugerida/ })).toHaveCount(0);
+  // a demonstração tem foto ilustrativa para o tipo ROLAMENTO (endereço fictício: a tela mostra o ícone padrão)
+  await grupo.getByRole("button", { name: /^Foto ilustrativa · \d/ }).click();
+  await expect(page.getByText("Nenhum material com esses filtros.")).toHaveCount(0);
+  await expect(page.getByText("Foto ilustrativa", { exact: true }).first()).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
+test("material cadastrado: abre e a lista traz a foto por tipo sem erro", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/estoque?aba=cadastrado");
+  // a busca do catálogo pega o tipo (PDM): os ROLAMENTO da demonstração trazem a foto ilustrativa
+  await page.getByPlaceholder(/Buscar no catálogo/).fill("ROLAMENTO");
+  await expect(page.getByText("Foto ilustrativa", { exact: true }).first()).toBeVisible();
   expect(erros).toEqual([]);
 });
 

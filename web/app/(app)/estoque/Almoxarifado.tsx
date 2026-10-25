@@ -10,11 +10,12 @@ import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
-import { MAX_FOTOS, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMaterial";
+import { MAX_FOTOS, type FotoDoItem, fotoDoItem, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMaterial";
+import { FotoDetalhe, MiniaturaFoto } from "./FotoItem";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
-type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "sugerida";
+type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "ilustrativa";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
@@ -40,7 +41,10 @@ function baixarCsv(itens: ItemAlmox[]) {
   URL.revokeObjectURL(a.href);
 }
 
-const urlFoto = (it: ItemAlmox, mini = false) => urlFotoMaterial(it.material, it.foto, mini);
+/** Tem foto do próprio material ou do fabricante (o filtro "Com foto"). A ilustrativa do tipo não conta. */
+const temFoto = (it: ItemAlmox) => !!it.foto || !!it.fotoRef;
+/** Só a ilustrativa do tipo de material (sem foto própria nem do fabricante). */
+const soIlustrativa = (it: ItemAlmox) => !temFoto(it) && !!it.fotoTipo;
 
 /** Redesenha a foto com no máximo `lado` px, em JPEG (tira também os dados de localização do arquivo). */
 async function reduzir(img: ImageBitmap, lado: number, qualidade: number): Promise<Blob> {
@@ -91,10 +95,7 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
     <button onClick={aoAbrir}
       className="group grid w-full gap-x-6 gap-y-3 border-b border-borda px-5 py-4 text-left transition hover:bg-superficie-2 md:grid-cols-[minmax(220px,1.1fr)_minmax(0,2.4fr)_150px]">
       <div className="flex min-w-0 gap-3">
-      {urlFoto(it, true) && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={urlFoto(it, true)!} alt="" loading="lazy" decoding="async" className="size-14 shrink-0 rounded-xl border border-borda bg-white object-cover" />
-      )}
+      <MiniaturaFoto it={it} />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="num font-mono text-[13px] font-medium text-alp-azul">{it.material}</span>
@@ -128,8 +129,8 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
   );
 }
 
-export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais }: { itens: ItemAlmox[]; edita: boolean;
-  sugestoes: Record<string, SugestaoPublica[]> }) {
+export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais, temTipos }: { itens: ItemAlmox[]; edita: boolean;
+  sugestoes: Record<string, SugestaoPublica[]>; temTipos: boolean }) {
   const [itens, setItens] = useState(iniciais);
   const [sugestoes, setSugestoes] = useState(sugestoesIniciais);
   const [busca, setBusca] = useState("");
@@ -176,8 +177,8 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
 
   const visiveis = useMemo(() => {
     const r = recorte.filter((i) => situacao === "vinculado" ? !!i.usadoEm
-      : situacao === "com_foto" ? !!urlFoto(i)
-      : situacao === "sugerida" ? !!sugestoes[i.material]?.length
+      : situacao === "com_foto" ? temFoto(i)
+      : situacao === "ilustrativa" ? soIlustrativa(i)
       : situacao === "todos" || i.situacao === situacao);
     const peso = { Zerado: 0, "Abaixo do mínimo": 1, OK: 2 };
     const cmp: Record<Ordem, (a: ItemAlmox, b: ItemAlmox) => number> = {
@@ -187,7 +188,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       valor: (a, b) => b.valor - a.valor,
     };
     return r.sort(cmp[ordem]);
-  }, [recorte, situacao, ordem, sugestoes]);
+  }, [recorte, situacao, ordem]);
 
   const listaRef = useRef<HTMLDivElement>(null);
   const [margem, setMargem] = useState(0);
@@ -207,10 +208,10 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
     { valor: "Zerado" as const, rotulo: "Zerados", n: n("Zerado") },
     { valor: "OK" as const, rotulo: "OK", n: n("OK") },
     { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: recorte.filter((i) => i.usadoEm).length },
-    { valor: "com_foto" as const, rotulo: "Com foto", n: recorte.filter((i) => urlFoto(i)).length },
-    // só aparece quando há sugestões importadas (busca de fotos na web) esperando aprovação
-    ...(Object.keys(sugestoes).length
-      ? [{ valor: "sugerida" as const, rotulo: "Foto sugerida", n: recorte.filter((i) => sugestoes[i.material]?.length).length }]
+    { valor: "com_foto" as const, rotulo: "Com foto", n: recorte.filter(temFoto).length },
+    // só aparece quando o cadastro de fotos por tipo tem itens
+    ...(temTipos
+      ? [{ valor: "ilustrativa" as const, rotulo: "Foto ilustrativa", n: recorte.filter(soIlustrativa).length }]
       : []),
   ];
   const filtros = (
@@ -324,6 +325,7 @@ function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; ao
   const trilho = useRef<HTMLDivElement>(null);
   const fotos = it.fotos;
   const n = fotos.length;
+  const externa: FotoDoItem | null = n === 0 ? fotoDoItem(it) : null;
   const cheio = n >= MAX_FOTOS;
   const [atual, setAtual] = useState(0);
   const [falhou, setFalhou] = useState<string[]>([]);
@@ -441,12 +443,15 @@ function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; ao
           )}
         </div>
       ) : (
+        // sem foto própria: a do fabricante, a ilustrativa do tipo, ou o quadro vazio
+        externa ? <FotoDetalhe f={externa} /> : (
         <div className={clsx(FRAME, "grid place-items-center")}>
           <div className="flex flex-col items-center gap-2 px-6 text-center text-[13.5px] text-texto-3">
             <ImageOff className="size-7" aria-hidden />
             Este material ainda não tem foto.
           </div>
         </div>
+        )
       )}
 
       {n > 1 && (

@@ -1,7 +1,7 @@
 /**
  * Estoque (MB52) e catálogo de materiais (Sysmat) — funções puras, testadas em testes/materiais.test.ts.
  */
-import { fotosDoCadastro } from "../fotoMaterial";
+import { type FotoExterna, fotosDoCadastro } from "../fotoMaterial";
 import { acharColuna, paraNumero, texto } from "./texto";
 
 type Linha = Record<string, unknown>;
@@ -146,6 +146,12 @@ export interface ItemAlmox extends ItemEstoque {
   foto: string | null;
   /** Todas as fotos do material, na ordem (a 1ª é a principal; até 8). */
   fotos: string[];
+  /** PDM (tipo de material) do catálogo: chave da foto ilustrativa. */
+  pdm: string;
+  /** Foto do fabricante (pela referência do item), se o cadastro de fotos tem uma. */
+  fotoRef: FotoExterna | null;
+  /** Foto ilustrativa do tipo de material, se o cadastro de fotos tem uma. */
+  fotoTipo: FotoExterna | null;
   usadoEm: string;
 }
 
@@ -179,6 +185,7 @@ export function montarAlmox(
       sysmat: c?.sysmat || "", categoria: c?.categoria || "", subcategoria: c?.subcategoria || "", ncm: c?.ncm || "",
       descrCompleta: c?.descrCompleta || "", fabricanteRef: c?.fabricanteRef || "", status: c?.status || "",
       substituto: c?.substituto || "", foto: fotos[0] ?? null, fotos,
+      pdm: c?.pdm || "", fotoRef: null, fotoTipo: null,
       usadoEm: (usoPorMaterial.get(e.material) || []).join(", "),
     };
   });

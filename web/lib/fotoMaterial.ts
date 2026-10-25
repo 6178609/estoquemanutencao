@@ -72,3 +72,45 @@ export function urlFotoMaterial(material: string, ref: unknown, mini = false): s
   if (mini && r.mini) q.set("mini", "1");
   return `/api/estoque/foto?${q.toString()}`;
 }
+
+/**
+ * Foto que não é do material: do fabricante (achada pela referência do item) ou do tipo de material (ilustrativa).
+ * `k` é a chave do endereço no cadastro (um pedaço do hash); o endereço da imagem nunca vai para o navegador.
+ */
+export interface FotoExterna { k: string; pagina: string | null; titulo: string }
+
+export type OrigemFoto = "propria" | "referencia" | "tipo";
+export interface FotoDoItem { origem: OrigemFoto; url: string; pagina: string | null; titulo: string }
+
+/** Os campos de foto de um item da tela (o que o servidor manda junto). */
+export interface ItemComFoto {
+  material: string;
+  /** código usado nas fotos quando difere do `material` (zeros à esquerda no Sysmat, sem eles no MB52) */
+  codigoFoto?: string;
+  pdm?: string;
+  foto?: string | null;
+  fotoRef?: FotoExterna | null;
+  fotoTipo?: FotoExterna | null;
+}
+
+/** Rótulo discreto de cada origem (a própria não tem rótulo). */
+export const ROTULO_FOTO: Record<Exclude<OrigemFoto, "propria">, string> = { referencia: "Foto do fabricante", tipo: "Foto ilustrativa" };
+
+/**
+ * A foto a mostrar no item, pela prioridade: foto própria (a principal) → do fabricante (referência do item) → do tipo
+ * de material (ilustrativa) → nenhuma (null: a tela segue sem foto). Usado no navegador e no servidor.
+ */
+export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
+  const codigo = it.codigoFoto ?? it.material;
+  const propria = urlFotoMaterial(codigo, it.foto ?? null, mini);
+  if (propria) return { origem: "propria", url: propria, pagina: null, titulo: "" };
+  if (it.fotoRef) {
+    const q = new URLSearchParams({ m: codigo, k: it.fotoRef.k });
+    return { origem: "referencia", url: `/api/estoque/foto/referencia?${q}`, pagina: it.fotoRef.pagina, titulo: it.fotoRef.titulo };
+  }
+  if (it.fotoTipo && it.pdm) {
+    const q = new URLSearchParams({ p: it.pdm, k: it.fotoTipo.k });
+    return { origem: "tipo", url: `/api/estoque/foto/tipo?${q}`, pagina: it.fotoTipo.pagina, titulo: it.fotoTipo.titulo };
+  }
+  return null;
+}

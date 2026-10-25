@@ -9,7 +9,7 @@ import { fonte, modo } from "@/lib/dados/fonte";
 import { dataHora, idade, inteiro } from "@/lib/formato";
 import { DESTINO, NOMES_BASE, TIPOS } from "@/lib/leitura/tipos";
 import { Envio } from "./Envio";
-import { ImportarSugestoes } from "./ImportarSugestoes";
+import { ImportarFotos } from "./ImportarFotos";
 
 export const metadata: Metadata = { title: "Fontes de dados" };
 export const dynamic = "force-dynamic";
@@ -40,7 +40,7 @@ export default async function FontesDeDados() {
         sobre={<Pilula>{modo() === "demo" ? "Demonstração" : `${carregadas} de ${bases.length} bases carregadas`}</Pilula>}
         subtitulo="Anexe os exports (IW38, MB52, IW28, IH08, IP19, IW47, requisições, Sysmat, Gestão de HH, Gerenciador de AF). O site reconhece cada base pelos cabeçalhos, compacta no seu navegador e grava no repositório de dados — vale sempre o envio mais recente." />
 
-      {podeEditar(u) && <ImportarSugestoes />}
+      {podeEditar(u) && <ImportarFotos />}
 
       {podeEditar(u) ? <Envio demo={modo() === "demo"} />
         : <p className="text-[14px] text-texto-3">Só editores e administradores enviam bases. Peça a um deles para atualizar.</p>}
