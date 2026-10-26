@@ -4,7 +4,7 @@ import { entrarNaDemo, telaAbriu } from "./apoio";
 
 // as telas mais usadas: cada uma abre, sem erro na página e sem bloqueio da CSP
 const TELAS = ["/", "/painel", "/estoque", "/ordens", "/equipamentos", "/mro", "/indicadores_sim", "/indicadores_sim?visao=roadmap", "/indicadores_sim?visao=causas",
-  "/confiabilidade", "/mao_de_obra?visao=Apontamentos (IW47)", "/saude", "/planos", "/mapa52", "/semanal", "/custos", "/custos?cmes=2026-01", "/dados", "/metas"];
+  "/confiabilidade", "/mao_de_obra?visao=Apontamentos (IW47)", "/saude", "/planos", "/mapa52", "/semanal", "/cartao", "/custos", "/custos?cmes=2026-01", "/dados", "/metas"];
 
 test("telas principais abrem sem erro", async ({ page }) => {
   const erros = await entrarNaDemo(page);

@@ -44,6 +44,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "estoque", titulo: "Estoque", icone: "Boxes", rota: "/estoque" },
     { id: "mro", titulo: "Gestão de MRO", icone: "Wrench", rota: "/mro" },
     { id: "requisicoes", titulo: "Requisições", icone: "Receipt", rota: "/requisicoes" },
+    { id: "cartao", titulo: "Cartão de crédito", icone: "CreditCard", rota: "/cartao" },
   ] },
   { titulo: "Configuração", abas: [
     { id: "metas", titulo: "Metas e parâmetros", icone: "SlidersHorizontal", rota: "/metas" },
