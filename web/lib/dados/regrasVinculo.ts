@@ -16,7 +16,8 @@
  * - prensa COPE: os materiais do modelo PHB 450 (também escrito PBH 450);
  * - KCLKA EXP 12+: as peças EK3 (e as do manual EK3 achadas no Sysmat) também nos sistemas de cada máquina (sistemaKclka;
  *   o subconjunto certo varia: as EXP 12–14 têm força/controle/fechamento/aquecimento, as EXP 15+ têm elétrico e estações).
- * Em todas: um material que é a própria máquina (descrição "INJETORA …", "MISTURADOR IND …") não é peça e fica de fora.
+ * Em todas: um material que é a própria máquina (descrição "INJETORA …", "MISTURADOR IND …") ou ferramental de produto (molde,
+ * porta-molde, máscara, gabarito) não é peça de reposição e fica de fora.
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
@@ -112,6 +113,11 @@ function regrasDosSistemasKclka(): RegraVinculo[] {
 /** A própria máquina cadastrada como material (não é peça): "INJETORA …", "MISTURADOR IND …", "MAQ …". */
 export function ehMaquinaInteira(curta: string): boolean {
   return /^(INJETORA|MISTURADOR IND|MAQ|MAQUINA|PRENSA HIDR)\b/.test(chave(curta));
+}
+
+/** Ferramental de produto (molde, porta-molde, máscara de prensa, gabarito): não é peça de reposição da máquina. */
+export function ehFerramental(curta: string): boolean {
+  return /^(MOLDE|PORTA MOLDE|MASCARA|GABARITO)\b/.test(chave(curta));
 }
 
 /** Sistemas das injetoras PVC: o nome do subconjunto no SAP ("INJ PVC 06 GOLDEN - SISTEMA HIDRAULICO"…). */
@@ -302,7 +308,7 @@ export function vinculosDasRegras(equips: EquipRegra[],
     return false;
   };
   for (const r of regras) {
-    const mats = [...new Set(catalogo.filter((m) => r.material(m) && !ehMaquinaInteira(m.descricaoCurta)).map((m) => m.material.trim()))].sort();
+    const mats = [...new Set(catalogo.filter((m) => r.material(m) && !ehMaquinaInteira(m.descricaoCurta) && !ehFerramental(m.descricaoCurta)).map((m) => m.material.trim()))].sort();
     if (!mats.length) continue;
     for (const e of equips) {
       if (!r.equipamento(e, h) || acimaInativo(e)) continue;

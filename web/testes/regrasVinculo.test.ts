@@ -161,3 +161,12 @@ describe("regra: KCLKA EK3 por sistema", () => {
   });
   it("subconjunto de outra máquina com nome parecido fica de fora", () => expect(v.has("08v")).toBe(false));
 });
+
+describe("ferramental fora das peças", () => {
+  it("molde, porta-molde, máscara e gabarito não entram; parafuso de molde entra", () => {
+    const m = (material: string, curta: string) => ({ material, descricaoCurta: curta, descrCompleta: "MODELO: PHB 450", status: "APROVADO" });
+    const v = vinculosDasRegras([eq("1", "PRENSA COPE 01 - PHB 450")], [m("1", "MASCARA PRENSA SLIM SILK ALUM TAM 27/8"), m("2", "PORTA MOLDE HAV INJ ACO"),
+      m("3", "MOLDE FORQ HAV"), m("4", "GABARITO MAQ"), m("5", "PARAFUSO MOLDE ALPARGATAS PFM01"), m("6", "TRAVA REGUA ALPARGATAS PLATO 1")]);
+    expect(v.get("1")!.materiais).toEqual(["5", "6"]);
+  });
+});
