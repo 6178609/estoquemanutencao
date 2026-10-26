@@ -77,6 +77,34 @@ describe("regra: Banbury Bonfanti BMI-80", () => {
   it("materiais Bonfanti BMI-80 aprovados", () => expect(v.get("1")!.materiais).toEqual(["50", "51", "52"]));
 });
 
+describe("regra: Banbury Bonfanti BMI-80 por subconjunto (peças do manual)", () => {
+  const m = (material: string, curta: string, status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: "FAB: X - REF: Y", status });
+  const sub = (cod: string, nome: string, sup: string, inativo = false) => ({ ...eq(cod, nome, inativo), superior: sup });
+  const equips = [
+    eq("1", "BANBURY SF 01 UGB1 BONFANTI"), sub("s1", "BY 01 UGB1 BONFANTI - CAMARA ROTORES", "1"), sub("r", "BY BONFANTI SF 01 UGB1 - ROTORES", "s1"),
+    sub("v", "BY BONFANTI SF 01 UGB1 - SISTEMA VEDAÇÃO", "s1"), sub("s2", "BY 01 UGB1 BONFANTI - SIST. REFRIGERAÇÃO", "1"),
+    sub("rr", "BY BONFANTI SF 01 UGB1 - REFRIG. ROTORES", "s2"), sub("s3", "BY 01 UGB1 BONFANTI - SIST.  ACIONAMENTO", "1"),
+    sub("red", "BY BONFANTI SF 01 UGB1 - REDUTOR", "s3"), sub("s4", "BY 01 UGB1 BONFANTI - SISTEMA ELETRICO", "1"),
+    sub("ac", "BY BONFANTI SF 01 UGB1 - ACIONAMENTO", "s4"),
+    eq("9", "MOINHO LAMINADOR SF 04 UGB1 BONFANTI"), sub("9r", "MOINHO 04 - ROTORES", "9"),
+  ];
+  // códigos que estão na lista do manual (só os números; as descrições são fictícias)
+  const cat = [m("58975", "UNIAO ROTATIVA X"), m("1682975", "ANEL X"), m("1786749", "ELEMENTO X"), m("1782791", "ATUADOR X"),
+    m("1786780", "RETENTOR X", "BLOQUEADO"), m("99", "PECA QUALQUER")];
+  const v = vinculosDasRegras(equips, cat);
+  it("máquina recebe todas as peças do manual aprovadas", () => expect(v.get("1")!.materiais).toEqual(["1682975", "1782791", "1786749", "58975"]));
+  it("cada peça no seu subconjunto", () => {
+    expect(v.get("r")!.materiais).toEqual(["58975"]);
+    expect(v.get("rr")!.materiais).toEqual(["58975"]);
+    expect(v.get("v")!.materiais).toEqual(["1682975"]);
+    expect(v.get("red")!.materiais).toEqual(["1786749"]);
+    expect(v.get("s2")!.materiais).toEqual(["1782791"]);
+  });
+  it("sistema sem peça, ACIONAMENTO do elétrico e outra máquina ficam de fora", () => {
+    for (const c of ["s1", "s3", "s4", "ac", "9", "9r"]) expect(v.has(c)).toBe(false);
+  });
+});
+
 describe("regra: prensa a vácuo KCLKA EK76", () => {
   const m = (material: string, curta: string, completa = "", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
   const equips = [eq("1", "PRENSA A VACUO 001"), eq("2", "PRENSA A VACUO 001 - ESTACAO 001"), eq("3", "PRENSA VACUO 01 - UNIDADE HIDRÁULICA"), eq("4", "BOMBA VACUO 40")];

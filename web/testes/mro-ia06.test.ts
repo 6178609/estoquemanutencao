@@ -32,6 +32,30 @@ describe("listas de tarefas de cada equipamento", () => {
   });
 });
 
+describe("listas pela IP19 e pelos subconjuntos", () => {
+  it("listas pela coluna Equipamento da IP19 (mesmo sem ordem), todas as listas do plano", () => {
+    const linhas = [{ ...ip19[2], Equipamento: "SUB1" }, { ...ip19[2], Equipamento: "SUB1", "Grupo listas tarefas": "GRP_C", "Numerador de grupos": "2" },
+      { ...ip19[0], Equipamento: "" }];
+    expect(I.listasDiretasDaIp19(null)).toEqual([]);
+    const m = I.listasPorEquipamento([], new Map(), I.listasDiretasDaIp19(linhas));
+    expect(m.get("SUB1")!.map((l) => `${l.grupo}/${l.numerador}/${l.planos.join()}`)).toEqual(["GRP_B/3/900002", "GRP_C/2/900002"]);
+  });
+  it("a máquina recebe as listas dos subconjuntos, com o nome, sem repetir as dela", () => {
+    const base = I.listasPorEquipamento([{ equipChave: "MAQ", plano: "900001" }, { equipChave: "SUB1", plano: "900001" },
+      { equipChave: "SUB1", plano: "900002" }, { equipChave: "NETO", plano: "900002" }], I.listasPorPlano(ip19));
+    const m = I.comListasDosSubconjuntos(base, [{ equipamento: "MAQ", denominacao: "MAQUINA" },
+      { equipamento: "SUB1", denominacao: "MAQ - LUBRIFICACAO", superior: "MAQ" }, { equipamento: "NETO", denominacao: "X", superior: "SUB1" }]);
+    expect(m.get("MAQ")!.map((l) => `${l.grupo}/${l.numerador}/${l.subconjunto ?? ""}`)).toEqual(["GRP_A/1/", "GRP_B/3/MAQ - LUBRIFICACAO (SUB1)"]);
+    expect(m.get("SUB1")!.map((l) => l.grupo)).toEqual(["GRP_A", "GRP_B"]);
+  });
+  it("script acha o CSV fora da pasta dele (rodando de dentro do SAP) e pergunta a pasta", () => {
+    const v = I.scriptInclusao(true);
+    expect(v).toContain("%USERPROFILE%");
+    expect(v).toContain("InputBox(");
+    expect(v).not.toMatch(/C:\\Users\\[a-z]/i);
+  });
+});
+
 describe("carga e script", () => {
   const item: I.ItemInclusao = { grupo: "GRP_A", numerador: "1", operacao: "10", material: "100200", quantidade: 1.5, um: "PC",
     texto: "ROLAMENTO; 6205 ÇÃO", equipamento: "LINHA-1" };

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { AbasVisao, PaginaWcm } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
@@ -23,14 +24,16 @@ export const maxDuration = 60;
 export default async function Equipamentos(props: { searchParams: Promise<Params> }) {
   const u = await exigir("equipamentos");
   const params = { ...(await props.searchParams) };
-  const c = await contexto(params);
   const completo = veInteira(u, "equipamentos");
   const cadastra = completo && podeEditar(u);
   const pedida = String(params.visao ?? "");
-  // link de outras abas (/equipamentos?eq=<código>): abre a ficha; quem só vê a Gestão de ativos abre o resumo do ativo
+  // link de outras abas (/equipamentos?eq=<código>): abre a ficha; quem só vê a Gestão de ativos abre a biblioteca do ativo
   const eq = typeof params.eq === "string" ? params.eq : "";
   const visao = completo && VISOES.includes(pedida) ? pedida : completo && eq && !pedida ? V_ANALISE : V_ATIVOS;
-  if (visao === V_ATIVOS && eq && !params.at) params.at = eq;
+  // a biblioteca é a visão do ativo: a Gestão de ativos só escolhe o ativo (link antigo com ?at= também vai para ela)
+  const ativo = visao === V_ATIVOS ? (typeof params.at === "string" && params.at) || eq : "";
+  if (ativo) redirect(`/equipamentos/biblioteca?${new URLSearchParams({ eq: ativo })}`);
+  const c = await contexto(params);
   // a Gestão de ativos e o cadastro são da fábrica inteira; só a análise segue os filtros globais (período inclusive)
   const filtros = visao === V_ANALISE;
   return (

@@ -41,15 +41,15 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const completo = veInteira(u, "equipamentos");
   const edita = completo && podeEditar(u);
   const voltar = (
-    <Link prefetch={false} href={`/equipamentos?${new URLSearchParams(eq ? { at: eq } : {})}${eq ? "#abas" : ""}`} className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
-      <ArrowLeft className="size-4" /> Equipamentos
+    <Link prefetch={false} href="/equipamentos#abas" className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
+      <ArrowLeft className="size-4" /> Escolher outro ativo
     </Link>
   );
   if (!eq) {
     return (
       <Pagina>
         {voltar}
-        <Cabecalho titulo="Biblioteca do ativo" subtitulo="Escolha um equipamento na Gestão de ativos para abrir a biblioteca dele." />
+        <Cabecalho titulo="Biblioteca do ativo" subtitulo="Escolha um equipamento na lista de Equipamentos para abrir a biblioteca dele." />
       </Pagina>
     );
   }
@@ -107,8 +107,11 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
               ["Fabricante", r.fabricante || "—"], ["Modelo", r.modelo || "—"], ["Nº de série", r.serie || "—"], ["Categoria", r.categoria || "—"],
               ["Instalação", r.anoInstalacao != null ? `${r.anoInstalacao} (${r.idade} anos)` : "—"], ["Vida útil", r.vidaUtil != null ? `${r.vidaUtil} anos (restam ${r.vidaRestante ?? "—"})` : "—"],
               ["Garantia", r.garantiaAte != null ? `${r.garantia} · até ${dataBr(r.garantiaAte)}` : r.garantia || "—"], ["Valor de reposição", brl(r.valorReposicao)],
+              ["Centro de custo", r.centroCusto || "—"], ["Status do usuário", r.statusUsuario || "—"], ["Nº de inventário", r.inventario || "—"],
+              ["Equipamento superior", r.superior
+                ? <Link prefetch={false} href={`/equipamentos/biblioteca?${new URLSearchParams({ eq: r.superior })}`} className="text-[var(--acao)] hover:underline">{r.superior}</Link> : "—"],
               ["Origem", r.origem], ["ABC", r.abc || "—"],
-            ].map(([k, v]) => <div key={k}><dt className="text-[12px] text-texto-3">{k}</dt><dd className="font-medium">{v}</dd></div>)}
+            ].map(([k, v]) => <div key={String(k)}><dt className="text-[12px] text-texto-3">{k}</dt><dd className="font-medium">{v}</dd></div>)}
           </dl>
           {obs && <p className="mt-4 border-t border-borda pt-3 text-[13.5px] text-texto-2"><span className="text-texto-3">Observações: </span>{obs}</p>}
         </Cartao>
