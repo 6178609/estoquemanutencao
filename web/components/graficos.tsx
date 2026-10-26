@@ -531,3 +531,78 @@ export function Partes({ partes, formato: fmtNome = "inteiro" }: { partes: { nom
     </div>
   );
 }
+
+// ----------------------------------------------------------------------------
+// Velocímetro (meia-lua 0–100%): avanço de uma parte contra o todo; a cor é o status
+// ----------------------------------------------------------------------------
+export function Velocimetro({ valor, titulo, detalhe, status = "serie-1" }: { valor: number | null; titulo: string; detalhe?: string; status?: Cor }) {
+  const p = valor == null ? 0 : Math.max(0, Math.min(100, valor)) / 100;
+  const R = 46, CX = 60, CY = 56;
+  const ponto = (t: number) => [CX - R * Math.cos(Math.PI * t), CY - R * Math.sin(Math.PI * t)];
+  const [x0, y0] = ponto(0), [x1, y1] = ponto(1), [xp, yp] = ponto(p);
+  return (
+    <div className="flex flex-col items-center rounded-cartao border border-borda bg-superficie px-3 pb-3 pt-2.5 text-center">
+      <div className="line-clamp-2 min-h-[32px] text-[12.5px] font-medium leading-tight text-texto-2">{titulo}</div>
+      <svg viewBox="0 0 120 64" className="w-full max-w-[150px]" role="meter" aria-label={titulo} aria-valuenow={valor ?? undefined} aria-valuetext={valor == null ? "sem dado" : undefined} aria-valuemin={0} aria-valuemax={100}>
+        <path d={`M${x0},${y0} A${R},${R} 0 0 1 ${x1},${y1}`} fill="none" stroke="var(--superficie-3)" strokeWidth={11} strokeLinecap="round" />
+        {p > 0 && <path d={`M${x0},${y0} A${R},${R} 0 0 1 ${xp},${yp}`} fill="none" stroke={cor(status)} strokeWidth={11} strokeLinecap="round" />}
+        <text x={CX} y={CY - 4} textAnchor="middle" className="fill-[var(--texto)] text-[17px] font-semibold tabular-nums">{valor == null ? "—" : `${Math.round(valor)}%`}</text>
+      </svg>
+      <div className="flex w-full max-w-[150px] justify-between text-[10px] text-texto-4"><span>0%</span><span>100%</span></div>
+      {detalhe && <div className="mt-1 text-[11.5px] text-texto-3">{detalhe}</div>}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Dispersão: um ponto por item (ex.: mês), x e y com formatos próprios; o último ponto em destaque
+// ----------------------------------------------------------------------------
+export function Dispersao({ pontos, formatoX = "padrao", formatoY = "padrao", nomeX, nomeY, altura = 220, metaY }: {
+  pontos: { rotulo: string; x: number; y: number }[]; formatoX?: Formato; formatoY?: Formato; nomeX: string; nomeY: string;
+  altura?: number; metaY?: number | null;
+}) {
+  const [ref, largura] = useLargura<HTMLDivElement>();
+  const [dica, setDica] = useState<Dica | null>(null);
+  const fx = (v: number) => fmt(formatoX, v), fy = (v: number) => fmt(formatoY, v);
+  const ys = pontos.map((p) => p.y), xs = pontos.map((p) => p.x);
+  const ey = escala(Math.max(...ys, metaY ?? -Infinity), Math.min(...ys, metaY ?? Infinity), 4);
+  const ex = escala(Math.max(...xs), Math.min(...xs), 4);
+  const ESQ = margemEixo(ey.ticks.map(fy)), BASE = 34, TOPO = 12, DIR = 14;
+  const w = Math.max(largura - ESQ - DIR, 10), h = altura - BASE - TOPO;
+  const X = (v: number) => ESQ + ((v - ex.base) / (ex.topo - ex.base || 1)) * w;
+  const Y = (v: number) => TOPO + h - ((v - ey.base) / (ey.topo - ey.base || 1)) * h;
+  return (
+    <div ref={ref} className="relative" onPointerLeave={() => setDica(null)}>
+      {largura > 0 && pontos.length > 0 && (
+        <svg width={largura} height={altura} aria-label={`${nomeY} × ${nomeX}`}>
+          {ey.ticks.map((t) => (
+            <g key={`y${t}`}>
+              <line x1={ESQ} x2={largura - DIR} y1={Y(t)} y2={Y(t)} stroke="var(--grade)" />
+              <text x={ESQ - 6} y={Y(t)} dy="0.32em" textAnchor="end" className="fill-[var(--texto-3)] text-[10.5px] tabular-nums">{fy(t)}</text>
+            </g>
+          ))}
+          {ex.ticks.map((t) => (
+            <text key={`x${t}`} x={X(t)} y={altura - BASE + 16} textAnchor="middle" className="fill-[var(--texto-3)] text-[10.5px] tabular-nums">{fx(t)}</text>
+          ))}
+          <text x={ESQ + w / 2} y={altura - 4} textAnchor="middle" className="fill-[var(--texto-3)] text-[10.5px]">{nomeX}</text>
+          {metaY != null && <line x1={ESQ} x2={largura - DIR} y1={Y(metaY)} y2={Y(metaY)} stroke="var(--st-bom)" strokeWidth={1.5} strokeDasharray="4 3" />}
+          <path d={pontos.map((p, i) => `${i ? "L" : "M"}${X(p.x)},${Y(p.y)}`).join("")} fill="none" stroke="var(--texto-4)" strokeWidth={1} strokeDasharray="2 3" />
+          {pontos.map((p, i) => {
+            const ultimo = i === pontos.length - 1;
+            return (
+              <g key={p.rotulo + i} tabIndex={0} role="button" aria-label={`${p.rotulo}: ${nomeY} ${fy(p.y)}, ${nomeX} ${fx(p.x)}`}
+                onBlur={() => setDica(null)}
+                onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: p.rotulo,
+                  linhas: [{ nome: nomeY, valor: fy(p.y) }, { nome: nomeX, valor: fx(p.x) }] })}
+                onFocus={() => setDica({ x: X(p.x), y: Y(p.y), titulo: p.rotulo, linhas: [{ nome: nomeY, valor: fy(p.y) }, { nome: nomeX, valor: fx(p.x) }] })}>
+                <circle cx={X(p.x)} cy={Y(p.y)} r={ultimo ? 6 : 4.5} fill={cor(ultimo ? "serie-2" : "serie-1")} stroke="var(--superficie)" strokeWidth={2} />
+                {ultimo && <text x={X(p.x)} y={Y(p.y) - 10} textAnchor="middle" className="fill-[var(--texto)] text-[10.5px] font-medium">{p.rotulo}</text>}
+              </g>
+            );
+          })}
+        </svg>
+      )}
+      <CaixaDica d={dica} largura={largura} />
+    </div>
+  );
+}

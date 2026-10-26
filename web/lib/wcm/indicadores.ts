@@ -3,7 +3,7 @@ import * as af from "./af";
 import * as hh from "./hh";
 import * as planos from "./planos";
 import * as preditiva from "./preditiva";
-import { PENDENTES, type Confirmacao, type Nota, type Operacao, type Ordem, type Pessoa, type Requisicao } from "./preparo";
+import { ENCERRADA_SEM_CONF, PENDENTES, type Confirmacao, type Nota, type Operacao, type Ordem, type Pessoa, type Requisicao } from "./preparo";
 import { inicioDoMes, partes, somarMeses, type Dia } from "./util";
 
 /**
@@ -39,6 +39,7 @@ export const KPIS: Kpi[] = [
   k("pct_plano", "Manutenção planejada", "%", 1, 80, PLANEJAMENTO, "/ordens", "Ordens com número de plano de manutenção ÷ ordens do período (canceladas não contam).", { mensal: true }),
   k("pct_emergencial", "Ordens corretivas emergenciais", "%", -1, 10, PLANEJAMENTO, "/ordens", "Ordens de tipo classificado como Emergencial ÷ ordens do período. Fica sem valor se o IW38 carregado não tem nenhum tipo emergencial (exporte o IW38 com todos os tipos).", { mensal: true }),
   k("aderencia", "Aderência ao plano", "%", 1, 95, PLANEJAMENTO, "/planos", "Chamadas da IP19 com data até hoje que foram concluídas ÷ chamadas vencidas (saltadas não contam).", { mensal: true }),
+  k("cumprimento_prev", "Cumprimento da preventiva", "%", 1, 90, PLANEJAMENTO, "/ordens", "Ordens de plano (preventivas) com data-base de início no período, até hoje, já concluídas ou encerradas ÷ ordens de plano do período até hoje (canceladas não contam).", { mensal: true }),
   k("no_prazo", "Ordens concluídas no prazo", "%", 1, 90, PLANEJAMENTO, "/ordens", "Ordens concluídas cujo fim real (IW38OP) foi até a data-base do fim ÷ ordens concluídas com as duas datas.", { mensal: true }),
   k("backlog_sem", "Backlog", "sem", -1, 3, PLANEJAMENTO, "/mao_de_obra", "HH pendentes das ordens em aberto ÷ capacidade semanal (configurada ou média das últimas 12 semanas).", { foto: true }),
   k("idade_backlog", "Idade média do backlog", "dias", -1, 30, PLANEJAMENTO, "/ordens", "Média de dias desde a data-base de início das ordens em aberto (até hoje).", { foto: true }),
@@ -61,6 +62,9 @@ export const KPIS: Kpi[] = [
   k("hh_emergencial", "HH em corretiva emergencial", "%", -1, 10, MAO_DE_OBRA, "/mao_de_obra", "HH apontadas em ordens de tipo classificado como Emergencial (ex.: YM11) ÷ HH apontadas em ordens que estão no IW38. Fica sem valor se o IW38 carregado não tem nenhum tipo emergencial.", { mensal: true }),
   k("custo", "Custo médio mensal", "R$", -1, null, CUSTOS, "/custos", "Custo real das ordens do período (IW38) ÷ meses do período. A meta é o orçamento mensal.", { mensal: true }),
   k("pct_custo_corr", "Custo do backlog", "%", -1, 20, CUSTOS, "/custos", "Custo real das ordens sem plano ÷ custo real total.", { mensal: true }),
+  k("custo_total", "Custo total", "R$", -1, null, CUSTOS, "/custos", "Custo real das ordens do período (IW38), sem as canceladas. Uma meta aqui vale para o período filtrado inteiro (para a meta mensal, use o Custo médio mensal).", { mensal: true }),
+  k("custo_hora", "Custo por hora", "R$", -1, null, CUSTOS, "/custos", "Custo real das ordens do período ÷ HH apontadas no período (IW47; sem IW47, operações concluídas do IW38OP). Fica sem valor se os apontamentos não cobrem o período inteiro.", { mensal: true }),
+  k("pct_corretiva", "% corretiva", "%", -1, 30, CUSTOS, "/custos", "Custo real das ordens de classe Corretiva ou Emergencial (tipos de ordem em Metas) ÷ custo real total do período.", { mensal: true }),
   k("custo_medio", "Custo médio por ordem", "R$", -1, null, CUSTOS, "/custos", "Custo real ÷ ordens com custo no período."),
   k("itens_zerados", "Itens zerados no estoque", "un", -1, null, SUPRIMENTOS, "/estoque", "Materiais do MB52 com saldo zero ou negativo.", { foto: true }),
   k("pecas_criticas", "Peças críticas em falta", "un", -1, 0, SUPRIMENTOS, "/estoque", "Peças vinculadas a equipamentos de criticidade Alta zeradas ou abaixo do mínimo.", { foto: true }),
@@ -255,7 +259,8 @@ export function capacidadeSemanal(d: Dados, centros: string[] | null = null): [n
 // ----------------------------------------------------------------------------
 export const TIPO_QUEBRA = "YM11";
 const FONTE: Record<string, "iw38" | "notas" | "hh"> = {
-  ...Object.fromEntries(["pct_plano", "pct_emergencial", "no_prazo", "custo", "pct_custo_corr", "custo_medio"].map((x) => [x, "iw38" as const])),
+  ...Object.fromEntries(["pct_plano", "pct_emergencial", "no_prazo", "custo", "pct_custo_corr", "custo_medio", "custo_total", "custo_hora", "pct_corretiva",
+    "cumprimento_prev"].map((x) => [x, "iw38" as const])),
   ...Object.fromEntries(["quebras", "mtbf", "mttr", "disponibilidade", "reincidencia", "quebras_a", "notas_7d", "semeq_detectadas",
     "semeq_com_ordem", "semeq_tratadas", "semeq_dias"].map((x) => [x, "notas" as const])),
   ...Object.fromEntries(["hh", "utilizacao", "pct_hh_plano", "hh_emergencial"].map((x) => [x, "hh" as const])),
@@ -325,6 +330,8 @@ export function calcular(d: Dados, ini: Dia, fim: Dia): Resultado {
     const concl = per.filter((o) => o.situacao === "Concluída" && fr.has(o.ordem) && o.fim != null);
     r.no_prazo = div(concl.filter((o) => fr.get(o.ordem)! <= o.fim!).length, concl.length, 100);
   } else r.no_prazo = null;
+  const prev = per.filter((o) => o.comPlano);
+  r.cumprimento_prev = div(prev.filter((o) => o.situacao === "Concluída" || o.situacao === ENCERRADA_SEM_CONF).length, prev.length, 100);
   const bk = memo(d, "backlog", backlog);
   const [cap] = memo(d, "capacidade", (x) => capacidadeSemanal(x, x.centros.length ? x.centros : null));
   r.backlog_sem = d.oper != null && cap ? div(somaDe(bk, (b) => b.hhPendentes ?? 0), cap) : null;
@@ -357,6 +364,10 @@ export function calcular(d: Dados, ini: Dia, fim: Dia): Resultado {
   r.custo = dias > 0 ? custo / Math.max(dias / 30.44, 1) : null;
   r.pct_custo_corr = div(somaDe(per.filter((o) => !o.comPlano), (o) => o.custoReal), custo, 100);
   r.custo_medio = div(custo, per.filter((o) => o.custoReal !== 0).length);
+  r.custo_total = custo;
+  r.custo_hora = r.hh ? div(custo, r.hh) : null;
+  r.pct_corretiva = Object.keys(d.tipos).length
+    ? div(somaDe(per.filter((o) => ["Corretiva", "Emergencial"].includes(classeTipo(o.tipo, d.tipos))), (o) => o.custoReal), custo, 100) : null;
 
   // suprimentos
   if (d.estoque) {
@@ -371,6 +382,8 @@ export function calcular(d: Dados, ini: Dia, fim: Dia): Resultado {
   // base que não cobre o período: valor vazio (não zero)
   const cob = dias > 0 ? cobertura(d, ini, fimEf) : { iw38: 0, notas: 0, hh: 0 };
   for (const [kk, fonte] of Object.entries(FONTE)) if (!cob[fonte]) r[kk] = null;
+  // custo por hora: com a IW47 cobrindo só parte do período, o divisor sai parcial e o valor, inflado
+  if (cob.hh < 0.99) r.custo_hora = null;
   for (const [kk, v] of Object.entries(cob)) r[`_cob_${kk}`] = v;
   return r;
 }

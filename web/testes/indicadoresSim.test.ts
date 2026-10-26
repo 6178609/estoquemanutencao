@@ -201,6 +201,6 @@ describe("indicadores do SAP no formato do SIM", () => {
     const mttr = ls.find((l) => l.kpi.id === "mttr")!;
     expect(mttr).toMatchObject({ tipo: "B", meta: 4, real: 5, anterior: 3, ytd: 4, farol: "vermelho", farolYtd: "verde" });
     expect(ls.find((l) => l.kpi.id === "mtbf")!.tipo).toBe("A");
-    expect(ls).toHaveLength(35);
+    expect(ls).toHaveLength(39);
   });
 });
