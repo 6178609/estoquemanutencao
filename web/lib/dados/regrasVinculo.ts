@@ -13,16 +13,105 @@
  * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo;
  * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L);
  * - prensa a vácuo: os materiais do modelo KCLKA EK76 (EK76A-10, EK76-10);
- * - prensa COPE: os materiais do modelo PHB 450 (também escrito PBH 450).
+ * - prensa COPE: os materiais do modelo PHB 450 (também escrito PBH 450);
+ * - KCLKA EXP 12+: as peças EK3 (e as do manual EK3 achadas no Sysmat) também nos sistemas de cada máquina (sistemaKclka;
+ *   o subconjunto certo varia: as EXP 12–14 têm força/controle/fechamento/aquecimento, as EXP 15+ têm elétrico e estações).
+ * Em todas: um material que é a própria máquina (descrição "INJETORA …", "MISTURADOR IND …") não é peça e fica de fora.
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
 import type { Equipamento } from "../wcm/preparo";
 
+type EquipRegra = Pick<Equipamento, "equipamento" | "denominacao" | "inativo" | "desativado"> & { superior?: string };
+/** O que a regra enxerga da hierarquia (para escolher o subconjunto certo de cada máquina). */
+export interface Hierarquia { equip: (codigo: string) => EquipRegra | undefined; filhos: (codigo: string) => EquipRegra[] }
+
 export interface RegraVinculo {
   id: string; descricao: string;
-  equipamento: (e: Pick<Equipamento, "denominacao" | "inativo" | "desativado">) => boolean;
+  equipamento: (e: EquipRegra, h: Hierarquia) => boolean;
   material: (m: Pick<ItemCatalogo, "material" | "descricaoCurta" | "descrCompleta" | "status">) => boolean;
+}
+
+/** Injetora KCLKA da EXP 12 em diante (modelo EK3), ativa. */
+function kclkaEk3(e: Pick<EquipRegra, "denominacao" | "inativo" | "desativado">): boolean {
+  if (e.inativo || e.desativado) return false;
+  const m = /^INJETORA EXP\s*(\d+)\b.*KCLKA/.exec(chave(e.denominacao));
+  return !!m && Number(m[1]) >= 12;
+}
+
+/** Peças da lista do manual EK3 (cap. 7 e laudo NR-12) achadas no Sysmat pela referência, com o sistema onde entram. */
+const PECAS_MANUAL_EK3: Record<string, SistemaKclka> = {
+  1774818: "aquecimento", // relé de estado sólido SSR-40DA
+  1756270: "controle", // CLP Omron CP1H
+  1570605: "forca", // contator Schneider LC1-D65 220 V (bomba)
+  1716087: "seguranca", 1529930: "seguranca", 982855: "seguranca", // relé de segurança Schmersal SRB301MC-24V
+};
+
+/** Material da EK3: referência EK3 no texto ou peça da lista do manual. */
+export function materialEk3(curta: string, completa: string, codigo = ""): boolean {
+  return !!PECAS_MANUAL_EK3[codigo.trim()] || /\bEK3\b/.test(chave(`${curta} ${completa}`));
+}
+
+/**
+ * Sistemas das KCLKA e onde procurar cada um nos subconjuntos da máquina, em ordem de preferência (o primeiro que a
+ * máquina tiver). `todos`: entra em todos os subconjuntos que casam (as estações das EXP 15+).
+ */
+const SISTEMAS_KCLKA = {
+  injecao: [{ re: /INJECAO/ }], aquecimento: [{ re: /AQUECIMENTO/ }, { re: /INJECAO/ }], hidraulico: [{ re: /HIDRAULIC/ }],
+  forca: [{ re: /FORCA/ }, { re: /ELETRIC/ }], controle: [{ re: /CONTROLE/ }, { re: /ELETRIC/ }], vacuo: [{ re: /VACUO/ }],
+  abastecimento: [{ re: /ABASTEC/ }, { re: /INJECAO/ }], seguranca: [{ re: /SEGURANCA/ }], translacao: [{ re: /TRANSLACAO/ }, { re: /ESTRUTUR/ }],
+  fechamento: [{ re: /FECHAMENTO/ }, { re: /\bEST(ACAO)? ?\d+$/, todos: true }], pneumatico: [{ re: /PNEUMATIC/ }], refrigeracao: [{ re: /REFRIGER/ }],
+  estrutura: [{ re: /ESTRUTUR/ }],
+} as const satisfies Record<string, readonly { re: RegExp; todos?: boolean }[]>;
+export type SistemaKclka = keyof typeof SISTEMAS_KCLKA;
+
+/** Em que sistema da KCLKA a peça entra, pela descrição curta (null = só na máquina). */
+export function sistemaKclka(curta: string, codigo = ""): SistemaKclka | null {
+  if (PECAS_MANUAL_EK3[codigo.trim()]) return PECAS_MANUAL_EK3[codigo.trim()];
+  const c = chave(curta);
+  if (/^(AGULHA BLOQUEIO|BICO INJECAO|PONTEIRA|CJ PLASTIF|ROSCA FUSO|REPARO CIL BLOQ|KIT REP CIL AGULHA|REGUA POTENCIOMETRICA)/.test(c)) return "injecao";
+  if (/^RESISTENCIA/.test(c)) return "aquecimento";
+  if (/^(VALVULA (DIR|RET|ESTRANG)|BOMBA HIDR|TRANSDUTOR PRESSAO|REPARO VED KCLKA)/.test(c)) return "hidraulico";
+  if (/^(DRIVE|SERVO MOTOR|CONTATOR)/.test(c)) return "forca";
+  if (/^PLACA/.test(c)) return "controle";
+  if (/BOMBA VAC|^MANOMETRO VACUO/.test(c)) return "vacuo";
+  if (/^(INTERRUPTOR MICRO INT SUCC|COPO VISOR SILO)/.test(c)) return "abastecimento";
+  if (/^(SENSOR ANTIESMAGAM|CABO PLUGUE|PINO SEG|BUCHA PINO SEG|REPARO VED CIL POR|RELE SEG)/.test(c)) return "seguranca";
+  if (/^(REPARO VED CIL MOL|REPARO CIL RES)/.test(c)) return "fechamento";
+  if (/^GUIA DESL/.test(c)) return "translacao";
+  if (/^CILINDRO PNEUM/.test(c)) return "pneumatico";
+  return null;
+}
+
+/** Nome do subconjunto sem a parte da máquina ("INJETORA 12 - SISTEMA DE FORCA" → "SISTEMA DE FORCA"). */
+const parteDoSistema = (denominacao: string) => chave(denominacao.includes(" - ") ? denominacao.slice(denominacao.lastIndexOf(" - ") + 3) : denominacao);
+
+/** Os subconjuntos da máquina que recebem as peças do sistema (o 1º da ordem de preferência que existir). */
+export function alvosKclka(s: SistemaKclka, filhos: EquipRegra[]): string[] {
+  const ativos = filhos.filter((f) => !f.inativo && !f.desativado);
+  for (const { re, ...o } of SISTEMAS_KCLKA[s]) {
+    const achados = ativos.filter((f) => re.test(parteDoSistema(f.denominacao)));
+    if (achados.length) return ("todos" in o && o.todos ? achados : achados.slice(0, 1)).map((f) => f.equipamento);
+  }
+  return [];
+}
+
+function regrasDosSistemasKclka(): RegraVinculo[] {
+  return (Object.keys(SISTEMAS_KCLKA) as SistemaKclka[]).map((s) => ({
+    id: `kclka-ek3-${s}`,
+    descricao: `KCLKA EXP 12+, ${s}: peças EK3 desse sistema`,
+    equipamento: (e, h) => {
+      const pai = e.superior ? h.equip(e.superior) : undefined;
+      return !e.inativo && !e.desativado && !!pai && kclkaEk3(pai) && alvosKclka(s, h.filhos(pai.equipamento)).includes(e.equipamento);
+    },
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialEk3(m.descricaoCurta, m.descrCompleta, m.material)
+      && sistemaKclka(m.descricaoCurta, m.material) === s,
+  }));
+}
+
+/** A própria máquina cadastrada como material (não é peça): "INJETORA …", "MISTURADOR IND …", "MAQ …". */
+export function ehMaquinaInteira(curta: string): boolean {
+  return /^(INJETORA|MISTURADOR IND|MAQ|MAQUINA|PRENSA HIDR)\b/.test(chave(curta));
 }
 
 /** Sistemas das injetoras PVC: o nome do subconjunto no SAP ("INJ PVC 06 GOLDEN - SISTEMA HIDRAULICO"…). */
@@ -59,14 +148,10 @@ export const REGRAS: RegraVinculo[] = [
   {
     id: "kclka-exp12-ek3",
     descricao: "Injetoras KCLKA da EXP 12 em diante: materiais EK3 aprovados no Sysmat",
-    equipamento: (e) => {
-      if (e.inativo || e.desativado) return false;
-      const m = /^INJETORA EXP\s*(\d+)\b.*KCLKA/.exec(chave(e.denominacao));
-      return !!m && Number(m[1]) >= 12;
-    },
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO"
-      && /\bEK3\b/.test(chave(`${m.descricaoCurta} ${m.descrCompleta}`)),
+    equipamento: (e) => kclkaEk3(e),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialEk3(m.descricaoCurta, m.descrCompleta, m.material),
   },
+  ...regrasDosSistemasKclka(),
   {
     id: "golden-01a12-180s",
     descricao: "Injetoras Golden Eagle 01 a 12 (UGB1): materiais do modelo 180S aprovados no Sysmat",
@@ -199,11 +284,14 @@ export function modelo180S(descrCompleta: string): boolean {
 }
 
 /** {código do equipamento: {nome, materiais}} que as regras pedem (materiais sem repetição, em ordem). */
-export function vinculosDasRegras(equips: (Pick<Equipamento, "equipamento" | "denominacao" | "inativo" | "desativado"> & { superior?: string })[],
+export function vinculosDasRegras(equips: EquipRegra[],
   catalogo: Pick<ItemCatalogo, "material" | "descricaoCurta" | "descrCompleta" | "status">[], regras = REGRAS): Map<string, { nome: string; materiais: string[] }> {
   const out = new Map<string, { nome: string; materiais: string[] }>();
   // subconjunto de máquina inativa (em qualquer nível acima) também fica de fora
   const porCodigo = new Map(equips.map((e) => [e.equipamento, e]));
+  const filhos = new Map<string, EquipRegra[]>();
+  for (const e of equips) if (e.superior) (filhos.get(e.superior) ?? filhos.set(e.superior, []).get(e.superior)!).push(e);
+  const h: Hierarquia = { equip: (c) => porCodigo.get(c), filhos: (c) => filhos.get(c) ?? [] };
   const acimaInativo = (e: { superior?: string }) => {
     for (let s = e.superior, n = 0; s && n < 10; n++) {
       const p = porCodigo.get(s);
@@ -214,10 +302,10 @@ export function vinculosDasRegras(equips: (Pick<Equipamento, "equipamento" | "de
     return false;
   };
   for (const r of regras) {
-    const mats = [...new Set(catalogo.filter(r.material).map((m) => m.material.trim()))].sort();
+    const mats = [...new Set(catalogo.filter((m) => r.material(m) && !ehMaquinaInteira(m.descricaoCurta)).map((m) => m.material.trim()))].sort();
     if (!mats.length) continue;
     for (const e of equips) {
-      if (!r.equipamento(e) || acimaInativo(e)) continue;
+      if (!r.equipamento(e, h) || acimaInativo(e)) continue;
       const x = out.get(e.equipamento) ?? { nome: e.denominacao, materiais: [] };
       x.materiais = [...new Set([...x.materiais, ...mats])].sort();
       out.set(e.equipamento, x);

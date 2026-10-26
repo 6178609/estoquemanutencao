@@ -131,3 +131,33 @@ describe("regra: Golden PVC (GEK 220 e GES 270/S) por sistema", () => {
     expect(w.size).toBe(0);
   });
 });
+
+describe("regra: KCLKA EK3 por sistema", () => {
+  const m = (material: string, curta: string, completa = "MODELO: EK3-6E2 / 10E2", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
+  const sub = (cod: string, nome: string, sup: string, inativo = false) => ({ ...eq(cod, nome, inativo), superior: sup });
+  const equips = [
+    eq("12", "INJETORA EXP 12 (6 EST) UGB2 KCLKA"), sub("12a", "INJETORA 12 - SISTEMA DE AQUECIMENTO", "12"), sub("12i", "INJETORA 12 - SISTEMA DE INJECAO", "12"),
+    sub("12f", "INJETORA 12 - SISTEMA DE FORCA", "12"), sub("12c", "INJETORA 12 - SISTEMA DE CONTROLE", "12"),
+    eq("15", "INJETORA EXP 15 (10 EST) UGB2 KCLKA"), sub("15i", "INJ EXP 15 UGB2 KCLKA - SIST INJEÇÃO", "15"), sub("15e", "INJ EXP 15 UGB2 KCLKA - SIST ELETRICO", "15"),
+    sub("15s1", "INJ EXP 15 UGB2 KCLKA - SIST EST 01", "15"), sub("15s2", "INJ EXP 15 UGB2 KCLKA - SIST. ESTAÇÃO 02", "15"),
+    eq("08", "INJETORA 08 UGB1 GOLDEN EAGLE"), sub("08v", "INJETORA 08 - SISTEMA DE INJECAO", "08"),
+  ];
+  const cat = [m("90", "RESISTENCIA 125X65 KCLKA 1981"), m("91", "BICO INJECAO KCLKA 2026"), m("92", "DRIVE INOVANCE 22KW KCLKA 2324"),
+    m("93", "PLACA AMPLIF KCLKA 2007"), m("94", "REPARO VED CIL MOL KCLKA 1993"), m("95", "INJETORA VERT 2EST 170TON 920CM3", "MODELO: EK3"),
+    m("1756270", "CONTROLADOR LOG PROG 24/16 24V", "FAB: OMRON - REF: CP1H-X40DT-D")];
+  const v = vinculosDasRegras(equips, cat);
+  it("máquina recebe as peças EK3 e as do manual, sem a máquina inteira", () => expect(v.get("12")!.materiais).toEqual(["1756270", "90", "91", "92", "93", "94"]));
+  it("EXP 12: cada peça no subconjunto do seu sistema", () => {
+    expect(v.get("12a")!.materiais).toEqual(["90"]);
+    expect(v.get("12i")!.materiais).toEqual(["91"]);
+    expect(v.get("12f")!.materiais).toEqual(["92"]);
+    expect(v.get("12c")!.materiais).toEqual(["1756270", "93"]);
+  });
+  it("EXP 15: aquecimento vai na injeção, força e controle no elétrico, fechamento em todas as estações", () => {
+    expect(v.get("15i")!.materiais).toEqual(["90", "91"]);
+    expect(v.get("15e")!.materiais).toEqual(["1756270", "92", "93"]);
+    expect(v.get("15s1")!.materiais).toEqual(["94"]);
+    expect(v.get("15s2")!.materiais).toEqual(["94"]);
+  });
+  it("subconjunto de outra máquina com nome parecido fica de fora", () => expect(v.has("08v")).toBe(false));
+});
