@@ -9,7 +9,8 @@
  *   GEL 180, GEL 180L nem GEK 180/700/S);
  * - injetoras PVC (Golden Eagle): os materiais do modelo GEK 220 / GEKK (GEK 220W/S, GEK 220, GEK 220/S);
  * - injetoras Tien Kang (2 estações): os materiais com TIEN KANG no descritivo;
- * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo.
+ * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo;
+ * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L).
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
@@ -64,7 +65,21 @@ export const REGRAS: RegraVinculo[] = [
       return !!m.material.trim() && chave(m.status) === "APROVADO" && /\bPAN ?STONE\b/.test(t) && /\bJOB/.test(t);
     },
   },
+  {
+    id: "banbury-bonfanti-bmi80",
+    descricao: "Banbury Bonfanti (UGB1): materiais Bonfanti do misturador BMI-80, aprovados no Sysmat",
+    equipamento: (e) => !e.inativo && !e.desativado && /^BANBURY SF \d+ UGB1 BONFANTI$/.test(chave(e.denominacao)),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && bonfantiBmi80(m.descricaoCurta, m.descrCompleta),
+  },
 ];
+
+/** Material Bonfanti do misturador BMI-80: BMI-80/80T/MIXER BMI80 no texto ou Banbury/misturador com MODELO 80 L. */
+export function bonfantiBmi80(curta: string, completa: string): boolean {
+  const t = chave(`${curta} ${completa}`);
+  if (!/\bBONFANTI\b/.test(t)) return false;
+  const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "");
+  return /\bBMI ?80(?!\d)/.test(t) || (/^80 ?L$/.test(mo) && /BANBURY|MISTURADOR/.test(t));
+}
 
 /** Modelo GEK 220 (220W/S, 220/S…) ou a sigla GEKK na descrição. */
 export function modeloGek220(curta: string, completa: string): boolean {
