@@ -2,9 +2,9 @@ import clsx from "clsx";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Colunas, Grafico, type Cor } from "@/components/graficos";
+import { Colunas, Grafico, Linhas, Velocimetro, type Cor } from "@/components/graficos";
 import { Aviso, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
-import { Cabecalho, Kpi } from "@/components/ui";
+import { Cabecalho, Kpi, Selo } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { dataHora, inteiro } from "@/lib/formato";
 import { barra, contexto, dados } from "@/lib/wcm/contexto";
@@ -77,6 +77,9 @@ export default async function Mapa52(props: { searchParams: Promise<Params> }) {
   const linhas = m52.mapa(filtro, per, hoje, ordenar);
   const semanas = m52.semanasDoAno(ano);
   const carga = m52.cargaSemanal(filtro, semanas);
+  const curva = m52.curvaS(filtro, semanas, hoje);
+  const avDis = m52.avancoPor(filtro, m52.disciplina, hoje);
+  const geral = m52.avancoPor(filtro, () => "Total", hoje)[0] ?? null;
 
   // capacidade de cada semana: Gerenciador de HH (jornada, % disponível e ausências) ou a configurada em Metas
   const d = await dados(c);
@@ -223,6 +226,8 @@ export default async function Mapa52(props: { searchParams: Promise<Params> }) {
         <Kpi rotulo="Semanas em sobrecarga" valor={inteiro(sobrecarga)} detalhe="acima de 95% da capacidade" tom="vermelho" />
         <Kpi rotulo="Pendentes de liberação" valor={inteiro(pendentes)} detalhe="ordem gerada, ainda Aberta" tom="vermelho" />
       </div>
+
+      {geral && <Executivo ano={ano} geral={geral} curva={curva} semanas={semanas} avanco={avDis} />}
 
       <Secao titulo={`Mapa 52 semanas · ${ano}`} destaque={`· ${inteiro(linhas.length)} planos · ${inteiro(ordAno)} ordens · ${inteiro(hhAno)} HH`}
         sub="Uma linha por plano, uma coluna por semana ISO. O símbolo e a cor são o status da chamada; a sigla, a periodicidade. A faixa de semanas (% da capacidade) rola à parte do mapa. Toque numa semana da faixa para abrir a programação dela; toque num plano para ver as chamadas.">
@@ -390,5 +395,76 @@ function Chamadas({ ch, per, csv, hoje }: { ch: planos.ChamadaClassificada[]; pe
         return [dataBr(x.data), x.chave, x.texto, x.centroTrabalho, per.get(x.chave)?.nome ?? "", { t: st + (atrasada ? " · atrasada" : ""), fundo: e.fundo, cor: e.cor },
           x.ordem, Math.round(x.horas * 10) / 10, m52.disciplina(x), x.local];
       })} />
+  );
+}
+
+const COR_SIT: Record<m52.Situacao, Cor> = { [m52.NO_PRAZO]: "st-bom", [m52.ATENCAO]: "st-atencao", [m52.ATRASADA]: "st-critico" };
+const SELO_SIT: Record<m52.Situacao, "verde" | "amarelo" | "vermelho"> = { [m52.NO_PRAZO]: "verde", [m52.ATENCAO]: "amarelo", [m52.ATRASADA]: "vermelho" };
+const pp = (v: number) => `${v > 0 ? "+" : ""}${Math.round(v)} p.p.`;
+/** O que fazer com o grupo, pela situação (o plano de ação da tabela). */
+function acao(a: m52.Avanco): string {
+  if (a.situacao === m52.ATRASADA) return a.pendentes ? `Gerar/liberar e executar as ${a.pendentes} chamada(s) vencida(s); reprogramar na semanal` : "Rever a programação";
+  if (a.situacao === m52.ATENCAO) return a.pendentes ? `Priorizar as ${a.pendentes} pendente(s) na próxima programação semanal` : "Acompanhar";
+  return a.pendentes ? `Manter o ritmo · ${a.pendentes} pendente(s) para fechar` : "Manter o ritmo";
+}
+
+/** Planejamento executivo do ano: % previsto × % realizado, curva S e avanço por disciplina (peso = HH das chamadas). */
+function Executivo({ ano, geral, curva, semanas, avanco }: { ano: number; geral: m52.Avanco; curva: m52.PontoCurva[]; semanas: m52.Semana[]; avanco: m52.Avanco[] }) {
+  const barra = (v: number, c: Cor) => (
+    <div className="flex items-center gap-2">
+      <div className="h-2 w-20 overflow-hidden rounded-full bg-superficie-3"><div className="h-full rounded-full" style={{ width: `${Math.min(100, v)}%`, background: corCss(c) }} /></div>
+      <span className="num text-[12px]">{Math.round(v)}%</span>
+    </div>
+  );
+  return (
+    <Secao titulo="Planejamento executivo" destaque={`· planos de ${ano}`}
+      sub="Avanço físico dos planos pelo HH das chamadas (sem as saltadas): previsto = chamadas com data até hoje ÷ total do ano; realizado = executadas ÷ total do ano. Desvio até −5 p.p. no prazo, até −15 p.p. atenção, abaixo disso atrasada.">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="rounded-cartao p-5 text-white" style={{ background: "color-mix(in srgb, var(--serie-1) 85%, black)" }}>
+          <div className="text-[13.5px] font-medium opacity-90">% previsto até hoje</div>
+          <div className="num mt-1.5 font-display text-[34px] font-medium leading-none">{Math.round(geral.previsto)}%</div>
+        </div>
+        <div className="rounded-cartao p-5 text-white" style={{ background: "color-mix(in srgb, var(--st-bom) 75%, black)" }}>
+          <div className="text-[13.5px] font-medium opacity-90">% realizado</div>
+          <div className="num mt-1.5 font-display text-[34px] font-medium leading-none">{Math.round(geral.realizado)}%</div>
+        </div>
+        <Kpi rotulo="Desvio" valor={pp(geral.desvio)} detalhe={geral.situacao} tom={geral.situacao === m52.NO_PRAZO ? "verde" : "vermelho"} />
+        <Kpi rotulo="Chamadas vencidas sem execução" valor={inteiro(geral.pendentes)} detalhe={`de ${inteiro(geral.chamadas)} no ano`} tom="vermelho" />
+      </div>
+      <Grafico titulo="Curva S · evolução física acumulada" subtitulo={`${ano} · % do HH do ano · realizado até a semana atual`}
+        legenda={<div className="flex flex-wrap gap-x-4 text-[12px] text-texto-2">
+          <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2" style={{ borderColor: "var(--serie-1)" }} />Previsto</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2" style={{ borderColor: "var(--st-bom)" }} />Realizado</span></div>}
+        tabela={{ colunas: ["Semana", "Previsto", "Realizado"], linhas: curva.map((p, i) => [`S${semanas[i].rotulo}`, `${Math.round(p.previsto)}%`, p.realizado == null ? "—" : `${Math.round(p.realizado)}%`]) }}>
+        <Linhas rotulos={semanas.map((s) => `S${s.rotulo}`)} formato="%" altura={240}
+          series={[{ nome: "Previsto", cor: "serie-1", valores: curva.map((p) => Math.round(p.previsto * 10) / 10) },
+            { nome: "Realizado", cor: "st-bom", valores: curva.map((p) => (p.realizado == null ? null : Math.round(p.realizado * 10) / 10)) }]} />
+      </Grafico>
+      <div className="overflow-x-auto rounded-cartao border border-borda bg-superficie">
+        <table className="w-full min-w-[760px] text-[12.5px]">
+          <thead className="bg-superficie-2 text-left text-[11.5px] text-texto-3">
+            <tr>{["Disciplina", "Chamadas", "% previsto", "% realizado", "Situação", "Desvio", "Plano de ação"].map((t) => <th key={t} className="px-3 py-2 font-medium">{t}</th>)}</tr>
+          </thead>
+          <tbody>
+            {avanco.map((a) => (
+              <tr key={a.grupo} className="border-t border-borda">
+                <td className="px-3 py-2 font-medium">{a.grupo}</td>
+                <td className="num px-3 py-2">{inteiro(a.chamadas)}</td>
+                <td className="px-3 py-2">{barra(a.previsto, "serie-1")}</td>
+                <td className="px-3 py-2">{barra(a.realizado, "st-bom")}</td>
+                <td className="px-3 py-2"><Selo cor={SELO_SIT[a.situacao]}>{a.situacao}</Selo></td>
+                <td className="num px-3 py-2" style={{ color: a.desvio < -5 ? corCss(COR_SIT[a.situacao]) : undefined }}>{pp(a.desvio)}</td>
+                <td className="px-3 py-2 text-texto-2">{acao(a)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+        {avanco.slice(0, 7).map((a) => (
+          <Velocimetro key={a.grupo} titulo={a.grupo} valor={a.realizado} status={COR_SIT[a.situacao]} detalhe={`previsto ${Math.round(a.previsto)}%`} />
+        ))}
+      </div>
+    </Secao>
   );
 }

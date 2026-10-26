@@ -103,3 +103,26 @@ describe("Mapa 52 semanas", () => {
     expect(m52.utilizacao(10, null)).toBeNull();
   });
 });
+
+describe("Mapa 52 · planejamento executivo", () => {
+  const ch26 = m52.filtrar(ch, { ano: 2026 }, per);
+  const semanas = m52.semanasDoAno(2026);
+
+  it("curva S pondera pelo HH, sem as saltadas, e o realizado para em hoje", () => {
+    const c = m52.curvaS(ch26, semanas, HOJE);
+    // HH do ano sem a saltada: 1 + 1 + 1 (plano 100) + 2 + 2 (plano 200) = 7; executada só a de 05/10 (1 HH)
+    expect(c[40].previsto).toBeCloseTo((1 / 7) * 100); // semana 41 (05/10)
+    expect(c[40].realizado).toBeCloseTo((1 / 7) * 100);
+    expect(c[52].previsto).toBeCloseTo(100);
+    expect(c[45].realizado).toBeNull(); // semana 46 é depois de hoje (15/10)
+  });
+
+  it("avanço por disciplina com desvio e situação", () => {
+    const a = m52.avancoPor(ch26, m52.disciplina, HOJE);
+    const insp = a.find((x) => x.grupo === "Inspeção")!;
+    expect(insp).toMatchObject({ chamadas: 3, previsto: (1 / 3) * 100, realizado: (1 / 3) * 100, situacao: m52.NO_PRAZO, pendentes: 0 });
+    const prev = a.find((x) => x.grupo === "Preventiva")!; // 12/10 vencida, não executada; saltada fora
+    expect(prev).toMatchObject({ chamadas: 2, previsto: 50, realizado: 0, desvio: -50, situacao: m52.ATRASADA, pendentes: 1 });
+    expect(m52.situacaoDesvio(-10)).toBe(m52.ATENCAO);
+  });
+});

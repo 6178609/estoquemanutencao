@@ -296,3 +296,75 @@ export function faixa(pct: number | null): Faixa | null {
 }
 
 export const utilizacao = (hh: number, cap: number | null) => (cap && cap > 0 ? (hh / cap) * 100 : null);
+
+// ----------------------------------------------------------------------------
+// Planejamento executivo: previsto × realizado (curva S e avanço por grupo)
+// ----------------------------------------------------------------------------
+/**
+ * Peso de cada chamada no avanço: o HH dela; se nenhuma chamada do conjunto tem HH, cada chamada vale 1.
+ * Saltadas ficam fora (não são trabalho).
+ */
+function pesos(ch: Ch[]): { c: Ch; peso: number; feita: boolean }[] {
+  const validas = ch.filter((c) => c.semana != null && status52(c) !== SALTADA);
+  const porHh = validas.some((c) => c.horas > 0);
+  return validas.map((c) => ({ c, peso: porHh ? c.horas : 1, feita: status52(c) === EXECUTADA }));
+}
+
+export interface PontoCurva { semana: number; previsto: number; realizado: number | null }
+
+/**
+ * Curva S do ano: % acumulado do previsto (peso das chamadas planejadas até a semana ÷ peso do ano) e do realizado
+ * (peso das chamadas executadas planejadas até a semana), este só até a semana de hoje.
+ */
+export function curvaS(ch: Ch[], semanas: Semana[], hoje: Dia): PontoCurva[] {
+  const p = pesos(ch);
+  const total = p.reduce((s, x) => s + x.peso, 0);
+  const prev = semanas.map(() => 0), real = semanas.map(() => 0);
+  for (const x of p) {
+    const i = x.c.semana! - 1;
+    if (i < 0 || i >= semanas.length) continue;
+    prev[i] += x.peso;
+    if (x.feita) real[i] += x.peso;
+  }
+  let ap = 0, ar = 0;
+  return semanas.map((s, i) => {
+    ap += prev[i]; ar += real[i];
+    return { semana: s.n, previsto: total ? (ap / total) * 100 : 0, realizado: s.segunda <= hoje && total ? (ar / total) * 100 : null };
+  });
+}
+
+export const NO_PRAZO = "No prazo", ATENCAO = "Atenção", ATRASADA = "Atrasada";
+export type Situacao = typeof NO_PRAZO | typeof ATENCAO | typeof ATRASADA;
+/** Desvio (realizado − previsto, em pontos percentuais): até −5 no prazo; até −15 atenção; abaixo, atrasada. */
+export function situacaoDesvio(desvio: number): Situacao {
+  if (desvio >= -5) return NO_PRAZO;
+  if (desvio >= -15) return ATENCAO;
+  return ATRASADA;
+}
+
+export interface Avanco {
+  grupo: string; chamadas: number; peso: number;
+  /** % do peso do ano previsto até hoje */
+  previsto: number;
+  /** % do peso do ano já executado */
+  realizado: number;
+  desvio: number; situacao: Situacao;
+  /** chamadas vencidas (até hoje) ainda não executadas */
+  pendentes: number;
+}
+
+/** Avanço de cada grupo (disciplina, centro…) no ano até hoje, do maior peso para o menor. */
+export function avancoPor(ch: Ch[], grupo: (c: Ch) => string, hoje: Dia): Avanco[] {
+  const p = pesos(ch);
+  const g = new Map<string, typeof p>();
+  for (const x of p) (g.get(grupo(x.c)) ?? g.set(grupo(x.c), []).get(grupo(x.c))!).push(x);
+  return [...g.entries()].map(([nome, xs]) => {
+    const total = xs.reduce((s, x) => s + x.peso, 0) || 1;
+    const vencidas = xs.filter((x) => x.c.data != null && x.c.data <= hoje);
+    const previsto = (vencidas.reduce((s, x) => s + x.peso, 0) / total) * 100;
+    const realizado = (xs.filter((x) => x.feita).reduce((s, x) => s + x.peso, 0) / total) * 100;
+    const desvio = realizado - previsto;
+    return { grupo: nome, chamadas: xs.length, peso: total, previsto, realizado, desvio, situacao: situacaoDesvio(desvio),
+      pendentes: vencidas.filter((x) => !x.feita).length };
+  }).sort((a, b) => b.peso - a.peso || (a.grupo < b.grupo ? -1 : 1));
+}
