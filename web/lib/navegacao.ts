@@ -32,6 +32,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Planejamento", abas: [
     { id: "ordens", titulo: "Ordens", icone: "ClipboardList", rota: "/ordens" },
     { id: "planos", titulo: "Planos", icone: "CalendarRange", rota: "/planos" },
+    { id: "mapa52", titulo: "Mapa 52 semanas", icone: "CalendarDays", rota: "/mapa52" },
     { id: "semanal", titulo: "Programação semanal", icone: "CalendarClock", rota: "/semanal" },
     { id: "execucao", titulo: "Execução das atividades", icone: "CircleCheckBig", rota: "/execucao" },
     { id: "mao_de_obra", titulo: "Mão de obra e backlog", icone: "HardHat", rota: "/mao_de_obra" },
