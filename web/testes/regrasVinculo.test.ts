@@ -86,3 +86,13 @@ describe("regra: prensa a vácuo KCLKA EK76", () => {
   it("só a prensa principal", () => expect([...v.keys()]).toEqual(["1"]));
   it("materiais EK76 aprovados", () => expect(v.get("1")!.materiais).toEqual(["60", "61"]));
 });
+
+describe("regra: prensa COPE PHB 450", () => {
+  const m = (material: string, curta: string, completa = "", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
+  const equips = [eq("1", "PRENSA COPE 01 - PHB 450"), eq("2", "PLATÔ 1 - PRENSA COPE"), eq("3", "MOINHO LAMINADOR SF 01 UGB1 COPE")];
+  const cat = [m("70", "TRAVA BANDEJA JOMAQ MOD.PHB450", "MODELO: PHB 450"), m("71", "PUXADOR", "FAB: ALPARGATAS - REF: PHB450.01."), m("72", "PINO", "MODELO: PBH 450"),
+    m("73", "ROLO COPE", "MODELO: MOINHO"), m("74", "ANEL", "MODELO: PHB 4500"), m("75", "TRAVA", "MODELO: PHB 450", "BLOQUEADO")];
+  const v = vinculosDasRegras(equips, cat);
+  it("só a prensa principal", () => expect([...v.keys()]).toEqual(["1"]));
+  it("materiais PHB/PBH 450 aprovados", () => expect(v.get("1")!.materiais).toEqual(["70", "71", "72"]));
+});
