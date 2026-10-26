@@ -12,6 +12,8 @@
  * - injetoras Tien Kang (2 estações): os materiais com TIEN KANG no descritivo;
  * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo;
  * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L);
+ *   As peças do manual/lista de peças BMI-80T achadas no Sysmat (PECAS_BMI80) entram também, e cada uma no subconjunto
+ *   dela (rotores, vedação, comporta, pilão, unidade hidráulica, unidade de lubrificação, refrigeração…);
  * - prensa a vácuo: os materiais do modelo KCLKA EK76 (EK76A-10, EK76-10);
  * - prensa COPE: os materiais do modelo PHB 450 (também escrito PBH 450);
  * - KCLKA EXP 12+: as peças EK3 (e as do manual EK3 achadas no Sysmat) também nos sistemas de cada máquina (sistemaKclka;
@@ -150,6 +152,89 @@ const PECAS_MANUAL_GEK220: Record<string, SistemaPvc> = {
   1743394: "seguranca",
 };
 
+/**
+ * Subconjuntos do Banbury Bonfanti no SAP: [sistema (filho da máquina), subconjunto (filho do sistema; null = o próprio
+ * sistema)], pelo nome depois do " - " ("BY BONFANTI SF 01 UGB1 - ROTORES").
+ */
+const ALVOS_BMI80 = {
+  camara: [/CAMARA ROTORES/, /^CAMARA$/], rotores: [/CAMARA ROTORES/, /^ROTORES$/], vedacao: [/CAMARA ROTORES/, /VEDACAO/],
+  mancais: [/CAMARA ROTORES/, /MANCAIS/], fechamento: [/COMPORTA/, /FECHAMENTO/], bocal: [/ALIMENTACAO/, /BOCAL/],
+  pilao: [/ALIMENTACAO/, /PILAO/], painelComando: [/ELETRICO/, /PAINEL CONTRO/], automacao: [/ELETRICO/, /AUTOMACAO/],
+  unidadeHidraulica: [/HIDRAULICO/, /UNIDADE HIDRA/], atuadoresHidraulicos: [/HIDRAULICO/, /ATUADORES HIDRA/],
+  unidadeLubrificacao: [/LUBRIF/, /UNIDADE LUBRIF/], refrigeracao: [/REFRIGERACAO/, null], refrigComporta: [/REFRIGERACAO/, /REFRIG COMPORTA/],
+  refrigRotores: [/REFRIGERACAO/, /REFRIG ROTORES/], redutor: [/ACIONAMENTO/, /REDUTOR/], protecoes: [/ESTRUTURA/, /PROTECOES/],
+} as const satisfies Record<string, readonly [RegExp, RegExp | null]>;
+export type AlvoBmi80 = keyof typeof ALVOS_BMI80;
+
+/**
+ * Peças do manual BMI-80T (lista de peças de reposição, lista Sysmat/SAP do fabricante e listas dos desenhos) achadas no
+ * Sysmat pela referência, com o subconjunto do Banbury onde entram.
+ */
+const PECAS_BMI80: Record<string, readonly AlvoBmi80[]> = {
+  // rotores: uniões rotativas 3038/25-D (e kits de reparo), cordão O-ring da refrigeração do rotor
+  58975: ["rotores", "refrigRotores"], 58974: ["rotores", "refrigRotores"], 1680065: ["rotores", "refrigRotores"],
+  1789365: ["rotores", "refrigRotores"], 1784136: ["rotores", "refrigRotores"], 1796778: ["rotores"],
+  // mancais: retentores RLP-5 e rolamento 23140 dos rotores
+  1786779: ["mancais"], 1786780: ["mancais"], 1787951: ["mancais"],
+  // vedação S.S.A: anel flutuante, anel de desgaste, cordão Viton, chaveta do colar, molas; injetor de óleo das vedações
+  1682975: ["vedacao"], 1682969: ["vedacao"], 1786981: ["vedacao"], 1727619: ["vedacao"], 1718905: ["vedacao"], 1727627: ["vedacao"],
+  1787122: ["vedacao"], 1787098: ["vedacao"], 1787527: ["vedacao"], 1787528: ["vedacao"],
+  // porta de descarga: sensores, termopar, atuador hidráulico (vedações, pinhão, cremalheira, rolamento 30212), mola, sapata
+  1786781: ["fechamento"], 1666802: ["fechamento"], 1679426: ["fechamento"], 1796935: ["fechamento", "atuadoresHidraulicos"],
+  1786787: ["fechamento"], 1786976: ["fechamento"], 1786977: ["fechamento"], 1786978: ["fechamento"], 1725329: ["fechamento"],
+  1777908: ["fechamento"], 155452: ["fechamento"], 1718484: ["fechamento"], 1748258: ["fechamento"], 1769208: ["fechamento"],
+  1756013: ["fechamento", "bocal"],
+  // pilão (peso flutuante): pino, anéis de vedação e raspadores, gaxeta, sensores de posição, cilindros auxiliares
+  1742297: ["pilao"], 1787325: ["pilao"], 1787526: ["pilao"], 1787530: ["pilao"], 1787123: ["pilao"], 1787531: ["pilao"],
+  1792965: ["pilao"], 1713846: ["pilao"], 1623390: ["pilao"], 1797593: ["pilao"], 1797612: ["pilao"], 1769815: ["pilao"], 1792918: ["pilao"],
+  // elétrico e proteções: sensor magnético da proteção, IHM, cabo dos sensores
+  1668340: ["protecoes"], 1788818: ["painelComando"], 1783080: ["automacao"],
+  // unidade hidráulica (pilão / drop-door): filtros, chave de nível, PT-100, trocador de calor
+  1786970: ["unidadeHidraulica"], 1669996: ["unidadeHidraulica"], 1669997: ["unidadeHidraulica"], 1787023: ["unidadeHidraulica"],
+  1787024: ["unidadeHidraulica"], 1786919: ["unidadeHidraulica"],
+  // unidade de óleo de processo e lubrificação (vedações) e graxa: discos de ruptura, transmissores, válvulas, blocos, bomba de graxa
+  1778235: ["unidadeLubrificacao"], 1778234: ["unidadeLubrificacao"], 1782704: ["unidadeLubrificacao"], 1717113: ["unidadeLubrificacao"],
+  1778219: ["unidadeLubrificacao"], 1583340: ["unidadeLubrificacao"], 1778237: ["unidadeLubrificacao"], 1778238: ["unidadeLubrificacao"],
+  1778303: ["unidadeLubrificacao"], 1778606: ["unidadeLubrificacao"], 1779949: ["unidadeLubrificacao"], 1749879: ["unidadeLubrificacao"],
+  1778605: ["unidadeLubrificacao"], 1787021: ["unidadeLubrificacao"], 1715922: ["unidadeLubrificacao"], 1778226: ["unidadeLubrificacao"],
+  // refrigeração: atuadores das válvulas proporcionais e on/off (e kit de acoplamento); mangueira da porta de descarga
+  1782791: ["refrigeracao"], 1792134: ["refrigeracao"], 1792166: ["refrigeracao"], 1782626: ["refrigeracao"], 1796492: ["refrigeracao"],
+  1782523: ["refrigComporta"],
+  // redutor: elementos filtrantes
+  1786749: ["redutor"], 1797508: ["redutor"],
+};
+
+/** Em que subconjuntos do Banbury Bonfanti a peça entra (vazio = só na máquina). */
+export function alvosBmi80(codigo: string): readonly AlvoBmi80[] {
+  return PECAS_BMI80[codigo.trim()] ?? [];
+}
+
+const ehBanburyBonfanti = (e: EquipRegra | undefined) => !!e && /^BANBURY SF \d+ UGB1 BONFANTI$/.test(chave(e.denominacao));
+
+/** O alvo que o equipamento é dentro de um Banbury Bonfanti (sistema ou subconjunto), ou null. */
+export function alvoDoEquipBmi80(e: EquipRegra, h: Hierarquia): AlvoBmi80 | null {
+  const pai = e.superior ? h.equip(e.superior) : undefined;
+  if (!pai) return null;
+  const avo = pai.superior ? h.equip(pai.superior) : undefined;
+  const [sistema, sub] = ehBanburyBonfanti(pai) ? [e, null] : ehBanburyBonfanti(avo) ? [pai, e] : [null, null];
+  if (!sistema) return null;
+  for (const [alvo, [reSis, reSub]] of Object.entries(ALVOS_BMI80) as [AlvoBmi80, readonly [RegExp, RegExp | null]][]) {
+    if (!reSis.test(parteDoSistema(sistema.denominacao))) continue;
+    if (sub ? reSub && reSub.test(parteDoSistema(sub.denominacao)) : !reSub) return alvo;
+  }
+  return null;
+}
+
+/** Uma regra por subconjunto do Banbury Bonfanti: as peças do manual BMI-80T que vão nele. */
+function regrasDosSubconjuntosBmi80(): RegraVinculo[] {
+  return (Object.keys(ALVOS_BMI80) as AlvoBmi80[]).map((a) => ({
+    id: `banbury-bonfanti-bmi80-${a}`,
+    descricao: `Banbury Bonfanti BMI-80, ${a}: peças do manual desse subconjunto`,
+    equipamento: (e, h) => !e.inativo && !e.desativado && alvoDoEquipBmi80(e, h) === a,
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && alvosBmi80(m.material).includes(a),
+  }));
+}
+
 export const REGRAS: RegraVinculo[] = [
   {
     id: "kclka-exp12-ek3",
@@ -201,8 +286,9 @@ export const REGRAS: RegraVinculo[] = [
     id: "banbury-bonfanti-bmi80",
     descricao: "Banbury Bonfanti (UGB1): materiais Bonfanti do misturador BMI-80, aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^BANBURY SF \d+ UGB1 BONFANTI$/.test(chave(e.denominacao)),
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && bonfantiBmi80(m.descricaoCurta, m.descrCompleta),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && bonfantiBmi80(m.descricaoCurta, m.descrCompleta, m.material),
   },
+  ...regrasDosSubconjuntosBmi80(),
   {
     id: "prensa-vacuo-ek76",
     descricao: "Prensa a vácuo: materiais do modelo KCLKA EK76, aprovados no Sysmat",
@@ -221,7 +307,8 @@ export const REGRAS: RegraVinculo[] = [
  * Material Bonfanti do misturador BMI-80: BMI-80/80T/MIXER BMI80 no texto ou Banbury/misturador com MODELO 80 L. O próprio
  * misturador cadastrado como material (descrição curta "MISTURADOR …") não é peça e fica de fora.
  */
-export function bonfantiBmi80(curta: string, completa: string): boolean {
+export function bonfantiBmi80(curta: string, completa: string, codigo = ""): boolean {
+  if (PECAS_BMI80[codigo.trim()]) return true;
   const t = chave(`${curta} ${completa}`);
   if (!/\bBONFANTI\b/.test(t) || /^MISTURADOR\b/.test(chave(curta))) return false;
   const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "");

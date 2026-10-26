@@ -29,8 +29,10 @@ interface Peca { codigo: string; descricao: string; um: string }
  */
 export function InclusaoIa06({ equipamento, rotulo, pecas, listas }: { equipamento: string; rotulo: string; pecas: Peca[]; listas: ListaTarefas[] }) {
   const [todas, setTodas] = useState<ListaTarefas[]>(listas);
-  // lista geral usada por outros equipamentos começa desmarcada: a peça entraria para todos eles
-  const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(listas.filter((l) => l.equipamentos <= 1).map((l) => `${l.grupo}|${l.numerador}`)));
+  // lista geral usada por outros equipamentos começa desmarcada (a peça entraria para todos eles); a de subconjunto também
+  // (cada peça vai na lista do subconjunto dela: a pessoa escolhe)
+  const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(listas.filter((l) => l.equipamentos <= 1 && !l.subconjunto)
+    .map((l) => `${l.grupo}|${l.numerador}`)));
   const [novoGrupo, setNovoGrupo] = useState(""), [novoNum, setNovoNum] = useState("1");
   const [operacao, setOperacao] = useState("0010");
   const [qtd, setQtd] = useState<Record<string, string>>(() => Object.fromEntries(pecas.map((p) => [p.codigo, "1"])));
@@ -66,8 +68,9 @@ export function InclusaoIa06({ equipamento, rotulo, pecas, listas }: { equipamen
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="min-w-0 space-y-2">
-          <div className="text-[12.5px] font-medium text-texto-2">Listas de tarefas {listas.length ? "(pelos planos do equipamento: IW38 × IP19)" : ""}</div>
-          {!todas.length && <p className="text-[12.5px] text-texto-3">Nenhuma lista achada pelos planos deste equipamento (IW38 × IP19). Digite o grupo e o numerador abaixo.</p>}
+          <div className="text-[12.5px] font-medium text-texto-2">Listas de tarefas {listas.length ? "(pelos planos do equipamento e dos subconjuntos: IW38 × IP19)" : ""}</div>
+          {!todas.length && <p className="text-[12.5px] text-texto-3">Nenhuma lista achada pelos planos deste equipamento nem dos subconjuntos (IW38 × IP19). Digite o grupo e o numerador abaixo e clique em + Lista.</p>}
+          {listas.some((l) => l.subconjunto) && <p className="text-[12px] text-texto-3">As listas dos subconjuntos começam desmarcadas: marque a do subconjunto de cada peça.</p>}
           <ul className="space-y-1">
             {todas.map((l) => {
               const k = `${l.grupo}|${l.numerador}`;
@@ -76,6 +79,7 @@ export function InclusaoIa06({ equipamento, rotulo, pecas, listas }: { equipamen
                   <label className="flex cursor-pointer items-start gap-2 text-[13px]">
                     <input type="checkbox" className="mt-0.5" checked={marcadas.has(k)} onChange={() => setMarcadas((m) => alterna(m, k))} />
                     <span className="min-w-0"><span className="font-mono">{l.grupo}</span> / {l.numerador || "—"}
+                      {l.subconjunto && <span className="block truncate text-[11.5px] font-medium text-texto-2" title={l.subconjunto}>Subconjunto: {l.subconjunto}</span>}
                       <span className="block truncate text-[11.5px] text-texto-3">{[l.planos.length ? `plano ${l.planos.join(", ")}` : "", l.texto].filter(Boolean).join(" · ")}</span>
                       {l.equipamentos > 1 && <span className="block text-[11.5px] text-[color:var(--st-serio)]">Lista geral usada por {l.equipamentos} equipamentos: a peça entra para todos eles.</span>}</span>
                   </label>
@@ -84,8 +88,10 @@ export function InclusaoIa06({ equipamento, rotulo, pecas, listas }: { equipamen
             })}
           </ul>
           <div className="flex flex-wrap items-center gap-2">
-            <input className={`${ENTRADA} w-32`} placeholder="Grupo" value={novoGrupo} maxLength={20} onChange={(e) => setNovoGrupo(e.target.value)} />
-            <input className={`${ENTRADA} w-20`} placeholder="Numerador" value={novoNum} maxLength={4} onChange={(e) => setNovoNum(e.target.value)} />
+            <input className={`${ENTRADA} w-32`} placeholder="Grupo" value={novoGrupo} maxLength={20} onChange={(e) => setNovoGrupo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarLista(); } }} aria-label="Grupo da lista de tarefas" />
+            <input className={`${ENTRADA} w-20`} placeholder="Numerador" value={novoNum} maxLength={4} onChange={(e) => setNovoNum(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarLista(); } }} aria-label="Numerador da lista de tarefas" />
             <button type="button" onClick={adicionarLista} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] hover:bg-superficie-2">
               <Plus className="size-3.5" /> Lista
             </button>
@@ -123,7 +129,7 @@ export function InclusaoIa06({ equipamento, rotulo, pecas, listas }: { equipamen
             onClick={() => baixar(ARQ_VBS, scriptInclusao(teste), "text/vbscript;charset=windows-1252")}><FileCode2 className="size-4" /> Baixar script VBS</button>
         </div>
       </div>
-      {!itens.length && <p className="mt-2 flex items-center gap-1 text-[12px] text-texto-3"><Trash2 className="size-3.5" /> Marque pelo menos uma lista e uma peça.</p>}
+      {!itens.length && <p className="mt-2 flex items-center gap-1 text-[12px] text-texto-3"><Trash2 className="size-3.5" /> {novoGrupo.trim() ? "Clique em + Lista para usar o grupo digitado." : "Marque pelo menos uma lista e uma peça."}</p>}
     </div>
   );
 }

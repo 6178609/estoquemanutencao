@@ -175,3 +175,17 @@ test("visualização 3D no celular (390 px): o bloco cabe na tela e a página n�
   const medidas = await page.evaluate(() => ({ rolagem: document.documentElement.scrollWidth, janela: window.innerWidth }));
   expect(medidas.rolagem).toBeLessThanOrEqual(medidas.janela);
 });
+
+test("equipamentos: clicar no ativo abre a biblioteca do ativo (a lista só escolhe o ativo)", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/equipamentos");
+  await page.locator('a[href^="/equipamentos/biblioteca?eq="]').first().click();
+  await expect(page).toHaveURL(/\/equipamentos\/biblioteca\?eq=/);
+  await expect(page.getByRole("heading", { name: "Resumo do ativo" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Escolher outro ativo" })).toBeVisible();
+  // link antigo com ?at= também abre a biblioteca
+  const eq = new URL(page.url()).searchParams.get("eq")!;
+  await page.goto(`/equipamentos?at=${encodeURIComponent(eq)}`);
+  await expect(page).toHaveURL(/\/equipamentos\/biblioteca\?eq=/);
+  expect(erros).toEqual([]);
+});

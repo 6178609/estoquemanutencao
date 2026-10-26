@@ -8,8 +8,11 @@ import { acharColuna, texto } from "@/lib/dados/texto";
  * numerador da lista de tarefas de cada plano. Testado em testes/mro-ia06.test.ts.
  */
 
-/** equipamentos: quantos equipamentos têm plano nesta lista (lista geral compartilhada = mais de 1). */
-export interface ListaTarefas { grupo: string; numerador: string; planos: string[]; texto: string; equipamentos: number }
+/**
+ * equipamentos: quantos equipamentos têm plano nesta lista (lista geral compartilhada = mais de 1). subconjunto: a lista é
+ * de um subconjunto do ativo (o nome dele), não do próprio ativo.
+ */
+export interface ListaTarefas { grupo: string; numerador: string; planos: string[]; texto: string; equipamentos: number; subconjunto?: string }
 export interface ItemInclusao {
   /** equipamento: o ativo que pediu a peça, já identificado (ver identificarAtivo) */
   grupo: string; numerador: string; operacao: string; material: string; quantidade: number; um: string; texto: string; equipamento: string;
@@ -18,6 +21,8 @@ export interface ItemInclusao {
 }
 
 type Linha = Record<string, unknown>;
+/** Uma lista de tarefas ligada direto a um equipamento (linha da IP19). */
+export interface ListaDireta { equipChave: string; plano: string; grupo: string; numerador: string; texto: string }
 
 /** Plano → grupo/numerador da lista de tarefas (colunas "Grupo listas tarefas" e "Numerador de grupos" da IP19). */
 export function listasPorPlano(ip19: Linha[] | null | undefined): Map<string, { grupo: string; numerador: string; texto: string }> {
@@ -42,22 +47,68 @@ export function listasPorPlano(ip19: Linha[] | null | undefined): Map<string, { 
  * quantos equipamentos a usam: lista geral compartilhada recebe a peça de todos eles.
  */
 export function listasPorEquipamento(ordens: { equipChave: string; plano: string }[],
-  porPlano: Map<string, { grupo: string; numerador: string; texto: string }>): Map<string, ListaTarefas[]> {
+  porPlano: Map<string, { grupo: string; numerador: string; texto: string }>, diretas: ListaDireta[] = []): Map<string, ListaTarefas[]> {
   const out = new Map<string, Map<string, ListaTarefas>>();
   const usos = new Map<string, Set<string>>();
-  for (const o of ordens) {
-    if (!o.equipChave || !o.plano) continue;
-    const l = porPlano.get(o.plano);
-    if (!l) continue;
+  const pares = [...ordens.map((o) => ({ o, l: o.plano ? porPlano.get(o.plano) : undefined })), ...diretas.map((d) => ({ o: d, l: d }))];
+  for (const { o, l } of pares) {
+    if (!o.equipChave || !l) continue;
     const k = `${l.grupo}|${l.numerador}`;
     (usos.get(k) ?? usos.set(k, new Set()).get(k)!).add(o.equipChave);
     const m = out.get(o.equipChave) ?? out.set(o.equipChave, new Map()).get(o.equipChave)!;
     const x = m.get(k) ?? m.set(k, { grupo: l.grupo, numerador: l.numerador, planos: [], texto: l.texto, equipamentos: 0 }).get(k)!;
-    if (!x.planos.includes(o.plano)) x.planos.push(o.plano);
+    if (o.plano && !x.planos.includes(o.plano)) x.planos.push(o.plano);
   }
   return new Map([...out].map(([eq, m]) => [eq, [...m.values()]
     .map((x) => ({ ...x, equipamentos: usos.get(`${x.grupo}|${x.numerador}`)?.size ?? 1 }))
     .sort((a, b) => (a.grupo + a.numerador).localeCompare(b.grupo + b.numerador))]));
+}
+
+/**
+ * Lista de cada linha da IP19 com o equipamento dela (coluna Equipamento): o plano do equipamento mesmo sem ordem no
+ * IW38, e todas as listas do plano (um plano pode ter várias listas, uma por item).
+ */
+export function listasDiretasDaIp19(ip19: Linha[] | null | undefined): ListaDireta[] {
+  if (!ip19?.length) return [];
+  const cols = Object.keys(ip19[0]);
+  const cPlano = acharColuna(cols, ["^PLANO( DE)? MANUT", "^PLANO$"]), cEq = acharColuna(cols, ["^EQUIPAMENTO$"]);
+  const cGrupo = acharColuna(cols, ["GRUPO LISTAS? (DE )?TAREFAS?", "GRUPO.*LISTA", "^GRUPO$"], "PLANEJ|PLNJ");
+  const cNum = acharColuna(cols, ["NUMERADOR DE GRUPOS?", "^NUMERADOR$", "^CONTADOR( DE GRUPOS?)?$"]);
+  const cTexto = acharColuna(cols, ["TEXTO.*PLANO"]);
+  if (!cEq || !cGrupo) return [];
+  return ip19.map((l) => ({ equipChave: texto(l[cEq]), plano: cPlano ? texto(l[cPlano]) : "", grupo: texto(l[cGrupo]),
+    numerador: cNum ? texto(l[cNum]) : "", texto: cTexto ? texto(l[cTexto]) : "" })).filter((x) => x.equipChave && x.grupo);
+}
+
+/**
+ * Soma às listas de cada equipamento as listas dos subconjuntos dele (até 3 níveis abaixo), com o nome do subconjunto:
+ * a máquina costuma não ter plano próprio, só os subconjuntos (acionamento, lubrificação…).
+ */
+export function comListasDosSubconjuntos(listas: Map<string, ListaTarefas[]>,
+  equips: { equipamento: string; denominacao: string; superior?: string }[]): Map<string, ListaTarefas[]> {
+  const filhos = new Map<string, { equipamento: string; denominacao: string }[]>();
+  for (const e of equips) if (e.superior && e.superior !== e.equipamento) (filhos.get(e.superior) ?? filhos.set(e.superior, []).get(e.superior)!).push(e);
+  const out = new Map(listas);
+  for (const pai of new Set([...filhos.keys()])) {
+    const proprias = listas.get(pai) ?? [];
+    const vistas = new Set(proprias.map((l) => `${l.grupo}|${l.numerador}`));
+    const extras: ListaTarefas[] = [];
+    const visitar = (cod: string, nivel: number) => {
+      if (nivel > 3) return;
+      for (const f of filhos.get(cod) ?? []) {
+        for (const l of listas.get(f.equipamento) ?? []) {
+          const k = `${l.grupo}|${l.numerador}`;
+          if (vistas.has(k)) continue;
+          vistas.add(k);
+          extras.push({ ...l, subconjunto: l.subconjunto ?? `${f.denominacao} (${f.equipamento})` });
+        }
+        visitar(f.equipamento, nivel + 1);
+      }
+    };
+    visitar(pai, 1);
+    if (extras.length) out.set(pai, [...proprias, ...extras]);
+  }
+  return out;
 }
 
 /** "10" → "0010" (o número da operação como o SAP mostra). */
@@ -116,7 +167,9 @@ export const ARQ_CSV = "SAP_IA06_INCLUIR_materiais.csv", ARQ_VBS = "SAP_IA06_INC
 /**
  * O script de inclusão: o mesmo esqueleto do script de remoção (abre a lista, a operação e os componentes, confere na
  * tela, grava a lista inteira de uma vez, anota feitos e pendentes com o motivo), trocando "eliminar" por "incluir na
- * primeira linha livre". Usa só a pasta onde o script está (nenhum caminho pessoal).
+ * primeira linha livre". Acha o CSV na pasta do script ou, rodando de dentro do SAP (onde o script não sabe a própria pasta), na pasta atual,
+ * em Downloads/Área de Trabalho/Documentos do usuário do Windows (%USERPROFILE%) ou na pasta que a pessoa digitar —
+ * nenhum caminho pessoal fica no script.
  */
 export function scriptInclusao(modoTeste: boolean): string {
   return VBS.replace("@@MODO_TESTE@@", modoTeste ? "True" : "False").replace(/\n/g, "\r\n");
@@ -169,12 +222,39 @@ Dim fso, pasta, session, cacheCol
 Dim feitos, feitosMat, pendDic, total, jaEstavam, erros, nPend, parar, telaRuim, repetidos
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set cacheCol = CreateObject("Scripting.Dictionary")
-pasta = ""
-On Error Resume Next
-pasta = fso.GetParentFolderName(WScript.ScriptFullName) & "\"
-Err.Clear
-On Error GoTo 0
-If pasta = "" Or pasta = "\" Then pasta = CreateObject("WScript.Shell").CurrentDirectory & "\"
+pasta = AchaPasta()
+
+' Pasta do CSV: a do script (duplo clique). Rodando de dentro do SAP (Alt+F12 > Gravacao e reproducao de scripts) o
+' script nao sabe onde esta salvo: procura o CSV na pasta atual, em Downloads, na Area de Trabalho e em Documentos do
+' usuario do Windows; se nao achar, pergunta a pasta.
+Function AchaPasta()
+    Dim sh, perfil, dirScript, cands, c, resp
+    AchaPasta = ""
+    dirScript = ""
+    perfil = ""
+    On Error Resume Next
+    dirScript = fso.GetParentFolderName(WScript.ScriptFullName) & "\"
+    Err.Clear
+    cands = Array(dirScript)
+    Set sh = CreateObject("WScript.Shell")
+    perfil = sh.ExpandEnvironmentStrings("%USERPROFILE%")
+    cands = Array(dirScript, sh.CurrentDirectory & "\", perfil & "\Downloads\", perfil & "\Desktop\", perfil & "\Documents\", _
+                  perfil & "\OneDrive\Desktop\", perfil & "\OneDrive\Documentos\")
+    Err.Clear
+    On Error GoTo 0
+    For Each c In cands
+        If c <> "" And c <> "\" Then
+            If fso.FileExists(c & ARQ_CSV) Then
+                AchaPasta = c
+                Exit Function
+            End If
+        End If
+    Next
+    resp = InputBox("Nao achei o arquivo " & ARQ_CSV & "." & vbCrLf & "Informe a pasta onde ele esta salvo:", "IA06 - pasta do CSV", perfil & "\Downloads\")
+    resp = Trim(resp)
+    If resp <> "" And Right(resp, 1) <> "\" Then resp = resp & "\"
+    AchaPasta = resp
+End Function
 
 Principal
 

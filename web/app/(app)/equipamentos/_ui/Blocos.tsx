@@ -88,7 +88,7 @@ export function TabelaT({ colunas, linhas, vazio = "Nada para mostrar com estes 
             <tr key={l.chave} className={clsx("transition", l.ativa ? "bg-marca-500/8" : "hover:bg-superficie-2")}>
               {l.celulas.map((v, j) => (
                 <td key={j} className={clsx("px-3 py-2 align-middle", colunas[j]?.dir && "num text-right tabular-nums", colunas[j]?.larga && "min-w-[220px] max-w-[360px] whitespace-normal")}>
-                  {j === 0 && l.href ? <Link prefetch={false} href={l.href} scroll={false} className="font-mono text-[12.5px] font-medium text-alp-azul underline-offset-2 hover:underline">{v}</Link> : v}
+                  {j === 0 && l.href ? <Link prefetch={false} href={l.href} scroll={l.href.startsWith("/")} className="font-mono text-[12.5px] font-medium text-alp-azul underline-offset-2 hover:underline">{v}</Link> : v}
                 </td>
               ))}
             </tr>

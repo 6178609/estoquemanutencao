@@ -1,9 +1,9 @@
-import { Boxes, ClipboardList, Hourglass, Library, ListChecks, Network, Pencil } from "lucide-react";
+import { Boxes, Hourglass, ListChecks, Network } from "lucide-react";
 import Link from "next/link";
 
 import { Barras, Grafico, Legenda, Partes, type Cor } from "@/components/graficos";
 import { Aviso } from "@/components/PaginaWcm";
-import { BOTAO_COMPACTO, Selo } from "@/components/ui";
+import { Selo } from "@/components/ui";
 import { brl, brlCurto } from "@/lib/formato";
 import * as ativos from "@/lib/wcm/ativos";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
@@ -13,9 +13,8 @@ import { dataBr } from "@/lib/wcm/util";
 import { AbasParam, BarraSaude, Cartao, GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT } from "./_ui/Blocos";
 import { FiltrosUrl } from "./_ui/FiltrosUrl";
 import { hrefCom, type Params } from "./_ui/url";
-import { BaixarPecas } from "./BaixarPecas";
 import { inventarioAtivos } from "./dados";
-import { CampoEq, filtrarInventario, lerFiltroInventario, paginar, param, ROTULO_CAMPO, SEM_CLASSE, V_ANALISE, V_CADASTRO } from "./logica";
+import { CampoEq, filtrarInventario, lerFiltroInventario, paginar, param, ROTULO_CAMPO, SEM_CLASSE } from "./logica";
 
 /** Visão "Gestão de ativos" — a única de quem tem só a parte parcial da aba, sem editar. */
 
@@ -71,7 +70,7 @@ export async function GestaoAtivos({ c, params, completo, cadastra }: { c: Conte
         {aba === "area" && <PorArea t={t} />}
         {aba === "vida" && <CicloVida t={t} cadastra={cadastra} campoEq={campoEq} />}
         {aba === "lacunas" && <Lacunas t={t} />}
-        {aba === "inventario" && <Inventario t={t} params={params} completo={completo} cadastra={cadastra} temOrdens={!!c.b.ordens.dados} campoEq={campoEq} />}
+        {aba === "inventario" && <Inventario t={t} params={params} completo={completo} campoEq={campoEq} />}
       </div>
     </div>
   );
@@ -192,12 +191,10 @@ const COLS_INV = [
   { rotulo: "Idade (anos)", dir: true }, { rotulo: "Garantia" }, { rotulo: "Recomendação" }, { rotulo: "Origem" },
 ];
 
-function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: ativos.LinhaAtivo[]; params: Params; completo: boolean; cadastra: boolean; temOrdens: boolean; campoEq: CampoEq }) {
+function Inventario({ t, params, completo, campoEq }: { t: ativos.LinhaAtivo[]; params: Params; completo: boolean; campoEq: CampoEq }) {
   const f = lerFiltroInventario(params);
   const vis = filtrarInventario(t, f, campoEq);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
-  const sel = param(params, "at");
-  const r = sel ? t.find((x) => x.codigo === sel) : undefined;
   const conta = (fn: (x: ativos.LinhaAtivo) => boolean) => t.filter(fn).length;
   const areas = [...new Set(t.map((x) => x.area).filter(Boolean))].sort();
   return (
@@ -211,32 +208,10 @@ function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: 
         { tipo: "alternar", param: "isite", rotulo: "Só cadastrados no site" },
         { tipo: "pilulas", param: "irec", rotulo: "Recomendação", opcoes: ativos.RECOMENDACOES },
       ]} />
-      <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} de {inteiroBr(t.length)} ativo(s){f.sits.length ? "" : " (sem os desativados)"} · clique no código para ver o resumo e abrir a biblioteca do ativo (componentes e manuais){completo ? ", a ficha ou o cadastro" : ""}.</p>
-      {r && (
-        <Cartao className="border-borda-forte" titulo={`${campoEq(r.codigo) ? `${campoEq(r.codigo)} · ` : ""}${r.codigo} · ${r.equipamento || "—"}`}
-          sub={<span className="inline-flex flex-wrap items-center gap-1.5">{r.situacao} · criticidade {r.criticidade || "sem classe"} · <Selo cor={SELO_REC[r.recomendacao] ?? "cinza"}>{r.recomendacao}</Selo></span>}
-          acoes={<div className="flex flex-wrap gap-2">
-            <Link prefetch={false} href={`/equipamentos/biblioteca?${new URLSearchParams({ eq: r.codigo })}`} className={BOTAO_COMPACTO}><Library className="size-3.5" /> Biblioteca do ativo</Link>
-            {completo && temOrdens && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Abrir ficha (ordens)</Link>}
-            {cadastra && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className={BOTAO_COMPACTO}><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
-            <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
-          </div>}>
-          <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
-            {[[ROTULO_CAMPO, campoEq(r.codigo) || "—"], ["Local", r.localInstalacao || "—"], ["Área", r.area || "—"], ["Centro de trabalho", r.centro || "—"], ["Centro de custo", r.centroCusto || "—"],
-              ["Status do usuário", r.statusUsuario || "—"], ["Nº de inventário", r.inventario || "—"], ["Equipamento superior", r.superior || "—"], ["Origem", r.origem],
-              ["Custo total (IW38)", brl(r.custoTotal)], ["Custo 12 meses", brl(r.custo12Meses)], ["Planos preventivos", inteiroBr(r.planosPreventivos)], ["Peças vinculadas", inteiroBr(r.pecasVinculadas)],
-              ["Fabricante / modelo", [r.fabricante, r.modelo].filter(Boolean).join(" ") || "—"], ["Nº de série", r.serie || "—"],
-              ["Instalação", r.anoInstalacao != null ? `${r.anoInstalacao} (${r.idade} anos)` : "—"], ["Vida útil", r.vidaUtil != null ? `${r.vidaUtil} anos (restam ${r.vidaRestante ?? "—"})` : "—"],
-              ["Garantia", r.garantiaAte != null ? `${r.garantia} · até ${dataBr(r.garantiaAte)}` : r.garantia], ["Reposição", brl(r.valorReposicao)],
-              ["Saúde", r.saude != null ? `${r.saude} · ${r.faixa}` : "—"], ["MTBF", r.mtbfDias != null ? `${r.mtbfDias} dias` : "—"],
-            ].map(([k, v]) => <div key={k}><dt className="text-[12px] text-texto-3">{k}</dt><dd className="font-medium">{v}</dd></div>)}
-          </dl>
-          {r.pecasVinculadas > 0 && <div className="mt-4 border-t border-borda pt-3"><BaixarPecas eq={r.codigo} n={r.pecasVinculadas} /></div>}
-        </Cartao>
-      )}
+      <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} de {inteiroBr(t.length)} ativo(s){f.sits.length ? "" : " (sem os desativados)"} · clique no ativo para abrir a biblioteca dele (resumo, componentes, manuais e ordens){completo ? "; de lá saem a ficha e o cadastro" : ""}.</p>
       <TabelaT colunas={COLS_INV} vazio="Nenhum ativo com estes filtros."
         linhas={pg.itens.map((x) => ({
-          chave: x.codigo, ativa: x.codigo === sel, href: hrefCom(params, { at: x.codigo === sel ? null : x.codigo }, "abas"),
+          chave: x.codigo, href: `/equipamentos/biblioteca?${new URLSearchParams({ eq: x.codigo })}`,
           celulas: [campoEq(x.codigo) || "—", x.codigo, x.equipamento || "—", x.situacao, x.criticidade || <span className="text-texto-3">sem classe</span>, x.area || "—", x.localInstalacao || "—",
             <BarraSaude key="s" valor={x.saude} faixa={x.faixa} />, brl(x.custo12Meses), x.quebras12Meses, x.mtbfDias ?? "—", x.planosPreventivos, x.ordensPendentes,
             x.idade ?? "—", x.garantia, <Selo key="r" cor={SELO_REC[x.recomendacao] ?? "cinza"}>{x.recomendacao}</Selo>, x.origem],
