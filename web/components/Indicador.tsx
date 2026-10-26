@@ -67,10 +67,11 @@ export function CartaoKpi({ kpi, valor, anterior, metas, serie, link = true }: {
 
 export function GradeKpis({ kpis, atual, anterior, metas, serie, link, colunas = 4 }: {
   kpis: ind.Kpi[]; atual: ind.Resultado; anterior?: ind.Resultado; metas: Record<string, Record<string, unknown>>;
-  serie?: { mes: number; valores: ind.Resultado }[]; link?: boolean; colunas?: 3 | 4 | 5;
+  serie?: { mes: number; valores: ind.Resultado }[]; link?: boolean; colunas?: 3 | 4 | 5 | 6;
 }) {
   return (
-    <div className={clsx("grid gap-3 sm:grid-cols-2", colunas === 3 ? "lg:grid-cols-3" : colunas === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
+    <div className={clsx("grid gap-3 sm:grid-cols-2", colunas === 3 ? "lg:grid-cols-3" : colunas === 5 ? "lg:grid-cols-5"
+      : colunas === 6 ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4")}>
       {kpis.map((k) => (
         <CartaoKpi key={k.id} kpi={k} valor={atual[k.id]} anterior={anterior?.[k.id]} metas={metas} link={link}
           serie={serie?.map((s) => s.valores[k.id] ?? null)} />
