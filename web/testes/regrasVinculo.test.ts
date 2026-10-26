@@ -116,6 +116,12 @@ describe("regra: Golden PVC (GEK 220 e GES 270/S) por sistema", () => {
     expect(v.get("5")!.materiais).toEqual(["83"]);
   });
   it("subconjunto inativo fica de fora", () => expect(v.has("6")).toBe(false));
+  it("peça da lista do manual entra pelo código no sistema certo", () => {
+    const w = vinculosDasRegras(equips, [m("1773833", "VALVULA RET HIDR PILOT 2,0BAR TAM 1", "VALVULA RETENCAO HIDRAULICA")]);
+    expect(w.get("1")!.materiais).toEqual(["1773833"]);
+    expect(w.get("2")!.materiais).toEqual(["1773833"]);
+    expect(w.has("3")).toBe(false);
+  });
   it("subconjunto ativo de máquina inativa fica de fora", () => {
     const w = vinculosDasRegras([eq("9", "INJETORA PVC (GOLDEN EAGLE) 001", true), { ...eq("10", "INJ PVC 01 GOLDEN - SISTEMA HIDRAULICO"), superior: "9" }], cat);
     expect(w.size).toBe(0);

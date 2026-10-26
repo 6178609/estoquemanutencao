@@ -33,6 +33,28 @@ const SISTEMAS_PVC = {
 } as const;
 export type SistemaPvc = keyof typeof SISTEMAS_PVC;
 
+/**
+ * Peças da lista do manual da GEK 220W/S (componentes hidráulicos, elétricos e rolamentos) achadas no Sysmat pela referência,
+ * com o sistema da máquina onde entram.
+ */
+const PECAS_MANUAL_GEK220: Record<string, SistemaPvc> = {
+  // válvulas DSG-01-3C2 / DSG-01-2B2 / DSG-03-3C2 / DSHG-04-3C10 / DSHG-04-3C2 e retenção MPB-01-2-40
+  1791702: "hidraulico", 1784172: "hidraulico", 1773829: "hidraulico", 1757607: "hidraulico", 1794791: "hidraulico", 1773828: "hidraulico",
+  1791695: "hidraulico", 1791696: "hidraulico", 1698037: "hidraulico", 1784212: "hidraulico", 1773830: "hidraulico", 1773833: "hidraulico",
+  // filtro de sucção WU-400x100-J e filtro de óleo B-32
+  1793647: "unidadeHidraulica", 1673347: "unidadeHidraulica",
+  // motor hidráulico de ajuste do molde (NHM6-500)
+  1773553: "fechamento",
+  // rolamento de rolos cônicos 30216 (7216E) do assento traseiro da injeção
+  1736241: "injecao",
+  // controlador AK668 e réguas lineares 175/450 mm
+  1698010: "controle", 1784278: "controle", 1740159: "controle",
+  // drive Delta VFD300, contator LC1-D09, relés de estado sólido 10/50 A, fontes S-150-24
+  1780472: "comando", 1712803: "comando", 1668032: "comando", 1670820: "comando", 1669210: "comando", 1697608: "comando",
+  // fim de curso XCKN2118
+  1743394: "seguranca",
+};
+
 export const REGRAS: RegraVinculo[] = [
   {
     id: "kclka-exp12-ek3",
@@ -59,7 +81,7 @@ export const REGRAS: RegraVinculo[] = [
     id: "golden-pvc",
     descricao: "Injetoras PVC (Golden Eagle): materiais GEK 220 / GEKK e GES 270/S aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA PVC GOLDEN EAGLE \d+$/.test(chave(e.denominacao)),
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialGoldenPvc(m.descricaoCurta, m.descrCompleta),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material),
   },
   ...regrasDosSistemasPvc(),
   {
@@ -109,14 +131,16 @@ export function bonfantiBmi80(curta: string, completa: string): boolean {
 }
 
 /** Material das injetoras PVC Golden Eagle: modelo GEK 220 / GEKK ou GES 270/S, GES 220W/S; porta-molde (ferramental) não. */
-export function materialGoldenPvc(curta: string, completa: string): boolean {
+export function materialGoldenPvc(curta: string, completa: string, codigo = ""): boolean {
+  if (PECAS_MANUAL_GEK220[codigo.trim()]) return true;
   if (/^PORTA MOLDE\b/.test(chave(curta))) return false;
   const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "").replace(/\s/g, "");
   return modeloGek220(curta, completa) || /GES(270|220)/.test(mo);
 }
 
 /** Em que sistema da injetora PVC a peça entra, pela descrição curta (null = só na máquina: robô, pneumática, avulsos). */
-export function sistemaGoldenPvc(curta: string): SistemaPvc | null {
+export function sistemaGoldenPvc(curta: string, codigo = ""): SistemaPvc | null {
+  if (PECAS_MANUAL_GEK220[codigo.trim()]) return PECAS_MANUAL_GEK220[codigo.trim()];
   const c = chave(curta);
   if (/GARRA|\bROBO\b|\bROB\b/.test(c)) return null;
   if (/^(RESERV OLEO|FILTRO RETORN|ACOPLAMENTO EIXO MOT|TERMOPAR K OLEO)/.test(c)) return "unidadeHidraulica";
@@ -143,8 +167,8 @@ function regrasDosSistemasPvc(): RegraVinculo[] {
       return !e.inativo && !e.desativado && /^INJ PVC \d+ GOLDEN /.test(n) && SISTEMAS_PVC[s].test(n);
     },
     material: (m) => {
-      if (!m.material.trim() || chave(m.status) !== "APROVADO" || !materialGoldenPvc(m.descricaoCurta, m.descrCompleta)) return false;
-      const q = sistemaGoldenPvc(m.descricaoCurta);
+      if (!m.material.trim() || chave(m.status) !== "APROVADO" || !materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material)) return false;
+      const q = sistemaGoldenPvc(m.descricaoCurta, m.material);
       return q === s || (s === "hidraulico" && q === "unidadeHidraulica");
     },
   }));
