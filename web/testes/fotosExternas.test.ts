@@ -29,6 +29,11 @@ describe("prioridade da foto do item", () => {
     expect(fotoDoItem({ material: "100200", foto: null, fotoRef: REF })?.origem).toBe("referencia");
     expect(fotoExternaDe(fotoDoCadastro({ url: URL_OK, equivalente: "sim" })!).eq).toBeUndefined();
   });
+  it("na lista, usa a miniatura guardada quando existe", () => {
+    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: { ...REF, mini: true } }, true)?.url).toContain("mini=1");
+    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: { ...REF, mini: true } })?.url).not.toContain("mini=1");
+    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: REF }, true)?.url).not.toContain("mini=1");
+  });
   it("a do fabricante leva a chave na URL e a página de origem", () => {
     const r = fotoDoItem({ material: "100200", fotoRef: REF, foto: null });
     expect(r?.url).toBe(`/api/estoque/foto/referencia?m=100200&k=${REF.k}`);

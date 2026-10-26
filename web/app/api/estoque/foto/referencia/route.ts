@@ -14,5 +14,5 @@ export async function GET(req: NextRequest) {
   const material = p.get("m") ?? "";
   const k = p.get("k") ?? "";
   if (!materialValido(material) || !/^[0-9a-f]{12}$/.test(k)) return new NextResponse("Pedido inválido.", { status: 400 });
-  return respostaFotoExterna(await lerFotoReferencia(material), k);
+  return respostaFotoExterna(await lerFotoReferencia(material), k, p.get("mini") === "1");
 }
