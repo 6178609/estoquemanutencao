@@ -6,7 +6,8 @@
  * Regras atuais (materiais aprovados no catálogo do Sysmat):
  * - injetoras KCLKA da EXP 12 em diante: os materiais com referência EK3 (modelo EK3-6E2/10E2);
  * - injetoras Golden Eagle 01 a 12 (UGB1): os materiais do modelo 180S (GEL 180/S, GEK 180/S, GEL/GEK 180/S…; não
- *   GEL 180, GEL 180L nem GEK 180/700/S).
+ *   GEL 180, GEL 180L nem GEK 180/700/S);
+ * - injetoras PVC (Golden Eagle): os materiais do modelo GEK 220 / GEKK (GEK 220W/S, GEK 220, GEK 220/S).
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
@@ -40,7 +41,19 @@ export const REGRAS: RegraVinculo[] = [
     },
     material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modelo180S(m.descrCompleta),
   },
+  {
+    id: "golden-pvc-gek220",
+    descricao: "Injetoras PVC (Golden Eagle): materiais do modelo GEK 220 / GEKK aprovados no Sysmat",
+    equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA PVC GOLDEN EAGLE \d+$/.test(chave(e.denominacao)),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modeloGek220(m.descricaoCurta, m.descrCompleta),
+  },
 ];
+
+/** Modelo GEK 220 (220W/S, 220/S…) ou a sigla GEKK na descrição. */
+export function modeloGek220(curta: string, completa: string): boolean {
+  const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "").replace(/\s/g, "");
+  return /GEK220(?!\d)/.test(mo) || /\bGEKK\b|\bGEK ?220(?!\d)/.test(chave(`${curta} ${completa}`));
+}
 
 /** O campo MODELO da descrição completa é da família 180S da Golden Eagle (GEL/GEK, com ou sem barras e espaços). */
 export function modelo180S(descrCompleta: string): boolean {
