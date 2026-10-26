@@ -62,3 +62,16 @@ describe("regras: Tien Kang e Pan Stone (JOB)", () => {
   it("Tien Kang com TIEN KANG/TIENKANG aprovados", () => expect(v.get("1")!.materiais).toEqual(["30", "31"]));
   it("Pan Stone só com PAN STONE e JOB", () => expect(v.get("4")!.materiais).toEqual(["40", "41"]));
 });
+
+describe("regra: Banbury Bonfanti BMI-80", () => {
+  const m = (material: string, curta: string, completa = "", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
+  const equips = [eq("1", "BANBURY SF 01 UGB1 BONFANTI"), eq("2", "BY 01 UGB1 BONFANTI - CAMARA ROTORES"), eq("3", "MOINHO LAMINADOR SF 04 UGB1 BONFANTI"),
+    eq("4", "BANBURY SF 02 UGB1 BONFANTI", true)];
+  const cat = [m("50", "ANEL BONFANTI 1", "ANEL; MODELO: BMI-80T/80 L; FAB: BONFANTI - REF: 1."), m("51", "FILTRO BONFANTI 2", "MODELO: MIXER BMI80; FAB: BONFANTI"),
+    m("52", "PINHAO BONFANTI 3", "APLICACAO: MISTURADOR BANBURY; MODELO: 80 L; FAB: BONFANTI"), m("53", "ROTOR BONFANTI 4", "MODELO: BMI-800; FAB: BONFANTI"),
+    m("54", "CORDAO BONFANTI 5", "APLICACAO: MOINHO; MODELO: BMR 535X610X800; FAB: BONFANTI"), m("55", "ANEL BMI-80", "MODELO: BMI-80"),
+    m("56", "ANEL BONFANTI 6", "MODELO: BMI-80; FAB: BONFANTI", "BLOQUEADO")];
+  const v = vinculosDasRegras(equips, cat);
+  it("só o Banbury Bonfanti ativo", () => expect([...v.keys()]).toEqual(["1"]));
+  it("materiais Bonfanti BMI-80 aprovados", () => expect(v.get("1")!.materiais).toEqual(["50", "51", "52"]));
+});
