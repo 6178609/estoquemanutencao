@@ -26,3 +26,14 @@ describe("regra: injetoras KCLKA da EXP 12 em diante recebem os materiais EK3", 
     expect(comPecasDaRegra(undefined, "INJ", ["100"])).toMatchObject({ nome: "INJ", materiais: ["100"], situacao: "Em operação" });
   });
 });
+
+describe("regra: injetoras Golden Eagle 01 a 12 recebem os materiais do modelo 180S", () => {
+  const m = (material: string, modelo: string, status = "APROVADO") => ({ material, descricaoCurta: "PECA", descrCompleta: `PECA; MODELO: ${modelo}; FAB: GOLDEN EAGLE - REF: 1`, status });
+  const equips = [eq("1", "INJETORA 01 UGB1 GOLDEN EAGLE"), eq("2", "INJETORA 12 UGB1 GOLDEN EAGLE"), eq("3", "INJETORA 13 UGB1 GOLDEN EAGLE"),
+    eq("4", "INJETORA 08 UGB1 GOLDEN EAGLE", true), eq("5", "INJETORA PVC (GOLDEN EAGLE) 006"), eq("6", "INJ PVC 02 GOLDEN - SISTEMA DE INJECAO")];
+  const cat = [m("10", "GEL 180/S"), m("11", "GEL180S"), m("12", "GEK 180/S"), m("13", "GEL/GEK/180/S"), m("14", "GEL 180"), m("15", "GEL/180L"),
+    m("16", "GEK 180/700/S"), m("17", "GEL 180/S", "BLOQUEADO"), m("18", "GOLDEN EAGLE 180S")];
+  const v = vinculosDasRegras(equips, cat);
+  it("só as injetoras 01 a 12 UGB1 ativas", () => expect([...v.keys()]).toEqual(["1", "2"]));
+  it("só a família 180S aprovada", () => expect(v.get("1")!.materiais).toEqual(["10", "11", "12", "13", "18"]));
+});

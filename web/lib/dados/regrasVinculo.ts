@@ -3,8 +3,10 @@
  * a gravação fica em regrasVinculoGravar.ts. A regra só ACRESCENTA peças ao cadastro do equipamento (o que foi
  * vinculado à mão fica) e só em equipamento ativo no SAP.
  *
- * Regra atual: injetoras KCLKA da EXP 12 em diante recebem todos os materiais com referência EK3 (modelo
- * EK3-6E2/10E2) aprovados no catálogo do Sysmat.
+ * Regras atuais (materiais aprovados no catálogo do Sysmat):
+ * - injetoras KCLKA da EXP 12 em diante: os materiais com referência EK3 (modelo EK3-6E2/10E2);
+ * - injetoras Golden Eagle 01 a 12 (UGB1): os materiais do modelo 180S (GEL 180/S, GEK 180/S, GEL/GEK 180/S…; não
+ *   GEL 180, GEL 180L nem GEK 180/700/S).
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
@@ -28,7 +30,23 @@ export const REGRAS: RegraVinculo[] = [
     material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO"
       && /\bEK3\b/.test(chave(`${m.descricaoCurta} ${m.descrCompleta}`)),
   },
+  {
+    id: "golden-01a12-180s",
+    descricao: "Injetoras Golden Eagle 01 a 12 (UGB1): materiais do modelo 180S aprovados no Sysmat",
+    equipamento: (e) => {
+      if (e.inativo || e.desativado) return false;
+      const m = /^INJETORA (\d+) UGB1 GOLDEN EAGLE\b/.exec(chave(e.denominacao));
+      return !!m && Number(m[1]) >= 1 && Number(m[1]) <= 12;
+    },
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modelo180S(m.descrCompleta),
+  },
 ];
+
+/** O campo MODELO da descrição completa é da família 180S da Golden Eagle (GEL/GEK, com ou sem barras e espaços). */
+export function modelo180S(descrCompleta: string): boolean {
+  const mo = chave(/MODELO:\s*([^;]+)/i.exec(descrCompleta)?.[1] ?? "").replace(/\s/g, "");
+  return /(GEL|GEK|GOLDENEAGLE)(GEK)?180S(?!\d)/.test(mo);
+}
 
 /** {código do equipamento: {nome, materiais}} que as regras pedem (materiais sem repetição, em ordem). */
 export function vinculosDasRegras(equips: Pick<Equipamento, "equipamento" | "denominacao" | "inativo" | "desativado">[],
