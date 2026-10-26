@@ -3,12 +3,15 @@ import { AlertTriangle, BookOpen, Boxes } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { after } from "next/server";
+
 import { Cabecalho, Pagina, Pilula } from "@/components/ui";
 import { podeEditar } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
 import { resumoCatalogo } from "@/lib/dados/catalogoBusca";
 import { dataHora, idade } from "@/lib/formato";
+import { conferirAosPoucos } from "@/lib/fotos/conferencia";
 import { campoDoEquipamentoDasBases } from "@/lib/wcm/campoGeral";
 import type { ItemAlmox } from "@/lib/dados/materiais";
 import { Almoxarifado } from "./Almoxarifado";
@@ -44,6 +47,8 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
     { id: "almox", titulo: "Material do almoxarifado", icone: Boxes, href: "/estoque" },
     { id: "cadastrado", titulo: "Material cadastrado", icone: BookOpen, href: "/estoque?aba=cadastrado" },
   ];
+  // depois de responder, o servidor confere algumas fotos do fabricante (a que a loja bloqueia sai da tela)
+  if (aba === "almox") after(() => conferirAosPoucos());
   // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material; só a base de ordens, em paralelo
   const [almox, campoEq] = aba === "almox" ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases()]) : [null, null];
   // a aba mostra só o que tem saldo: material zerado (ou negativo) no MB52 fica de fora
