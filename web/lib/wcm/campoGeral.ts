@@ -14,8 +14,14 @@ import { campoGeralPorEquipamento } from "./util";
 export async function camposGerais(c: Pick<Contexto, "b">): Promise<Map<string, string>> {
   const ordens = c.b.ordens.dados ?? [];
   const porOrdem = await camposDeOrdenacao(c.b.ordens.dados);
-  return guardar(`campo-geral|${c.b.ordens.atualizado}:${ordens.length}:${porOrdem.size}`, () => {
+  const eqs = c.b.equipamentos.dados ?? [];
+  return guardar(`campo-geral|${c.b.ordens.atualizado}:${ordens.length}:${porOrdem.size}|${c.b.equipamentos.atualizado}:${eqs.length}`, () => {
     const m = campoGeralPorEquipamento(ordens, porOrdem);
+    // sem ordem com campo no IW38: o campo de ordenação do próprio IH08 (fora os de preenchimento genérico)
+    for (const e of c.b.equipamentos.dados ?? []) {
+      const v = (e.campo ?? "").trim();
+      if (v && !m.has(e.equipamento) && !m.has(normalizar(e.equipamento)) && !CAMPO_GENERICO.test(v)) m.set(e.equipamento, v);
+    }
     // o mesmo equipamento também pelo código em maiúsculas e sem zeros à esquerda (IH08, AF, SEMEQ…)
     for (const [k, v] of [...m]) {
       const n = normalizar(k);
@@ -24,6 +30,9 @@ export async function camposGerais(c: Pick<Contexto, "b">): Promise<Map<string, 
     return m;
   });
 }
+
+/** Campos de ordenação de preenchimento genérico no IH08 (XX, 1234, só pontos ou traços…). */
+const CAMPO_GENERICO = /^(X+|1234|0+|[.\-_ ]+)$/i;
 
 const normalizar = (codigo: string) => String(codigo ?? "").trim().toUpperCase().replace(/^0+(?=.)/, "");
 

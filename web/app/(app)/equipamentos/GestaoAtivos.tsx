@@ -221,7 +221,8 @@ function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: 
             <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
-            {[[ROTULO_CAMPO, campoEq(r.codigo) || "—"], ["Local", r.localInstalacao || "—"], ["Área", r.area || "—"], ["Centro", r.centro || "—"], ["Origem", r.origem],
+            {[[ROTULO_CAMPO, campoEq(r.codigo) || "—"], ["Local", r.localInstalacao || "—"], ["Área", r.area || "—"], ["Centro de trabalho", r.centro || "—"], ["Centro de custo", r.centroCusto || "—"],
+              ["Status do usuário", r.statusUsuario || "—"], ["Nº de inventário", r.inventario || "—"], ["Equipamento superior", r.superior || "—"], ["Origem", r.origem],
               ["Custo total (IW38)", brl(r.custoTotal)], ["Custo 12 meses", brl(r.custo12Meses)], ["Planos preventivos", inteiroBr(r.planosPreventivos)], ["Peças vinculadas", inteiroBr(r.pecasVinculadas)],
               ["Fabricante / modelo", [r.fabricante, r.modelo].filter(Boolean).join(" ") || "—"], ["Nº de série", r.serie || "—"],
               ["Instalação", r.anoInstalacao != null ? `${r.anoInstalacao} (${r.idade} anos)` : "—"], ["Vida útil", r.vidaUtil != null ? `${r.vidaUtil} anos (restam ${r.vidaRestante ?? "—"})` : "—"],

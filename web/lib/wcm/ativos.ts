@@ -46,7 +46,8 @@ const CHAMADA_SALTADA = "Saltada/cancelada";
 // Entradas
 // ----------------------------------------------------------------------------
 /** IH08 preparado. */
-export type EquipAtivo = Pick<Equipamento, "equipamento" | "denominacao" | "localizacao" | "codigoAbc" | "local" | "desativado">;
+export type EquipAtivo = Pick<Equipamento, "equipamento" | "denominacao" | "localizacao" | "codigoAbc" | "local" | "desativado">
+  & Partial<Pick<Equipamento, "centroCusto" | "centroTrabalho" | "statusUsuario" | "inventario" | "superior" | "inativo">>;
 /** IW38 preparado (todas as datas). */
 export type OrdemAtivo = Pick<Ordem, "equipChave" | "situacao" | "objeto" | "localizacao" | "local" | "centroTrabalho" |
   "data" | "custoReal" | "comPlano" | "plano">;
@@ -72,6 +73,8 @@ export interface EntradasAtivos {
 export interface LinhaAtivo {
   codigo: string; equipamento: string; situacao: string; criticidade: string; abc: string; categoria: string;
   area: string; localInstalacao: string; centro: string; origem: "SAP + site" | "SAP" | "Site";
+  /** do IH08 */
+  centroCusto: string; statusUsuario: string; inventario: string; superior: string;
   fabricante: string; modelo: string; serie: string; anoInstalacao: number | null; idade: number | null;
   vidaUtil: number | null; vidaRestante: number | null; garantiaAte: Dia | null; garantia: string;
   valorReposicao: number | null; custo12Meses: number; custoPorReposicaoPct: number | null; custoTotal: number;
@@ -83,7 +86,8 @@ export interface LinhaAtivo {
 export const COLUNAS: [keyof LinhaAtivo, string][] = [
   ["codigo", "Código"], ["equipamento", "Equipamento"], ["situacao", "Situação"], ["criticidade", "Criticidade"],
   ["abc", "ABC"], ["categoria", "Categoria"], ["area", "Área"], ["localInstalacao", "Local de instalação"],
-  ["centro", "Centro"], ["origem", "Origem"], ["fabricante", "Fabricante"], ["modelo", "Modelo"], ["serie", "Nº de série"],
+  ["centro", "Centro de trabalho"], ["centroCusto", "Centro de custo"], ["statusUsuario", "Status do usuário (SAP)"], ["inventario", "Nº de inventário"],
+  ["superior", "Equipamento superior"], ["origem", "Origem"], ["fabricante", "Fabricante"], ["modelo", "Modelo"], ["serie", "Nº de série"],
   ["anoInstalacao", "Ano de instalação"], ["idade", "Idade (anos)"], ["vidaUtil", "Vida útil (anos)"],
   ["vidaRestante", "Vida restante (anos)"], ["garantiaAte", "Garantia até"], ["garantia", "Garantia"],
   ["valorReposicao", "Valor de reposição"], ["custo12Meses", "Custo 12 meses"], ["custoPorReposicaoPct", "Custo ÷ reposição %"],
@@ -151,6 +155,10 @@ export function inventario(hoje: Dia, e: EntradasAtivos = {}): LinhaAtivo[] {
   const dasOrdens = new Set(o?.map((x) => x.equipChave) ?? []);
   const universo = new Set([...sap, ...cadEq.keys(), ...dasOrdens]);
   universo.delete("");
+  // inativos no SAP (status INAT/MREL do IH08) saem do inventário, mesmo com ordens antigas ou cadastro no site
+  const semZeros = (k: string) => k.trim().toUpperCase().replace(/^0+(?=.)/, "");
+  const inativos = new Set((equip ?? []).filter((x) => x.inativo).map((x) => semZeros(x.equipamento)));
+  if (inativos.size) for (const k of [...universo]) if (inativos.has(semZeros(k))) universo.delete(k);
   if (!universo.size) return [];
   const idx = [...universo].sort();
 
@@ -216,7 +224,8 @@ export function inventario(hoje: Dia, e: EntradasAtivos = {}): LinhaAtivo[] {
     const linha: LinhaAtivo = {
       codigo: k, equipamento, situacao, criticidade, abc, categoria: campo("categoria"),
       area: eq?.localizacao || areaO.get(k) || "", localInstalacao: eq?.local || localO.get(k) || "",
-      centro: centroO.get(k) ?? "", origem, fabricante: campo("fabricante"), modelo: campo("modelo"), serie: campo("serie"),
+      centro: eq?.centroTrabalho || centroO.get(k) || "", origem,
+      centroCusto: eq?.centroCusto ?? "", statusUsuario: eq?.statusUsuario ?? "", inventario: eq?.inventario ?? "", superior: eq?.superior ?? "", fabricante: campo("fabricante"), modelo: campo("modelo"), serie: campo("serie"),
       anoInstalacao: ano, idade, vidaUtil, vidaRestante: vidaUtil != null && idade != null ? vidaUtil - idade : null,
       garantiaAte, garantia: situacaoGarantia(garantiaAte, hoje), valorReposicao, custo12Meses,
       custoPorReposicaoPct: valorReposicao != null ? arred((custo12Meses / valorReposicao) * 100) : null,
