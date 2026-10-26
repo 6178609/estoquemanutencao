@@ -285,7 +285,10 @@ export interface Equipamento {
   /** dados do IH08 completo (vazios num export antigo, que não traz essas colunas) */
   campo: string; centroCusto: string; centroTrabalho: string; statusSistema: string; statusUsuario: string; inventario: string;
   superior: string;
-  /** status do sistema INAT (inativo) ou MREL (marcado para eliminação): o ativo saiu de uso no SAP */
+  /**
+   * fora de uso: status do sistema INAT (inativo) ou MREL (marcado para eliminação), ou posição vazia (denominação
+   * "VAGO") — sai do inventário de ativos
+   */
   inativo: boolean;
 }
 
@@ -310,7 +313,7 @@ export function prepararEquipamentos(cru: Crua[], excluir = true): Equipamento[]
       codigoAbc: pega(l, c.Abc).toUpperCase().trim(), local: pega(l, c.Local) };
     if (excluir && foraDaVisao({ "Localização": e.localizacao, "Local de instalação": e.local, "Denominação": e.denominacao })) continue;
     const statusSistema = pega(l, c.StatusSistema).toUpperCase().trim();
-    const inativo = statusSistema.split(/\s+/).some((s) => STATUS_INATIVO.includes(s));
+    const inativo = statusSistema.split(/\s+/).some((s) => STATUS_INATIVO.includes(s)) || /^VAGO\b/.test(chave(e.denominacao));
     out.push({ ...e, desativado: inativo || /DESATIV|INATIV|NAO ESTA NA FABRICA|SUCATA|BAIXAD/.test(chave(e.denominacao)),
       campo: pega(l, c.Campo), centroCusto: pega(l, c.CentroCusto), centroTrabalho: pega(l, c.CentroTrabalho), statusSistema,
       statusUsuario: pega(l, c.StatusUsuario).toUpperCase().trim(), inventario: pega(l, c.Inventario), superior: pega(l, c.Superior), inativo });
