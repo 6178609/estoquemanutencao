@@ -3,7 +3,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 
 import type { FotoExterna } from "../fotoMaterial";
-import type { TipoImagem } from "./fotos";
+import { tipoImagem, type TipoImagem } from "./fotos";
+import { fonte } from "./fonte";
 import { baixarPagina, buscarImagemSugestao, chaveSugestao, imagemDaPagina, SugestaoErro, urlSugestaoErro } from "./fotosSugestao";
 
 /**
@@ -18,6 +19,8 @@ import { baixarPagina, buscarImagemSugestao, chaveSugestao, imagemDaPagina, Suge
  */
 export interface FotoCadastro {
   url: string | null; pagina: string | null; titulo: string; buscado_em: string;
+  /** a imagem já baixada e guardada no repositório de dados (a tela não depende mais da loja nem da internet) */
+  arquivo?: string;
   /** foto de um produto equivalente (mesma especificação), não do item exato: o item não tem fabricante/referência */
   equivalente?: boolean;
 }
@@ -41,19 +44,42 @@ function linkPagina(x: unknown): string | null {
 export function fotoDoCadastro(item: unknown): FotoCadastro | null {
   if (!item || typeof item !== "object") return null;
   const r = item as Record<string, unknown>;
-  // a conferência não conseguiu carregar a imagem: fica fora da tela até a próxima conferência dar certo
-  if (typeof r.falhas === "number" && r.falhas > 0) return null;
+  const arquivo = typeof r.arquivo === "string" && ARQUIVO_GUARDADO.test(r.arquivo) && !r.arquivo.includes("..") ? r.arquivo : null;
+  // a conferência não conseguiu carregar a imagem: fica fora da tela até a próxima conferência dar certo (a guardada vale)
+  if (!arquivo && typeof r.falhas === "number" && r.falhas > 0) return null;
   const url = typeof r.url === "string" && !urlSugestaoErro(r.url) ? r.url : null;
   const pagina = linkPagina(r.pagina);
-  if (!url && !pagina) return null;
+  if (!url && !pagina && !arquivo) return null;
   const quando = typeof r.buscado_em === "string" && !Number.isNaN(Date.parse(r.buscado_em))
     ? new Date(r.buscado_em).toISOString() : new Date(0).toISOString();
-  return { url, pagina, titulo: textoLimpo(r.titulo, 200), buscado_em: quando, ...(r.equivalente === true && { equivalente: true }) };
+  return { url, pagina, titulo: textoLimpo(r.titulo, 200), buscado_em: quando, ...(r.equivalente === true && { equivalente: true }),
+    ...(arquivo && { arquivo }) };
 }
 
 /** Chave da foto: o hash do endereço da imagem, ou da página quando só há a página. */
 // "p2|": a imagem tirada da página mudou de regra (sem logo da loja): chave nova, o navegador não usa a imagem guardada
-export const chaveFoto = (f: FotoCadastro): string => chaveSugestao(f.url ?? `p2|${f.pagina ?? ""}`);
+export const chaveFoto = (f: FotoCadastro): string =>
+  chaveSugestao(f.arquivo ? `a|${f.arquivo}|${f.buscado_em}` : f.url ?? `p2|${f.pagina ?? ""}`);
+
+/** Foto já baixada e guardada no repositório de dados: `app/fotos/fabricante/<material>.<jpg|png|webp>`. */
+const ARQUIVO_GUARDADO = /^app\/fotos\/fabricante\/[A-Za-z0-9][\w.\-]{0,39}\.(jpg|png|webp)$/;
+
+/** Lê a foto guardada no repositório de dados (com o mesmo cache das imagens). Sem repositório (demonstração), null. */
+async function imagemGuardada(caminho: string): Promise<{ bytes: Uint8Array; tipo: TipoImagem } | null> {
+  const f = fonte();
+  if (!f) return null;
+  const versao = (await f.versoes()).get(caminho);
+  if (!versao) return null;
+  const chave = chaveSugestao(`${caminho}@${versao}`);
+  const pronta = cache.get(chave);
+  if (pronta) return pronta;
+  const lido = await f.ler(caminho);
+  const tipo = lido && tipoImagem(lido.bytes);
+  if (!lido || !tipo) return null;
+  const img = { bytes: lido.bytes, tipo };
+  guardar(chave, img);
+  return img;
+}
 
 /** O que a tela recebe de uma foto do cadastro: a chave, a página e o título (sem o endereço da imagem). */
 export function fotoExternaDe(f: FotoCadastro): FotoExterna {
@@ -174,8 +200,9 @@ export function falhaPassageira(e: unknown): boolean {
 export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: string): Promise<NextResponse> {
   if (!f) return new NextResponse("Sem foto.", { status: 404 });
   try {
-    const alvo = f.url ?? await imagemDaPaginaCache(f.pagina!);
-    const img = await imagem(alvo);
+    // a guardada no repositório vem primeiro: não depende da loja nem da internet
+    const guardada = f.arquivo ? await imagemGuardada(f.arquivo) : null;
+    const img = guardada ?? await imagem(f.url ?? await imagemDaPaginaCache(f.pagina!));
     return new NextResponse(Buffer.from(img.bytes), {
       headers: {
         "Content-Type": img.tipo,
