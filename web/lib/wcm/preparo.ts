@@ -282,13 +282,24 @@ export function tiposPorOrdem(...fontes: { ordem: string; tipo: string }[][]): M
 
 export interface Equipamento {
   equipamento: string; denominacao: string; localizacao: string; codigoAbc: string; local: string; desativado: boolean;
+  /** dados do IH08 completo (vazios num export antigo, que não traz essas colunas) */
+  campo: string; centroCusto: string; centroTrabalho: string; statusSistema: string; statusUsuario: string; inventario: string;
+  superior: string;
+  /** status do sistema INAT (inativo) ou MREL (marcado para eliminação): o ativo saiu de uso no SAP */
+  inativo: boolean;
 }
+
+/** Status do sistema do IH08 que tiram o equipamento de uso: INAT (inativo) e MREL (marcado para eliminação). */
+export const STATUS_INATIVO = ["INAT", "MREL"];
 
 export function prepararEquipamentos(cru: Crua[], excluir = true): Equipamento[] {
   const c = mapear(colunasDe(cru), {
-    Equipamento: ["^EQUIPAMENTO$"], Denominacao: ["DENOMINACAO"], Localizacao: ["^LOCALIZACAO$"],
-    Abc: ["CODIGO ABC", "^ABC$"], Local: ["LOCAL DE INSTALACAO", "LOC INSTAL"],
-  });
+    Equipamento: ["^EQUIPAMENTO$"], Denominacao: ["DENOMINACAO DO OBJETO TECNICO", "^DENOMINACAO$", "DENOMINACAO"],
+    Localizacao: ["^LOCALIZACAO$"], Abc: ["CODIGO ABC", "^ABC$"], Local: ["^LOCAL DE INSTALACAO$", "LOC INSTAL"],
+    Campo: ["CAMPO DE ORDENACAO", "CAMPO ORDENACAO"], CentroCusto: ["^CENTRO CUSTO$", "CENTRO DE CUSTO"],
+    CentroTrabalho: ["CENTRO TRAB", "CENTRO DE TRABALHO"], StatusSistema: ["STATUS DO SISTEMA", "STATUS SISTEMA"],
+    StatusUsuario: ["STATUS USUARIO"], Inventario: ["INVENTARIO"], Superior: ["EQUIPAMENTO SUPERIOR"],
+  }, { Denominacao: "LOC INSTAL", Local: "DENOMINACAO" });
   const vistos = new Set<string>();
   const out: Equipamento[] = [];
   for (const l of cru) {
@@ -298,7 +309,11 @@ export function prepararEquipamentos(cru: Crua[], excluir = true): Equipamento[]
     const e = { equipamento, denominacao: pega(l, c.Denominacao), localizacao: pega(l, c.Localizacao),
       codigoAbc: pega(l, c.Abc).toUpperCase().trim(), local: pega(l, c.Local) };
     if (excluir && foraDaVisao({ "Localização": e.localizacao, "Local de instalação": e.local, "Denominação": e.denominacao })) continue;
-    out.push({ ...e, desativado: /DESATIV|INATIV|NAO ESTA NA FABRICA|SUCATA|BAIXAD/.test(chave(e.denominacao)) });
+    const statusSistema = pega(l, c.StatusSistema).toUpperCase().trim();
+    const inativo = statusSistema.split(/\s+/).some((s) => STATUS_INATIVO.includes(s));
+    out.push({ ...e, desativado: inativo || /DESATIV|INATIV|NAO ESTA NA FABRICA|SUCATA|BAIXAD/.test(chave(e.denominacao)),
+      campo: pega(l, c.Campo), centroCusto: pega(l, c.CentroCusto), centroTrabalho: pega(l, c.CentroTrabalho), statusSistema,
+      statusUsuario: pega(l, c.StatusUsuario).toUpperCase().trim(), inventario: pega(l, c.Inventario), superior: pega(l, c.Superior), inativo });
   }
   return out;
 }

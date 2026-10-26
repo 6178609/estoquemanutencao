@@ -8,7 +8,7 @@ import { dia } from "@/lib/wcm/util";
 /** Regras da aba Equipamentos (dados fictícios). */
 const ativo = (x: Partial<LinhaAtivo>): LinhaAtivo => ({
   codigo: "E1", equipamento: "BOMBA TESTE", situacao: "Em operação", criticidade: "Alta", abc: "", categoria: "", area: "GAL1",
-  localInstalacao: "", centro: "", origem: "SAP", fabricante: "", modelo: "", serie: "", anoInstalacao: null, idade: null, vidaUtil: null,
+  localInstalacao: "", centro: "", centroCusto: "", statusUsuario: "", inventario: "", superior: "", origem: "SAP", fabricante: "", modelo: "", serie: "", anoInstalacao: null, idade: null, vidaUtil: null,
   vidaRestante: null, garantiaAte: null, garantia: "Sem garantia cadastrada", valorReposicao: null, custo12Meses: 0, custoPorReposicaoPct: null,
   custoTotal: 0, ordensPendentes: 0, quebras12Meses: 0, mtbfDias: null, saude: null, faixa: "", planosPreventivos: 0, cobertoPorPlano: false,
   pecasVinculadas: 0, recomendacao: "Manter", ...x,

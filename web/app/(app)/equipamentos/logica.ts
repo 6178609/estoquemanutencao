@@ -134,7 +134,7 @@ interface LinhaAnalise {
 
 type OrdemA = Pick<Ordem, "equipChave" | "objeto" | "local" | "centroTrabalho" | "situacao" | "data" | "comPlano" | "custoReal">;
 type NotaA = Pick<Nota, "equipChave" | "quebra" | "comOrdem">;
-type EquipA = Pick<Equipamento, "equipamento" | "denominacao" | "codigoAbc" | "desativado">;
+type EquipA = Pick<Equipamento, "equipamento" | "denominacao" | "codigoAbc" | "desativado"> & Partial<Pick<Equipamento, "inativo">>;
 
 function moda(m: Map<string, number>): string {
   let melhor = "", n = -1;
@@ -187,6 +187,7 @@ export function agregarAnalise(todas: OrdemA[], ini: Dia, fim: Dia, e: {
     if (vistos.has(k)) continue;
     vistos.add(k);
     const a = acc.get(k), eq = ref.get(k), info = cad(k);
+    if (eq?.inativo) continue; // inativo no SAP (INAT/MREL): fora, como no inventário
     const abc = (eq?.codigoAbc ?? "").toUpperCase().trim();
     const mats = Array.isArray(info.materiais) ? [...new Set(info.materiais.map(String))] : [];
     const pc = e.pecas ? e.pecas(k) : [];
