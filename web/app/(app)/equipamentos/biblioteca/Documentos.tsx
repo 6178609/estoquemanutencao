@@ -7,12 +7,15 @@ import { useRef, useState } from "react";
 
 import { Campo, Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
+import { LIMITE_DOCUMENTO, LIMITE_MANUAL_GRANDE } from "@/lib/limitesManual";
+import { enviarManualEmPartes } from "@/lib/manuais/envioEmPartes";
 
 interface DocTela {
   id: string; titulo: string; tipo: string; tamanho: number; em: string; por: string; url?: string;
 }
 
 const tamanho = (b: number) => (b >= 1_000_000 ? `${(b / 1_000_000).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(b / 1000))} KB`);
+const MB_GRANDE = Math.round(LIMITE_MANUAL_GRANDE / 1_000_000);
 const data = (iso: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(new Date(iso));
 
 /** Manuais e documentos do ativo: abrir (todos) e pôr/remover (editor). */
@@ -21,6 +24,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
   const arquivo = useRef<HTMLInputElement>(null);
   const [modo, setModo] = useState<"arquivo" | "link">("arquivo");
   const [estado, setEstado] = useState<{ enviando: boolean; erro: string; ok: string }>({ enviando: false, erro: "", ok: "" });
+  const [progresso, setProgresso] = useState<{ feitas: number; total: number } | null>(null);
 
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,8 +34,27 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
       setEstado({ enviando: false, erro: "Escolha o arquivo (PDF ou imagem).", ok: "" });
       return;
     }
-    if (modo === "arquivo" && (form.get("arquivo") as File).size > 4_000_000) {
-      setEstado({ enviando: false, erro: "O arquivo passou de 4 MB. Para manuais maiores, use “Adicionar link”.", ok: "" });
+    const f = form.get("arquivo");
+    if (modo === "arquivo" && f instanceof File && f.size > LIMITE_MANUAL_GRANDE) {
+      setEstado({ enviando: false, erro: `O arquivo passa de ${MB_GRANDE} MB. Para manuais maiores, use “Adicionar link”.`, ok: "" });
+      return;
+    }
+    // acima de 4 MB vai em partes (a Vercel recebe até ~4,5 MB por pedido); o título vazio vira o nome do arquivo
+    if (modo === "arquivo" && f instanceof File && f.size > LIMITE_DOCUMENTO) {
+      const formulario = e.currentTarget;
+      const titulo = String(form.get("titulo") ?? "").trim() || f.name.replace(/\.[^.]+$/, "");
+      setEstado({ enviando: true, erro: "", ok: "" });
+      try {
+        await enviarManualEmPartes(f, [eq], titulo, setProgresso);
+      } catch (err) {
+        setProgresso(null);
+        setEstado({ enviando: false, erro: err instanceof Error ? err.message : "Não foi possível enviar.", ok: "" });
+        return;
+      }
+      setProgresso(null);
+      formulario.reset();
+      setEstado({ enviando: false, erro: "", ok: "Documento adicionado à biblioteca." });
+      router.refresh();
       return;
     }
     if (modo === "arquivo") form.delete("url"); else form.delete("arquivo");
@@ -39,7 +62,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
     const r = await fetch("/api/equipamentos/documento", { method: "POST", body: form }).catch(() => null);
     const j = await r?.json().catch(() => ({})) ?? {};
     if (!r?.ok) {
-      setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo passou de 4 MB. Para manuais maiores, use “Adicionar link”." : "Não foi possível enviar."), ok: "" });
+      setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo é grande demais para um envio só; tente de novo." : "Não foi possível enviar."), ok: "" });
       return;
     }
     (e.target as HTMLFormElement).reset();
@@ -106,7 +129,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
             <Campo rotulo="Título" name="titulo" placeholder={modo === "arquivo" ? "Ex.: Manual de operação (vazio = nome do arquivo)" : "Ex.: Catálogo de peças do fabricante"} maxLength={120} />
             {modo === "arquivo" ? (
               <label className="block">
-                <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (PDF ou imagem, até 4 MB)</span>
+                <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (PDF ou imagem, até {MB_GRANDE} MB)</span>
                 <input ref={arquivo} name="arquivo" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
                   className="block h-11 w-full rounded-xl border border-borda bg-superficie px-3 py-2 text-[13.5px] text-texto file:mr-3 file:rounded-lg file:border-0 file:bg-superficie-3 file:px-3 file:text-texto" />
               </label>
@@ -114,6 +137,17 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
               <Campo rotulo="Link" name="url" type="url" required placeholder="https://…" inputMode="url" />
             )}
           </div>
+          {progresso && (
+            <div className="space-y-1.5">
+              <p className="text-[13px] text-texto-2" aria-live="polite">
+                {progresso.feitas < progresso.total ? `Enviando parte ${progresso.feitas + 1} de ${progresso.total}` : "Concluindo o envio…"}
+              </p>
+              <div role="progressbar" aria-label="Envio do documento" aria-valuemin={0} aria-valuemax={progresso.total} aria-valuenow={progresso.feitas}
+                aria-valuetext={`${progresso.feitas} de ${progresso.total} partes`} className="h-2 w-full overflow-hidden rounded-full bg-superficie-3">
+                <div className="h-full bg-[var(--acao)] transition-[width]" style={{ width: `${(progresso.feitas / progresso.total) * 100}%` }} />
+              </div>
+            </div>
+          )}
           {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
           {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
           <div className="flex flex-wrap gap-2">
@@ -121,7 +155,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
               {estado.enviando ? <LoaderCircle className="size-4 animate-spin" /> : modo === "arquivo" ? <Upload className="size-4" /> : <Link2 className="size-4" />}
               {estado.enviando ? "Enviando…" : "Adicionar à biblioteca"}
             </button>
-            <span className="self-center text-[12.5px] text-texto-3">Manual maior que 4 MB? Use o link (pasta da rede, SharePoint, site do fabricante).</span>
+            <span className="self-center text-[12.5px] text-texto-3">Acima de 4 MB o envio é feito em partes: não feche a página até terminar. Maior que {MB_GRANDE} MB? Use o link.</span>
           </div>
         </form>
       )}
