@@ -96,3 +96,28 @@ describe("regra: prensa COPE PHB 450", () => {
   it("só a prensa principal", () => expect([...v.keys()]).toEqual(["1"]));
   it("materiais PHB/PBH 450 aprovados", () => expect(v.get("1")!.materiais).toEqual(["70", "71", "72"]));
 });
+
+describe("regra: Golden PVC (GEK 220 e GES 270/S) por sistema", () => {
+  const m = (material: string, curta: string, completa = "", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
+  const equips = [eq("1", "INJETORA PVC (GOLDEN EAGLE) 006"), eq("2", "INJ PVC 06 GOLDEN - SISTEMA HIDRAULICO"), eq("3", "INJ PVC 06 GOLDEN - UNIDADE HIDRÁULICA"),
+    eq("4", "INJ PVC 06 GOLDEN - SISTEMA DE AQUECIMEN"), eq("5", "INJ PVC 07 GOLDEN - SISTEMA COMAN_FORCA"), eq("6", "INJ PVC 08 GOLDEN - SISTEMA DE INJECAO", true)];
+  const cat = [m("80", "VALVULA HIDR GOLDEN EAGLE 1171", "MODELO: GES 270/S"), m("81", "RESERV OLEO GOLDENMAQ 2179", "MODELO: GEK 220W/S"),
+    m("82", "RESISTENCIA CIRC 500W GOLDEN EAGLE 1220", "MODELO: GES 270/S"), m("83", "SERVO DRIVE GOLDEN EAGLE 1197", "MODELO: GES 270/S"),
+    m("84", "GARRA FIXA TRAS GOLDEN EAGLE 2253", "MODELO: GES 270/S"), m("85", "PORTA MOLDE HAV INJ ACO", "MODELO: GES 270"),
+    m("86", "BICO INJETOR GOLDEN EAGLE", "MODELO: GEL 180/S"), m("87", "BICO INJETOR GOLDEN EAGLE GES270", "MODELO: GES 270/S")];
+  const v = vinculosDasRegras(equips, cat);
+  it("máquina recebe tudo do modelo (sem porta-molde)", () => expect(v.get("1")!.materiais).toEqual(["80", "81", "82", "83", "84", "87"]));
+  it("hidráulico recebe também a unidade; unidade só a dela", () => {
+    expect(v.get("2")!.materiais).toEqual(["80", "81"]);
+    expect(v.get("3")!.materiais).toEqual(["81"]);
+  });
+  it("aquecimento e comando", () => {
+    expect(v.get("4")!.materiais).toEqual(["82"]);
+    expect(v.get("5")!.materiais).toEqual(["83"]);
+  });
+  it("subconjunto inativo fica de fora", () => expect(v.has("6")).toBe(false));
+  it("subconjunto ativo de máquina inativa fica de fora", () => {
+    const w = vinculosDasRegras([eq("9", "INJETORA PVC (GOLDEN EAGLE) 001", true), { ...eq("10", "INJ PVC 01 GOLDEN - SISTEMA HIDRAULICO"), superior: "9" }], cat);
+    expect(w.size).toBe(0);
+  });
+});
