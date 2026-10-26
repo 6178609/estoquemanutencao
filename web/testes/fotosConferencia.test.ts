@@ -6,7 +6,7 @@ import { _definirFonte } from "@/lib/dados/fonte";
 import { _definirSupabase } from "@/lib/dados/supabase";
 import { lerCadastro } from "@/lib/dados/cadastros";
 import { fotoDoCadastro } from "@/lib/dados/fotosExternas";
-import { aConferir, conferirFotos } from "@/lib/fotos/conferencia";
+import { aConferir, conferirAosPoucos, conferirFotos } from "@/lib/fotos/conferencia";
 
 const agora = Date.parse("2026-10-26T12:00:00Z");
 const pag = (n: string) => ({ url: null, pagina: `https://loja.exemplo.com.br/p/${n}`, titulo: n, buscado_em: "2026-10-25T00:00:00Z" });
@@ -77,5 +77,9 @@ describe("conferência das fotos do fabricante", () => {
     expect(r.conferidas).toBe(2);
     expect(r.pendentes).toBe(3);
     expect(conferir).toHaveBeenCalledTimes(2);
+  });
+
+  it("aos poucos: não roda na demonstração (sem repositório de dados)", async () => {
+    expect(await conferirAosPoucos()).toBeNull();
   });
 });

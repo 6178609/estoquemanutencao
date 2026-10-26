@@ -2,6 +2,7 @@ import "server-only";
 
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { conferirFotoExterna, falhaPassageira, fotoDoCadastro, type FotoCadastro } from "../dados/fotosExternas";
+import { fonte } from "../dados/fonte";
 import { ARQUIVO_REFERENCIA } from "../dados/fotosReferencia";
 
 /**
@@ -88,4 +89,27 @@ export async function conferirFotos(o: OpcoesConferencia): Promise<ResumoConfere
   const conferidas = ok + falharam + passageiras;
   console.info(`conferência de fotos: ${conferidas} conferidas, ${ok} ok, ${falharam} falharam, ${passageiras} passageiras`);
   return { conferidas, ok, falharam, passageiras, pendentes: fila.length - ok - falharam };
+}
+
+// conferência aos poucos, quando alguém abre o Estoque: não depende da rotina diária (que pode não rodar) e não pesa
+const INTERVALO_AOS_POUCOS_MS = 10 * 60_000;
+let ultimaAosPoucos = 0;
+let rodandoAosPoucos = false;
+
+/**
+ * Confere até 30 fotos (25 s) depois de a página do Estoque responder, no máximo uma vez a cada 10 min por servidor.
+ * Só com o repositório de dados ligado (na demonstração, não). Nunca lança: o erro vai para o log.
+ */
+export async function conferirAosPoucos(agora = Date.now()): Promise<ResumoConferencia | null> {
+  if (!fonte() || rodandoAosPoucos || agora - ultimaAosPoucos < INTERVALO_AOS_POUCOS_MS) return null;
+  rodandoAosPoucos = true;
+  ultimaAosPoucos = agora;
+  try {
+    return await conferirFotos({ limite: 30, prazoMs: 25_000 });
+  } catch (e) {
+    console.error("conferência de fotos (aos poucos):", e);
+    return null;
+  } finally {
+    rodandoAosPoucos = false;
+  }
 }
