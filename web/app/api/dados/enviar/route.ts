@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 
 import { aquecer } from "@/lib/aquecimento";
+import { aplicarRegrasDeVinculo } from "@/lib/dados/regrasVinculoGravar";
 
 import { registrar } from "@/lib/auditoria";
 import { autorizar } from "@/lib/auth/sessao";
@@ -41,7 +42,13 @@ export async function POST(req: NextRequest) {
     // base completa: prepara tudo de novo em segundo plano, para a próxima tela já abrir com o dado novo pronto
     if (r.concluido) {
       registrar(u.login, "base_enviada", tipo, { arquivo: texto("arquivo"), aba: texto("aba") || undefined, linhas: Number(texto("linhas", 10)) || 0 });
-      after(() => aquecer(true).then(() => undefined));
+      // depois de preparar as bases: com IH08 ou catálogo novos, as regras de vínculo de peças valem para os equipamentos novos
+      after(() => aquecer(true).then(async () => {
+        if (tipo === "ih08" || tipo === "catalogo_materiais") {
+          const r = await aplicarRegrasDeVinculo().catch((e) => { console.error("regras de vínculo:", e); return null; });
+          if (r?.equipamentos) registrar(u.login, "regra_vinculo", tipo, r);
+        }
+      }));
     }
     const resp = NextResponse.json({ ok: true, ...r });
     // por 2 min as telas de quem enviou esperam a base nova em vez de mostrar a anterior (ver bases())

@@ -172,7 +172,7 @@ describe("manuais em partes: envio completo (demonstração)", () => {
     await removerDocumento("PRE-01", origem.id, "Teste");
     expect(await documentosDe("PRE-01")).toEqual([]);
     expect(await partesFaltando(ini.envio, 2)).toEqual([0, 1]);
-  });
+  }, 20_000); // manual de vários MB em partes: com a máquina ocupada passa dos 5 s padrão
 
   it("arquivo que não é PDF nem imagem não entra; as partes saem junto", async () => {
     const texto = new TextEncoder().encode("texto simples ".repeat(400_000));
