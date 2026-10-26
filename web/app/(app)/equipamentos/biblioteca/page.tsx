@@ -17,6 +17,7 @@ import type { Params } from "../_ui/url";
 import { infoCad, inventarioAtivos, mapaEstoque, pecasDe } from "../dados";
 import { SELO_REC } from "../GestaoAtivos";
 import { ROTULO_CAMPO, V_ANALISE, V_CADASTRO } from "../logica";
+import { BaixarPecas } from "../BaixarPecas";
 import { SeloPeca } from "../SeloPeca";
 import { Documentos } from "./Documentos";
 
@@ -111,6 +112,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         <div>
           <h2 id="componentes" className="font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({pecas.length})</span></h2>
           <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas no cadastro do equipamento, com a situação no estoque (MB52).{edita ? " Para vincular mais, use Editar cadastro." : ""}</p>
+          <div className="mt-3"><BaixarPecas eq={r.codigo} n={pecas.length} /></div>
         </div>
         {pecas.length === 0 ? (
           <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum componente vinculado a este equipamento.</p>

@@ -13,6 +13,7 @@ import { dataBr } from "@/lib/wcm/util";
 import { AbasParam, BarraSaude, Cartao, GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT } from "./_ui/Blocos";
 import { FiltrosUrl } from "./_ui/FiltrosUrl";
 import { hrefCom, type Params } from "./_ui/url";
+import { BaixarPecas } from "./BaixarPecas";
 import { inventarioAtivos } from "./dados";
 import { CampoEq, filtrarInventario, lerFiltroInventario, paginar, param, ROTULO_CAMPO, SEM_CLASSE, V_ANALISE, V_CADASTRO } from "./logica";
 
@@ -230,6 +231,7 @@ function Inventario({ t, params, completo, cadastra, temOrdens, campoEq }: { t: 
               ["Saúde", r.saude != null ? `${r.saude} · ${r.faixa}` : "—"], ["MTBF", r.mtbfDias != null ? `${r.mtbfDias} dias` : "—"],
             ].map(([k, v]) => <div key={k}><dt className="text-[12px] text-texto-3">{k}</dt><dd className="font-medium">{v}</dd></div>)}
           </dl>
+          {r.pecasVinculadas > 0 && <div className="mt-4 border-t border-borda pt-3"><BaixarPecas eq={r.codigo} n={r.pecasVinculadas} /></div>}
         </Cartao>
       )}
       <TabelaT colunas={COLS_INV} vazio="Nenhum ativo com estes filtros."
