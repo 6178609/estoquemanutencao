@@ -18,10 +18,10 @@ export const dynamic = "force-dynamic";
 
 const DIAS_ALERTA = 2; // base mais velha que isso aparece como desatualizada
 /**
- * Bases com atualização mais espaçada (prazo + 2 dias de folga): o catálogo do Sysmat é mensal; os Indicadores SIM,
- * quinzenais.
+ * Bases com atualização mais espaçada (prazo + folga): o catálogo do Sysmat e o Roadmap SIM são mensais; os Indicadores
+ * SIM, quinzenais.
  */
-const DIAS_ALERTA_POR_BASE: Partial<Record<Tipo, number>> = { catalogo_materiais: 35, indicadores_sim: 17 };
+const DIAS_ALERTA_POR_BASE: Partial<Record<Tipo, number>> = { catalogo_materiais: 35, roadmap_sim: 35, indicadores_sim: 17 };
 
 export default async function FontesDeDados() {
   const u = await exigir("dados");
