@@ -70,7 +70,8 @@ describe("regra: Banbury Bonfanti BMI-80", () => {
   const cat = [m("50", "ANEL BONFANTI 1", "ANEL; MODELO: BMI-80T/80 L; FAB: BONFANTI - REF: 1."), m("51", "FILTRO BONFANTI 2", "MODELO: MIXER BMI80; FAB: BONFANTI"),
     m("52", "PINHAO BONFANTI 3", "APLICACAO: MISTURADOR BANBURY; MODELO: 80 L; FAB: BONFANTI"), m("53", "ROTOR BONFANTI 4", "MODELO: BMI-800; FAB: BONFANTI"),
     m("54", "CORDAO BONFANTI 5", "APLICACAO: MOINHO; MODELO: BMR 535X610X800; FAB: BONFANTI"), m("55", "ANEL BMI-80", "MODELO: BMI-80"),
-    m("56", "ANEL BONFANTI 6", "MODELO: BMI-80; FAB: BONFANTI", "BLOQUEADO")];
+    m("56", "ANEL BONFANTI 6", "MODELO: BMI-80; FAB: BONFANTI", "BLOQUEADO"),
+    m("57", "MISTURADOR IND INT FINAL 80L INOX 380V", "MISTURADOR INDUSTRIAL; ACESSORIOS: MIXER BMI80; FAB: BONFANTI")];
   const v = vinculosDasRegras(equips, cat);
   it("só o Banbury Bonfanti ativo", () => expect([...v.keys()]).toEqual(["1"]));
   it("materiais Bonfanti BMI-80 aprovados", () => expect(v.get("1")!.materiais).toEqual(["50", "51", "52"]));
