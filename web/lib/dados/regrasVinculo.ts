@@ -7,7 +7,9 @@
  * - injetoras KCLKA da EXP 12 em diante: os materiais com referência EK3 (modelo EK3-6E2/10E2);
  * - injetoras Golden Eagle 01 a 12 (UGB1): os materiais do modelo 180S (GEL 180/S, GEK 180/S, GEL/GEK 180/S…; não
  *   GEL 180, GEL 180L nem GEK 180/700/S);
- * - injetoras PVC (Golden Eagle): os materiais do modelo GEK 220 / GEKK (GEK 220W/S, GEK 220, GEK 220/S).
+ * - injetoras PVC (Golden Eagle): os materiais do modelo GEK 220 / GEKK (GEK 220W/S, GEK 220, GEK 220/S);
+ * - injetoras Tien Kang (2 estações): os materiais com TIEN KANG no descritivo;
+ * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo.
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
@@ -46,6 +48,21 @@ export const REGRAS: RegraVinculo[] = [
     descricao: "Injetoras PVC (Golden Eagle): materiais do modelo GEK 220 / GEKK aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA PVC GOLDEN EAGLE \d+$/.test(chave(e.denominacao)),
     material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modeloGek220(m.descricaoCurta, m.descrCompleta),
+  },
+  {
+    id: "tienkang",
+    descricao: "Injetoras Tien Kang: materiais com TIEN KANG no descritivo, aprovados no Sysmat",
+    equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA TIEN ?KANG \d+ 2 ESTACOES$/.test(chave(e.denominacao)),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && /\bTIEN ?KANG\b/.test(chave(`${m.descricaoCurta} ${m.descrCompleta}`)),
+  },
+  {
+    id: "panstone-job",
+    descricao: "Pan Stone (código JOB): materiais com PAN STONE e JOB no descritivo, aprovados no Sysmat",
+    equipamento: (e) => !e.inativo && !e.desativado && /\bPAN ?STONE \d+ JOB\b/.test(chave(e.denominacao)),
+    material: (m) => {
+      const t = chave(`${m.descricaoCurta} ${m.descrCompleta}`);
+      return !!m.material.trim() && chave(m.status) === "APROVADO" && /\bPAN ?STONE\b/.test(t) && /\bJOB/.test(t);
+    },
   },
 ];
 
