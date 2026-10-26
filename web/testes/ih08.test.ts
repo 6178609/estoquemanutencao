@@ -43,6 +43,13 @@ describe("IH08 completo", () => {
     expect(x[0]).toMatchObject({ denominacao: "PRENSA", local: "ALPA-1" });
   });
 
+  it("posição vazia (VAGO) também sai", () => {
+    const x = prepararEquipamentos([{ Equipamento: "7", "Denominação do objeto técnico": "VAGO", "Status do sistema": "AEQS" },
+      { Equipamento: "8", "Denominação do objeto técnico": "Vago 02", "Status do sistema": "AEQS" },
+      { Equipamento: "9", "Denominação do objeto técnico": "VAGONETA", "Status do sistema": "AEQS" }], false);
+    expect(x.map((e) => e.inativo)).toEqual([true, true, false]);
+  });
+
   it("export antigo (sem as colunas novas) continua funcionando", () => {
     const antigo = prepararEquipamentos([{ Equipamento: "41000009", "Denominação do objeto técnico": "MAQUINA X (DESATIVADA)" }], false);
     expect(antigo[0]).toMatchObject({ inativo: false, desativado: true, campo: "", centroCusto: "" });
