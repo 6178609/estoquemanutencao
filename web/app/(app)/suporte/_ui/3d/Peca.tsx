@@ -6,6 +6,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { DoubleSide, Shape, Vector2, Vector3 } from "three";
 import type { Group } from "three";
 
+import { mapasDe } from "./texturas";
+
 /** Cores da cena, lidas dos tokens do site (CSS vars) em tempo de execução. Sem hex fixo aqui. */
 export interface Paleta {
   aco: string;
@@ -165,12 +167,18 @@ export function Mat({ cor }: { cor: CorBase }) {
   const realce = destaque === id;
   const aberta = destaque === null || realce;
   const m = MATERIAIS[cor];
+  // textura do material (usinado, fundido, fio de cobre, borracha, pintura); o mapa de rugosidade já traz a faixa real
+  const t = mapasDe(cor);
   return (
     <meshStandardMaterial
       color={realce ? paleta.destaque : m.cor}
+      map={t?.map ?? null}
+      roughnessMap={realce ? null : t?.roughnessMap ?? null}
+      bumpMap={t?.bumpMap ?? null}
+      bumpScale={t?.relevo ?? 0}
       emissive={realce ? paleta.destaque : "black"}
       emissiveIntensity={realce ? 0.35 : 0}
-      roughness={realce ? 0.45 : m.rugosidade}
+      roughness={realce ? 0.45 : t ? 1 : m.rugosidade}
       metalness={realce ? 0.1 : m.metal}
       side={DoubleSide}
       transparent={!aberta}
