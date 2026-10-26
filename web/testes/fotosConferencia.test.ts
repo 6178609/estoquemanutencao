@@ -25,6 +25,16 @@ describe("conferência das fotos do fabricante", () => {
     expect(aConferir(cad, agora)).toEqual(["novo", "falhouAntes"]);
   });
 
+  it("foto já guardada no repositório não depende da loja: aparece e não é conferida", () => {
+    const guardada = { ...pag("g"), arquivo: "app/fotos/fabricante/100200.jpg", falhas: 1 };
+    expect(fotoDoCadastro(guardada)?.arquivo).toBe("app/fotos/fabricante/100200.jpg");
+    expect(fotoDoCadastro({ arquivo: "app/fotos/fabricante/100200.webp", titulo: "x" })?.arquivo).toBe("app/fotos/fabricante/100200.webp");
+    expect(aConferir({ g: guardada }, agora)).toEqual([]);
+    // caminho fora da pasta das guardadas é ignorado
+    expect(fotoDoCadastro({ arquivo: "app/usuarios.json" })).toBeNull();
+    expect(fotoDoCadastro({ arquivo: "app/fotos/fabricante/../usuarios.jpg" })).toBeNull();
+  });
+
   it("foto que falhou na conferência não aparece na tela", () => {
     expect(fotoDoCadastro({ ...pag("x"), falhas: 1 })).toBeNull();
     expect(fotoDoCadastro(pag("x"))).not.toBeNull();

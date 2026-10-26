@@ -28,7 +28,7 @@ export interface ResumoConferencia { conferidas: number; ok: number; falharam: n
 export function aConferir(cad: Cadastro, agora: number): string[] {
   return Object.keys(cad).filter((k) => {
     const r = cad[k];
-    if (!r || typeof r !== "object") return false;
+    if (!r || typeof r !== "object" || typeof r.arquivo === "string") return false; // já guardada: não depende da loja
     const quando = typeof r.conferido_em === "string" ? Date.parse(r.conferido_em) : NaN;
     if (!Number.isFinite(quando)) return true;
     if (typeof r.falhas !== "number" || r.falhas <= 0) return false;
