@@ -4,6 +4,7 @@ import { infoCad, inventarioAtivos, mapaEstoque, pecasDe } from "@/app/(app)/equ
 import { registrar } from "@/lib/auditoria";
 import { autorizar } from "@/lib/auth/sessao";
 import { catalogo } from "@/lib/dados/bases";
+import { pecasSemCadastroDe } from "@/lib/dados/pecasSemCadastro";
 import { gerarPdfTabela } from "@/lib/exportacao/pdf";
 import { gerarXlsx } from "@/lib/exportacao/xlsx";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
@@ -32,6 +33,10 @@ export async function GET(req: NextRequest) {
     return { codigo: x.codigo, descricao: x.descricao || s?.descricaoCurta || "", fabricante: s?.fabricanteRef ?? "", um: s?.um ?? "",
       estoque: x.estoque, minimo: x.minimo, situacao: SITUACAO[x.status] ?? x.texto, sysmat: s?.sysmat ?? "" };
   }).sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
+  // as peças sem código no Sysmat vão no fim, marcadas (servem para pedir o cadastro)
+  pecas.push(...pecasSemCadastroDe(infoCad(c, r.codigo)).map((x) => ({ codigo: "—", descricao: x.descricao,
+    fabricante: [x.referencia, x.fabricante].filter(Boolean).join(" · "), um: "", estoque: null as number | null, minimo: null as number | null,
+    situacao: `Sem cadastro no Sysmat${x.quantidade ? ` · qtd ${x.quantidade}` : ""}${x.origem ? ` · ${x.origem}` : ""}`, sysmat: "" })));
   const campo = campoEq(r.codigo);
   const nomeEq = r.equipamento || String(infoCad(c, r.codigo).nome ?? "");
   const base = `pecas_${r.codigo}`.replace(/[^\w.-]/g, "_");

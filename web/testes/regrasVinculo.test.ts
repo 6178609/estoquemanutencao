@@ -116,6 +116,10 @@ describe("regra: Golden PVC (GEK 220 e GES 270/S) por sistema", () => {
     expect(v.get("5")!.materiais).toEqual(["83"]);
   });
   it("subconjunto inativo fica de fora", () => expect(v.has("6")).toBe(false));
+  it("garra vai no robô Golden Eagle", () => {
+    const w = vinculosDasRegras([eq("20", "ROBO ZHEJUANG GOLDEN EAGLE 07")], cat);
+    expect(w.get("20")!.materiais).toEqual(["84"]);
+  });
   it("peça da lista do manual entra pelo código no sistema certo", () => {
     const w = vinculosDasRegras(equips, [m("1773833", "VALVULA RET HIDR PILOT 2,0BAR TAM 1", "VALVULA RETENCAO HIDRAULICA")]);
     expect(w.get("1")!.materiais).toEqual(["1773833"]);

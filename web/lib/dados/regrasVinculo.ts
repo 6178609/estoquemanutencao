@@ -85,6 +85,13 @@ export const REGRAS: RegraVinculo[] = [
   },
   ...regrasDosSistemasPvc(),
   {
+    id: "golden-pvc-robo",
+    descricao: "Robôs Golden Eagle das injetoras PVC: garras e peças do robô (GES 270/S)",
+    equipamento: (e) => !e.inativo && !e.desativado && /^ROBO ZHE[JIU]+ANG GOLDEN EAGLE \d+$/.test(chave(e.denominacao)),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material)
+      && pecaDeRoboPvc(m.descricaoCurta),
+  },
+  {
     id: "tienkang",
     descricao: "Injetoras Tien Kang: materiais com TIEN KANG no descritivo, aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA TIEN ?KANG \d+ 2 ESTACOES$/.test(chave(e.denominacao)),
@@ -142,7 +149,7 @@ export function materialGoldenPvc(curta: string, completa: string, codigo = ""):
 export function sistemaGoldenPvc(curta: string, codigo = ""): SistemaPvc | null {
   if (PECAS_MANUAL_GEK220[codigo.trim()]) return PECAS_MANUAL_GEK220[codigo.trim()];
   const c = chave(curta);
-  if (/GARRA|\bROBO\b|\bROB\b/.test(c)) return null;
+  if (pecaDeRoboPvc(curta)) return null;
   if (/^(RESERV OLEO|FILTRO RETORN|ACOPLAMENTO EIXO MOT|TERMOPAR K OLEO)/.test(c)) return "unidadeHidraulica";
   if (/^(VALVULA (HIDR|ALIV|YUKEN)|MANGUEIRA HIDR|CILINDRO? FREIO HIDR|CJ VED FREIO)/.test(c)) return "hidraulico";
   if (/^(RESISTENCIA|TERMOPAR|MODULO CONTROL POLIMOLD|CONECTOR POTENCIA POLIMOLD|FONTE COMUNICACAO POLIMOLD|GUIA GABINETE POLIMOLD|MODULO PAINEL CEGO)/.test(c)) return "aquecimento";
@@ -155,6 +162,11 @@ export function sistemaGoldenPvc(curta: string, codigo = ""): SistemaPvc | null 
   if (/^(TRAVA PORTA|SUPORTE FIX PROT)/.test(c)) return "seguranca";
   if (/^PROTECAO PORTA CABOS/.test(c)) return "estrutura";
   return null;
+}
+
+/** Garra, robô ou placa de entrada/saída do robô (vão no robô, não num sistema da injetora). */
+export function pecaDeRoboPvc(curta: string): boolean {
+  return /GARRA|\bROBO\b|\bROB\b/.test(chave(curta));
 }
 
 /** Uma regra por sistema: o subconjunto ativo recebe as peças dele (a unidade hidráulica também entra no sistema hidráulico). */
