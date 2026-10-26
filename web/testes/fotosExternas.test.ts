@@ -73,7 +73,10 @@ describe("chave e cadastro", () => {
   });
   it("o item do material pega a foto do fabricante pela referência", () => {
     const ref = { "100200": { url: URL_OK, pagina: null, titulo: "R" } };
-    expect(fotosExternasDoItem("100200", ref).fotoRef?.titulo).toBe("R");
+    // só a foto já guardada no repositório aparece (a tela não busca imagem na internet)
+    expect(fotosExternasDoItem("100200", ref).fotoRef).toBeNull();
+    const guardada = { "100200": { url: URL_OK, pagina: null, titulo: "R", arquivo: "app/fotos/fabricante/100200.jpg" } };
+    expect(fotosExternasDoItem("100200", guardada).fotoRef?.titulo).toBe("R");
     expect(fotosExternasDoItem("999", ref)).toEqual({ fotoRef: null });
     // chaves do próprio objeto, não as herdadas (ex.: "constructor")
     expect(fotosExternasDoItem("constructor", {})).toEqual({ fotoRef: null });
