@@ -78,7 +78,7 @@ export function urlFotoMaterial(material: string, ref: unknown, mini = false): s
  * equivalente, com a mesma especificação da descrição, para o item sem fabricante/referência.
  * `k` é a chave do endereço no cadastro (um pedaço do hash); o endereço da imagem nunca vai para o navegador.
  */
-export interface FotoExterna { k: string; pagina: string | null; titulo: string; eq?: boolean }
+export interface FotoExterna { k: string; pagina: string | null; titulo: string; eq?: boolean; mini?: boolean }
 
 export type OrigemFoto = "propria" | "referencia" | "equivalente";
 export interface FotoDoItem { origem: OrigemFoto; url: string; pagina: string | null; titulo: string }
@@ -107,6 +107,7 @@ export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
   if (propria) return { origem: "propria", url: propria, pagina: null, titulo: "" };
   if (it.fotoRef) {
     const q = new URLSearchParams({ m: codigo, k: it.fotoRef.k });
+    if (mini && it.fotoRef.mini) q.set("mini", "1");
     return { origem: it.fotoRef.eq ? "equivalente" : "referencia", url: `/api/estoque/foto/referencia?${q}`,
       pagina: it.fotoRef.pagina, titulo: it.fotoRef.titulo };
   }

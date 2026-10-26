@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 import { _definirFonte } from "@/lib/dados/fonte";
 import { _definirSupabase } from "@/lib/dados/supabase";
 import { lerCadastro } from "@/lib/dados/cadastros";
-import { fotoDoCadastro } from "@/lib/dados/fotosExternas";
+import { fotoDoCadastro, fotoExternaDe } from "@/lib/dados/fotosExternas";
 import { aConferir, conferirAosPoucos, conferirFotos } from "@/lib/fotos/conferencia";
 
 const agora = Date.parse("2026-10-26T12:00:00Z");
@@ -30,6 +30,11 @@ describe("conferência das fotos do fabricante", () => {
     expect(fotoDoCadastro(guardada)?.arquivo).toBe("app/fotos/fabricante/100200.jpg");
     expect(fotoDoCadastro({ arquivo: "app/fotos/fabricante/100200.webp", titulo: "x" })?.arquivo).toBe("app/fotos/fabricante/100200.webp");
     expect(aConferir({ g: guardada }, agora)).toEqual([]);
+    // alta resolução + miniatura para a lista
+    const comMini = fotoDoCadastro({ arquivo: "app/fotos/fabricante/1.jpg", arquivo_mini: "app/fotos/fabricante/1_mini.jpg" })!;
+    expect(comMini.arquivoMini).toBe("app/fotos/fabricante/1_mini.jpg");
+    expect(fotoExternaDe(comMini).mini).toBe(true);
+    expect(fotoDoCadastro({ arquivo_mini: "app/fotos/fabricante/1_mini.jpg" })).toBeNull();
     // caminho fora da pasta das guardadas é ignorado
     expect(fotoDoCadastro({ arquivo: "app/usuarios.json" })).toBeNull();
     expect(fotoDoCadastro({ arquivo: "app/fotos/fabricante/../usuarios.jpg" })).toBeNull();

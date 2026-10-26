@@ -21,6 +21,8 @@ export interface FotoCadastro {
   url: string | null; pagina: string | null; titulo: string; buscado_em: string;
   /** a imagem já baixada e guardada no repositório de dados (a tela não depende mais da loja nem da internet) */
   arquivo?: string;
+  /** a miniatura dela (para a lista, leve no celular) */
+  arquivoMini?: string;
   /** foto de um produto equivalente (mesma especificação), não do item exato: o item não tem fabricante/referência */
   equivalente?: boolean;
 }
@@ -44,7 +46,9 @@ function linkPagina(x: unknown): string | null {
 export function fotoDoCadastro(item: unknown): FotoCadastro | null {
   if (!item || typeof item !== "object") return null;
   const r = item as Record<string, unknown>;
-  const arquivo = typeof r.arquivo === "string" && ARQUIVO_GUARDADO.test(r.arquivo) && !r.arquivo.includes("..") ? r.arquivo : null;
+  const guardado = (x: unknown) => (typeof x === "string" && ARQUIVO_GUARDADO.test(x) && !x.includes("..") ? x : null);
+  const arquivo = guardado(r.arquivo);
+  const arquivoMini = arquivo ? guardado(r.arquivo_mini) : null;
   // a conferência não conseguiu carregar a imagem: fica fora da tela até a próxima conferência dar certo (a guardada vale)
   if (!arquivo && typeof r.falhas === "number" && r.falhas > 0) return null;
   const url = typeof r.url === "string" && !urlSugestaoErro(r.url) ? r.url : null;
@@ -53,7 +57,7 @@ export function fotoDoCadastro(item: unknown): FotoCadastro | null {
   const quando = typeof r.buscado_em === "string" && !Number.isNaN(Date.parse(r.buscado_em))
     ? new Date(r.buscado_em).toISOString() : new Date(0).toISOString();
   return { url, pagina, titulo: textoLimpo(r.titulo, 200), buscado_em: quando, ...(r.equivalente === true && { equivalente: true }),
-    ...(arquivo && { arquivo }) };
+    ...(arquivo && { arquivo }), ...(arquivoMini && { arquivoMini }) };
 }
 
 /** Chave da foto: o hash do endereço da imagem, ou da página quando só há a página. */
@@ -83,7 +87,7 @@ async function imagemGuardada(caminho: string): Promise<{ bytes: Uint8Array; tip
 
 /** O que a tela recebe de uma foto do cadastro: a chave, a página e o título (sem o endereço da imagem). */
 export function fotoExternaDe(f: FotoCadastro): FotoExterna {
-  return { k: chaveFoto(f), pagina: f.pagina, titulo: f.titulo, ...(f.equivalente && { eq: true }) };
+  return { k: chaveFoto(f), pagina: f.pagina, titulo: f.titulo, ...(f.equivalente && { eq: true }), ...(f.arquivoMini && { mini: true }) };
 }
 
 type Cadastro = Record<string, Record<string, unknown>>;
@@ -198,11 +202,12 @@ export function falhaPassageira(e: unknown): boolean {
  * página de origem. Com a chave pedida igual à do endereço atual, o navegador guarda por uma semana; se o cadastro
  * mudou no meio, guarda nada.
  */
-export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: string): Promise<NextResponse> {
+export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: string, mini = false): Promise<NextResponse> {
   if (!f) return new NextResponse("Sem foto.", { status: 404 });
   try {
     // só a foto guardada no repositório: não depende da loja nem da internet
-    const img = f.arquivo ? await imagemGuardada(f.arquivo) : null;
+    const caminho = mini && f.arquivoMini ? f.arquivoMini : f.arquivo;
+    const img = caminho ? await imagemGuardada(caminho) : null;
     if (!img) throw new SugestaoErro("foto ainda não guardada no repositório");
     return new NextResponse(Buffer.from(img.bytes), {
       headers: {
