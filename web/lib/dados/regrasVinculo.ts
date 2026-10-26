@@ -10,7 +10,8 @@
  * - injetoras PVC (Golden Eagle): os materiais do modelo GEK 220 / GEKK (GEK 220W/S, GEK 220, GEK 220/S);
  * - injetoras Tien Kang (2 estações): os materiais com TIEN KANG no descritivo;
  * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo;
- * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L).
+ * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L);
+ * - prensa a vácuo: os materiais do modelo KCLKA EK76 (EK76A-10, EK76-10).
  */
 import { chave } from "./texto";
 import type { ItemCatalogo } from "./materiais";
@@ -70,6 +71,12 @@ export const REGRAS: RegraVinculo[] = [
     descricao: "Banbury Bonfanti (UGB1): materiais Bonfanti do misturador BMI-80, aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^BANBURY SF \d+ UGB1 BONFANTI$/.test(chave(e.denominacao)),
     material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && bonfantiBmi80(m.descricaoCurta, m.descrCompleta),
+  },
+  {
+    id: "prensa-vacuo-ek76",
+    descricao: "Prensa a vácuo: materiais do modelo KCLKA EK76, aprovados no Sysmat",
+    equipamento: (e) => !e.inativo && !e.desativado && /^PRENSA (A )?VACUO \d+$/.test(chave(e.denominacao)),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && /\bEK ?76/.test(chave(`${m.descricaoCurta} ${m.descrCompleta}`)),
   },
 ];
 
