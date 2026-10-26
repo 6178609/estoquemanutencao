@@ -95,7 +95,8 @@ const pegar = (c: Cadastro, chave: string) => (Object.hasOwn(c, chave) ? fotoDoC
  */
 export function fotosExternasDoItem(material: string, cadRef: Cadastro): { fotoRef: FotoExterna | null } {
   const ref = pegar(cadRef, material);
-  return { fotoRef: ref ? fotoExternaDe(ref) : null };
+  // só a foto já baixada e guardada no repositório: a tela nunca busca imagem na internet
+  return { fotoRef: ref?.arquivo ? fotoExternaDe(ref) : null };
 }
 
 // cache em memória das imagens (por chave do endereço): até ~30 MB, sai a mais antiga. Guarda também as falhas por
@@ -200,9 +201,9 @@ export function falhaPassageira(e: unknown): boolean {
 export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: string): Promise<NextResponse> {
   if (!f) return new NextResponse("Sem foto.", { status: 404 });
   try {
-    // a guardada no repositório vem primeiro: não depende da loja nem da internet
-    const guardada = f.arquivo ? await imagemGuardada(f.arquivo) : null;
-    const img = guardada ?? await imagem(f.url ?? await imagemDaPaginaCache(f.pagina!));
+    // só a foto guardada no repositório: não depende da loja nem da internet
+    const img = f.arquivo ? await imagemGuardada(f.arquivo) : null;
+    if (!img) throw new SugestaoErro("foto ainda não guardada no repositório");
     return new NextResponse(Buffer.from(img.bytes), {
       headers: {
         "Content-Type": img.tipo,

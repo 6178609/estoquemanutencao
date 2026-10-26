@@ -25,7 +25,7 @@ vi.mock("node:https", () => ({
 }));
 
 import { NextResponse } from "next/server";
-import { _limparCacheFotos, fotoDoCadastro, respostaFotoExterna, chaveFoto } from "@/lib/dados/fotosExternas";
+import { _limparCacheFotos, conferirFotoExterna, fotoDoCadastro, respostaFotoExterna, chaveFoto } from "@/lib/dados/fotosExternas";
 import { chaveSugestao, imagemDaPagina } from "@/lib/dados/fotosSugestao";
 import { deduzirPdm, pdmEfetivo, pdmsConhecidos } from "@/lib/dados/pdmDeducao";
 import { bancoDeImagem, consultaFotoExata, escolherFotoExata, imagemAceitavel, refNormalizada } from "@/lib/fotos/escolha";
@@ -231,23 +231,24 @@ describe("foto só com a página (fetch simulado)", () => {
     sim.respostas.set("https://loja.dois.com.br/p2", { corpo: '<meta property="og:image" content="https://cdn.dois.com.br/p2.jpg">' });
     sim.respostas.set("https://cdn.dois.com.br/p2.jpg", { tipo: "image/jpeg", corpo: JPEG });
     const f = base("https://loja.dois.com.br/p2");
+    // a conferência (rotina) tira a imagem da página; a tela não busca nada na internet: sem foto guardada, 404
+    expect(await conferirFotoExterna(f)).toBe("https://cdn.dois.com.br/p2.jpg");
     const r: NextResponse = await respostaFotoExterna(f, chaveFoto(f));
-    expect(r.status).toBe(200);
-    expect(r.headers.get("content-type")).toBe("image/jpeg");
+    expect(r.status).toBe(404);
   });
 
   it("twitter:image funciona como alternativa", async () => {
     sim.respostas.set("https://loja.tres.com.br/p3", { corpo: '<meta name="twitter:image" content="https://cdn.tres.com.br/t3.png">' });
     sim.respostas.set("https://cdn.tres.com.br/t3.png", { tipo: "image/png", corpo: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4, 5, 6, 7, 8, 9]) });
     const f = base("https://loja.tres.com.br/p3");
-    expect((await respostaFotoExterna(f, chaveFoto(f))).status).toBe(200);
+    expect(await conferirFotoExterna(f)).toMatch(/^https:\/\//);
   });
 
   it("img relativa da página vira a foto", async () => {
     sim.respostas.set("https://loja.quatro.com.br/p4", { corpo: '<img src="/fotos/p4.jpg">' });
     sim.respostas.set("https://loja.quatro.com.br/fotos/p4.jpg", { tipo: "image/jpeg", corpo: JPEG });
     const f = base("https://loja.quatro.com.br/p4");
-    expect((await respostaFotoExterna(f, chaveFoto(f))).status).toBe(200);
+    expect(await conferirFotoExterna(f)).toMatch(/^https:\/\//);
   });
 
   it("página sem imagem devolve 404", async () => {
