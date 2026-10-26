@@ -80,10 +80,13 @@ export const REGRAS: RegraVinculo[] = [
   },
 ];
 
-/** Material Bonfanti do misturador BMI-80: BMI-80/80T/MIXER BMI80 no texto ou Banbury/misturador com MODELO 80 L. */
+/**
+ * Material Bonfanti do misturador BMI-80: BMI-80/80T/MIXER BMI80 no texto ou Banbury/misturador com MODELO 80 L. O próprio
+ * misturador cadastrado como material (descrição curta "MISTURADOR …") não é peça e fica de fora.
+ */
 export function bonfantiBmi80(curta: string, completa: string): boolean {
   const t = chave(`${curta} ${completa}`);
-  if (!/\bBONFANTI\b/.test(t)) return false;
+  if (!/\bBONFANTI\b/.test(t) || /^MISTURADOR\b/.test(chave(curta))) return false;
   const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "");
   return /\bBMI ?80(?!\d)/.test(t) || (/^80 ?L$/.test(mo) && /BANBURY|MISTURADOR/.test(t));
 }
