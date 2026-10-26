@@ -6,6 +6,7 @@ import { BOTAO_COMPACTO, Cabecalho, Pagina, Pilula, Selo } from "@/components/ui
 import { podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { documentosDe } from "@/lib/dados/documentos";
+import { pecasSemCadastroDe } from "@/lib/dados/pecasSemCadastro";
 import { brl } from "@/lib/formato";
 import { urlFotoMaterial } from "@/lib/fotoMaterial";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
@@ -20,6 +21,7 @@ import { ROTULO_CAMPO, V_ANALISE, V_CADASTRO } from "../logica";
 import { BaixarPecas } from "../BaixarPecas";
 import { SeloPeca } from "../SeloPeca";
 import { Documentos } from "./Documentos";
+import { PecasSemCadastro } from "./PecasSemCadastro";
 
 export const metadata: Metadata = { title: "Biblioteca do ativo" };
 export const dynamic = "force-dynamic";
@@ -63,6 +65,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const campo = campoEq(r.codigo);
   const info = infoCad(c, r.codigo);
   const pecas = pecasDe(c, r.codigo, est);
+  const semCadastro = pecasSemCadastroDe(info);
   const verEstoque = podeVer(u, "estoque");
   const verOrdens = podeVer(u, "ordens");
   const ordens = c.b.ordens.dados && (verOrdens || completo) ? ordensEnriquecidas(c).filter((o) => o.equipChave === r.codigo).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
@@ -112,7 +115,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         <div>
           <h2 id="componentes" className="font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({pecas.length})</span></h2>
           <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas no cadastro do equipamento, com a situação no estoque (MB52).{edita ? " Para vincular mais, use Editar cadastro." : ""}</p>
-          <div className="mt-3"><BaixarPecas eq={r.codigo} n={pecas.length} /></div>
+          <div className="mt-3"><BaixarPecas eq={r.codigo} n={pecas.length + semCadastro.length} /></div>
         </div>
         {pecas.length === 0 ? (
           <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum componente vinculado a este equipamento.</p>
@@ -139,6 +142,16 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
           </ul>
         )}
         {verEstoque && pecas.length > 0 && <p className="text-[12.5px] text-texto-3">A foto de cada peça se põe no Estoque (toque no material → Tirar foto).</p>}
+      </section>
+
+      {/* 2b. peças sem cadastro no Sysmat */}
+      <section aria-labelledby="sem-cadastro" className="space-y-4">
+        <div>
+          <h2 id="sem-cadastro" className="font-display text-[20px] font-medium">Peças sem cadastro no Sysmat <span className="text-texto-3">({semCadastro.length})</span></h2>
+          <p className="mt-1 text-[13px] text-texto-3">Peças deste equipamento que ainda não têm código de material (do manual, de desenho ou da máquina). A lista também sai no PDF e no Excel de peças, para pedir o cadastro.</p>
+        </div>
+        <PecasSemCadastro eq={r.codigo} edita={edita}
+          pecas={semCadastro.map(({ id, descricao, referencia, fabricante, quantidade, origem }) => ({ id, descricao, referencia, fabricante, quantidade, origem }))} />
       </section>
 
       {/* 3. manuais e documentos */}
