@@ -49,3 +49,16 @@ describe("regra: injetoras PVC (Golden Eagle) recebem os materiais GEK 220 / GEK
   it("só GEK 220 / GEKK aprovados", () => expect(v.get("1")!.materiais).toEqual(["20", "21", "22", "25"]));
   it("a Golden 01 UGB1 continua só com o 180S", () => expect(v.get("5")!.materiais).toEqual(["24"]));
 });
+
+describe("regras: Tien Kang e Pan Stone (JOB)", () => {
+  const m = (material: string, curta: string, completa = "", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
+  const equips = [eq("1", "INJETORA TIEN KANG 06 - 2 ESTACOES"), eq("2", "INJETORA TIEN KANG 06 - ESTACAO A"), eq("3", "PRENSA DE SOLA TIENKANG N° 01", true),
+    eq("4", "PAN STONE 05 - JOB-AN34/2"), eq("5", "PRENSA PANSTONE 01 - JOB-AD82"), eq("6", "CARRO TROCA DE MOLDE PAN STONE"), eq("7", "INJETORA PAN STONE 01", true),
+    eq("8", "PAN STONE 05 - SISTEMA DE CONTROLE")];
+  const cat = [m("30", "ANEL BLOQUEIO TIEN KANG C2405473"), m("31", "AGULHA", "FAB: TIENKANG - REF: 1"), m("32", "BICO TIEN KANG", "", "BLOQUEADO"),
+    m("40", "ROSCA PAN STONE WX0-211", "SERIE: JOB-AQ/82"), m("41", "KIT CIL PAN STONE RS-950-JOB-AD82"), m("42", "PORTA MOLDE HAV", "MODELO: PAN STONE")];
+  const v = vinculosDasRegras(equips, cat);
+  it("só as máquinas principais ativas", () => expect([...v.keys()].sort()).toEqual(["1", "4", "5"]));
+  it("Tien Kang com TIEN KANG/TIENKANG aprovados", () => expect(v.get("1")!.materiais).toEqual(["30", "31"]));
+  it("Pan Stone só com PAN STONE e JOB", () => expect(v.get("4")!.materiais).toEqual(["40", "41"]));
+});
