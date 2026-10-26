@@ -75,3 +75,13 @@ describe("regra: Banbury Bonfanti BMI-80", () => {
   it("só o Banbury Bonfanti ativo", () => expect([...v.keys()]).toEqual(["1"]));
   it("materiais Bonfanti BMI-80 aprovados", () => expect(v.get("1")!.materiais).toEqual(["50", "51", "52"]));
 });
+
+describe("regra: prensa a vácuo KCLKA EK76", () => {
+  const m = (material: string, curta: string, completa = "", status = "APROVADO") => ({ material, descricaoCurta: curta, descrCompleta: completa, status });
+  const equips = [eq("1", "PRENSA A VACUO 001"), eq("2", "PRENSA A VACUO 001 - ESTACAO 001"), eq("3", "PRENSA VACUO 01 - UNIDADE HIDRÁULICA"), eq("4", "BOMBA VACUO 40")];
+  const cat = [m("60", "ANEL KCLKA 2080", "MODELO: EK76A-10; FAB: KCLKA"), m("61", "KIT BUSCH", "REQUISITOS ADICIONAIS: DA PRENSA VACUO KCLKA EK76-10"),
+    m("62", "ANEL KCLKA 1", "MODELO: EK3-6E2"), m("63", "ANEL KCLKA 2", "MODELO: EK76A-10", "BLOQUEADO"), m("64", "ROLAMENTO", "REF: XEK760")];
+  const v = vinculosDasRegras(equips, cat);
+  it("só a prensa principal", () => expect([...v.keys()]).toEqual(["1"]));
+  it("materiais EK76 aprovados", () => expect(v.get("1")!.materiais).toEqual(["60", "61"]));
+});
