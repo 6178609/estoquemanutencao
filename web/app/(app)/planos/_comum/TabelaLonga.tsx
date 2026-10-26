@@ -2,9 +2,9 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
-import { Download } from "lucide-react";
+import { Copy, Download } from "lucide-react";
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 /**
  * Tabela longa com rolagem virtual (só as linhas visíveis vão para o DOM) e "Baixar CSV" — para listas de algumas
@@ -35,8 +35,31 @@ function BotaoCsv({ nome, colunas, linhas, rotulo = "Baixar CSV" }: { nome: stri
   );
 }
 
-export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, vazio = "Nada para mostrar.", rodape }: {
-  colunas: Coluna[]; linhas: Celula[][]; links?: (string | null)[]; altura?: number; csv?: string; vazio?: string; rodape?: string;
+/** Copia a tabela (com cabeçalho) separada por tabulação: cola direto no Excel. */
+function BotaoCopiar({ colunas, linhas }: { colunas: string[]; linhas: Celula[][] }) {
+  const [msg, setMsg] = useState("");
+  const copiar = () => {
+    const limpa = (v: string) => v.replace(/[\t\r\n]+/g, " ");
+    const tsv = [colunas, ...linhas.map((l) => l.map((c) => (typeof c === "number" ? String(c).replace(".", ",") : texto(c))))]
+      .map((l) => l.map(limpa).join("\t")).join("\r\n");
+    const fim = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+    if (!navigator.clipboard) return fim("Não deu para copiar");
+    navigator.clipboard.writeText(tsv).then(() => fim("Copiado!"), () => fim("Não deu para copiar"));
+  };
+  return (
+    <button onClick={copiar} disabled={!linhas.length}
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-borda px-2.5 text-[12.5px] text-texto-2 transition hover:bg-superficie-2 hover:text-texto disabled:opacity-50">
+      <Copy className="size-3.5" /> <span aria-live="polite">{msg || "Copiar"}</span>
+    </button>
+  );
+}
+
+export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, rotuloCsv, copiar, vazio = "Nada para mostrar.", rodape }: {
+  colunas: Coluna[]; linhas: Celula[][]; links?: (string | null)[]; altura?: number; csv?: string;
+  /** texto do botão de download (padrão "Baixar CSV"; o arquivo abre no Excel) */
+  rotuloCsv?: string;
+  /** botão "Copiar" (tabela separada por tabulação, para colar no Excel) */
+  copiar?: boolean; vazio?: string; rodape?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const ALT = 36;
@@ -49,7 +72,10 @@ export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, vazio =
       {(csv || rodape) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-[12.5px] text-texto-3">
           <span>{rodape ?? `${linhas.length.toLocaleString("pt-BR")} linha(s)`}</span>
-          {csv && <BotaoCsv nome={csv} colunas={colunas.map((c) => c.titulo)} linhas={linhas} />}
+          <span className="flex gap-2">
+            {copiar && <BotaoCopiar colunas={colunas.map((c) => c.titulo)} linhas={linhas} />}
+            {csv && <BotaoCsv nome={csv} colunas={colunas.map((c) => c.titulo)} linhas={linhas} rotulo={rotuloCsv} />}
+          </span>
         </div>
       )}
       <div ref={ref} className="overflow-auto rounded-xl border border-borda" style={{ maxHeight: altura }}>
