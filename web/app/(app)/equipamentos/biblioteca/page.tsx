@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardList, PackageOpen, Pencil } from "lucide-react";
+import { ArrowLeft, ClipboardList, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -15,11 +15,13 @@ import { dataBr } from "@/lib/wcm/util";
 
 import { BarraSaude, Cartao, GradeNumeros, inteiroBr, Numero } from "../_ui/Blocos";
 import type { Params } from "../_ui/url";
-import { infoCad, inventarioAtivos, mapaEstoque, pecasDe } from "../dados";
+import { baseMateriais } from "../../mro/dados";
+import { PecasPorSistema } from "../_ui/PecasPorSistema";
+import { infoCad, inventarioAtivos } from "../dados";
+import { gruposDoAtivo } from "../gruposPecas";
 import { SELO_REC } from "../GestaoAtivos";
 import { ROTULO_CAMPO, V_ANALISE, V_CADASTRO } from "../logica";
 import { BaixarPecas } from "../BaixarPecas";
-import { SeloPeca } from "../SeloPeca";
 import { Documentos } from "./Documentos";
 import { PecasSemCadastro } from "./PecasSemCadastro";
 
@@ -52,7 +54,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
     );
   }
   const c = await contexto({});
-  const [inv, est, campoEq, docs] = await Promise.all([inventarioAtivos(c), mapaEstoque(), campoDoEquipamento(c), documentosDe(eq)]);
+  const [inv, bm, campoEq, docs] = await Promise.all([inventarioAtivos(c), baseMateriais(), campoDoEquipamento(c), documentosDe(eq)]);
   const r = inv.find((x) => x.codigo === eq);
   if (!r) {
     return (
@@ -64,9 +66,11 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   }
   const campo = campoEq(r.codigo);
   const info = infoCad(c, r.codigo);
-  const pecas = pecasDe(c, r.codigo, est);
-  const semCadastro = pecasSemCadastroDe(info);
   const verEstoque = podeVer(u, "estoque");
+  const grupos = gruposDoAtivo(c, r.codigo, bm,
+    verEstoque ? (m) => urlFotoMaterial(m, (c.cad.materiais[m] as { foto?: unknown } | undefined)?.foto, true) : undefined);
+  const nPecas = new Set(grupos.flatMap((g) => g.pecas.map((p) => p.codigo))).size;
+  const semCadastro = pecasSemCadastroDe(info);
   const verOrdens = podeVer(u, "ordens");
   const ordens = c.b.ordens.dados && (verOrdens || completo) ? ordensEnriquecidas(c).filter((o) => o.equipChave === r.codigo).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
   const obs = typeof info.observacoes === "string" ? info.observacoes : "";
@@ -113,35 +117,14 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {/* 2. componentes */}
       <section aria-labelledby="componentes" className="space-y-4">
         <div>
-          <h2 id="componentes" className="font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({pecas.length})</span></h2>
-          <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas no cadastro do equipamento, com a situação no estoque (MB52).{edita ? " Para vincular mais, use Editar cadastro." : ""}</p>
-          <div className="mt-3"><BaixarPecas eq={r.codigo} n={pecas.length + semCadastro.length} /></div>
+          <h2 id="componentes" className="font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({nPecas})</span></h2>
+          <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas ao equipamento e aos sistemas dele no SAP, com o saldo no almoxarifado (MB52). Toque na peça para ver o detalhe.{edita ? " Para vincular mais, use Editar cadastro ou a Gestão de MRO." : ""}</p>
+          <div className="mt-3"><BaixarPecas eq={r.codigo} n={nPecas + semCadastro.length} /></div>
         </div>
-        {pecas.length === 0 ? (
+        {nPecas === 0 ? (
           <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum componente vinculado a este equipamento.</p>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pecas.map((p) => {
-              const foto = verEstoque ? urlFotoMaterial(p.codigo, (c.cad.materiais[p.codigo] as { foto?: unknown } | undefined)?.foto, true) : null;
-              return (
-                <li key={p.codigo} className="flex gap-3 rounded-cartao border border-borda bg-superficie p-4">
-                  {foto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={foto} alt="" loading="lazy" className="size-16 shrink-0 rounded-xl border border-borda bg-white object-cover" />
-                  ) : (
-                    <span className="grid size-16 shrink-0 place-items-center rounded-xl bg-superficie-2 text-texto-3"><PackageOpen className="size-6" aria-hidden /></span>
-                  )}
-                  <div className="min-w-0">
-                    <div className="num font-mono text-[12.5px] text-acao">{p.codigo}</div>
-                    <div className="line-clamp-2 text-[14px] font-medium">{p.descricao || "—"}</div>
-                    <div className="mt-1.5"><SeloPeca p={p} /></div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {verEstoque && pecas.length > 0 && <p className="text-[12.5px] text-texto-3">A foto de cada peça se põe no Estoque (toque no material → Tirar foto).</p>}
+        ) : <PecasPorSistema grupos={grupos} />}
+        {verEstoque && nPecas > 0 && <p className="text-[12.5px] text-texto-3">A foto de cada peça se põe no Estoque (toque no material → Tirar foto).</p>}
       </section>
 
       {/* 2b. peças sem cadastro no Sysmat */}
