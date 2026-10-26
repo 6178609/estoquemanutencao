@@ -7,7 +7,8 @@
  * - injetoras KCLKA da EXP 12 em diante: os materiais com referência EK3 (modelo EK3-6E2/10E2);
  * - injetoras Golden Eagle 01 a 12 (UGB1): os materiais do modelo 180S (GEL 180/S, GEK 180/S, GEL/GEK 180/S…; não
  *   GEL 180, GEL 180L nem GEK 180/700/S);
- * - injetoras PVC (Golden Eagle): os materiais do modelo GEK 220 / GEKK (GEK 220W/S, GEK 220, GEK 220/S);
+ * - injetoras PVC (Golden Eagle): os materiais dos modelos GEK 220 / GEKK e GES 270/S / GES 220W/S (porta-molde fica de
+ *   fora), na máquina e no sistema certo dela (hidráulico, injeção, aquecimento…; ver sistemaGoldenPvc);
  * - injetoras Tien Kang (2 estações): os materiais com TIEN KANG no descritivo;
  * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo;
  * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L);
@@ -23,6 +24,14 @@ export interface RegraVinculo {
   equipamento: (e: Pick<Equipamento, "denominacao" | "inativo" | "desativado">) => boolean;
   material: (m: Pick<ItemCatalogo, "material" | "descricaoCurta" | "descrCompleta" | "status">) => boolean;
 }
+
+/** Sistemas das injetoras PVC: o nome do subconjunto no SAP ("INJ PVC 06 GOLDEN - SISTEMA HIDRAULICO"…). */
+const SISTEMAS_PVC = {
+  hidraulico: /SISTEMA HIDRAULICO$/, unidadeHidraulica: /UNIDADE HIDRAULICA$/, injecao: /INJECAO$/, aquecimento: /AQUECIMEN/,
+  refrigeracao: /REFRIGERA/, comando: /COMAN/, controle: /CONTROLE$/, fechamento: /FECHAMENT/, seguranca: /SEGURANCA$/,
+  estrutura: /ESTRUTURA$/, abastecimento: /ABASTECIMENT/, lubrificacao: /LUBRIFIC/,
+} as const;
+export type SistemaPvc = keyof typeof SISTEMAS_PVC;
 
 export const REGRAS: RegraVinculo[] = [
   {
@@ -47,11 +56,12 @@ export const REGRAS: RegraVinculo[] = [
     material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modelo180S(m.descrCompleta),
   },
   {
-    id: "golden-pvc-gek220",
-    descricao: "Injetoras PVC (Golden Eagle): materiais do modelo GEK 220 / GEKK aprovados no Sysmat",
+    id: "golden-pvc",
+    descricao: "Injetoras PVC (Golden Eagle): materiais GEK 220 / GEKK e GES 270/S aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA PVC GOLDEN EAGLE \d+$/.test(chave(e.denominacao)),
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modeloGek220(m.descricaoCurta, m.descrCompleta),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialGoldenPvc(m.descricaoCurta, m.descrCompleta),
   },
+  ...regrasDosSistemasPvc(),
   {
     id: "tienkang",
     descricao: "Injetoras Tien Kang: materiais com TIEN KANG no descritivo, aprovados no Sysmat",
@@ -98,6 +108,48 @@ export function bonfantiBmi80(curta: string, completa: string): boolean {
   return /\bBMI ?80(?!\d)/.test(t) || (/^80 ?L$/.test(mo) && /BANBURY|MISTURADOR/.test(t));
 }
 
+/** Material das injetoras PVC Golden Eagle: modelo GEK 220 / GEKK ou GES 270/S, GES 220W/S; porta-molde (ferramental) não. */
+export function materialGoldenPvc(curta: string, completa: string): boolean {
+  if (/^PORTA MOLDE\b/.test(chave(curta))) return false;
+  const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "").replace(/\s/g, "");
+  return modeloGek220(curta, completa) || /GES(270|220)/.test(mo);
+}
+
+/** Em que sistema da injetora PVC a peça entra, pela descrição curta (null = só na máquina: robô, pneumática, avulsos). */
+export function sistemaGoldenPvc(curta: string): SistemaPvc | null {
+  const c = chave(curta);
+  if (/GARRA|\bROBO\b|\bROB\b/.test(c)) return null;
+  if (/^(RESERV OLEO|FILTRO RETORN|ACOPLAMENTO EIXO MOT|TERMOPAR K OLEO)/.test(c)) return "unidadeHidraulica";
+  if (/^(VALVULA (HIDR|ALIV|YUKEN)|MANGUEIRA HIDR|CILINDRO? FREIO HIDR|CJ VED FREIO)/.test(c)) return "hidraulico";
+  if (/^(RESISTENCIA|TERMOPAR|MODULO CONTROL POLIMOLD|CONECTOR POTENCIA POLIMOLD|FONTE COMUNICACAO POLIMOLD|GUIA GABINETE POLIMOLD|MODULO PAINEL CEGO)/.test(c)) return "aquecimento";
+  if (/^(BICO INJETOR|CILINDR CJ PLASTIF|FILTRO CIL BICO|CJ FILT BICO|PONTEIRA CJ PLAST|ANEL POLIMOLD|ENCOSTO POLIMOLD)/.test(c)) return "injecao";
+  if (/^DISTRIBUIDOR AGUA/.test(c)) return "refrigeracao";
+  if (/^GRADE MAGNETICA/.test(c)) return "abastecimento";
+  if (/^(PLACA CONTR|CABO COMUN IHM|SENSOR VACUO)/.test(c)) return "controle";
+  if (/^(CABO COMUN|DRIVE|SERVO|PLACA|CONECTOR ELETRON|FILTRO RUIDO|RESISTOR FRENAGEM|SINALEIRO)/.test(c)) return "comando";
+  if (/^(COLUNA|PORCA FIX COL|REDUTOR RSF|CORREIA)/.test(c)) return "fechamento";
+  if (/^(TRAVA PORTA|SUPORTE FIX PROT)/.test(c)) return "seguranca";
+  if (/^PROTECAO PORTA CABOS/.test(c)) return "estrutura";
+  return null;
+}
+
+/** Uma regra por sistema: o subconjunto ativo recebe as peças dele (a unidade hidráulica também entra no sistema hidráulico). */
+function regrasDosSistemasPvc(): RegraVinculo[] {
+  return (Object.keys(SISTEMAS_PVC) as SistemaPvc[]).map((s) => ({
+    id: `golden-pvc-${s}`,
+    descricao: `Injetoras PVC (Golden Eagle), ${s}: peças desse sistema`,
+    equipamento: (e) => {
+      const n = chave(e.denominacao);
+      return !e.inativo && !e.desativado && /^INJ PVC \d+ GOLDEN /.test(n) && SISTEMAS_PVC[s].test(n);
+    },
+    material: (m) => {
+      if (!m.material.trim() || chave(m.status) !== "APROVADO" || !materialGoldenPvc(m.descricaoCurta, m.descrCompleta)) return false;
+      const q = sistemaGoldenPvc(m.descricaoCurta);
+      return q === s || (s === "hidraulico" && q === "unidadeHidraulica");
+    },
+  }));
+}
+
 /** Modelo GEK 220 (220W/S, 220/S…) ou a sigla GEKK na descrição. */
 export function modeloGek220(curta: string, completa: string): boolean {
   const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "").replace(/\s/g, "");
@@ -111,14 +163,25 @@ export function modelo180S(descrCompleta: string): boolean {
 }
 
 /** {código do equipamento: {nome, materiais}} que as regras pedem (materiais sem repetição, em ordem). */
-export function vinculosDasRegras(equips: Pick<Equipamento, "equipamento" | "denominacao" | "inativo" | "desativado">[],
+export function vinculosDasRegras(equips: (Pick<Equipamento, "equipamento" | "denominacao" | "inativo" | "desativado"> & { superior?: string })[],
   catalogo: Pick<ItemCatalogo, "material" | "descricaoCurta" | "descrCompleta" | "status">[], regras = REGRAS): Map<string, { nome: string; materiais: string[] }> {
   const out = new Map<string, { nome: string; materiais: string[] }>();
+  // subconjunto de máquina inativa (em qualquer nível acima) também fica de fora
+  const porCodigo = new Map(equips.map((e) => [e.equipamento, e]));
+  const acimaInativo = (e: { superior?: string }) => {
+    for (let s = e.superior, n = 0; s && n < 10; n++) {
+      const p = porCodigo.get(s);
+      if (!p) return false;
+      if (p.inativo || p.desativado) return true;
+      s = p.superior;
+    }
+    return false;
+  };
   for (const r of regras) {
     const mats = [...new Set(catalogo.filter(r.material).map((m) => m.material.trim()))].sort();
     if (!mats.length) continue;
     for (const e of equips) {
-      if (!r.equipamento(e)) continue;
+      if (!r.equipamento(e) || acimaInativo(e)) continue;
       const x = out.get(e.equipamento) ?? { nome: e.denominacao, materiais: [] };
       x.materiais = [...new Set([...x.materiais, ...mats])].sort();
       out.set(e.equipamento, x);
