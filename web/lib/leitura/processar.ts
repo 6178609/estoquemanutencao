@@ -46,7 +46,7 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
     const achados = sondar(arquivo, bytes, x);
     if (!achados.length) return { arquivo, bases: [], erro: /filtrad/i.test(arquivo)
       ? "é um recorte filtrado (baixado do site), não o export completo"
-      : "não reconheci nenhuma base pelos cabeçalhos (IW38, MB52, IW28, IH08, IP19, IW47, requisições, Sysmat, Gestão de HH, Gerenciador de AF, Indicadores e Roadmap SIM)" };
+      : "não reconheci nenhuma base pelos cabeçalhos (IW38, MB52, IW28, IH08, IP19, IW47, requisições, Sysmat, Gestão de HH, Gerenciador de AF, Indicadores e Roadmap SIM, listas de tarefas)" };
     const bases = achados.map((a) => {
       if (a.tipo === "indicadores_sim" && !x) throw new LeituraErro("a planilha de indicadores precisa ser .xlsx (as porcentagens só são lidas certo nele)");
       if (x) x.percentualEmPontos = a.tipo === "indicadores_sim"; // no painel, "2,85%" e "2,85" são o mesmo valor
