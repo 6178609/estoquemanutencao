@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardList, Pencil } from "lucide-react";
+import { ArrowLeft, ClipboardList, ListPlus, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -83,6 +83,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         subtitulo={[r.localInstalacao, r.area, r.categoria].filter(Boolean).join(" · ") || undefined}
         acoes={<div className="flex flex-wrap gap-2">
           {completo && ordens.length > 0 && <Link prefetch={false} href={`/equipamentos?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className={BOTAO_COMPACTO}><ClipboardList className="size-3.5" /> Ficha das ordens</Link>}
+          {podeVer(u, "mro") && <Link prefetch={false} href={`/mro?${new URLSearchParams({ at: r.codigo, ia06: "1" })}#ia06`} className={BOTAO_COMPACTO}><ListPlus className="size-3.5" /> Incluir no SAP (IA06)</Link>}
           {edita && <Link prefetch={false} href={`/equipamentos?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className={BOTAO_COMPACTO}><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
         </div>} />
 

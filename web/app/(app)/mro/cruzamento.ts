@@ -1,11 +1,13 @@
 import "server-only";
 
 import { listasTarefas } from "@/lib/dados/listasTarefas";
+import { materiaisOperacoes } from "@/lib/dados/materiaisOperacoes";
 import { conferidaNoManual } from "@/lib/dados/regrasVinculo";
 import type { Contexto } from "@/lib/wcm/contexto";
 import { origemManual, situacaoLista, tipoTecnico, type LinhaCruzamento } from "@/lib/wcm/cruzamentoMateriais";
 import { distribuirPecas, opcaoLista, type OpcaoLista } from "@/lib/wcm/distribuicaoIa06";
 import { chaveLista, type ListaLT } from "@/lib/wcm/listasTarefas";
+import { aplicarLevantamento, indicePorCodigo, type MaterialOperacao } from "@/lib/wcm/materiaisOperacoes";
 import { hashTexto } from "@/lib/wcm/util";
 
 import { infoCad, materiaisDe } from "../equipamentos/dados";
@@ -28,20 +30,21 @@ export interface Cruzamento {
  * e com o tipo técnico e o estoque. Refeito só quando um export, o texto da IA03 ou o cadastro muda.
  */
 export async function cruzamentoMateriais(c: Contexto, bm: BaseMateriais): Promise<Cruzamento> {
-  const base = await listasTarefas();
+  const [base, lev] = await Promise.all([listasTarefas(), materiaisOperacoes()]);
   const ordens = c.b.ordens.dados ?? [], ip19 = c.b.cruas.ip19, eqs = c.b.equipamentos.dados ?? [];
   const cad = hashTexto(JSON.stringify(c.cad.equipamentos)) + hashTexto(JSON.stringify(c.cad.materiais));
   // baseMateriais() devolve o mesmo objeto enquanto o MB52 e o Sysmat não mudam: a versão dele entra na chave
   const chaveCache = `cruz|${c.b.ordens.atualizado}:${ordens.length}|${ip19.atualizado}:${ip19.dados?.length ?? -1}|${c.b.equipamentos.atualizado}:${eqs.length}`
-    + `|${base.atualizado}:${base.dados?.length ?? -1}|${versaoBm(bm)}|${cad}`;
-  return guardar(chaveCache, () => montarCruzamento(c, bm, base.dados ?? []));
+    + `|${base.atualizado}:${base.dados?.length ?? -1}|${lev.atualizado}:${lev.dados?.length ?? -1}|${versaoBm(bm)}|${cad}`;
+  return guardar(chaveCache, () => montarCruzamento(c, bm, base.dados ?? [], lev.dados ?? []));
 }
 
 const versoesBm = new WeakMap<BaseMateriais, number>();
 let proximaVersao = 0;
 const versaoBm = (bm: BaseMateriais) => versoesBm.get(bm) ?? (versoesBm.set(bm, ++proximaVersao), proximaVersao);
 
-export function montarCruzamento(c: Contexto, bm: BaseMateriais, ia03Lista: ListaLT[]): Cruzamento {
+export function montarCruzamento(c: Contexto, bm: BaseMateriais, ia03Lista: ListaLT[], levantamento: MaterialOperacao[] = []): Cruzamento {
+  const levPorCodigo = indicePorCodigo(levantamento);
   const ordens = c.b.ordens.dados ?? [], ip19 = c.b.cruas.ip19.dados, eqs = c.b.equipamentos.dados ?? [];
   const ia03 = new Map(ia03Lista.map((l) => [l.chave, l]));
   // componentes já nas listas do SAP: lista → material → operação
@@ -93,7 +96,7 @@ export function montarCruzamento(c: Contexto, bm: BaseMateriais, ia03Lista: List
       const p = peca(m);
       return { codigo: m, descricao: p.descricao, descrCompleta: p.descrCompleta, um: p.um, origem: t, conferida: conferidaNoManual(m) };
     }));
-    const atribs = distribuirPecas(pecas, listasDe, cadeia, todas);
+    const atribs = aplicarLevantamento(distribuirPecas(pecas, listasDe, cadeia, todas), levPorCodigo);
     atribs.forEach((a, i) => {
       const p = peca(a.codigo);
       // já é componente no SAP: da lista escolhida, de uma lista da cadeia ou de outra lista da máquina?
@@ -105,7 +108,7 @@ export function montarCruzamento(c: Contexto, bm: BaseMateriais, ia03Lista: List
       }
       const sit = situacaoLista(a, (k) => !!listas[k]?.operacoes.length, naLista ? naLista[0] : null);
       linhas.push({ codigo: a.codigo, descricao: a.descricao, tipo: tipoTecnico(a.descricao, p.categoria, p.descrCompleta),
-        manual: origemManual(pecas[i].conferida, p.descrCompleta), equipamento: a.origem, raiz,
+        manual: origemManual(pecas[i].conferida || a.conferida, p.descrCompleta), equipamento: a.origem, raiz,
         lista: naLista ? naLista[0] : a.lista, operacao: naLista ? naLista[1] : a.operacao, situacao: sit, nivel: a.nivel, motivo: naLista ? "componente da lista no SAP" : a.motivo,
         estoque: p.estoque, statusEstoque: p.status, um: p.um });
       nomes[a.origem] ??= porCodigo.get(a.origem)?.denominacao ?? a.origem;

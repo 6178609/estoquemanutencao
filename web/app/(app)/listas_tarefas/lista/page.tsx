@@ -6,6 +6,7 @@ import { PaginaWcm } from "@/components/PaginaWcm";
 import { BOTAO_COMPACTO, Cabecalho, Pilula, Selo } from "@/components/ui";
 import { podeEditar, podeVer, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { materiaisOperacoes } from "@/lib/dados/materiaisOperacoes";
 import { conferidaNoManual } from "@/lib/dados/regrasVinculo";
 import { ROTULO_MANUAL, ROTULO_SITUACAO } from "@/lib/wcm/cruzamentoMateriais";
 import { GUIAS } from "@/lib/suporte/guias";
@@ -19,6 +20,7 @@ import { baseMateriais } from "../../mro/dados";
 import { cruzamentoMateriais } from "../../mro/cruzamento";
 import { DistribuicaoIa06 } from "../../mro/DistribuicaoIa06";
 import { chaveDistribuicao, distribuirPecas, opcaoLista } from "@/lib/wcm/distribuicaoIa06";
+import { aplicarLevantamento, faltantesDoLevantamento, indicePorCodigo, porListaOperacao, type MaterialOperacao } from "@/lib/wcm/materiaisOperacoes";
 import { pecaMro, type PecaMro } from "../../mro/logica";
 import { acharLista, dadosListas, documentosDaLista, type DocEquip } from "../dados";
 import { um, type Params } from "../logica";
@@ -45,6 +47,24 @@ function LinhaPeca({ p, qtd }: { p: PecaMro; qtd?: string }) {
   );
 }
 
+/** Material do levantamento dos manuais: o nome do manual, os dados técnicos, a quantidade e o código SAP (com o saldo). */
+function LinhaLevantamento({ x, p }: { x: MaterialOperacao; p: PecaMro | null }) {
+  const qtd = x.quantidade != null ? `${String(x.quantidade).replace(".", ",")} ${x.um}` : "";
+  return (
+    <li className="space-y-0.5 py-1.5 text-[13px]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span className="font-medium text-texto">{x.material || "—"}</span>
+        {qtd && <span className="text-[12px] text-texto-3">{qtd}</span>}
+        {p ? <><span className="font-mono text-[12.5px] text-alp-azul">{p.codigo}</span><span className="text-texto-2">{p.descricao || x.textoSap}</span>
+          <Selo cor={COR_STATUS[p.status] ?? "cinza"}>{p.texto}</Selo></> : <Selo cor="amarelo">sem código SAP</Selo>}
+        {x.situacaoCodigo && /revisar|validar/i.test(x.situacaoCodigo) && <Selo cor="laranja">{x.situacaoCodigo}</Selo>}
+      </div>
+      {x.informacoes && <div className="text-[12px] text-texto-3">{x.informacoes}</div>}
+      {x.observacao && <div className="text-[12px] text-texto-3">Obs.: {x.observacao}</div>}
+    </li>
+  );
+}
+
 /**
  * Ficha de uma lista de tarefas: as operações (texto completo, centro, tempos, ciclo), os equipamentos que a usam, os
  * manuais desses equipamentos (o capítulo do assunto da operação em destaque), o guia do Suporte Técnico, as peças do
@@ -54,7 +74,7 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
   const u = await exigir("listas_tarefas");
   const params = await props.searchParams;
   const c = await contexto(params);
-  const [d, bm] = await Promise.all([dadosListas(c), baseMateriais()]);
+  const [d, bm, lev] = await Promise.all([dadosListas(c), baseMateriais(), materiaisOperacoes()]);
   const lt = acharLista(d, um(params, "g"), um(params, "n"));
   const voltar = (
     <Link prefetch={false} href="/listas_tarefas" className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-texto-2 hover:text-texto">
@@ -89,9 +109,15 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
   const doEquip = new Set(eqs.map((e) => e.equipamento));
   const origemDe = new Map<string, string>();
   for (const t of tags) for (const m of materiaisDe(infoCad(c, t))) if (!origemDe.has(m) || doEquip.has(t)) origemDe.set(m, t);
-  const atribuicoes = distribuirPecas(pecas.filter((p) => !naLista.has(p.codigo)).map((p) => ({ codigo: p.codigo, descricao: p.descricao,
+  // levantamento dos manuais: a operação certa de cada material citado e os que ainda não estão vinculados ao equipamento
+  const levantamento = (lev.dados ?? []).filter((x) => x.lista === lt.chave);
+  const levPorOp = porListaOperacao(levantamento).get(lt.chave) ?? new Map<string, MaterialOperacao[]>();
+  const semZerosLista = new Set([...naLista].map((m) => m.replace(/^0+(?=\d)/, "")));
+  const atribuicoes = [...aplicarLevantamento(distribuirPecas(pecas.filter((p) => !naLista.has(p.codigo)).map((p) => ({ codigo: p.codigo, descricao: p.descricao,
     descrCompleta: p.descrCompleta, um: p.um, origem: origemDe.get(p.codigo) ?? "", conferida: conferidaNoManual(p.codigo) })),
-  () => [estaLista], (o) => [o], [estaLista]).filter((a) => a.nivel !== "sem" || doEquip.has(a.origem));
+  () => [estaLista], (o) => [o], [estaLista]), indicePorCodigo(levantamento)).filter((a) => a.nivel !== "sem" || doEquip.has(a.origem)),
+  ...faltantesDoLevantamento(levantamento, [{ chave: estaLista.chave, dono: eqs[0]?.equipamento ?? "" }], new Set([...pecas.map((p) => p.codigo), ...semZerosLista]),
+    (m) => pecaMro(m, bm, c.cad.materiais))];
   const nomesOrigem = Object.fromEntries(tags.map((t) => [t, d.nome(t) || t]));
   const planos = [...new Set(eqs.flatMap((e) => e.planos))];
   const ordens = (c.b.ordens.dados ?? []).filter((o) => o.plano && planos.includes(o.plano)).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)).slice(0, 12);
@@ -175,6 +201,12 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
                   <ul className="divide-y divide-borda">{o.componentes.map((x) => (
                     <LinhaPeca key={x.material} p={pecaMro(x.material, bm, c.cad.materiais)} qtd={x.quantidade != null ? `${String(x.quantidade).replace(".", ",")} ${x.um}` : undefined} />
                   ))}</ul>
+                </div>
+              )}
+              {(levPorOp.get(o.operacao) ?? []).length > 0 && (
+                <div className="mt-3 border-t border-borda pt-2">
+                  <div className="text-[12px] font-medium text-texto-3">Materiais desta operação no levantamento dos manuais</div>
+                  <ul className="divide-y divide-borda">{(levPorOp.get(o.operacao) ?? []).map((x, i) => <LinhaLevantamento key={`${x.codigo}-${i}`} x={x} p={x.codigo ? pecaMro(x.codigo, bm, c.cad.materiais) : null} />)}</ul>
                 </div>
               )}
               {sug.length > 0 && (

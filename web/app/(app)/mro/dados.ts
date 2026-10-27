@@ -8,14 +8,16 @@ import { guardar } from "../saude/calculo";
 import { comListasDosSubconjuntos, listasPorEquipamento, listasPorPlano, listasDiretasDaIp19, type ListaTarefas } from "./ia06";
 import { listasTarefas } from "@/lib/dados/listasTarefas";
 import { conferidaNoManual } from "@/lib/dados/regrasVinculo";
+import { materiaisOperacoes } from "@/lib/dados/materiaisOperacoes";
 import { distribuirPecas, opcaoLista, type Atribuicao, type OpcaoLista } from "@/lib/wcm/distribuicaoIa06";
+import { aplicarLevantamento, faltantesDoLevantamento, indicePorCodigo } from "@/lib/wcm/materiaisOperacoes";
 import { chaveLista, type ListaLT } from "@/lib/wcm/listasTarefas";
 import { gruposDoAtivo } from "../equipamentos/gruposPecas";
 import { DESATIVADO, type LinhaAtivo } from "@/lib/wcm/ativos";
 import { hashTexto } from "@/lib/wcm/util";
 
 import { sugerirAlocacoes, type AtivoTexto, type MaterialTexto, type Sugestao } from "./alocacao";
-import { indexarMateriais, semZeros, type BaseMateriais } from "./logica";
+import { indexarMateriais, pecaMro, semZeros, type BaseMateriais } from "./logica";
 
 const INATIVOS_SYSMAT = new Set(["BLOQUEADO", "CANCELADO", "DUPLICADO"]);
 
@@ -61,7 +63,7 @@ export interface DistribuicaoAtivo { atribuicoes: Atribuicao[]; listas: Record<s
  * onde a peça está vinculada e a operação que combina com ela (lib/wcm/distribuicaoIa06.ts).
  */
 export async function distribuicaoDoAtivo(c: Contexto, tag: string, bm: BaseMateriais, grupos = gruposDoAtivo(c, tag, bm)): Promise<DistribuicaoAtivo> {
-  const [proprias, ia03] = await Promise.all([listasProprias(c), operacoesDasListas()]);
+  const [proprias, ia03, lev] = await Promise.all([listasProprias(c), operacoesDasListas(), materiaisOperacoes()]);
   const eqs = c.b.equipamentos.dados ?? [];
   const porCodigo = new Map(eqs.map((e) => [e.equipamento, e]));
   const filhos = new Map<string, string[]>();
@@ -94,7 +96,10 @@ export async function distribuicaoDoAtivo(c: Contexto, tag: string, bm: BaseMate
     if (ja && ja.origem !== tag) continue;
     pecas.set(p.codigo, { codigo: p.codigo, descricao: p.descricao, descrCompleta: p.descrCompleta, um: p.um, origem: p.origem || tag, conferida: conferidaNoManual(p.codigo) });
   }
-  const atribuicoes = distribuirPecas([...pecas.values()], listasDe, cadeia, todas);
+  // o levantamento dos manuais decide a operação das peças que cita e traz as que faltam vincular
+  const levantamento = lev.dados ?? [];
+  const atribuicoes = [...aplicarLevantamento(distribuirPecas([...pecas.values()], listasDe, cadeia, todas), indicePorCodigo(levantamento)),
+    ...faltantesDoLevantamento(levantamento, todas, new Set(pecas.keys()), (m) => pecaMro(m, bm, c.cad.materiais))];
   const nomes = Object.fromEntries([...new Set(atribuicoes.map((a) => a.origem))].map((o) => [o, porCodigo.get(o)?.denominacao ?? o]));
   return { atribuicoes, listas, comTextoIa03: ia03.size > 0, nomes };
 }

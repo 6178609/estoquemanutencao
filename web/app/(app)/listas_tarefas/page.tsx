@@ -1,11 +1,13 @@
-import { Boxes, ListChecks, ShieldAlert } from "lucide-react";
+import { BookCheck, Boxes, ListChecks, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Barras, Grafico } from "@/components/graficos";
 import { Aviso, PaginaWcm } from "@/components/PaginaWcm";
 import { Cabecalho, Selo } from "@/components/ui";
+import { podeEditar, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { materiaisOperacoes } from "@/lib/dados/materiaisOperacoes";
 import { dataHora } from "@/lib/formato";
 import { paginar } from "@/lib/paginacao";
 import { barra, contexto } from "@/lib/wcm/contexto";
@@ -14,8 +16,10 @@ import { AbasParam, GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT } from "
 import { FiltrosUrl } from "../equipamentos/_ui/FiltrosUrl";
 import { cruzamentoMateriais } from "../mro/cruzamento";
 import { baseMateriais } from "../mro/dados";
+import { pecaMro } from "../mro/logica";
 import { dadosListas, documentosDaLista } from "./dados";
-import { contar, filtrar, hrefFicha, lerFiltro, materiaisPorLista, montarLinhas, resumir, um, V_GERAL, V_MATERIAIS, V_QUALIDADE, type Params } from "./logica";
+import { contar, filtrar, hrefFicha, lerFiltro, materiaisPorLista, montarLinhas, resumir, um, V_GERAL, V_LEVANTAMENTO, V_MATERIAIS, V_QUALIDADE, type Params } from "./logica";
+import { Levantamento } from "./Levantamento";
 import { Materiais } from "./Materiais";
 import { Qualidade } from "./Qualidade";
 
@@ -28,6 +32,7 @@ const ABAS = [
   { id: V_GERAL, rotulo: "Visão geral", icone: <ListChecks className="size-4" strokeWidth={1.75} /> },
   { id: V_QUALIDADE, rotulo: "Qualidade das listas", icone: <ShieldAlert className="size-4" strokeWidth={1.75} /> },
   { id: V_MATERIAIS, rotulo: "Materiais × listas", icone: <Boxes className="size-4" strokeWidth={1.75} /> },
+  { id: V_LEVANTAMENTO, rotulo: "Levantamento dos manuais", icone: <BookCheck className="size-4" strokeWidth={1.75} /> },
 ];
 
 /**
@@ -36,7 +41,7 @@ const ABAS = [
  * do ativo, peças do MRO com o saldo do Estoque e a inclusão dos componentes no SAP (IA06), na ficha de cada lista.
  */
 export default async function ListasTarefas(props: { searchParams: Promise<Params> }) {
-  await exigir("listas_tarefas");
+  const u = await exigir("listas_tarefas");
   const params = await props.searchParams;
   const c = await contexto(params);
   const d = await dadosListas(c);
@@ -52,15 +57,24 @@ export default async function ListasTarefas(props: { searchParams: Promise<Param
     );
   }
   const linhas = montarLinhas(d.listas, (k) => d.equipamentos.get(k) ?? [], (eqs) => documentosDaLista(d, eqs).length, d.nome);
-  const visao = [V_QUALIDADE, V_MATERIAIS].find((v) => v === um(params, "visao")) ?? V_GERAL;
+  const visao = [V_QUALIDADE, V_MATERIAIS, V_LEVANTAMENTO].find((v) => v === um(params, "visao")) ?? V_GERAL;
   // padrão do site: todo material vinculado cruzado com as listas, o manual e o tipo técnico
-  const cruz = await cruzamentoMateriais(c, await baseMateriais());
+  const bm = await baseMateriais();
+  const cruz = await cruzamentoMateriais(c, bm);
   const porLista = materiaisPorLista(cruz.linhas);
   const f = lerFiltro(params);
   const vis = filtrar(linhas, f);
   const r = resumir(vis);
   const pg = paginar(vis, Number(um(params, "pag")) || 1);
 
+  // levantamento dos manuais: componente já na lista pelo texto da IA03 (ou pela coluna da planilha)
+  const levantamento = async () => {
+    const lev = (await materiaisOperacoes()).dados ?? [];
+    const porChave = new Map(d.listas.map((l) => [l.chave, l]));
+    const comp = (k: string, op: string) => new Set(porChave.get(k)?.operacoes.find((o) => o.operacao === op)?.componentes.map((x) => x.material.replace(/^0+(?=\d)/, "")) ?? []);
+    return <Levantamento itens={lev} params={params} peca={(m) => pecaMro(m, bm, c.cad.materiais)} naIa03={(x) => !!x.codigo && comp(x.lista, x.operacao).has(x.codigo)}
+      existe={(k) => porChave.has(k)} edita={veInteira(u, "mro") && podeEditar(u) && !soEstoque(u)} />;
+  };
   return (
     <PaginaWcm barra={barra(c)} periodo={false} dimensoes={false}>
       {cab}
@@ -68,7 +82,7 @@ export default async function ListasTarefas(props: { searchParams: Promise<Param
         Os equipamentos vêm dos planos da IP19 e das ordens do IW38 que usam cada lista.</p>
       <div id="abas" className="scroll-mt-24 space-y-5">
         <AbasParam params={params} param="visao" abas={ABAS} atual={visao} ancora="abas" />
-        {visao === V_MATERIAIS ? <Materiais cruz={cruz} params={params} /> : <>
+        {visao === V_LEVANTAMENTO ? await levantamento() : visao === V_MATERIAIS ? <Materiais cruz={cruz} params={params} /> : <>
         <FiltrosUrl zerar={["pag"]} campos={[
           { tipo: "busca", param: "iq", placeholder: "Grupo, título, texto da operação, equipamento, plano…" },
           { tipo: "multi", param: "ictr", rotulo: "Centro de trabalho", opcoes: contar(linhas.map((x) => x.lt.centrosTrabalho)).map(({ valor, n }) => ({ valor, n })) },

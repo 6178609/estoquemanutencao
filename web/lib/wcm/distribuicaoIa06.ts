@@ -26,6 +26,8 @@ export interface Atribuicao {
   /** listas possíveis para a peça (chaves), a escolhida primeiro */
   listas: string[];
   lista: string | null; operacao: string; nivel: Nivel; motivo: string;
+  /** quantidade a incluir (do levantamento dos manuais); sem ela, 1 */
+  quantidade?: number | null;
 }
 
 export const ROTULO_NIVEL: Record<Nivel, string> = { alta: "Troca da peça", media: "Mesmo assunto", baixa: "Operação cita a peça", sem: "Escolher a operação" };

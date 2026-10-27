@@ -118,3 +118,24 @@ export function materiaisPorLista(t: { lista: string | null; situacao: string }[
   }
   return m;
 }
+
+// ---------------------------------------------------------------------------------------- levantamento dos manuais
+
+export const V_LEVANTAMENTO = "levantamento";
+
+export interface FiltroLevantamento { q: string; maquinas: string[]; comCodigo: boolean; foraDaLista: boolean }
+
+export function lerFiltroLevantamento(p: Params): FiltroLevantamento {
+  return { q: um(p, "lq"), maquinas: varios(p, "lmaq"), comCodigo: um(p, "lcod") === "1", foraDaLista: um(p, "lfora") === "1" };
+}
+
+/** O material já está nos componentes da lista no SAP? (pela coluna da planilha ou pelo texto da IA03) */
+export const jaNaListaSap = (x: { naListaSap: string }, naIa03: boolean) => naIa03 || /^SIM/i.test(x.naListaSap);
+
+export function filtrarLevantamento<T extends { maquina: string; grupo: string; operacao: string; atividade: string; material: string; informacoes: string;
+  codigo: string; textoSap: string; naListaSap: string }>(t: T[], f: FiltroLevantamento, naIa03: (x: T) => boolean): T[] {
+  const termos = chave(f.q).split(/\s+/).filter(Boolean);
+  return t.filter((x) => (!termos.length || termos.every((q) => chave(`${x.maquina} ${x.grupo} ${x.operacao} ${x.atividade} ${x.material} ${x.informacoes} ${x.codigo} ${x.textoSap}`).includes(q)))
+    && (!f.maquinas.length || f.maquinas.includes(x.maquina)) && (!f.comCodigo || !!x.codigo)
+    && (!f.foraDaLista || (!!x.codigo && !jaNaListaSap(x, naIa03(x)))));
+}
