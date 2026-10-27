@@ -203,3 +203,22 @@ test("listas de tarefas: visão geral, qualidade e ficha com equipamentos, opera
   await expect(page.getByText("Sem equipamento", { exact: false }).first()).toBeVisible();
   expect(erros).toEqual([]);
 });
+
+test("MRO: a carga da IA06 vem distribuída por lista e operação (peça de troca na operação que a substitui)", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  // um equipamento que usa uma lista de tarefas (a ficha da lista mostra os equipamentos)
+  await telaAbriu(page, "/listas_tarefas");
+  await page.locator('a[href^="/listas_tarefas/lista?"]').first().click();
+  const eq = new URL(await page.locator('a[href^="/equipamentos/biblioteca?eq="]').first().getAttribute("href") ?? "", "http://x").searchParams.get("eq")!;
+  await telaAbriu(page, `/mro?${new URLSearchParams({ at: eq })}#abas`);
+  await page.getByRole("button", { name: "Vincular peças" }).click();
+  await page.getByPlaceholder("Buscar código, descrição, Sysmat ou fabricante…").fill("ROLAMENTO");
+  await page.getByRole("button", { name: "Vincular", exact: true }).first().click();
+  await expect(page.getByText("Vinculada").first()).toBeVisible();
+  await page.reload();
+  await page.getByText("Incluir no SAP (IA06) — peças já distribuídas por lista e operação").click();
+  await expect(page.getByText("Troca da peça").first()).toBeVisible();
+  await expect(page.getByText(/inclusão\(ões\) em \d+ lista/)).toBeVisible();
+  await page.screenshot({ path: "test-results/ia06-distribuicao.png", fullPage: true });
+  expect(erros).toEqual([]);
+});

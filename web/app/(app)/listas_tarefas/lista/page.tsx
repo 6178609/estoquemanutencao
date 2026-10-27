@@ -15,7 +15,8 @@ import { dataBr } from "@/lib/wcm/util";
 import { Cartao, GradeNumeros, inteiroBr, Numero, TabelaT } from "../../equipamentos/_ui/Blocos";
 import { infoCad, materiaisDe } from "../../equipamentos/dados";
 import { baseMateriais } from "../../mro/dados";
-import { InclusaoIa06 } from "../../mro/InclusaoIa06";
+import { DistribuicaoIa06 } from "../../mro/DistribuicaoIa06";
+import { chaveDistribuicao, distribuirPecas, opcaoLista } from "@/lib/wcm/distribuicaoIa06";
 import { pecaMro, type PecaMro } from "../../mro/logica";
 import { acharLista, dadosListas, documentosDaLista, type DocEquip } from "../dados";
 import { um, type Params } from "../logica";
@@ -77,7 +78,18 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
   const sugestoes = (o: OperacaoLT) => pecas.filter((p) => !naLista.has(p.codigo) && pecaCombina(`${o.texto}\n${o.textoLongo}`, p.descricao));
   const porOp = new Map(lt.operacoes.map((o) => [o, sugestoes(o)]));
   const sugeridas = [...new Map([...porOp.values()].flat().map((p) => [p.codigo, p])).values()];
-  const primeiraOp = lt.operacoes.find((o) => (porOp.get(o) ?? []).length)?.operacao ?? lt.operacoes[0]?.operacao ?? "0010";
+  // carga da IA06: as peças dos equipamentos da lista (e as dos superiores que combinam com alguma operação) distribuídas
+  // nas operações desta lista
+  const estaLista = opcaoLista({ grupo: lt.grupo, numerador: lt.numerador, texto: lt.titulo, equipamentos: Math.max(1, eqs.length) },
+    eqs[0]?.equipamento ?? "", eqs.length > 1 ? `lista geral (${eqs.length} equipamentos)` : d.nome(eqs[0]?.equipamento ?? "") || lt.titulo,
+    lt.operacoes.map((o) => ({ operacao: o.operacao, texto: o.texto, textoLongo: o.textoLongo })), lt.titulo);
+  const doEquip = new Set(eqs.map((e) => e.equipamento));
+  const origemDe = new Map<string, string>();
+  for (const t of tags) for (const m of materiaisDe(infoCad(c, t))) if (!origemDe.has(m) || doEquip.has(t)) origemDe.set(m, t);
+  const atribuicoes = distribuirPecas(pecas.filter((p) => !naLista.has(p.codigo)).map((p) => ({ codigo: p.codigo, descricao: p.descricao,
+    descrCompleta: p.descrCompleta, um: p.um, origem: origemDe.get(p.codigo) ?? "", conferida: conferidaNoManual(p.codigo) })),
+  () => [estaLista], (o) => [o], [estaLista]).filter((a) => a.nivel !== "sem" || doEquip.has(a.origem));
+  const nomesOrigem = Object.fromEntries(tags.map((t) => [t, d.nome(t) || t]));
   const planos = [...new Set(eqs.flatMap((e) => e.planos))];
   const ordens = (c.b.ordens.dados ?? []).filter((o) => o.plano && planos.includes(o.plano)).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)).slice(0, 12);
   const temasLista = [...new Map(lt.operacoes.flatMap((o) => temasDoTexto(`${o.texto}\n${o.textoLongo}`)).map((x) => [x.id, x])).values()];
@@ -185,14 +197,11 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
       </section>
 
       {/* IA06 */}
-      {edita && (sugeridas.length > 0 || pecas.length > 0) && (
+      {edita && atribuicoes.length > 0 && (
         <section aria-labelledby="ia06" className="space-y-2">
           <h2 id="ia06" className="font-display text-[20px] font-medium">Incluir as peças nos componentes da lista (IA06)</h2>
-          <p className="text-[13px] text-texto-3">{sugeridas.length ? "Começa com as peças sugeridas para as operações de troca." : "Nenhuma peça combinou com as operações de troca; escolha entre as peças do equipamento."}
-            {eqs.length > 1 ? ` Atenção: lista geral de ${eqs.length} equipamentos — a peça entra para todos eles.` : ""}</p>
-          <InclusaoIa06 equipamento={eqs[0]?.equipamento ?? lt.grupo} rotulo={`Lista ${lt.grupo}/${lt.numerador}`} operacaoInicial={primeiraOp}
-            listas={[{ grupo: lt.grupo, numerador: lt.numerador, planos, texto: lt.titulo, equipamentos: Math.max(1, eqs.length) }]}
-            pecas={(sugeridas.length ? sugeridas : pecas).map((p) => ({ codigo: p.codigo, descricao: p.descricao, um: p.um }))} />
+          <DistribuicaoIa06 key={chaveDistribuicao(atribuicoes)} rotulo={`Lista ${lt.grupo}/${lt.numerador}`} atribuicoes={atribuicoes} listas={{ [estaLista.chave]: estaLista }}
+            nomes={nomesOrigem} comTextoIa03 />
         </section>
       )}
 

@@ -19,7 +19,9 @@ import { lerCadastro } from "@/lib/dados/cadastros";
 
 import { AlocacaoAcoes, AlocarUm } from "./AlocacaoAcoes";
 import { NIVEIS, ROTULO_NIVEL, type Nivel, type Sugestao } from "./alocacao";
-import { baseMateriais, camposDosAtivos, listasDosAtivos, sugestoesAlocacao } from "./dados";
+import { baseMateriais, camposDosAtivos, distribuicaoDoAtivo, listasDosAtivos, sugestoesAlocacao, type DistribuicaoAtivo } from "./dados";
+import { DistribuicaoIa06 } from "./DistribuicaoIa06";
+import { chaveDistribuicao } from "@/lib/wcm/distribuicaoIa06";
 import * as M from "./logica";
 import { InclusaoIa06 } from "./InclusaoIa06";
 import { identificarAtivo, type ListaTarefas } from "./ia06";
@@ -57,6 +59,7 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
     (k) => campos.get(k) ?? "");
   const r = M.resumo(t);
   const pedida = param(params, "visao");
+  const grupos = param(params, "at") ? gruposDoAtivo(c, param(params, "at"), bm) : null;
   const visao = pedida === M.V_MATERIAIS || pedida === M.V_ALOCACAO ? pedida : M.V_ATIVOS;
 
   return (
@@ -89,7 +92,7 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
           <div id="abas" className="scroll-mt-24 space-y-4">
             <AbasParam params={params} param="visao" abas={ABAS} atual={visao} ancora="abas" />
             {visao === M.V_ATIVOS ? <PorAtivo t={t} params={params} edita={edita} listas={edita ? await listasDosAtivos(c) : null}
-              grupos={param(params, "at") ? gruposDoAtivo(c, param(params, "at"), bm) : null} />
+              grupos={grupos} distribuicao={edita && grupos ? await distribuicaoDoAtivo(c, param(params, "at"), bm, grupos) : null} />
               : visao === M.V_MATERIAIS ? <PorMaterial t={t} params={params} />
               : <Alocacao t={t} params={params} edita={edita}
                   sugestoes={await sugestoesAlocacao(c, inv, bm, campos, (k) => new Set(materiaisDe(infoCad(c, k))))}
@@ -118,8 +121,8 @@ const COLS_ATIVOS = [
   { rotulo: "Situação MRO" },
 ];
 
-function PorAtivo({ t, params, edita, listas, grupos }: { t: M.AtivoMro[]; params: Params; edita: boolean; listas: Map<string, ListaTarefas[]> | null;
-  grupos: GrupoPecas[] | null }) {
+function PorAtivo({ t, params, edita, listas, grupos, distribuicao }: { t: M.AtivoMro[]; params: Params; edita: boolean; listas: Map<string, ListaTarefas[]> | null;
+  grupos: GrupoPecas[] | null; distribuicao: DistribuicaoAtivo | null }) {
   const f = M.lerFiltroAtivos(params);
   const vis = M.filtrarAtivos(t, f);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
@@ -148,12 +151,21 @@ function PorAtivo({ t, params, edita, listas, grupos }: { t: M.AtivoMro[]; param
             <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <PecasAtivo key={a.codigo} tag={a.codigo} pecas={a.pecas} grupos={grupos ?? []} edita={edita} />
-          {edita && listas && a.pecas.length > 0 && (
+          {edita && listas && (a.pecas.length > 0 || !!distribuicao?.atribuicoes.length) && (
             <details className="mt-4 rounded-xl border border-borda">
-              <summary className="flex min-h-11 cursor-pointer items-center px-3 text-[13.5px] font-medium hover:bg-superficie-2">Incluir no SAP (IA06)</summary>
-              <div className="border-t border-borda p-3">
-                <InclusaoIa06 key={`ia06-${a.codigo}-${a.pecas.length}`} equipamento={a.codigo} rotulo={identificarAtivo(a)} listas={listas.get(a.codigo) ?? []}
-                  pecas={a.pecas.map((p) => ({ codigo: p.codigo, descricao: p.descricao, um: p.um }))} />
+              <summary className="flex min-h-11 cursor-pointer items-center px-3 text-[13.5px] font-medium hover:bg-superficie-2">Incluir no SAP (IA06) — peças já distribuídas por lista e operação</summary>
+              <div className="space-y-4 border-t border-borda p-3">
+                {distribuicao && <DistribuicaoIa06 key={`dist-${a.codigo}-${chaveDistribuicao(distribuicao.atribuicoes)}`} rotulo={identificarAtivo(a)} atribuicoes={distribuicao.atribuicoes}
+                  listas={distribuicao.listas} nomes={distribuicao.nomes} comTextoIa03={distribuicao.comTextoIa03} />}
+                {a.pecas.length > 0 && (
+                  <details className="rounded-xl border border-borda">
+                    <summary className="flex min-h-11 cursor-pointer items-center px-3 text-[13px] text-texto-2 hover:bg-superficie-2">Montar a carga à mão (uma operação para todas as peças)</summary>
+                    <div className="border-t border-borda p-3">
+                      <InclusaoIa06 key={`ia06-${a.codigo}-${a.pecas.length}`} equipamento={a.codigo} rotulo={identificarAtivo(a)} listas={listas.get(a.codigo) ?? []}
+                        pecas={a.pecas.map((p) => ({ codigo: p.codigo, descricao: p.descricao, um: p.um }))} />
+                    </div>
+                  </details>
+                )}
               </div>
             </details>
           )}
