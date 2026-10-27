@@ -85,3 +85,36 @@ export function contar(valores: string[][]): { valor: string; n: number }[] {
 
 /** Endereço da ficha da lista. */
 export const hrefFicha = (lt: { grupo: string; numerador: string }) => `/listas_tarefas/lista?${new URLSearchParams({ g: lt.grupo, n: lt.numerador })}`;
+
+// ---------------------------------------------------------------------------------------- materiais × listas
+
+export const V_MATERIAIS = "materiais";
+
+export interface FiltroMateriais { q: string; tipos: string[]; situacoes: string[]; manual: string[]; faltaIncluir: boolean; semEstoque: boolean }
+
+export function lerFiltroMateriais(p: Params): FiltroMateriais {
+  return { q: um(p, "mq"), tipos: varios(p, "mtipo"), situacoes: varios(p, "msit"), manual: varios(p, "mman"),
+    faltaIncluir: um(p, "mfalta") === "1", semEstoque: um(p, "mest") === "1" };
+}
+
+/** Linhas do cruzamento que passam nos filtros (busca em código, descrição, equipamento, lista e operação). */
+export function filtrarMateriais<T extends { codigo: string; descricao: string; tipo: string; situacao: string; manual: string;
+  statusEstoque: string; equipamento: string; raiz: string; lista: string | null; operacao: string }>(t: T[], f: FiltroMateriais, nome: (tag: string) => string): T[] {
+  const termos = chave(f.q).split(/\s+/).filter(Boolean);
+  return t.filter((x) => (!termos.length || termos.every((q) => chave(`${x.codigo} ${x.descricao} ${x.equipamento} ${nome(x.equipamento)} ${nome(x.raiz)} ${x.lista ?? ""} ${x.operacao}`).includes(q)))
+    && (!f.tipos.length || f.tipos.includes(x.tipo)) && (!f.situacoes.length || f.situacoes.includes(x.situacao))
+    && (!f.manual.length || f.manual.includes(x.manual))
+    && (!f.faltaIncluir || x.situacao === "sugerida")
+    && (!f.semEstoque || x.statusEstoque === "zerado" || x.statusEstoque === "ausente"));
+}
+
+/** Quantos materiais (vínculos material × equipamento) cada lista tem: já no SAP + sugeridos. */
+export function materiaisPorLista(t: { lista: string | null; situacao: string }[]): Map<string, { naLista: number; sugeridos: number }> {
+  const m = new Map<string, { naLista: number; sugeridos: number }>();
+  for (const x of t) {
+    if (!x.lista || (x.situacao !== "na-lista" && x.situacao !== "sugerida")) continue;
+    const v = m.get(x.lista) ?? m.set(x.lista, { naLista: 0, sugeridos: 0 }).get(x.lista)!;
+    if (x.situacao === "na-lista") v.naLista++; else v.sugeridos++;
+  }
+  return m;
+}

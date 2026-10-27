@@ -199,6 +199,7 @@ test("listas de tarefas: visão geral, qualidade e ficha com equipamentos, opera
   await expect(page.getByRole("heading", { name: "Equipamentos que usam a lista" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Operações" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Manuais e guias" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Materiais da lista" })).toBeVisible();
   await telaAbriu(page, "/listas_tarefas?visao=qualidade");
   await expect(page.getByText("Sem equipamento", { exact: false }).first()).toBeVisible();
   expect(erros).toEqual([]);
@@ -220,5 +221,14 @@ test("MRO: a carga da IA06 vem distribuída por lista e operação (peça de tro
   await expect(page.getByText("Troca da peça").first()).toBeVisible();
   await expect(page.getByText(/inclusão\(ões\) em \d+ lista/)).toBeVisible();
   await page.screenshot({ path: "test-results/ia06-distribuicao.png", fullPage: true });
+  // padrão do site: o material vinculado aparece no cruzamento Materiais × listas, com o tipo técnico
+  // (a busca do vínculo pode achar a peça pelo Sysmat ou fabricante, então não filtra pela descrição)
+  await telaAbriu(page, "/listas_tarefas?visao=materiais");
+  await expect(page.getByText("Materiais × equipamentos")).toBeVisible();
+  await expect(page.getByText(/1–\d+ de \d+ vínculo/)).toBeVisible();
+  const planilha = await page.request.get(await page.getByRole("link", { name: "Baixar (Excel)" }).getAttribute("href") ?? "");
+  expect(planilha.status()).toBe(200);
+  expect(await planilha.text()).toContain("Tipo técnico");
+  await page.screenshot({ path: "test-results/materiais-listas.png", fullPage: true });
   expect(erros).toEqual([]);
 });

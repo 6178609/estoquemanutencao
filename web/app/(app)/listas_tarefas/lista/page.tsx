@@ -7,6 +7,7 @@ import { BOTAO_COMPACTO, Cabecalho, Pilula, Selo } from "@/components/ui";
 import { podeEditar, podeVer, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { conferidaNoManual } from "@/lib/dados/regrasVinculo";
+import { ROTULO_MANUAL, ROTULO_SITUACAO } from "@/lib/wcm/cruzamentoMateriais";
 import { GUIAS } from "@/lib/suporte/guias";
 import { barra, contexto } from "@/lib/wcm/contexto";
 import { documentoDoTema, pecaCombina, rotuloCiclo, temasDoTexto, type OperacaoLT } from "@/lib/wcm/listasTarefas";
@@ -15,11 +16,13 @@ import { dataBr } from "@/lib/wcm/util";
 import { Cartao, GradeNumeros, inteiroBr, Numero, TabelaT } from "../../equipamentos/_ui/Blocos";
 import { infoCad, materiaisDe } from "../../equipamentos/dados";
 import { baseMateriais } from "../../mro/dados";
+import { cruzamentoMateriais } from "../../mro/cruzamento";
 import { DistribuicaoIa06 } from "../../mro/DistribuicaoIa06";
 import { chaveDistribuicao, distribuirPecas, opcaoLista } from "@/lib/wcm/distribuicaoIa06";
 import { pecaMro, type PecaMro } from "../../mro/logica";
 import { acharLista, dadosListas, documentosDaLista, type DocEquip } from "../dados";
 import { um, type Params } from "../logica";
+import { COR_MANUAL, COR_SITUACAO, SaldoPeca } from "../Materiais";
 
 export const metadata: Metadata = { title: "Ficha da lista de tarefas" };
 export const dynamic = "force-dynamic";
@@ -94,6 +97,10 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
   const ordens = (c.b.ordens.dados ?? []).filter((o) => o.plano && planos.includes(o.plano)).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)).slice(0, 12);
   const temasLista = [...new Map(lt.operacoes.flatMap((o) => temasDoTexto(`${o.texto}\n${o.textoLongo}`)).map((x) => [x.id, x])).values()];
   const guias = GUIAS.filter((g) => temasLista.some((t) => t.guias.includes(g.id)));
+  // materiais que o cruzamento do site põe nesta lista (já no SAP ou sugeridos), com tipo técnico e manual
+  const cruz = await cruzamentoMateriais(c, bm);
+  const daLista = cruz.linhas.filter((x) => x.lista === lt.chave && (x.situacao === "na-lista" || x.situacao === "sugerida"))
+    .sort((a, b) => a.situacao.localeCompare(b.situacao) || a.operacao.localeCompare(b.operacao) || a.tipo.localeCompare(b.tipo));
 
   return (
     <PaginaWcm barra={barra(c)} periodo={false} dimensoes={false}>
@@ -126,6 +133,22 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
                 e.planos.join(", ") || "—", e.pelaOrdem ? "ordens do IW38" : "IP19"],
             };
           })} />
+      </section>
+
+      {/* materiais da lista (cruzamento do site) */}
+      <section aria-labelledby="materiais" className="space-y-3">
+        <h2 id="materiais" className="font-display text-[20px] font-medium">Materiais da lista</h2>
+        <p className="text-[12.5px] text-texto-3">Os materiais vinculados aos equipamentos que o cruzamento do site põe nesta lista: os que já são componentes no SAP e os
+          sugeridos (falta incluir pela IA06), com a operação, o tipo técnico e se a peça foi conferida no manual.</p>
+        <TabelaT vazio="Nenhum material vinculado aos equipamentos cai nesta lista." colunas={[{ rotulo: "Material" }, { rotulo: "Descrição", larga: true },
+          { rotulo: "Tipo técnico" }, { rotulo: "Equipamento" }, { rotulo: "Operação" }, { rotulo: "Situação" }, { rotulo: "Manual" }, { rotulo: "Saldo", dir: true }]}
+          linhas={daLista.map((x) => ({
+            chave: `${x.codigo}|${x.equipamento}`,
+            celulas: [<span key="c" className="font-mono text-[12.5px]">{x.codigo}</span>, x.descricao || "—", x.tipo, cruz.nomes[x.equipamento] || x.equipamento,
+              x.operacao ? <span key="o" title={lt.operacoes.find((o) => o.operacao === x.operacao)?.texto}>{x.operacao}</span> : "—",
+              <span key="s" title={x.motivo}><Selo cor={COR_SITUACAO[x.situacao]}>{ROTULO_SITUACAO[x.situacao]}</Selo></span>,
+              <Selo key="m" cor={COR_MANUAL[x.manual]}>{ROTULO_MANUAL[x.manual]}</Selo>, <SaldoPeca key="sd" x={x} />],
+          }))} />
       </section>
 
       {/* operações */}

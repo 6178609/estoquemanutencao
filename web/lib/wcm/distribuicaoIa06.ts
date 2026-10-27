@@ -5,7 +5,8 @@
  * operação que cita a peça). O que não combina fica sem operação, para a pessoa escolher. Testado em
  * testes/distribuicaoIa06.test.ts.
  */
-import { chaveLista, ehTroca, pecaCombina, temasDoTexto, tipoDaPeca } from "./listasTarefas";
+import { chave } from "../dados/texto";
+import { chaveLista, ehTroca, temasDoTexto, tipoDaPeca, trocaCitaTipo, type Tema } from "./listasTarefas";
 
 export interface OperacaoOpcao { operacao: string; texto: string; textoLongo?: string }
 /** Uma lista de tarefas que pode receber peças (de um equipamento: o ativo ou um subconjunto). */
@@ -32,17 +33,40 @@ export const ROTULO_NIVEL: Record<Nivel, string> = { alta: "Troca da peça", med
 const NOME_TIPO: Record<string, string> = { ROLAMENT: "rolamento", RESISTENC: "resistência", ACOPLAMENT: "acoplamento", ANEL: "anel de vedação",
   REPARO: "kit de reparo", LONA: "lona/pastilha", CABO: "cabo de aço", OLEO: "óleo", LAMPADA: "lâmpada", VALVULA: "válvula", FUSIVEL: "fusível", RELE: "relé" };
 
+// o que se calcula uma vez por texto de operação e por peça (o cruzamento de todos os materiais passa por milhões de pares)
+const memoTexto = new Map<string, { t: string; troca: boolean; temas: Tema[] }>();
+const memoPeca = new Map<string, { tipo: string | null; nome: string; temas: Tema[] }>();
+function infoTexto(texto: string) {
+  let x = memoTexto.get(texto);
+  if (!x) {
+    if (memoTexto.size > 50_000) memoTexto.clear();
+    const t = chave(texto);
+    x = { t, troca: ehTroca(t), temas: temasDoTexto(texto) };
+    memoTexto.set(texto, x);
+  }
+  return x;
+}
+function infoPeca(descricao: string, descrCompleta = "") {
+  const k = `${descricao}\u0001${descrCompleta}`;
+  let x = memoPeca.get(k);
+  if (!x) {
+    if (memoPeca.size > 50_000) memoPeca.clear();
+    const tipo = tipoDaPeca(descricao);
+    // o nome da peça para o motivo: o tipo por extenso (ROLAMENT → rolamento) ou a 1ª palavra da descrição
+    const nome = tipo ? (NOME_TIPO[tipo] ?? tipo.toLowerCase()) : (descricao.trim().split(/\s+/)[0] || "peça").toLowerCase();
+    x = { tipo, nome, temas: temasDoTexto(`${descricao} ${descrCompleta}`) };
+    memoPeca.set(k, x);
+  }
+  return x;
+}
+
 /** Quanto a operação combina com a peça (3 = troca do mesmo tipo de peça, 2 = mesmo assunto, 1 = cita a peça) e por quê. */
 export function pontuar(textoOperacao: string, p: { descricao: string; descrCompleta?: string }): { pontos: number; motivo: string } {
-  const tipo = tipoDaPeca(p.descricao);
-  // o nome da peça para o motivo: o tipo por extenso (ROLAMENT → rolamento) ou a 1ª palavra da descrição
-  const nome = tipo ? (NOME_TIPO[tipo] ?? tipo.toLowerCase()) : (p.descricao.trim().split(/\s+/)[0] || "peça").toLowerCase();
-  if (pecaCombina(textoOperacao, p.descricao)) return { pontos: 3, motivo: `a operação é de troca de ${nome}` };
-  const temasOp = temasDoTexto(textoOperacao);
-  const temasPeca = temasDoTexto(`${p.descricao} ${p.descrCompleta ?? ""}`);
-  const comum = temasPeca.find((t) => temasOp.some((o) => o.id === t.id));
-  if (comum) return { pontos: ehTroca(textoOperacao) ? 2.5 : 2, motivo: `mesmo assunto: ${comum.rotulo.toLowerCase()}` };
-  if (tipo && textoOperacao.toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(tipo)) return { pontos: 1, motivo: `a operação cita ${nome}` };
+  const op = infoTexto(textoOperacao), pc = infoPeca(p.descricao, p.descrCompleta);
+  if (pc.tipo && trocaCitaTipo(op.t, op.troca, pc.tipo)) return { pontos: 3, motivo: `a operação é de troca de ${pc.nome}` };
+  const comum = pc.temas.find((t) => op.temas.some((o) => o.id === t.id));
+  if (comum) return { pontos: op.troca ? 2.5 : 2, motivo: `mesmo assunto: ${comum.rotulo.toLowerCase()}` };
+  if (pc.tipo && op.t.includes(pc.tipo)) return { pontos: 1, motivo: `a operação cita ${pc.nome}` };
   return { pontos: 0, motivo: "" };
 }
 
