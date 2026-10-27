@@ -4,7 +4,7 @@ import { entrarNaDemo, telaAbriu } from "./apoio";
 
 // as telas mais usadas: cada uma abre, sem erro na página e sem bloqueio da CSP
 const TELAS = ["/", "/painel", "/estoque", "/ordens", "/equipamentos", "/mro", "/indicadores_sim", "/indicadores_sim?visao=roadmap", "/indicadores_sim?visao=causas",
-  "/confiabilidade", "/mao_de_obra?visao=Apontamentos (IW47)", "/saude", "/planos", "/mapa52", "/semanal", "/cartao", "/custos", "/custos?cmes=2026-01", "/dados", "/metas"];
+  "/confiabilidade", "/mao_de_obra?visao=Apontamentos (IW47)", "/saude", "/planos", "/listas_tarefas", "/mapa52", "/semanal", "/cartao", "/custos", "/custos?cmes=2026-01", "/dados", "/metas"];
 
 test("telas principais abrem sem erro", async ({ page }) => {
   const erros = await entrarNaDemo(page);
@@ -187,5 +187,19 @@ test("equipamentos: clicar no ativo abre a biblioteca do ativo (a lista só esco
   const eq = new URL(page.url()).searchParams.get("eq")!;
   await page.goto(`/equipamentos?at=${encodeURIComponent(eq)}`);
   await expect(page).toHaveURL(/\/equipamentos\/biblioteca\?eq=/);
+  expect(erros).toEqual([]);
+});
+
+test("listas de tarefas: visão geral, qualidade e ficha com equipamentos, operações e manuais", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/listas_tarefas");
+  await expect(page.getByText("Trabalho por ano em cada centro de trabalho")).toBeVisible();
+  await page.locator('a[href^="/listas_tarefas/lista?"]').first().click();
+  await expect(page).toHaveURL(/\/listas_tarefas\/lista\?g=/);
+  await expect(page.getByRole("heading", { name: "Equipamentos que usam a lista" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Operações" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Manuais e guias" })).toBeVisible();
+  await telaAbriu(page, "/listas_tarefas?visao=qualidade");
+  await expect(page.getByText("Sem equipamento", { exact: false }).first()).toBeVisible();
   expect(erros).toEqual([]);
 });

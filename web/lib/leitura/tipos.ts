@@ -4,7 +4,7 @@ import { chave } from "../dados/texto";
  * As bases que o site entende — tipos, nomes e destinos no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",
-  "equipe", "af", "acoes_af", "indicadores_sim", "roadmap_sim"] as const;
+  "equipe", "af", "acoes_af", "indicadores_sim", "roadmap_sim", "listas_tarefas"] as const;
 export type Tipo = (typeof TIPOS)[number];
 
 export const NOMES_BASE: Record<Tipo, string> = {
@@ -14,6 +14,7 @@ export const NOMES_BASE: Record<Tipo, string> = {
   iw47: "Apontamentos de horas (IW47)", equipe: "Equipe de manutenção (Gestão de HH)",
   af: "Análises de falha (Gerenciador de AF)", acoes_af: "Ações das análises de falha (Gerenciador de AF)",
   indicadores_sim: "Indicadores SIM — pilar MP (Dashboard F26)", roadmap_sim: "Roadmap SIM — passos por máquina (previsto × realizado)",
+  listas_tarefas: "Listas de tarefas (texto da IA03/IA06)",
 };
 
 export const DESTINO: Record<Tipo, string> = {
@@ -21,7 +22,7 @@ export const DESTINO: Record<Tipo, string> = {
   ip19: "bases/IP19.parquet", iw38op: "bases/IW38OP.parquet", iw28: "bases/IW28.parquet", ih08: "bases/IH08.parquet",
   iw47: "bases/IW47.parquet", equipe: "bases/EQUIPE.parquet", af: "bases/AF.parquet", acoes_af: "bases/AF_ACOES.parquet",
   catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet", indicadores_sim: "bases/INDICADORES_SIM.parquet",
-  roadmap_sim: "bases/ROADMAP_SIM.parquet",
+  roadmap_sim: "bases/ROADMAP_SIM.parquet", listas_tarefas: "bases/LISTAS_TAREFAS.parquet",
 };
 
 /**
@@ -44,6 +45,7 @@ export function identificar(colunas: unknown[]): Tipo | null {
   const tem = (rx: RegExp) => [...ks].some((k) => rx.test(k));
 
   if (tem(COLUNAS_DO_APP)) return null;
+  if (tem(/^GRUPO LISTA TAREFAS$/) && tem(/^TEXTO LONGO$/) && tem(/^REGISTRO$/)) return "listas_tarefas";
   if (tem(/^MAQUINA$/) && tem(/^PREV JAN$/) && tem(/^REL JAN$/) && tem(/^REL DEZ$/)) return "roadmap_sim";
   if (tem(/^PILAR$/) && tem(/^KPIS? INDUSTRIA/) && tem(/^REAL MES$/) && tem(/^META MES$/)) return "indicadores_sim";
   if (tem(/^CODIGO SYSMAT$|^CODIGOSYSMAT$/) && tem(/CODIGO ?ALPARGATAS/) && tem(/DESCR(ICAO)? COMPLETA/)) return "catalogo_materiais";

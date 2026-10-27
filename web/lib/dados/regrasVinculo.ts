@@ -415,3 +415,9 @@ export function comPecasDaRegra(atual: Record<string, unknown> | undefined, nome
   const base = atual ?? { nome, categoria: "Mecânico", criticidade: "", observacoes: "", situacao: "Em operação" };
   return { ...base, materiais: [...tem, ...novos].sort() };
 }
+
+/** A peça foi conferida peça a peça na lista de peças ou no desenho do manual do fabricante (EK3, GEK 220W/S, BMI-80T). */
+export function conferidaNoManual(codigo: string): boolean {
+  const c = String(codigo ?? "").trim().replace(/^0+(?=\d)/, "");
+  return !!(PECAS_MANUAL_EK3[c] || PECAS_MANUAL_GEK220[c] || PECAS_BMI80[c]);
+}

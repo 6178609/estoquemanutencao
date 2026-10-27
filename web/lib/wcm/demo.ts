@@ -137,6 +137,7 @@ function gerar(hoje: Dia) {
       const vencida = d < hoje;
       const tp = !vencida ? "Espera" : g.r() < 0.06 ? "Saltado" : g.r() < 0.86 ? "Concluído" : "Chamado";
       ip19.push({ "Plano de manutenção": String(80_000 + p), "Item de manutenção": "1", "Texto do plano": `Preventiva ${e.nome}`,
+        "Grupo listas tarefas": String(90_000 + p), "Numerador de grupos": "1",
         Equipamento: e.codigo, "Denominação do objeto": e.nome, "Centro de trabalho": e.centro, Ciclo: `${ciclo} DIA`,
         "Tipo de ordem": "YM01", Trabalho: String(2 + (p % 4)), "Unidade do trabalho": "H", "Data planejada": dataBr(d),
         "Data de chamada": dataBr(d - 7), "Data de conclusão": tp === "Concluído" ? dataBr(d + (p % 3)) : "", "Tipo de programação": tp, Ordem: "" });
@@ -177,7 +178,33 @@ function gerar(hoje: Dia) {
         "Data realizada": feita ? dataBr(lim - g.int(0, 8) + (g.r() < 0.2 ? 10 : 0)) : "" });
     }
   });
-  return { ih08, equipeCrua, iw38, iw38op, iw47, iw28, ip19, req, af, acoes };
+  // listas de tarefas (texto da IA03): uma por plano, com operações de inspeção e de troca (textos fictícios)
+  const OPS_DEMO: [string, string, string, string][] = [
+    ["VERIFICAR ROLAMENTOS E MANCAIS", "VERIFICAR RUIDO E TEMPERATURA DOS MANCAIS.\nSE NECESSARIO, SUBSTITUIR O ROLAMENTO.", "MEC_COMP", "1 Mês"],
+    ["SUBSTITUIR CORREIAS DO ACIONAMENTO", "SUBSTITUIR AS CORREIAS E AJUSTAR A TENSAO.", "MEC_COMP", "3 Meses"],
+    ["INSPECIONAR PAINEL ELETRICO", "VERIFICAR CONTATORES, BORNES E ATERRAMENTO.", "ELE_COMP", "2 Meses"],
+    ["LUBRIFICAR PONTOS DE GRAXA", "LUBRIFICAR OS MANCAIS COM GRAXA CONFORME O MANUAL.", "MEC_COMP", "1 Mês"],
+    ["TROCAR RETENTORES DO CILINDRO", "SUBSTITUIR RETENTOR E VEDACOES DO CILINDRO HIDRAULICO.", "MEC_COMP", "6 Meses"],
+  ];
+  const listas: Crua[] = [];
+  for (let p = 0; p < 32; p++) {
+    const titulo = p < 30 ? `PREV. ${equipamentos[p].nome}` : `INSPECAO GERAL ${p - 29}`;
+    for (let o = 0; o < 2 + (p % 3); o++) {
+      const [curto, longo, ctr, ciclo] = OPS_DEMO[(p + o) % OPS_DEMO.length];
+      listas.push({ "Grupo lista tarefas": String(90_000 + p), Numerador: "1", "Título da lista": titulo, "Estratégia": "YPM261", Status: "4",
+        Centro: "A026", Registro: "Operação", "Operação": String((o + 1) * 10).padStart(4, "0"), "Suboperação": "", "Texto da operação": curto,
+        "Texto longo": longo, "Centro de trabalho": ctr, "Chave de controle": "PM01", Pessoas: "1", Trabalho: String(30 + 15 * o) + ",0",
+        "Unid. trabalho": "MIN", "Duração": String(30 + 15 * o) + ",0", "Unid. duração": "MIN", Pacotes: "M", Ciclos: ciclo,
+        Material: "", "Texto do material": "", Quantidade: "", UM: "" });
+    }
+  }
+  return { ih08, equipeCrua, iw38, iw38op, iw47, iw28, ip19, req, af, acoes, listas };
+}
+
+/** As listas de tarefas da demonstração (linhas da base, como o leitor do texto do SAP gera). */
+export function listasDemo(hoje: Dia): Base<Crua[]> {
+  if (memo.dia !== hoje) { memo.valor = gerar(hoje); memo.dia = hoje; }
+  return base(memo.valor!.listas, hoje);
 }
 
 function diaDe(s: string): Dia {

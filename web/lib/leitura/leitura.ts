@@ -1,5 +1,6 @@
 import { desescapar, Xlsx, type Valor } from "./xlsx";
 import { identificar, type Tipo } from "./tipos";
+import { ehTextoListasTarefas, lerListasTarefas } from "./listasTarefas";
 
 /**
  * Leitura dos exports do SAP e das planilhas — para rodar no navegador (o arquivo não
@@ -263,8 +264,9 @@ export function lerArquivo(nome: string, bytes: Uint8Array, aba: string | null =
     else {
       const txt = decodificar(bytes);
       const inicio = txt.slice(0, 2048).trimStart().toLowerCase();
-      t = txt.slice(0, 200_000).toLowerCase().includes("<table") || inicio.startsWith("<!doctype") || inicio.startsWith("<html")
-        ? lerHtml(txt) : lerTexto(txt);
+      t = ehTextoListasTarefas(txt) ? lerListasTarefas(txt)
+        : txt.slice(0, 200_000).toLowerCase().includes("<table") || inicio.startsWith("<!doctype") || inicio.startsWith("<html")
+          ? lerHtml(txt) : lerTexto(txt);
     }
   } catch (e) {
     if (e instanceof LeituraErro) throw e;

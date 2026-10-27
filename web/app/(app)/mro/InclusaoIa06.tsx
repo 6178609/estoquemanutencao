@@ -27,14 +27,16 @@ interface Peca { codigo: string; descricao: string; um: string }
  * Inclusão das peças do ativo nos componentes das listas de tarefas (IA06): escolhe as listas (achadas pelos planos
  * do equipamento, ou digitadas), a operação, as peças e a quantidade, e baixa o CSV da carga + o script VBS.
  */
-export function InclusaoIa06({ equipamento, rotulo, pecas, listas }: { equipamento: string; rotulo: string; pecas: Peca[]; listas: ListaTarefas[] }) {
+export function InclusaoIa06({ equipamento, rotulo, pecas, listas, operacaoInicial = "0010" }: {
+  equipamento: string; rotulo: string; pecas: Peca[]; listas: ListaTarefas[]; operacaoInicial?: string;
+}) {
   const [todas, setTodas] = useState<ListaTarefas[]>(listas);
   // lista geral usada por outros equipamentos começa desmarcada (a peça entraria para todos eles); a de subconjunto também
   // (cada peça vai na lista do subconjunto dela: a pessoa escolhe)
   const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(listas.filter((l) => l.equipamentos <= 1 && !l.subconjunto)
     .map((l) => `${l.grupo}|${l.numerador}`)));
   const [novoGrupo, setNovoGrupo] = useState(""), [novoNum, setNovoNum] = useState("1");
-  const [operacao, setOperacao] = useState("0010");
+  const [operacao, setOperacao] = useState(operacao4(operacaoInicial));
   const [qtd, setQtd] = useState<Record<string, string>>(() => Object.fromEntries(pecas.map((p) => [p.codigo, "1"])));
   const [sel, setSel] = useState<Set<string>>(() => new Set(pecas.map((p) => p.codigo)));
   const [teste, setTeste] = useState(true);
