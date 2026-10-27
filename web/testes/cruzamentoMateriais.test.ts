@@ -16,11 +16,22 @@ describe("tipo técnico do material", () => {
     expect(tipoTecnico("RESISTENCIA CART 220V 500W")).toBe("Aquecimento");
     expect(tipoTecnico("SENSOR PROX INDUT M12")).toBe("Sensores e instrumentação");
     expect(tipoTecnico("CONTATOR TRIPOLAR 9A")).toBe("Elétrica e acionamento");
-    expect(tipoTecnico("PROTECAO PORTA CABOS X")).toBe("Estrutura, guias e proteções");
+    expect(tipoTecnico("PROTECAO PORTA CABOS X")).toBe("Estrutura / guias / proteções");
   });
   it("pela categoria do Sysmat quando a descrição não diz, e o resto em outros", () => {
     expect(tipoTecnico("ITEM XPTO 123", "ROLAMENTOS E MANCAIS")).toBe("Rolamentos e mancais");
     expect(tipoTecnico("ITEM XPTO 123")).toBe(OUTRO_TIPO);
+  });
+  it("pelo texto completo do Sysmat: corrige pneumático × hidráulico e resolve o que a descrição curta não diz", () => {
+    expect(tipoTecnico("VALVULA TESTE 01", "", "VALVULA; AR; APLICACAO: MAQUINA TESTE")).toBe("Pneumática");
+    expect(tipoTecnico("CILINDR TESTE 02", "", "CILINDRO; PNEUMATICO/PORTA; FAB: TESTE")).toBe("Pneumática");
+    expect(tipoTecnico("DISTRIBUIDOR 5V TESTE", "", "DISTRIBUIDOR; FLUIDO OLEO 5 VIAS")).toBe("Hidráulica");
+    expect(tipoTecnico("MOTOR HIDR TESTE 03")).toBe("Hidráulica");
+    expect(tipoTecnico("CONJ TESTE 04", "", "CONJUNTO; HIDRAULICO; APLICACAO: PRENSA")).toBe("Hidráulica");
+    expect(tipoTecnico("CONJ PINO/BUCH TESTE")).toBe("Rolamentos e mancais");
+    expect(tipoTecnico("ANEL ENCOSTO TESTE")).toBe("Estrutura / guias / proteções");
+    expect(tipoTecnico("ANEL O 20X2 NBR")).toBe("Vedações");
+    expect(tipoTecnico("CHAVE F CURSO ALAV TESTE")).toBe("Sensores e instrumentação");
   });
 });
 

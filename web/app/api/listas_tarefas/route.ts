@@ -8,6 +8,7 @@ import { registrar } from "@/lib/auditoria";
 import { autorizar } from "@/lib/auth/sessao";
 import { contexto } from "@/lib/wcm/contexto";
 import { ROTULO_MANUAL, ROTULO_SITUACAO } from "@/lib/wcm/cruzamentoMateriais";
+import { ROTULO_NIVEL } from "@/lib/wcm/distribuicaoIa06";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   linhas.map((x) => {
     const l = x.lista ? cruz.listas[x.lista] : undefined;
     return [x.codigo, x.descricao, x.tipo, x.equipamento, nome(x.equipamento), x.raiz, nome(x.raiz), l?.grupo ?? "", l?.numerador ?? "", x.operacao,
-      l?.operacoes.find((o) => o.operacao === x.operacao)?.texto ?? "", ROTULO_SITUACAO[x.situacao], x.nivel, x.motivo, ROTULO_MANUAL[x.manual],
+      l?.operacoes.find((o) => o.operacao === x.operacao)?.texto ?? "", ROTULO_SITUACAO[x.situacao], x.situacao === "na-lista" ? "" : ROTULO_NIVEL[x.nivel], x.motivo, ROTULO_MANUAL[x.manual],
       x.estoque ?? "", x.um];
   }));
   registrar(u.login, "exportacao", "listas_materiais.csv", { linhas: linhas.length });

@@ -59,7 +59,7 @@ export function Materiais({ cruz, params }: { cruz: Cruzamento; params: Params }
         <Numero rotulo="Sem operação" valor={inteiroBr(n((x) => x.situacao === "escolher" || x.situacao === "sem-operacao"))}
           detalhe={`${inteiroBr(n((x) => x.situacao === "sem-operacao"))} por falta do texto da IA03`} />
         <Numero rotulo="Sem lista de tarefas" valor={inteiroBr(n((x) => x.situacao === "sem-lista"))} tom={n((x) => x.situacao === "sem-lista") ? "atencao" : undefined} />
-        <Numero rotulo="Conferidas no manual" valor={inteiroBr(n((x) => x.manual === "manual"))} detalhe={`${inteiroBr(n((x) => x.statusEstoque !== "ok"))} sem estoque`} />
+        <Numero rotulo="Conferidas no manual" valor={inteiroBr(n((x) => x.manual === "manual"))} detalhe={`${inteiroBr(n((x) => x.statusEstoque === "zerado" || x.statusEstoque === "ausente"))} sem estoque`} />
       </GradeNumeros>
       <TabelaT vazio="Nenhum material com estes filtros." colunas={[{ rotulo: "Material" }, { rotulo: "Descrição", larga: true }, { rotulo: "Tipo técnico" },
         { rotulo: "Equipamento" }, { rotulo: "Lista · operação" }, { rotulo: "Situação" }, { rotulo: "Manual" }, { rotulo: "Saldo", dir: true }]}
