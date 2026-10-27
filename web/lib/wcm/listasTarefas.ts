@@ -229,7 +229,12 @@ export function pecaCombina(textoOperacao: string, descricaoCurta: string): bool
   const tipo = tipoDaPeca(descricaoCurta);
   if (!tipo) return false;
   const t = chave(textoOperacao);
-  if (!ehTroca(t)) return false;
+  return trocaCitaTipo(t, ehTroca(t), tipo);
+}
+
+/** O miolo de pecaCombina com o texto já normalizado (chave) e a troca já conferida — para quem cruza muitos pares. */
+export function trocaCitaTipo(t: string, troca: boolean, tipo: string): boolean {
+  if (!troca) return false;
   if (tipo === "ANEL") return /\bANE(L|IS)\b|O ?RING|VEDA/.test(t);
   if (tipo === "REPARO") return /REPARO|KIT/.test(t);
   if (tipo === "GRAXA") return /GRAXA|ENGRAX|LUBRIF/.test(t);

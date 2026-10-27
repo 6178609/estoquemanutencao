@@ -1,4 +1,4 @@
-import { ListChecks, ShieldAlert } from "lucide-react";
+import { Boxes, ListChecks, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -12,8 +12,11 @@ import { barra, contexto } from "@/lib/wcm/contexto";
 
 import { AbasParam, GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT } from "../equipamentos/_ui/Blocos";
 import { FiltrosUrl } from "../equipamentos/_ui/FiltrosUrl";
+import { cruzamentoMateriais } from "../mro/cruzamento";
+import { baseMateriais } from "../mro/dados";
 import { dadosListas, documentosDaLista } from "./dados";
-import { contar, filtrar, hrefFicha, lerFiltro, montarLinhas, resumir, um, V_GERAL, V_QUALIDADE, type Params } from "./logica";
+import { contar, filtrar, hrefFicha, lerFiltro, materiaisPorLista, montarLinhas, resumir, um, V_GERAL, V_MATERIAIS, V_QUALIDADE, type Params } from "./logica";
+import { Materiais } from "./Materiais";
 import { Qualidade } from "./Qualidade";
 
 export const metadata: Metadata = { title: "Listas de tarefas" };
@@ -24,6 +27,7 @@ const horas = (h: number) => `${inteiroBr(Math.round(h))} h`;
 const ABAS = [
   { id: V_GERAL, rotulo: "Visão geral", icone: <ListChecks className="size-4" strokeWidth={1.75} /> },
   { id: V_QUALIDADE, rotulo: "Qualidade das listas", icone: <ShieldAlert className="size-4" strokeWidth={1.75} /> },
+  { id: V_MATERIAIS, rotulo: "Materiais × listas", icone: <Boxes className="size-4" strokeWidth={1.75} /> },
 ];
 
 /**
@@ -48,7 +52,10 @@ export default async function ListasTarefas(props: { searchParams: Promise<Param
     );
   }
   const linhas = montarLinhas(d.listas, (k) => d.equipamentos.get(k) ?? [], (eqs) => documentosDaLista(d, eqs).length, d.nome);
-  const visao = um(params, "visao") === V_QUALIDADE ? V_QUALIDADE : V_GERAL;
+  const visao = [V_QUALIDADE, V_MATERIAIS].find((v) => v === um(params, "visao")) ?? V_GERAL;
+  // padrão do site: todo material vinculado cruzado com as listas, o manual e o tipo técnico
+  const cruz = await cruzamentoMateriais(c, await baseMateriais());
+  const porLista = materiaisPorLista(cruz.linhas);
   const f = lerFiltro(params);
   const vis = filtrar(linhas, f);
   const r = resumir(vis);
@@ -61,6 +68,7 @@ export default async function ListasTarefas(props: { searchParams: Promise<Param
         Os equipamentos vêm dos planos da IP19 e das ordens do IW38 que usam cada lista.</p>
       <div id="abas" className="scroll-mt-24 space-y-5">
         <AbasParam params={params} param="visao" abas={ABAS} atual={visao} ancora="abas" />
+        {visao === V_MATERIAIS ? <Materiais cruz={cruz} params={params} /> : <>
         <FiltrosUrl zerar={["pag"]} campos={[
           { tipo: "busca", param: "iq", placeholder: "Grupo, título, texto da operação, equipamento, plano…" },
           { tipo: "multi", param: "ictr", rotulo: "Centro de trabalho", opcoes: contar(linhas.map((x) => x.lt.centrosTrabalho)).map(({ valor, n }) => ({ valor, n })) },
@@ -86,17 +94,28 @@ export default async function ListasTarefas(props: { searchParams: Promise<Param
             </Grafico>
             <TabelaT vazio="Nenhuma lista com estes filtros." colunas={[{ rotulo: "Lista" }, { rotulo: "Título", larga: true }, { rotulo: "Operações", dir: true },
               { rotulo: "Centro de trabalho" }, { rotulo: "Frequência" }, { rotulo: "Horas/ano", dir: true }, { rotulo: "Equipamentos", dir: true },
-              { rotulo: "Manuais", dir: true }, { rotulo: "Assuntos" }]}
+              { rotulo: "Manuais", dir: true }, { rotulo: "Materiais", dir: true }, { rotulo: "Assuntos" }]}
               linhas={pg.itens.map((x) => ({
                 chave: x.lt.chave, href: hrefFicha(x.lt),
                 celulas: [`${x.lt.grupo}/${x.lt.numerador}`, x.lt.titulo || "—", x.lt.operacoes.length, x.lt.centrosTrabalho.join(", ") || "—", x.frequencia,
                   Math.round(x.lt.horasAno * 10) / 10, x.equipamentos.length > 1 ? <Selo key="g" cor="laranja">{x.equipamentos.length} (geral)</Selo> : x.equipamentos.length || <span key="s" className="text-texto-3">0</span>,
-                  x.manuais || "—", <span key="t" className="text-[12px] text-texto-3">{x.temas.slice(0, 3).join(", ") || "—"}</span>],
+                  x.manuais || "—", <QtdMateriais key="m" v={porLista.get(x.lt.chave)} />, <span key="t" className="text-[12px] text-texto-3">{x.temas.slice(0, 3).join(", ") || "—"}</span>],
               }))} />
             <Paginacao params={params} {...pg} mostrados={pg.itens.length} rotulo="lista(s)" />
           </>
         )}
+        </>}
       </div>
     </PaginaWcm>
+  );
+}
+
+/** Materiais da lista: já incluídos no SAP + sugeridos pela distribuição (falta incluir pela IA06). */
+function QtdMateriais({ v }: { v?: { naLista: number; sugeridos: number } }) {
+  if (!v) return <span className="text-texto-3">—</span>;
+  return (
+    <span className="whitespace-nowrap" title={`${v.naLista} já na lista (SAP) · ${v.sugeridos} sugerido(s) para incluir`}>
+      {v.naLista + v.sugeridos}{v.sugeridos > 0 && <span className="ml-1 text-[11.5px] text-alp-azul">+{v.sugeridos}</span>}
+    </span>
   );
 }
