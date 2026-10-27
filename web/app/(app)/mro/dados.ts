@@ -60,18 +60,18 @@ export interface DistribuicaoAtivo { atribuicoes: Atribuicao[]; listas: Record<s
  * As peças do ativo (dele e dos subconjuntos) distribuídas nas listas de tarefas e operações: a lista do subconjunto
  * onde a peça está vinculada e a operação que combina com ela (lib/wcm/distribuicaoIa06.ts).
  */
-export async function distribuicaoDoAtivo(c: Contexto, tag: string, bm: BaseMateriais): Promise<DistribuicaoAtivo> {
+export async function distribuicaoDoAtivo(c: Contexto, tag: string, bm: BaseMateriais, grupos = gruposDoAtivo(c, tag, bm)): Promise<DistribuicaoAtivo> {
   const [proprias, ia03] = await Promise.all([listasProprias(c), operacoesDasListas()]);
   const eqs = c.b.equipamentos.dados ?? [];
   const porCodigo = new Map(eqs.map((e) => [e.equipamento, e]));
   const filhos = new Map<string, string[]>();
-  for (const e of eqs) if (e.superior && e.superior !== e.equipamento) (filhos.get(e.superior) ?? filhos.set(e.superior, []).get(e.superior)!).push(e.equipamento);
-  // o ativo e os subconjuntos dele (até 3 níveis)
+  // a mesma árvore da lista de peças (gruposPorSistema): subconjuntos ativos, em qualquer profundidade
+  for (const e of eqs) if (e.superior && e.superior !== e.equipamento && !e.inativo && !e.desativado) {
+    (filhos.get(e.superior) ?? filhos.set(e.superior, []).get(e.superior)!).push(e.equipamento);
+  }
   const arvore: string[] = [tag];
-  for (let i = 0, nivel = new Map([[tag, 0]]); i < arvore.length; i++) {
-    const n = nivel.get(arvore[i]) ?? 0;
-    if (n >= 3) continue;
-    for (const f of filhos.get(arvore[i]) ?? []) if (!nivel.has(f)) { nivel.set(f, n + 1); arvore.push(f); }
+  for (let i = 0, vistos = new Set([tag]); i < arvore.length; i++) {
+    for (const f of filhos.get(arvore[i]) ?? []) if (!vistos.has(f)) { vistos.add(f); arvore.push(f); }
   }
   const naArvore = new Set(arvore);
   const listas: Record<string, OpcaoLista> = {};
@@ -89,7 +89,7 @@ export async function distribuicaoDoAtivo(c: Contexto, tag: string, bm: BaseMate
   };
   // uma linha por peça: a origem mais específica (subconjunto) vence a do próprio ativo
   const pecas = new Map<string, { codigo: string; descricao: string; descrCompleta: string; um: string; origem: string; conferida: boolean }>();
-  for (const g of gruposDoAtivo(c, tag, bm)) for (const p of g.pecas) {
+  for (const g of grupos) for (const p of g.pecas) {
     const ja = pecas.get(p.codigo);
     if (ja && ja.origem !== tag) continue;
     pecas.set(p.codigo, { codigo: p.codigo, descricao: p.descricao, descrCompleta: p.descrCompleta, um: p.um, origem: p.origem || tag, conferida: conferidaNoManual(p.codigo) });

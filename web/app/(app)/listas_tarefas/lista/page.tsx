@@ -16,7 +16,7 @@ import { Cartao, GradeNumeros, inteiroBr, Numero, TabelaT } from "../../equipame
 import { infoCad, materiaisDe } from "../../equipamentos/dados";
 import { baseMateriais } from "../../mro/dados";
 import { DistribuicaoIa06 } from "../../mro/DistribuicaoIa06";
-import { distribuirPecas, opcaoLista } from "@/lib/wcm/distribuicaoIa06";
+import { chaveDistribuicao, distribuirPecas, opcaoLista } from "@/lib/wcm/distribuicaoIa06";
 import { pecaMro, type PecaMro } from "../../mro/logica";
 import { acharLista, dadosListas, documentosDaLista, type DocEquip } from "../dados";
 import { um, type Params } from "../logica";
@@ -200,7 +200,7 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
       {edita && atribuicoes.length > 0 && (
         <section aria-labelledby="ia06" className="space-y-2">
           <h2 id="ia06" className="font-display text-[20px] font-medium">Incluir as peças nos componentes da lista (IA06)</h2>
-          <DistribuicaoIa06 rotulo={`Lista ${lt.grupo}/${lt.numerador}`} atribuicoes={atribuicoes} listas={{ [estaLista.chave]: estaLista }}
+          <DistribuicaoIa06 key={chaveDistribuicao(atribuicoes)} rotulo={`Lista ${lt.grupo}/${lt.numerador}`} atribuicoes={atribuicoes} listas={{ [estaLista.chave]: estaLista }}
             nomes={nomesOrigem} comTextoIa03 />
         </section>
       )}

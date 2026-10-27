@@ -88,3 +88,6 @@ export function opcaoLista(l: { grupo: string; numerador: string; texto: string;
   return { chave: chaveLista(l.grupo, l.numerador), grupo: l.grupo, numerador: l.numerador, titulo: titulo || l.texto, equipamentos: l.equipamentos,
     dono, donoNome, operacoes: operacoes ?? [] };
 }
+
+/** Chave para remontar a tela quando a distribuição muda (peça vinculada/desvinculada, lista ou operação nova). */
+export const chaveDistribuicao = (atribuicoes: Atribuicao[]) => atribuicoes.map((a) => `${a.codigo}:${a.lista}:${a.operacao}`).join("|");

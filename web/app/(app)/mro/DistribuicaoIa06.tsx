@@ -24,6 +24,7 @@ function baixar(nome: string, conteudo: string, tipo: string) {
 }
 
 interface Linha { incluir: boolean; lista: string; operacao: string; qtd: string }
+const linhaInicial = (a: Atribuicao): Linha => ({ incluir: a.nivel !== "sem" && !!a.lista && !!a.operacao, lista: a.lista ?? "", operacao: a.operacao, qtd: "1" });
 
 /**
  * Inclusão das peças do ativo nas listas de tarefas do SAP (IA06) já distribuídas: cada peça na lista do subconjunto
@@ -33,11 +34,15 @@ interface Linha { incluir: boolean; lista: string; operacao: string; qtd: string
 export function DistribuicaoIa06({ rotulo, atribuicoes, listas, nomes, comTextoIa03 }: {
   rotulo: string; atribuicoes: Atribuicao[]; listas: Record<string, OpcaoLista>; nomes: Record<string, string>; comTextoIa03: boolean;
 }) {
-  const [linhas, setLinhas] = useState<Record<string, Linha>>(() => Object.fromEntries(atribuicoes.map((a) => [a.codigo,
-    { incluir: a.nivel !== "sem" && !!a.lista && !!a.operacao, lista: a.lista ?? "", operacao: a.operacao, qtd: "1" }])));
+  const [estado, setLinhas] = useState<Record<string, Linha>>(() => Object.fromEntries(atribuicoes.map((a) => [a.codigo, linhaInicial(a)])));
+  // peça nova (vinculada depois de montar) entra com a linha da distribuição
+  const linhas = useMemo(() => Object.fromEntries(atribuicoes.map((a) => [a.codigo, estado[a.codigo] ?? linhaInicial(a)])), [atribuicoes, estado]);
   const [soEscolher, setSoEscolher] = useState(false);
   const [teste, setTeste] = useState(true);
-  const muda = (cod: string, x: Partial<Linha>) => setLinhas((l) => ({ ...l, [cod]: { ...l[cod], ...x } }));
+  const muda = (cod: string, x: Partial<Linha>) => setLinhas((l) => {
+    const a = atribuicoes.find((y) => y.codigo === cod);
+    return { ...l, [cod]: { ...(l[cod] ?? (a ? linhaInicial(a) : { incluir: false, lista: "", operacao: "", qtd: "1" })), ...x } };
+  });
 
   const contagem = useMemo(() => {
     const c: Record<Nivel, number> = { alta: 0, media: 0, baixa: 0, sem: 0 };
@@ -89,7 +94,7 @@ export function DistribuicaoIa06({ rotulo, atribuicoes, listas, nomes, comTextoI
                 </span>
               </label>
               <select className={`${ENTRADA} w-full min-w-0`} value={l.lista} aria-label={`Lista de ${a.codigo}`}
-                onChange={(e) => muda(a.codigo, { lista: e.target.value, operacao: listas[e.target.value]?.operacoes.length ? "" : "0010" })}>
+                onChange={(e) => muda(a.codigo, { lista: e.target.value, operacao: "" })}>
                 {!l.lista && <option value="">Escolha a lista</option>}
                 {a.listas.map((k) => listas[k] && (
                   <option key={k} value={k}>{listas[k].grupo}/{listas[k].numerador} · {listas[k].donoNome}{listas[k].equipamentos > 1 ? ` (geral: ${listas[k].equipamentos} equip.)` : ""}</option>
