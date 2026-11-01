@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { identificar } from "@/lib/leitura/tipos";
 import type { Atribuicao } from "@/lib/wcm/distribuicaoIa06";
-import { aplicarLevantamento, faltantesDoLevantamento, indicePorCodigo, porListaOperacao, prepararMateriaisOperacoes } from "@/lib/wcm/materiaisOperacoes";
+import { aplicarLevantamento, faltantesDoLevantamento, indicePorCodigo, porListaOperacao, prepararMateriaisOperacoes, repetidosNaLista, umaPorListaCodigo } from "@/lib/wcm/materiaisOperacoes";
 
 /** Só dados fictícios. */
 const linhas = [
@@ -22,6 +22,16 @@ describe("materiais das operações (levantamento dos manuais)", () => {
     expect(m[0]).toMatchObject({ lista: "11111|1", operacao: "0020", codigo: "1234", quantidade: 2, material: "Filtro de óleo" });
     expect(m[1]).toMatchObject({ lista: "11111|2", operacao: "0030", codigo: "" });
     expect(porListaOperacao(m).get("11111|1")?.get("0020")).toHaveLength(1);
+  });
+  it("quantidade decimal do Excel (0.5) e do texto (1,5)", () => {
+    const q = (v: string) => prepararMateriaisOperacoes([{ "Lista de tarefas": "1", "Operação": "10", "Qtd.": v }])[0].quantidade;
+    expect(q("0.5")).toBe(0.5);
+    expect(q("1,5")).toBe(1.5);
+  });
+  it("mesmo código em duas operações da mesma lista: avisa e a carga fica com a primeira", () => {
+    const m = prepararMateriaisOperacoes([{ "Lista de tarefas": "5", "Operação": "30", "Cód. SAP": "9" }, { "Lista de tarefas": "5", "Operação": "10", "Cód. SAP": "9" }]);
+    expect(repetidosNaLista(m)).toEqual([{ lista: "5|1", codigo: "9", operacoes: ["0010", "0030"] }]);
+    expect(umaPorListaCodigo(m).map((x) => x.operacao)).toEqual(["0010"]);
   });
   const a = (x: Partial<Atribuicao>): Atribuicao => ({ codigo: "1234", descricao: "FILTRO X", um: "PC", origem: "E1", conferida: false,
     listas: ["11111|1", "22222|1"], lista: "22222|1", operacao: "0010", nivel: "baixa", motivo: "auto", ...x });

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BOTAO_COMPACTO, Cabecalho, Pagina, Pilula, Selo } from "@/components/ui";
-import { podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
+import { podeEditar, podeVer, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { documentosDe } from "@/lib/dados/documentos";
 import { pecasSemCadastroDe } from "@/lib/dados/pecasSemCadastro";
@@ -83,7 +83,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         subtitulo={[r.localInstalacao, r.area, r.categoria].filter(Boolean).join(" · ") || undefined}
         acoes={<div className="flex flex-wrap gap-2">
           {completo && ordens.length > 0 && <Link prefetch={false} href={`/equipamentos?${new URLSearchParams({ visao: V_ANALISE, eq: r.codigo })}#ficha`} className={BOTAO_COMPACTO}><ClipboardList className="size-3.5" /> Ficha das ordens</Link>}
-          {podeVer(u, "mro") && <Link prefetch={false} href={`/mro?${new URLSearchParams({ at: r.codigo, ia06: "1" })}#ia06`} className={BOTAO_COMPACTO}><ListPlus className="size-3.5" /> Incluir no SAP (IA06)</Link>}
+          {veInteira(u, "mro") && podeEditar(u) && !soEstoque(u) && <Link prefetch={false} href={`/mro?${new URLSearchParams({ at: r.codigo, ia06: "1" })}#ia06`} className={BOTAO_COMPACTO}><ListPlus className="size-3.5" /> Incluir no SAP (IA06)</Link>}
           {edita && <Link prefetch={false} href={`/equipamentos?${new URLSearchParams({ visao: V_CADASTRO, form: r.codigo })}#form`} className={BOTAO_COMPACTO}><Pencil className="size-3.5" /> {r.origem !== "SAP" ? "Editar cadastro" : "Cadastrar no site"}</Link>}
         </div>} />
 

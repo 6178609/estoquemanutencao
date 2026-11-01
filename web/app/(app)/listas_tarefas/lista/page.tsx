@@ -117,7 +117,7 @@ export default async function FichaLista(props: { searchParams: Promise<Params> 
     descrCompleta: p.descrCompleta, um: p.um, origem: origemDe.get(p.codigo) ?? "", conferida: conferidaNoManual(p.codigo) })),
   () => [estaLista], (o) => [o], [estaLista]), indicePorCodigo(levantamento)).filter((a) => a.nivel !== "sem" || doEquip.has(a.origem)),
   ...faltantesDoLevantamento(levantamento, [{ chave: estaLista.chave, dono: eqs[0]?.equipamento ?? "" }], new Set([...pecas.map((p) => p.codigo), ...semZerosLista]),
-    (m) => pecaMro(m, bm, c.cad.materiais))];
+    (m) => pecaMro(m, bm, c.cad.materiais), (x) => /^SIM/i.test(x.naListaSap))];
   const nomesOrigem = Object.fromEntries(tags.map((t) => [t, d.nome(t) || t]));
   const planos = [...new Set(eqs.flatMap((e) => e.planos))];
   const ordens = (c.b.ordens.dados ?? []).filter((o) => o.plano && planos.includes(o.plano)).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)).slice(0, 12);

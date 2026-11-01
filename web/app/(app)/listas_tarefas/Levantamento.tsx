@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Selo } from "@/components/ui";
 import { paginar } from "@/lib/paginacao";
-import type { MaterialOperacao } from "@/lib/wcm/materiaisOperacoes";
+import { repetidosNaLista, umaPorListaCodigo, type MaterialOperacao } from "@/lib/wcm/materiaisOperacoes";
 
 import { GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT } from "../equipamentos/_ui/Blocos";
 import { FiltrosUrl } from "../equipamentos/_ui/FiltrosUrl";
@@ -25,7 +25,9 @@ export function Levantamento({ itens, params, peca, naIa03, existe, edita }: { i
   const vis = filtrarLevantamento(itens, f, naIa03);
   const pg = paginar(vis, Number(um(params, "pag")) || 1);
   const n = (fn: (x: MaterialOperacao) => boolean) => vis.filter(fn).length;
-  const falta = n((x) => !!x.codigo && !jaNaListaSap(x, naIa03(x)));
+  // a carga inclui cada código uma vez por lista (a 1ª operação): a contagem segue a carga
+  const falta = umaPorListaCodigo(vis.filter((x) => !!x.codigo && !jaNaListaSap(x, naIa03(x)))).length;
+  const repetidos = repetidosNaLista(vis);
   const qs = hrefCom(params, { pag: null }).slice(1);
   return (
     <div className="space-y-4">
@@ -44,13 +46,19 @@ export function Levantamento({ itens, params, peca, naIa03, existe, edita }: { i
         <Numero rotulo="Linhas do levantamento" valor={inteiroBr(vis.length)} detalhe={`${inteiroBr(new Set(vis.map((x) => x.lista)).size)} listas`} />
         <Numero rotulo="Com código SAP" valor={inteiroBr(n((x) => !!x.codigo))} detalhe={`${inteiroBr(new Set(vis.filter((x) => x.codigo).map((x) => x.codigo)).size)} códigos`} tom="bom" />
         <Numero rotulo="Sem código SAP" valor={inteiroBr(n((x) => !x.codigo))} tom={n((x) => !x.codigo) ? "atencao" : undefined} detalhe="cadastrar ou identificar" />
-        <Numero rotulo="Falta incluir na lista" valor={inteiroBr(falta)} detalhe="com código, fora dos componentes" />
-        <Numero rotulo="Sem estoque" valor={inteiroBr(n((x) => !!x.codigo && peca(x.codigo).status !== "ok" && peca(x.codigo).status !== "baixo"))} detalhe="com código, saldo zero" />
+        <Numero rotulo="Falta incluir na lista" valor={inteiroBr(falta)} detalhe="códigos por lista, fora dos componentes" />
+        <Numero rotulo="Sem estoque" valor={inteiroBr(n((x) => !!x.codigo && peca(x.codigo).status === "zerado"))} detalhe="com código, saldo zero" />
       </GradeNumeros>
       {edita && falta > 0 && (
         <p className="flex flex-wrap items-center gap-2 text-[13px]">
           <a href={`/api/listas_tarefas?${qs}&planilha=ia06lev`} download className="inline-flex h-9 items-center rounded-lg bg-[var(--acao)] px-3 font-medium text-white">Baixar carga IA06 (CSV)</a>
-          <span className="text-[12.5px] text-texto-3">{inteiroBr(falta)} linha(s) com código que faltam na lista, com a operação e a quantidade do levantamento. O script VBS sai da ficha de qualquer ativo na Gestão de MRO.</span>
+          <span className="text-[12.5px] text-texto-3">{inteiroBr(falta)} código(s) que faltam nas listas, com a operação e a quantidade do levantamento. O script VBS sai da ficha de qualquer ativo na Gestão de MRO.</span>
+        </p>
+      )}
+      {repetidos.length > 0 && (
+        <p className="text-[12.5px] text-[color:var(--st-serio)]">
+          Atenção: {repetidos.length} código(s) aparecem em mais de uma operação da mesma lista ({repetidos.slice(0, 4).map((r) => `${r.codigo} em ${r.lista.replace("|", "/")} op ${r.operacoes.join(", ")}`).join("; ")}{repetidos.length > 4 ? "…" : ""}).
+          O script inclui cada material uma vez por lista: a carga usa a primeira operação.
         </p>
       )}
       <TabelaT vazio="Nenhuma linha com estes filtros." colunas={[{ rotulo: "Máquina" }, { rotulo: "Lista · operação" }, { rotulo: "Atividade", larga: true },

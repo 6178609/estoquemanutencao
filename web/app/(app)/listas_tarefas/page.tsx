@@ -71,8 +71,9 @@ export default async function ListasTarefas(props: { searchParams: Promise<Param
   const levantamento = async () => {
     const lev = (await materiaisOperacoes()).dados ?? [];
     const porChave = new Map(d.listas.map((l) => [l.chave, l]));
-    const comp = (k: string, op: string) => new Set(porChave.get(k)?.operacoes.find((o) => o.operacao === op)?.componentes.map((x) => x.material.replace(/^0+(?=\d)/, "")) ?? []);
-    return <Levantamento itens={lev} params={params} peca={(m) => pecaMro(m, bm, c.cad.materiais)} naIa03={(x) => !!x.codigo && comp(x.lista, x.operacao).has(x.codigo)}
+    // o script inclui cada material uma vez por lista: já está se é componente de qualquer operação da lista
+    const comp = (k: string) => new Set(porChave.get(k)?.operacoes.flatMap((o) => o.componentes.map((x) => x.material.replace(/^0+(?=\d)/, ""))) ?? []);
+    return <Levantamento itens={lev} params={params} peca={(m) => pecaMro(m, bm, c.cad.materiais)} naIa03={(x) => !!x.codigo && comp(x.lista).has(x.codigo)}
       existe={(k) => porChave.has(k)} edita={veInteira(u, "mro") && podeEditar(u) && !soEstoque(u)} />;
   };
   return (

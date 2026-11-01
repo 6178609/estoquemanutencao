@@ -48,7 +48,7 @@ export function identificar(colunas: unknown[]): Tipo | null {
 
   if (tem(COLUNAS_DO_APP)) return null;
   if (tem(/^GRUPO LISTA TAREFAS$/) && tem(/^TEXTO LONGO$/) && tem(/^REGISTRO$/)) return "listas_tarefas";
-  if (tem(/^LISTA DE TAREFAS$/) && tem(/^OPERACAO$/) && tem(/^MATERIAL$/) && tem(/^COD SAP$/)) return "materiais_operacoes";
+  if (tem(/^LISTA DE TAREFAS$|^GRUPO LISTAS? TAREFAS$/) && tem(/^OPERACAO$/) && tem(/^MATERIAL$/) && tem(/^COD(IGO)? SAP$/)) return "materiais_operacoes";
   if (tem(/^MAQUINA$/) && tem(/^PREV JAN$/) && tem(/^REL JAN$/) && tem(/^REL DEZ$/)) return "roadmap_sim";
   if (tem(/^PILAR$/) && tem(/^KPIS? INDUSTRIA/) && tem(/^REAL MES$/) && tem(/^META MES$/)) return "indicadores_sim";
   if (tem(/^CODIGO SYSMAT$|^CODIGOSYSMAT$/) && tem(/CODIGO ?ALPARGATAS/) && tem(/DESCR(ICAO)? COMPLETA/)) return "catalogo_materiais";

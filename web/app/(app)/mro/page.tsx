@@ -133,7 +133,7 @@ function PorAtivo({ t, params, edita, listas, grupos, distribuicao }: { t: M.Ati
   const areas = [...new Set(vivos.map((x) => x.area).filter(Boolean))].sort();
   return (
     <div className="space-y-3">
-      <FiltrosUrl zerar={["at"]} campos={[
+      <FiltrosUrl zerar={["at", "ia06"]} campos={[
         { tipo: "busca", param: "q", placeholder: "Buscar campo de ordenação, equipamento, nome, local ou material…" },
         { tipo: "multi", param: "crit", rotulo: "Criticidade", opcoes: M.CRITS.map((cr) => ({ valor: cr, n: conta((x) => (x.criticidade || SEM_CLASSE) === cr) })) },
         { tipo: "multi", param: "area", rotulo: "Área", opcoes: areas.map((ar) => ({ valor: ar, n: conta((x) => x.area === ar) })) },

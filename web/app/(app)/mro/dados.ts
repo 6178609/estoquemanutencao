@@ -99,7 +99,8 @@ export async function distribuicaoDoAtivo(c: Contexto, tag: string, bm: BaseMate
   // o levantamento dos manuais decide a operação das peças que cita e traz as que faltam vincular
   const levantamento = lev.dados ?? [];
   const atribuicoes = [...aplicarLevantamento(distribuirPecas([...pecas.values()], listasDe, cadeia, todas), indicePorCodigo(levantamento)),
-    ...faltantesDoLevantamento(levantamento, todas, new Set(pecas.keys()), (m) => pecaMro(m, bm, c.cad.materiais))];
+    ...faltantesDoLevantamento(levantamento, todas, new Set(pecas.keys()), (m) => pecaMro(m, bm, c.cad.materiais),
+      (x) => /^SIM/i.test(x.naListaSap) || !!ia03.get(x.lista)?.operacoes.some((o) => o.componentes.some((k) => k.material.replace(/^0+(?=\d)/, "") === x.codigo)))];
   const nomes = Object.fromEntries([...new Set(atribuicoes.map((a) => a.origem))].map((o) => [o, porCodigo.get(o)?.denominacao ?? o]));
   return { atribuicoes, listas, comTextoIa03: ia03.size > 0, nomes };
 }

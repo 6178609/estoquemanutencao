@@ -11,6 +11,7 @@ import { registrar } from "@/lib/auditoria";
 import { podeEditar, soEstoque, veInteira } from "@/lib/auth/acesso";
 import { listasTarefas } from "@/lib/dados/listasTarefas";
 import { materiaisOperacoes } from "@/lib/dados/materiaisOperacoes";
+import { umaPorListaCodigo } from "@/lib/wcm/materiaisOperacoes";
 import { autorizar } from "@/lib/auth/sessao";
 import { contexto } from "@/lib/wcm/contexto";
 import { ROTULO_MANUAL, ROTULO_SITUACAO } from "@/lib/wcm/cruzamentoMateriais";
@@ -52,13 +53,14 @@ async function levantamento(params: Record<string, string>, u: NonNullable<Await
   const c = await contexto(params);
   const [lev, base, bm] = await Promise.all([materiaisOperacoes(), listasTarefas(), baseMateriais()]);
   const porChave = new Map((base.dados ?? []).map((l) => [l.chave, l]));
-  const naIa03 = (x: { lista: string; operacao: string; codigo: string }) => !!x.codigo && !!porChave.get(x.lista)?.operacoes
-    .find((o) => o.operacao === x.operacao)?.componentes.some((k) => k.material.replace(/^0+(?=\d)/, "") === x.codigo);
+  // o script inclui cada material uma vez por lista: já está se é componente de qualquer operação da lista
+  const naIa03 = (x: { lista: string; codigo: string }) => !!x.codigo && !!porChave.get(x.lista)?.operacoes
+    .some((o) => o.componentes.some((k) => k.material.replace(/^0+(?=\d)/, "") === x.codigo));
   const linhas = filtrarLevantamento(lev.dados ?? [], lerFiltroLevantamento(params), naIa03);
   if (carga) {
-    const itens = linhas.filter((x) => x.codigo && !jaNaListaSap(x, naIa03(x))).map((x) => {
+    const itens = umaPorListaCodigo(linhas.filter((x) => x.codigo && !jaNaListaSap(x, naIa03(x)))).map((x) => {
       const p = pecaMro(x.codigo, bm, c.cad.materiais);
-      return { grupo: x.grupo, numerador: x.numerador, operacao: x.operacao, material: x.codigo, quantidade: x.quantidade ?? 1, um: p.um || x.um,
+      return { grupo: x.grupo, numerador: x.lista.split("|")[1], operacao: x.operacao, material: x.codigo, quantidade: x.quantidade ?? 1, um: p.um || x.um,
         texto: p.descricao || x.textoSap || x.material, equipamento: x.maquina };
     });
     registrar(u.login, "exportacao", "SAP_IA06_INCLUIR_levantamento.csv", { linhas: itens.length });

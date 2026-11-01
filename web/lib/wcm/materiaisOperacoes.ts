@@ -22,6 +22,8 @@ export interface MaterialOperacao {
 }
 
 const txt = (v: unknown) => (v == null ? "" : String(v)).trim();
+/** Quantidade: "0.5" (número do Excel) ou "0,5"/"1.000,5" (texto brasileiro). */
+const qtd = (s: string): number | null => (/^\d+\.\d+$/.test(s) ? Number(s) : numBr(s));
 
 /** Linhas da planilha → materiais por operação (as linhas sem lista ou sem operação ficam de fora). */
 export function prepararMateriaisOperacoes(linhas: Crua[]): MaterialOperacao[] {
@@ -36,7 +38,7 @@ export function prepararMateriaisOperacoes(linhas: Crua[]): MaterialOperacao[] {
     out.push({
       maquina: g("MAQUINA"), lista: chaveLista(grupo, numerador), grupo, numerador, operacao: op.padStart(4, "0"),
       atividade: g("ATIVIDADE TROCA", "ATIVIDADE"), frequencia: g("FREQUENCIA"), tipo: g("TIPO"),
-      material: g("MATERIAL"), informacoes: g("INFORMACOES TECNICAS"), quantidade: numBr(g("QTD", "QUANTIDADE")), um: g("UM"),
+      material: g("MATERIAL"), informacoes: g("INFORMACOES TECNICAS"), quantidade: qtd(g("QTD", "QUANTIDADE")), um: g("UM"),
       codigo: /^\d+$/.test(codigo) ? codigo : "", textoSap: g("TEXTO SAP"), situacaoCodigo: g("SITUACAO DO CODIGO"),
       naListaSap: g("NA LISTA DO SAP"), observacao: g("OBSERVACAO"),
     });
@@ -84,13 +86,13 @@ export function indicePorCodigo(itens: MaterialOperacao[]): Map<string, Material
  * carga da IA06 já com a lista e a operação (uma vez cada código, na primeira lista em que aparece).
  */
 export function faltantesDoLevantamento(itens: MaterialOperacao[], listas: { chave: string; dono: string }[], ja: Set<string>,
-  peca: (codigo: string) => { descricao: string; um: string }): Atribuicao[] {
+  peca: (codigo: string) => { descricao: string; um: string }, naListaSap: (x: MaterialOperacao) => boolean = () => false): Atribuicao[] {
   const out: Atribuicao[] = [];
   const vistos = new Set([...ja].map(semZeros));
-  const chaves = listas.map((l) => l.chave);
+  const chaves = [...new Set(listas.map((l) => l.chave))];
   const doLev = porListaOperacao(itens);
   for (const l of listas) for (const [, mats] of doLev.get(l.chave) ?? []) for (const x of mats) {
-    if (!x.codigo || vistos.has(x.codigo)) continue;
+    if (!x.codigo || vistos.has(x.codigo) || naListaSap(x)) continue;
     vistos.add(x.codigo);
     const p = peca(x.codigo);
     out.push({ codigo: x.codigo, descricao: p.descricao || x.textoSap || x.material, um: p.um || x.um, origem: l.dono, conferida: true,
@@ -98,4 +100,20 @@ export function faltantesDoLevantamento(itens: MaterialOperacao[], listas: { cha
       motivo: `levantamento dos manuais: ${x.material} (ainda não vinculada ao equipamento)` });
   }
   return out;
+}
+
+/**
+ * O script da IA06 inclui cada material UMA vez em cada lista (grupo + contador). Os códigos que o levantamento cita em mais
+ * de uma operação da mesma lista: a carga fica com a primeira operação; a tela avisa quais são.
+ */
+export function repetidosNaLista(itens: MaterialOperacao[]): { lista: string; codigo: string; operacoes: string[] }[] {
+  const m = new Map<string, Set<string>>();
+  for (const x of itens) if (x.codigo) (m.get(`${x.lista}#${x.codigo}`) ?? m.set(`${x.lista}#${x.codigo}`, new Set()).get(`${x.lista}#${x.codigo}`)!).add(x.operacao);
+  return [...m].filter(([, ops]) => ops.size > 1).map(([k, ops]) => { const [lista, codigo] = k.split("#"); return { lista, codigo, operacoes: [...ops].sort() }; });
+}
+
+/** Uma linha por lista + código (a da primeira operação), como a carga da IA06 faz. */
+export function umaPorListaCodigo<T extends { lista: string; codigo: string; operacao: string }>(itens: T[]): T[] {
+  const vistos = new Set<string>();
+  return [...itens].sort((a, b) => a.operacao.localeCompare(b.operacao)).filter((x) => { const k = `${x.lista}#${x.codigo}`; return !vistos.has(k) && !!vistos.add(k); });
 }
