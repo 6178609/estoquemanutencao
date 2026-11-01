@@ -133,7 +133,7 @@ function PorAtivo({ t, params, edita, listas, grupos, distribuicao }: { t: M.Ati
   const areas = [...new Set(vivos.map((x) => x.area).filter(Boolean))].sort();
   return (
     <div className="space-y-3">
-      <FiltrosUrl zerar={["at"]} campos={[
+      <FiltrosUrl zerar={["at", "ia06"]} campos={[
         { tipo: "busca", param: "q", placeholder: "Buscar campo de ordenação, equipamento, nome, local ou material…" },
         { tipo: "multi", param: "crit", rotulo: "Criticidade", opcoes: M.CRITS.map((cr) => ({ valor: cr, n: conta((x) => (x.criticidade || SEM_CLASSE) === cr) })) },
         { tipo: "multi", param: "area", rotulo: "Área", opcoes: areas.map((ar) => ({ valor: ar, n: conta((x) => x.area === ar) })) },
@@ -152,7 +152,7 @@ function PorAtivo({ t, params, edita, listas, grupos, distribuicao }: { t: M.Ati
           </div>}>
           <PecasAtivo key={a.codigo} tag={a.codigo} pecas={a.pecas} grupos={grupos ?? []} edita={edita} />
           {edita && listas && (a.pecas.length > 0 || !!distribuicao?.atribuicoes.length) && (
-            <details className="mt-4 rounded-xl border border-borda">
+            <details id="ia06" open={param(params, "ia06") === "1"} className="mt-4 scroll-mt-24 rounded-xl border border-borda">
               <summary className="flex min-h-11 cursor-pointer items-center px-3 text-[13.5px] font-medium hover:bg-superficie-2">Incluir no SAP (IA06) — peças já distribuídas por lista e operação</summary>
               <div className="space-y-4 border-t border-borda p-3">
                 {distribuicao && <DistribuicaoIa06 key={`dist-${a.codigo}-${chaveDistribuicao(distribuicao.atribuicoes)}`} rotulo={identificarAtivo(a)} atribuicoes={distribuicao.atribuicoes}

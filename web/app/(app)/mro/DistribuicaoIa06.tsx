@@ -24,7 +24,8 @@ function baixar(nome: string, conteudo: string, tipo: string) {
 }
 
 interface Linha { incluir: boolean; lista: string; operacao: string; qtd: string }
-const linhaInicial = (a: Atribuicao): Linha => ({ incluir: a.nivel !== "sem" && !!a.lista && !!a.operacao, lista: a.lista ?? "", operacao: a.operacao, qtd: "1" });
+const linhaInicial = (a: Atribuicao): Linha => ({ incluir: a.nivel !== "sem" && !!a.lista && !!a.operacao, lista: a.lista ?? "", operacao: a.operacao,
+  qtd: a.quantidade ? String(a.quantidade).replace(".", ",") : "1" });
 
 /**
  * Inclusão das peças do ativo nas listas de tarefas do SAP (IA06) já distribuídas: cada peça na lista do subconjunto

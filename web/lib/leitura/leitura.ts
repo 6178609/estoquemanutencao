@@ -297,8 +297,8 @@ export function sondar(nome: string, bytes: Uint8Array, xlsx?: Xlsx): Achado[] {
       }
     }
     const vistos = new Set<string>();
-    achados = [...achados].sort((a, b) => Number(!a.visivel) - Number(!b.visivel)).filter((a) => !vistos.has(a.tipo) && !!vistos.add(a.tipo));
-    for (const proprios of [new Set<Tipo>(["equipe"]), new Set<Tipo>(["af", "acoes_af"]), new Set<Tipo>(["indicadores_sim"]), new Set<Tipo>(["roadmap_sim"])])
+    achados = [...achados].sort((a, b) => Number(!a.visivel) - Number(!b.visivel) || Number(!/TODAS/i.test(a.aba ?? "")) - Number(!/TODAS/i.test(b.aba ?? ""))).filter((a) => !vistos.has(a.tipo) && !!vistos.add(a.tipo));
+    for (const proprios of [new Set<Tipo>(["equipe"]), new Set<Tipo>(["af", "acoes_af"]), new Set<Tipo>(["indicadores_sim"]), new Set<Tipo>(["roadmap_sim"]), new Set<Tipo>(["materiais_operacoes"])])
       if (achados.some((a) => proprios.has(a.tipo))) achados = achados.filter((a) => proprios.has(a.tipo));
     return achados.map(({ tipo, aba, linhaCab }) => ({ tipo, aba, linhaCab }));
   }

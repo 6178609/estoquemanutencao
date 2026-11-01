@@ -232,3 +232,21 @@ test("MRO: a carga da IA06 vem distribuída por lista e operação (peça de tro
   await page.screenshot({ path: "test-results/materiais-listas.png", fullPage: true });
   expect(erros).toEqual([]);
 });
+
+test("levantamento dos manuais: materiais por lista e operação, na ficha e na carga da IA06; atalho da IA06 na biblioteca", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/listas_tarefas?visao=levantamento");
+  await expect(page.getByText("Linhas do levantamento")).toBeVisible();
+  await expect(page.getByText("Rolamento rígido de esferas (fictício)")).toBeVisible();
+  const planilha = await page.request.get(await page.getByRole("link", { name: "Baixar (Excel)" }).getAttribute("href") ?? "");
+  expect(await planilha.text()).toContain("Material (manual)");
+  await telaAbriu(page, "/listas_tarefas/lista?g=90000&n=1");
+  await expect(page.getByText("Materiais desta operação no levantamento dos manuais")).toBeVisible();
+  await expect(page.getByText("levantamento dos manuais: Rolamento rígido de esferas (fictício)").first()).toBeVisible();
+  // a biblioteca do ativo leva direto à inclusão da IA06 na Gestão de MRO, já aberta
+  const eq = new URL(await page.locator('a[href^="/equipamentos/biblioteca?eq="]').first().getAttribute("href") ?? "", "http://x").searchParams.get("eq")!;
+  await telaAbriu(page, `/equipamentos/biblioteca?${new URLSearchParams({ eq })}`);
+  await page.getByRole("link", { name: "Incluir no SAP (IA06)" }).click();
+  await expect(page).toHaveURL(/\/mro\?.*ia06=1/);
+  expect(erros).toEqual([]);
+});
