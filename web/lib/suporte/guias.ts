@@ -1307,7 +1307,7 @@ export const GUIAS: Guia[] = [
     ],
     links: [
       { rotulo: "Planos", rota: "/planos" },
-      { rotulo: "Semanal", rota: "/semanal" },
+      { rotulo: "Mapa 52 semanas (mensal)", rota: "/planos?vista=mapa&vis=mensal" },
     ],
   },
 
@@ -1330,7 +1330,7 @@ export const GUIAS: Guia[] = [
     ],
     links: [
       { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
-      { rotulo: "MTBF e MTTR por tipo de ordem", rota: "/confiabilidade_tipos" },
+      { rotulo: "MTBF e MTTR por tipo de ordem", rota: "/confiabilidade?visao=Por tipo de ordem" },
     ],
   },
   {
@@ -1405,7 +1405,7 @@ export const GUIAS: Guia[] = [
       "Programe com folga para as quebras, para não perder a aderência por causa delas.",
     ],
     links: [
-      { rotulo: "Programação semanal", rota: "/semanal" },
+      { rotulo: "Mapa 52 semanas (carga × capacidade por mês)", rota: "/planos?vista=mapa&vis=mensal" },
       { rotulo: "Execução das atividades", rota: "/execucao" },
     ],
   },

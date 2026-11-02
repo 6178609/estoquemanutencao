@@ -19,8 +19,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   ] },
   { titulo: "Confiabilidade", abas: [
     { id: "confiabilidade", titulo: "Quebras, MTBF e MTTR", icone: "ShieldCheck", rota: "/confiabilidade" },
-    { id: "confiabilidade_tipos", titulo: "MTBF e MTTR por tipo de ordem", icone: "Timer", rota: "/confiabilidade_tipos" },
-    { id: "saude", titulo: "Saúde dos ativos", icone: "HeartPulse", rota: "/saude" },
+    { id: "saude", titulo: "Saúde dos ativos", icone: "HeartPulse", rota: "/saude", oculta: true },
     { id: "preditiva", titulo: "Preditiva (SEMEQ)", icone: "Radar", rota: "/preditiva" },
     { id: "equipamentos", titulo: "Equipamentos", icone: "Factory", rota: "/equipamentos" },
     { id: "manuais", titulo: "Manuais", icone: "BookOpen", rota: "/manuais" },
@@ -34,8 +33,6 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "ordens", titulo: "Ordens", icone: "ClipboardList", rota: "/ordens" },
     { id: "planos", titulo: "Planos", icone: "CalendarRange", rota: "/planos" },
     { id: "listas_tarefas", titulo: "Listas de tarefas", icone: "ListTree", rota: "/listas_tarefas" },
-    { id: "mapa52", titulo: "Mapa 52 semanas", icone: "CalendarDays", rota: "/mapa52" },
-    { id: "semanal", titulo: "Programação semanal", icone: "CalendarClock", rota: "/semanal" },
     { id: "execucao", titulo: "Execução das atividades", icone: "CircleCheckBig", rota: "/execucao" },
     { id: "mao_de_obra", titulo: "Mão de obra e backlog", icone: "HardHat", rota: "/mao_de_obra" },
     { id: "gestao_hh", titulo: "Gerenciador de HH", icone: "UsersRound", rota: "/gestao_hh" },
@@ -50,7 +47,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   ] },
   { titulo: "Configuração", abas: [
     { id: "metas", titulo: "Metas e parâmetros", icone: "SlidersHorizontal", rota: "/metas" },
-    { id: "qualidade", titulo: "Qualidade dos dados", icone: "BadgeCheck", rota: "/qualidade" },
+    { id: "qualidade", titulo: "Qualidade dos dados", icone: "BadgeCheck", rota: "/qualidade", oculta: true },
     { id: "dados", titulo: "Fontes de dados", icone: "FolderOpen", rota: "/dados" },
   ] },
 ];
