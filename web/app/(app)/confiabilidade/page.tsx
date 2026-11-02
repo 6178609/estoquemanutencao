@@ -19,12 +19,13 @@ import {
   CRITICIDADES, DIAS_SEMANA, DIMENSOES, FAIXAS_QUEBRAS, matrizCriticidade, mtbfMensal, porDiaDaSemana, porEquipamento,
 } from "./calculo";
 import { Equipamentos } from "./Equipamentos";
+import { Tipos, VISAO_TIPOS } from "./Tipos";
 
 export const metadata: Metadata = { title: "Confiabilidade" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const VISOES = ["Visão geral", "Por equipamento", "Reincidências"];
+const VISOES = ["Visão geral", "Por equipamento", "Reincidências", VISAO_TIPOS];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 const COLUNAS_REINC: Coluna[] = [
@@ -36,6 +37,8 @@ const COLUNAS_REINC: Coluna[] = [
 export default async function Confiabilidade(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await exigir("confiabilidade");
   const params = await props.searchParams;
+  // MTBF e MTTR dos outros tipos de ordem: só precisa das ordens (a análise das quebras precisa também das notas)
+  if (params.visao === VISAO_TIPOS) return <Tipos params={params} visoes={VISOES} />;
   const c = await contexto(params);
   const titulo = <Cabecalho titulo="Confiabilidade," destaque="quebras, MTBF e MTTR." sobre="Manutenção Profissional"
     subtitulo="Análise de falhas: onde quebra, quanto tempo leva para reparar e o que se repete. Quebra = nota Y1 da IW28 convertida em ordem YM11." />;

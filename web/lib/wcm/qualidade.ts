@@ -193,7 +193,7 @@ export function verificar(hoje: Dia, e: EntradasQualidade = {}): Checagem[] {
     const op = e.oper.filter((x) => !x.cancelada && x.inicio != null && recente(x.inicio, hoje));
     out.push(checagem({
       id: "ops_sem_trabalho", nome: "Operações sem trabalho planejado (0 h)", base: "IW38OP",
-      afeta: "Backlog em semanas, carga × capacidade da programação semanal",
+      afeta: "Backlog em semanas, carga × capacidade do Mapa 52 semanas",
       corrigir: "Planejar o trabalho (horas) e o nº de pessoas das operações da ordem (IW32, aba Operações).",
       colunas: ["Ordem", "Operação", "Texto da operação", "Início", "Centro de trabalho", "Objeto técnico"],
       problemas: op.filter((x) => x.horas <= 0).map((x) => ({

@@ -16,7 +16,9 @@ import { Controles } from "./_comum/Controles";
 import { GavetaUrl } from "./_comum/GavetaUrl";
 import { atalhos, contagem, fimDoMes, hrefCom, iso, lista, periodo, um, type Params } from "./_comum/params";
 import { TabelaLonga, type Celula } from "./_comum/TabelaLonga";
+import { AbasProgramacao } from "./AbasProgramacao";
 import { COR_SITUACAO, EXPLICA, estiloCelula } from "./cores";
+import { Mapa52 } from "./Mapa52";
 
 export const metadata: Metadata = { title: "Planos de manutenção" };
 export const dynamic = "force-dynamic";
@@ -29,10 +31,14 @@ const pct = (a: planos.Aderencia) => (a.taxa == null ? "—" : `${Math.round(a.t
 export default async function Planos(props: { searchParams: Promise<Params> }) {
   await exigir("planos");
   const params = await props.searchParams;
+  if (params.vista === "mapa") return <Mapa52 params={params} />;
   const c = await contexto(params);
   const b = barra(c);
-  const cab = <Cabecalho titulo="Planos de manutenção," destaque="as chamadas de cada plano, semana a semana."
-    sobre="Programação · IP19" subtitulo="As chamadas dos planos (IP19) semana a semana entre as datas escolhidas, cruzadas com as ordens do IW38 para saber o que foi executado." />;
+  const cab = <>
+    <Cabecalho titulo="Planos de manutenção," destaque="as chamadas de cada plano, semana a semana."
+      sobre="Programação · IP19" subtitulo="As chamadas dos planos (IP19) semana a semana entre as datas escolhidas, cruzadas com as ordens do IW38 para saber o que foi executado." />
+    <AbasProgramacao params={params} atual="chamadas" />
+  </>;
   const moldura = (filhos: React.ReactNode) => (
     <PaginaWcm barra={{ ...b, recorte: "Centro de trabalho e tipo de ordem valem aqui; o período é o da página" }} periodo={false}>{filhos}</PaginaWcm>
   );

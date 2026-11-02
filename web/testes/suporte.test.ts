@@ -49,7 +49,7 @@ describe("guias técnicos: conteúdo", () => {
   it("todo link interno aponta para uma rota existente em lib/navegacao.ts", () => {
     for (const g of GUIAS) {
       for (const l of g.links ?? []) {
-        expect(ROTAS.has(l.rota), `rota inexistente "${l.rota}" em ${g.id}`).toBe(true);
+        expect(ROTAS.has(l.rota.split("?")[0]), `rota inexistente "${l.rota}" em ${g.id}`).toBe(true);
         expect(l.rotulo.trim()).not.toBe("");
       }
     }

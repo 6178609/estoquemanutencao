@@ -16,6 +16,10 @@ import { dataBr } from "@/lib/wcm/util";
 import { BarraSaude, Cartao, GradeNumeros, inteiroBr, Numero } from "../_ui/Blocos";
 import type { Params } from "../_ui/url";
 import { baseMateriais } from "../../mro/dados";
+import { fichasTecnicas } from "@/lib/dados/fichasTecnicas";
+import { modeloDoEquipamento } from "@/lib/wcm/fichaTecnica";
+import { pecaMro } from "../../mro/logica";
+import { FichaModelo } from "./FichaModelo";
 import { PecasPorSistema } from "../_ui/PecasPorSistema";
 import { infoCad, inventarioAtivos } from "../dados";
 import { gruposDoAtivo } from "../gruposPecas";
@@ -73,6 +77,8 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const semCadastro = pecasSemCadastroDe(info);
   const verOrdens = podeVer(u, "ordens");
   const ordens = c.b.ordens.dados && (verOrdens || completo) ? ordensEnriquecidas(c).filter((o) => o.equipChave === r.codigo).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
+  const modelo = modeloDoEquipamento(r.equipamento);
+  const ficha = modelo ? (await fichasTecnicas())[modelo] : null;
   const obs = typeof info.observacoes === "string" ? info.observacoes : "";
 
   return (
@@ -140,6 +146,17 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         <PecasSemCadastro eq={r.codigo} edita={edita}
           pecas={semCadastro.map(({ id, descricao, referencia, fabricante, quantidade, origem }) => ({ id, descricao, referencia, fabricante, quantidade, origem }))} />
       </section>
+
+      {/* ficha técnica do modelo (injetoras Golden Eagle UGB1 = GEL180/S) */}
+      {ficha && modelo && (
+        <section aria-labelledby="ficha" className="space-y-4">
+          <div>
+            <h2 id="ficha" className="font-display text-[20px] font-medium">Ficha técnica do modelo <span className="text-texto-3">· {ficha.ativo.modelo ?? modelo}</span></h2>
+            <p className="mt-1 text-[13px] text-texto-3">{ficha.ativo.nome}. Dados dos manuais e planilhas do modelo, sem TAG nem nº de série: valem para todas as injetoras deste modelo.</p>
+          </div>
+          <FichaModelo modelo={modelo} ficha={ficha} peca={(m) => pecaMro(m, bm, c.cad.materiais)} />
+        </section>
+      )}
 
       {/* 3. manuais e documentos */}
       <section aria-labelledby="manuais" className="space-y-4">

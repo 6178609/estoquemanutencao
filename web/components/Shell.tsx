@@ -54,7 +54,7 @@ function Navegacao({ grupos, aoNavegar, aoTerminar, recolhido }: { grupos: { tit
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || e.defaultPrevented) return;
     aoNavegar?.(href);
   };
-  // a própria rota ou uma subpágina dela ("/confiabilidade" não acende em "/confiabilidade_tipos")
+  // a própria rota ou uma subpágina dela ("/mro" não acende em "/mro_outro")
   const ativo = (href: string) => (rota === href || rota.startsWith(`${href}/`));
   return (
     <nav className="space-y-5">
