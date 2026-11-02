@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { FichaTecnica } from "../wcm/fichaTecnica";
+import { normalizarFicha, type FichaTecnica } from "../wcm/fichaTecnica";
 import { fonte } from "./fonte";
 
 const ARQUIVO = "app/fichas_tecnicas.json";
@@ -16,7 +16,8 @@ export async function fichasTecnicas(): Promise<Record<string, FichaTecnica>> {
     if (cache?.versao === versao) return cache.dados;
     const lido = await f.ler(ARQUIVO);
     if (!lido) return cache?.dados ?? {};
-    const dados = JSON.parse(new TextDecoder().decode(lido.bytes)) as Record<string, FichaTecnica>;
+    const bruto = JSON.parse(new TextDecoder().decode(lido.bytes)) as Record<string, Record<string, unknown>>;
+    const dados = Object.fromEntries(Object.entries(bruto).map(([k, v]) => [k, normalizarFicha(v)]));
     cache = { versao: lido.versao, dados };
     return dados;
   } catch {

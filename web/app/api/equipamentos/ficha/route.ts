@@ -19,12 +19,12 @@ export async function GET(req: NextRequest) {
   let corpo: string, arquivo: string;
   if (req.nextUrl.searchParams.get("planilha") === "cadastro") {
     const porMat = atividadesDoMaterial(ficha);
-    corpo = csv(["Material", "Especificação", "Qtd.", "Origem", "Atividades que usam"], materiaisPorCodigo(ficha).semCodigo
-      .map((m) => [m.descricao, m.especificacao ?? "", m.qtd_planilha ?? m.qtd_orcamento ?? "", m.origem, (porMat.get(m.id) ?? []).map((a) => a.descricao).join(" | ")]));
+    corpo = csv(["Material", "Especificação", "Qtd.", "Uso", "Atividades que usam"], materiaisPorCodigo(ficha).semCodigo
+      .map((m) => [m.descricao, m.especificacao ?? "", m.qtd ?? "", m.uso ?? m.origem ?? "", (porMat.get(m.id) ?? []).map((a) => a.descricao).join(" | ")]));
     arquivo = `${modelo}_materiais_a_cadastrar.csv`;
   } else {
-    corpo = csv(["Periodicidade", "Dias", "Sistema", "Atividade", "Referência", "Materiais", "Códigos SAP"], atividadesPorPeriodicidade(ficha).flatMap((g) => g.atividades.map((a) => [
-      g.periodicidade, g.dias ?? "", a.sistema, a.descricao, a.referencia, a.material_ids.map((id) => nome.get(id) ?? id).join(" | "),
+    corpo = csv(["Periodicidade", "Dias", "Sistema", "Lista", "Operação", "Atividade", "Referência", "Materiais", "Códigos SAP"], atividadesPorPeriodicidade(ficha).flatMap((g) => g.atividades.map((a) => [
+      g.periodicidade, g.dias ?? "", a.sistema, a.lista_tarefas ? `${a.lista_tarefas}${a.contador ? `/${a.contador}` : ""}` : "", a.operacao ?? "", a.descricao, a.referencia ?? "", a.material_ids.map((id) => nome.get(id) ?? id).join(" | "),
       a.material_ids.map((id) => ficha.materiais.find((m) => m.id === id)).filter((m) => m && codigoSap(m)).map((m) => codigoSap(m!)).join(" | ")])));
     arquivo = `${modelo}_atividades_preventivas.csv`;
   }
