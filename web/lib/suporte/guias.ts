@@ -975,7 +975,7 @@ export const GUIAS: Guia[] = [
       "Mostre os resultados com indicadores simples (quebras, MTBF e MTTR) em painel de área.",
     ],
     links: [
-      { rotulo: "Painel WCM", rota: "/painel" },
+      { rotulo: "Painel Geral", rota: "/painel" },
       { rotulo: "Quebras, MTBF e MTTR", rota: "/confiabilidade" },
     ],
   },
@@ -1129,7 +1129,7 @@ export const GUIAS: Guia[] = [
       "Kaizen é de pequenos passos e de envolvimento de quem faz o trabalho.",
       "Registre a melhoria com antes e depois no mesmo indicador.",
     ],
-    links: [{ rotulo: "Painel WCM", rota: "/painel" }],
+    links: [{ rotulo: "Painel Geral", rota: "/painel" }],
   },
 
   // ───────────── PCM e SAP ─────────────

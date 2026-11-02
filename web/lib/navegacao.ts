@@ -1,18 +1,19 @@
 /**
  * Abas do sistema.
- * `rota`: endereço da aba.
+ * `rota`: endereço da aba. `oculta`: continua existindo (acesso e endereço), mas não aparece no menu lateral.
  */
 interface Aba {
   id: string;
   titulo: string;
   icone: string; // nome do ícone (lucide)
   rota: string;
+  oculta?: boolean;
 }
 
 export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Visão geral", abas: [
-    { id: "painel", titulo: "Painel WCM", icone: "LayoutDashboard", rota: "/painel" },
-    { id: "busca", titulo: "Buscar", icone: "Search", rota: "/busca" },
+    { id: "painel", titulo: "Painel Geral", icone: "LayoutDashboard", rota: "/painel" },
+    { id: "busca", titulo: "Buscar", icone: "Search", rota: "/busca", oculta: true },
     { id: "suporte", titulo: "Suporte Técnico", icone: "LifeBuoy", rota: "/suporte" },
     { id: "indicadores_sim", titulo: "Indicadores SIM (MP)", icone: "Gauge", rota: "/indicadores_sim" },
   ] },

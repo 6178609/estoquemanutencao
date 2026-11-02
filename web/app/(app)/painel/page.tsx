@@ -19,7 +19,7 @@ import { dataBr, inicioDoMes } from "@/lib/wcm/util";
 import { GRUPOS_CLASSE, grupoDaClasse, mesesEntre } from "../confiabilidade/_comum/agregar";
 import { custoPor, ordensDoPeriodo, porEquipamento, porMes } from "../custos/calculo";
 
-export const metadata: Metadata = { title: "Painel WCM" };
+export const metadata: Metadata = { title: "Painel Geral" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -39,7 +39,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
   await exigir("painel");
   const params = await props.searchParams;
   const c = await contexto(params);
-  if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}><Cabecalho titulo="Painel WCM" /><SemDados base="IW38 (ordens)" /></PaginaWcm>;
+  if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}><Cabecalho titulo="Painel Geral" /><SemDados base="IW38 (ordens)" /></PaginaWcm>;
   const [[atual, anterior], serie] = await Promise.all([resultados(c), serieMensal(c)]);
   const metas = c.cad.metas;
   const [aIni, aFim] = ind.periodoAnterior(c.f.ini, c.f.fim);
@@ -58,7 +58,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
 
   return (
     <PaginaWcm barra={barra(c)}>
-      <Cabecalho titulo="Painel WCM," destaque="o pilar Manutenção Profissional num olhar."
+      <Cabecalho titulo="Painel Geral," destaque="o pilar Manutenção Profissional num olhar."
         sobre="Visão geral" subtitulo={`Variações contra ${descrever(aIni, aFim)} (período anterior de mesma duração). Passe o mouse no nome de cada indicador para ver a fórmula.`} />
 
       {atual.cobertura_hh != null && atual.cobertura_hh < 90 && (
