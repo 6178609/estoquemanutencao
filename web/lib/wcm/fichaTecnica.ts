@@ -7,38 +7,86 @@ import { chave } from "../dados/texto";
 
 export interface DadoTecnico { grupo: string; parametro: string; valor: string | number | null; unidade: string | null; fonte: string; confianca: string }
 export interface MaterialFicha {
-  id: string; componente_id?: string; descricao: string; especificacao?: string | null; qtd_planilha?: number | null; qtd_orcamento?: number | null;
-  codigo_sap: string | number | null; descricao_sap?: string | null; situacao_almox: string; origem: string; confianca_vinculo_sap?: string | null;
-  sistema?: string | null; preco_unit_brl?: number | null;
+  id: string; descricao: string; especificacao: string | null; um: string;
+  /** quantidade na máquina (manual ou planilha de spare parts) */
+  qtd: number | string | null;
+  codigo_sap: string | number | null; texto_sap: string | null; status_cadastro: string | null; situacao: string | null; origem: string | null;
+  uso: string | null; observacao: string | null;
+  /** o levantamento mandou tirar este material do plano de manutenção */
+  retirar_do_plano: boolean; motivo_retirada: string | null;
 }
 export interface AtividadeFicha {
-  id: string; tipo: string; sistema: string; periodicidade: string | null; periodicidade_dias: number | null; descricao: string; referencia: string;
-  origem: string; material_ids: string[]; observacao?: string | null;
+  id: string; tipo: string; sistema: string; periodicidade: string | null; periodicidade_dias: number | null; periodicidade_horas: number | null;
+  descricao: string; lista_tarefas: string | null; contador: string | null; operacao: string | null; descricao_lista: string | null;
+  referencia: string | null; material_ids: string[]; observacao: string | null;
 }
+export interface PontoValidar { item: string; ponto: string; onde: string | null; acao: string | null; prioridade: string | null; codigo_sap: string | null }
 export interface FichaTecnica {
-  ativo: { id_ativo: string; nome: string; tipo?: string; fabricante?: string; modelo?: string; observacao_identificacao?: string | null };
+  ativo: { id_ativo: string; nome: string; tipo?: string; fabricante?: string | null; modelo?: string | null; listas_tarefas?: string | null; observacao_identificacao?: string | null };
   dados_tecnicos: DadoTecnico[];
   materiais: MaterialFicha[];
   atividades: AtividadeFicha[];
-  alertas_qualidade: string[];
-  resumo?: Record<string, number>;
+  /** pontos a validar: texto simples ou, nas fichas novas, item + ponto + onde + ação + prioridade */
+  pontos: PontoValidar[];
 }
 
-/** Em que equipamento do SAP a ficha vale: injetoras Golden Eagle UGB1 (modelo GEL180/S); o PVC fica de fora. */
+const txt = (v: unknown) => (v == null ? null : String(v).trim() || null);
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** Aceita as fichas nos dois formatos (spare parts do robô/GEL180S e as fichas por equipamento) e entrega um só. */
+export function normalizarFicha(bruta: Record<string, unknown>): FichaTecnica {
+  const lista = (k: string) => (Array.isArray(bruta[k]) ? (bruta[k] as Record<string, unknown>[]) : []);
+  const materiais = lista("materiais").map((m): MaterialFicha => ({
+    id: String(m.id), descricao: String(m.descricao ?? ""), especificacao: txt(m.especificacao), um: txt(m.um) ?? "PC",
+    qtd: (m.qtd_na_maquina ?? m.qtd_planilha ?? m.qtd_orcamento ?? null) as number | string | null,
+    codigo_sap: (m.codigo_sap ?? null) as string | number | null, texto_sap: txt(m.texto_sap ?? m.descricao_sap), status_cadastro: txt(m.status_cadastro),
+    situacao: txt(m.situacao_vinculo ?? m.situacao_almox), origem: txt(m.origem ?? m.fonte ?? m.desenho), uso: txt(m.uso), observacao: txt(m.observacao),
+    retirar_do_plano: m.retirar_do_plano === true, motivo_retirada: txt(m.motivo_retirada),
+  }));
+  const atividades = lista("atividades").map((a): AtividadeFicha => ({
+    id: String(a.id), tipo: String(a.tipo ?? ""), sistema: String(a.sistema ?? a.especialidade ?? ""), periodicidade: txt(a.periodicidade), periodicidade_dias: num(a.periodicidade_dias),
+    periodicidade_horas: num(a.periodicidade_horas), descricao: String(a.descricao ?? ""), lista_tarefas: txt(a.lista_tarefas), contador: txt(a.contador),
+    operacao: txt(a.operacao), descricao_lista: txt(a.descricao_lista), referencia: txt(a.referencia), observacao: txt(a.observacao),
+    material_ids: Array.isArray(a.material_ids) ? a.material_ids.map(String) : [],
+  }));
+  const pontos: PontoValidar[] = [
+    ...(Array.isArray(bruta.alertas_qualidade) ? (bruta.alertas_qualidade as unknown[]).map((t) => ({ item: "", ponto: String(t), onde: null, acao: null, prioridade: null, codigo_sap: null })) : []),
+    ...lista("pontos_a_validar").map((p) => ({ item: String(p.item ?? ""), ponto: String(p.ponto ?? ""), onde: txt(p.onde), acao: txt(p.acao_sugerida),
+      prioridade: txt(p.prioridade), codigo_sap: txt(p.codigo_sap) })),
+  ];
+  return { ativo: (bruta.ativo ?? { id_ativo: "", nome: "" }) as FichaTecnica["ativo"], dados_tecnicos: lista("dados_tecnicos") as unknown as DadoTecnico[], materiais, atividades, pontos };
+}
+
+/**
+ * Em que equipamento do SAP cada ficha vale: o modelo (id da ficha) pela denominação. Injetoras PVC (Golden Eagle) ficam de fora;
+ * o robô GERS4-900I não tem equipamento ligado.
+ */
 export function modeloDoEquipamento(denominacao: string, inativo = false): string | null {
   if (inativo) return null;
-  return /^INJETORA \d+ UGB1 GOLDEN EAGLE$/.test(chave(denominacao)) ? "GEL180S" : null;
+  const d = chave(denominacao);
+  if (/^INJETORA \d+ UGB1 GOLDEN EAGLE$/.test(d)) return "GEL180S";
+  if (/^BANBURY SF \d+ UGB1 BONFANTI$/.test(d)) return "BMI-80T";
+  if (/^INJETORA EXP 09 10 EST/.test(d)) return "EXP09";
+  if (/^PRENSA COPE \d+ PHB 450$/.test(d)) return "PHB-450";
+  if (/^PAN STONE \d+ JOB/.test(d)) return "S-950-A-PCD";
+  return null;
 }
 
-const ORDEM_PER = ["Diária", "Semanal", "Mensal", "Trimestral", "Semestral", "Anual"];
+/** Atividade de rotina/troca prevista (não condicional nem corretiva sob demanda). */
+export const ehPrevista = (a: AtividadeFicha) => !/CONDICIONAL|CORRETIVA/i.test(a.tipo);
 
-/** Atividades preventivas por periodicidade (da mais curta para a mais longa); condicionais e sob demanda ficam à parte. */
+/** Tamanho da periodicidade em dias, para ordenar (horas ≈ 1 h = 1/16 de dia útil de operação: só para ordenar). */
+const dias = (a: AtividadeFicha) => a.periodicidade_dias ?? (a.periodicidade_horas != null ? a.periodicidade_horas / 16 : null);
+
+/** Atividades previstas por periodicidade (da mais curta para a mais longa); condicionais e sob demanda ficam à parte. */
 export function atividadesPorPeriodicidade(f: FichaTecnica): { periodicidade: string; dias: number | null; atividades: AtividadeFicha[] }[] {
-  const prev = f.atividades.filter((a) => a.tipo === "PREVENTIVA");
   const m = new Map<string, AtividadeFicha[]>();
-  for (const a of prev) (m.get(a.periodicidade ?? "A definir") ?? m.set(a.periodicidade ?? "A definir", []).get(a.periodicidade ?? "A definir")!).push(a);
-  return [...m].map(([periodicidade, atividades]) => ({ periodicidade, dias: atividades[0].periodicidade_dias, atividades }))
-    .sort((a, b) => (a.dias ?? 1e9) - (b.dias ?? 1e9) || ORDEM_PER.indexOf(a.periodicidade) - ORDEM_PER.indexOf(b.periodicidade));
+  for (const a of f.atividades.filter(ehPrevista)) {
+    const k = a.periodicidade ?? "A definir";
+    (m.get(k) ?? m.set(k, []).get(k)!).push(a);
+  }
+  return [...m].map(([periodicidade, atividades]) => ({ periodicidade, dias: dias(atividades[0]), atividades }))
+    .sort((a, b) => (a.dias ?? 1e9) - (b.dias ?? 1e9) || a.periodicidade.localeCompare(b.periodicidade));
 }
 
 const codigoSap = (m: MaterialFicha) => (m.codigo_sap == null ? "" : String(m.codigo_sap).trim().replace(/^0+(?=\d)/, ""));

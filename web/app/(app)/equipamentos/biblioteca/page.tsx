@@ -152,7 +152,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         <section aria-labelledby="ficha" className="space-y-4">
           <div>
             <h2 id="ficha" className="font-display text-[20px] font-medium">Ficha técnica do modelo <span className="text-texto-3">· {ficha.ativo.modelo ?? modelo}</span></h2>
-            <p className="mt-1 text-[13px] text-texto-3">{ficha.ativo.nome}. Dados dos manuais e planilhas do modelo, sem TAG nem nº de série: valem para todas as injetoras deste modelo.</p>
+            <p className="mt-1 text-[13px] text-texto-3">{ficha.ativo.nome}. Dados dos manuais, das listas de tarefas e das planilhas do modelo, sem TAG nem nº de série: valem para todas as máquinas deste modelo.</p>
           </div>
           <FichaModelo modelo={modelo} ficha={ficha} peca={(m) => pecaMro(m, bm, c.cad.materiais)} />
         </section>
