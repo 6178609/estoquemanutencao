@@ -7,6 +7,9 @@
   `model: "haiku"`, salvo quando o próprio conselheiro (Opus) for o agente.
 
 ## Como trabalhar
+- **Várias tarefas = vários agentes (padrão definitivo):** quando o pedido tiver várias tarefas independentes, dividir entre
+  agentes em paralelo, cada um com o modelo adequado: `haiku` para busca, leitura, conversão e tarefas mecânicas;
+  `opus` para planejar, revisar o diff e decisões de arquitetura. Dados da empresa continuam só em ferramentas locais.
 - Responder sempre em **português do Brasil**.
 - Toda alteração é **publicada no site**: commit → push no ramo de trabalho → PR para `main` → merge →
   realinhar o ramo com `main`.
