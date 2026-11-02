@@ -73,7 +73,12 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const verEstoque = podeVer(u, "estoque");
   const grupos = gruposDoAtivo(c, r.codigo, bm,
     verEstoque ? (m) => urlFotoMaterial(m, (c.cad.materiais[m] as { foto?: unknown } | undefined)?.foto, true) : undefined);
-  const nPecas = new Set(grupos.flatMap((g) => g.pecas.map((p) => p.codigo))).size;
+  // peças com cadastro bloqueado, cancelado ou duplicado no Sysmat: não servem para pedir ou reservar; ficam numa área própria
+  const BLOQUEADAS = new Set(["Bloqueado", "Cancelado", "Duplicado"]);
+  const gruposBloqueados = grupos.map((g) => ({ ...g, pecas: g.pecas.filter((p) => BLOQUEADAS.has(p.cadastro)) })).filter((g) => g.pecas.length);
+  const gruposAtivos = grupos.map((g) => ({ ...g, pecas: g.pecas.filter((p) => !BLOQUEADAS.has(p.cadastro)) })).filter((g) => g.pecas.length);
+  const nBloqueadas = new Set(gruposBloqueados.flatMap((g) => g.pecas.map((p) => p.codigo))).size;
+  const nPecas = new Set(gruposAtivos.flatMap((g) => g.pecas.map((p) => p.codigo))).size;
   const semCadastro = pecasSemCadastroDe(info);
   const verOrdens = podeVer(u, "ordens");
   const ordens = c.b.ordens.dados && (verOrdens || completo) ? ordensEnriquecidas(c).filter((o) => o.equipChave === r.codigo).sort((a, b) => (b.data ?? -1e9) - (a.data ?? -1e9)) : [];
@@ -129,13 +134,24 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
         <div>
           <h2 id="componentes" className="font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({nPecas})</span></h2>
           <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas ao equipamento e aos sistemas dele no SAP, com o saldo no almoxarifado (MB52). Toque na peça para ver o detalhe.{edita ? " Para vincular mais, use Editar cadastro ou a Gestão de MRO." : ""}</p>
-          <div className="mt-3"><BaixarPecas eq={r.codigo} n={nPecas + semCadastro.length} /></div>
+          <div className="mt-3"><BaixarPecas eq={r.codigo} n={nPecas + nBloqueadas + semCadastro.length} /></div>
         </div>
         {nPecas === 0 ? (
           <p className="rounded-cartao border border-dashed border-borda px-5 py-8 text-center text-[13.5px] text-texto-3">Nenhum componente vinculado a este equipamento.</p>
-        ) : <PecasPorSistema grupos={grupos} />}
+        ) : <PecasPorSistema grupos={gruposAtivos} />}
         {verEstoque && nPecas > 0 && <p className="text-[12.5px] text-texto-3">A foto de cada peça se põe no Estoque (toque no material → Tirar foto).</p>}
       </section>
+
+      {/* 2a. componentes bloqueados no Sysmat */}
+      {nBloqueadas > 0 && (
+        <section aria-labelledby="bloqueados" className="space-y-4">
+          <div>
+            <h2 id="bloqueados" className="font-display text-[20px] font-medium">Componentes bloqueados no Sysmat <span className="text-texto-3">({nBloqueadas})</span></h2>
+            <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas ao equipamento cujo cadastro no Sysmat está bloqueado, cancelado ou duplicado: não dá para pedir nem reservar até o cadastro ser desbloqueado ou trocado pelo código substituto.</p>
+          </div>
+          <PecasPorSistema grupos={gruposBloqueados} />
+        </section>
+      )}
 
       {/* 2b. peças sem cadastro no Sysmat */}
       <section aria-labelledby="sem-cadastro" className="space-y-4">
