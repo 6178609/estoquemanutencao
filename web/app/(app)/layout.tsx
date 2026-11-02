@@ -15,7 +15,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
   const grupos = GRUPOS.map((g) => ({
     titulo: g.titulo,
     itens: g.abas
-      .filter((a) => podeVer(u, a.id))
+      .filter((a) => !a.oculta && podeVer(u, a.id))
       .map((a): ItemMenu => ({ id: a.id, titulo: a.titulo, icone: a.icone, href: a.rota })),
   })).filter((g) => g.itens.length);
   const admin = ehAdmin(u) && !u.demo;

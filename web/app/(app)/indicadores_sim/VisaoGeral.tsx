@@ -102,7 +102,7 @@ export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: Linha
           <Suspense fallback={<div className="h-64 animate-pulse rounded-cartao border border-borda bg-superficie-2" aria-label="Calculando os indicadores do SAP" />}>
             <IndicadoresSap mes={mes} rotulo={rotuloMes(mes)} deck={linhas} />
           </Suspense>
-        ) : <p className="text-[13px] text-texto-3">Os indicadores do SAP aparecem para quem tem acesso ao Painel WCM.</p>}
+        ) : <p className="text-[13px] text-texto-3">Os indicadores do SAP aparecem para quem tem acesso ao Painel Geral.</p>}
       </section>
 
       <h2 className="font-display text-[18px] font-medium">Deck do pilar MP — por indicador e por área</h2>

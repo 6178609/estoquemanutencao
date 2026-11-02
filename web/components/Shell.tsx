@@ -33,7 +33,7 @@ function iniciais(nome: string) {
 /** Girando ao lado da aba clicada enquanto ela abre (resposta imediata ao clique). */
 function Abrindo({ aoTerminar }: { aoTerminar?: () => void }) {
   const { pending } = useLinkStatus();
-  // a navegação deste link terminou (mesmo se caiu na mesma rota, ex.: Início que redireciona para o Estoque): avisa
+  // a navegação deste link terminou (mesmo se caiu na mesma rota, ex.: a página inicial que redireciona para o Painel Geral): avisa
   const antes = useRef(false);
   useEffect(() => {
     if (antes.current && !pending) aoTerminar?.();
@@ -55,15 +55,9 @@ function Navegacao({ grupos, aoNavegar, aoTerminar, recolhido }: { grupos: { tit
     aoNavegar?.(href);
   };
   // a própria rota ou uma subpágina dela ("/confiabilidade" não acende em "/confiabilidade_tipos")
-  const ativo = (href: string) => (href === "/" ? rota === "/" : rota === href || rota.startsWith(`${href}/`));
+  const ativo = (href: string) => (rota === href || rota.startsWith(`${href}/`));
   return (
     <nav className="space-y-5">
-      <Link prefetch={false} href="/" onClick={clicar("/")}
-        className={clsx("flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition",
-          ativo("/") ? "bg-menu-2 font-semibold text-white shadow-[inset_3px_0_0_var(--menu-marcador)]" : "text-menu-texto hover:bg-white/8")}>
-        <Icone nome="Home" className="size-4 shrink-0" strokeWidth={1.75} />{!recolhido && <span className="flex-1">Início</span>}
-        <Abrindo aoTerminar={aoTerminar} />
-      </Link>
       {grupos.map((g) => (
         <div key={g.titulo}>
           {!recolhido && <div className="mb-1 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-menu-apoio">{g.titulo}</div>}
@@ -89,7 +83,6 @@ function Navegacao({ grupos, aoNavegar, aoTerminar, recolhido }: { grupos: { tit
 
 /** "Grupo › Aba" da rota ativa, pela mesma regra do menu (exata ou subpágina; "/" só exata). Sem aba no menu: null. */
 function caminhoDe(grupos: { titulo: string; itens: ItemMenu[] }[], rota: string): { grupo: string; aba: string } | null {
-  if (rota === "/") return { grupo: "", aba: "Início" };
   let melhor: { grupo: string; aba: string; tam: number } | null = null;
   for (const g of grupos) {
     for (const it of g.itens) {
