@@ -1,13 +1,12 @@
 # Mantém o site "quente": chama /api/aquecer depois de cada deploy de produção. O aquecimento de 5 em 5 minutos do banco
 # (pg_cron no Supabase) foi DESLIGADO em 06/11/2026 (ver supabase/migrations/*_desligar_aquecimento_site_5min.sql): no plano
-# gratuito da Vercel ele pesa no limite de uso. O agendamento abaixo (reserva) segue como está. A rota deixa um servidor da Vercel com as bases do SAP,
+# gratuito da Vercel ele pesa no limite de uso. O agendamento de reserva de 5 em 5 minutos deste workflow também foi
+# DESLIGADO (06/11/2026): ficam só a chamada depois de cada deploy de produção e a execução manual. A rota deixa um servidor da Vercel com as bases do SAP,
 # os cadastros e os indicadores já baixados e preparados na memória (a primeira tela não espera o download).
 # A rota não devolve dados, só o tempo de cada etapa. Endereço: variável SITE_URL do repositório (se houver).
 name: Aquecer o site
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   # logo depois de cada deploy de produção (todas as instâncias novas começam frias)
   deployment_status:
   workflow_dispatch:
