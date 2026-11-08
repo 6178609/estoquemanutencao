@@ -3,6 +3,7 @@ import "server-only";
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
 import { acessoTotal, ehAdmin, erroAdminSoEstoque, FUNCOES, FUNCOES_SO_ESTOQUE, PERFIS, type Usuario } from "./acesso";
+import { limparNome, validarEmailObrigatorio, validarNomeCompleto } from "./atualizacaoDados";
 import { confere, gerarHash, normalizarLogin, validarEmail, validarLogin, validarSenha } from "./senha";
 
 /**
@@ -17,6 +18,8 @@ type Registro = Record<string, unknown> & {
   nome?: string; perfil?: string; funcao?: string; ativo?: boolean; abas?: unknown; trocar_senha?: boolean;
   /** para os avisos por e-mail (ex.: treinamentos vencendo, aos líderes) */
   email?: string;
+  /** última confirmação dos dados cadastrais pela própria pessoa (atualização mensal obrigatória) */
+  dados_confirmados_em?: string;
   sessoes?: { h?: string; ate?: string }[]; ultimo_acesso?: string;
 };
 
@@ -170,4 +173,20 @@ export async function trocarSenha(login: string, atual: string | null, s1: strin
 export async function desconectarTodos(login: string): Promise<void> {
   const d = (await usuarios())[login];
   if (d) await salvar(login, { ...semMeta(d), sessoes: [] }, login);
+}
+
+/**
+ * A própria pessoa confirma ou corrige os dados cadastrais (nome completo e e-mail, obrigatórios).
+ * Grava a data: a próxima atualização obrigatória é 1 mês depois (lib/auth/atualizacaoDados.ts).
+ */
+export async function atualizarMeusDados(login: string, nome: string, email: string): Promise<string> {
+  const erro = validarNomeCompleto(nome) || validarEmailObrigatorio(email);
+  if (erro) return erro;
+  if (!(await usuarios())[login]) return "Usuário não encontrado.";
+  const agora = new Date().toISOString();
+  // altera só nome, e-mail e data sobre o registro relido na hora da gravação: não desfaz o que o administrador
+  // mudou nesse meio-tempo (desativar, senha, sessões) nem recria quem foi excluído (undefined = não grava)
+  await gravarCadastroLote(ARQ_USUARIOS, { [login]: (atual) => (atual
+    ? { ...atual, nome: limparNome(nome), email: email.trim().toLowerCase(), dados_confirmados_em: agora } : undefined) }, login);
+  return "";
 }

@@ -4,11 +4,13 @@ import Link from "next/link";
 
 import { BOTAO_SECUNDARIO, Cabecalho, Cartao, IconeQuadro, Pagina } from "@/components/ui";
 import { abasPersonalizadas, acessoTotal, nomeFuncao, PAGINAS_LIVRES, PAGINAS_PARCIAIS, PAGINAS_SO_ESTOQUE, PERFIS, soEstoque } from "@/lib/auth/acesso";
+import { proximaAtualizacao } from "@/lib/auth/atualizacaoDados";
 import { exigir } from "@/lib/auth/sessao";
 import { usuarios } from "@/lib/auth/usuarios";
 import { GRUPOS } from "@/lib/navegacao";
 import { acaoDesconectarTodos } from "./acoes";
 import { DesconectarTodos } from "./DesconectarTodos";
+import { FormularioDados } from "./FormularioDados";
 import { FormularioSenha } from "./FormularioSenha";
 
 export const metadata: Metadata = { title: "Minha conta" };
@@ -25,6 +27,9 @@ export default async function MinhaConta() {
     ...[...PAGINAS_LIVRES].map((p) => titulos[p]).filter(Boolean),
     ...(pers ? [...pers].filter((p) => !PAGINAS_LIVRES.has(p) && titulos[p]).map((p) => titulos[p]) : []),
     ...Object.entries(PAGINAS_PARCIAIS).filter(([p]) => !pers?.has(p)).map(([, t]) => `${t} (Equipamentos)`)];
+  const confirmado = typeof reg?.dados_confirmados_em === "string" ? reg.dados_confirmados_em : "";
+  const proxima = confirmado ? proximaAtualizacao(confirmado) : null;
+  const dia = (d: string | Date) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(new Date(d));
   const dados = [["Nome", u.nome || "—"], ["Usuário (NP)", u.login], ["Função", nomeFuncao(u)], ["Perfil", PERFIS[u.perfil || ""] || "Leitor"]];
 
   return (
@@ -43,6 +48,16 @@ export default async function MinhaConta() {
           <Lock className="mt-0.5 size-4 shrink-0 text-texto-3" />
           <span>Você vê as abas: <b>{vistas.join(" · ")}</b>. Para mudar, peça a um administrador.</span>
         </div>
+      )}
+      {!u.demo && (
+        <Cartao className="p-6">
+          <h2 className="font-display text-[17px] font-medium">Dados cadastrais</h2>
+          <p className="mb-5 mt-1 text-[13.5px] text-texto-3">
+            Nome completo e e-mail são obrigatórios e precisam ser confirmados todo mês.
+            {confirmado && proxima ? <> Última confirmação em <b>{dia(confirmado)}</b>; a próxima será pedida em <b>{dia(proxima)}</b>.</> : null}
+          </p>
+          <FormularioDados nome={reg?.nome || u.nome || ""} email={reg?.email || ""} />
+        </Cartao>
       )}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Cartao className="p-6">
@@ -63,7 +78,7 @@ export default async function MinhaConta() {
         <div className="min-w-60 flex-1">
           <h2 className="font-display text-[17px] font-medium">Seus dados (LGPD)</h2>
           <p className="mt-1 text-[13.5px] text-texto-3">
-            Veja o que o site guarda sobre você em <Link href="/privacidade" className="underline">Privacidade</Link>. Para corrigir ou excluir, peça a um administrador.
+            Veja o que o site guarda sobre você em <Link href="/privacidade" className="underline">Privacidade</Link>. Nome e e-mail você corrige em Dados cadastrais, acima; para corrigir o resto ou excluir, peça a um administrador.
           </p>
         </div>
         {!u.demo && (
