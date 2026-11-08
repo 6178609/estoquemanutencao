@@ -108,7 +108,7 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
         })}
       </div>
 
-      {erro && <p id={erroId} className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
+      {erro && <p id={erroId} role="alert" className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
   );

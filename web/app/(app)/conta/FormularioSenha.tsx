@@ -20,7 +20,7 @@ export function FormularioSenha({ pedirAtual }: { pedirAtual: boolean }) {
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
       <button disabled={enviando} className={BOTAO_PRIMARIO}>
-        {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><KeyRound className="size-4" /> Salvar senha</>}
+        {enviando ? <><LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> Salvando…</> : <><KeyRound className="size-4" /> Salvar senha</>}
       </button>
     </form>
   );

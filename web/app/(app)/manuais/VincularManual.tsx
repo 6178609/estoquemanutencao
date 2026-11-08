@@ -73,7 +73,7 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
           for (const c of eqs) form.append("eqs", c);
           form.set("titulo", tituloManual);
           form.set("arquivo", f);
-          const j = await pedir("/api/manuais", { body: form }, "Não foi possível vincular.");
+          const j = await pedir("/api/manuais", { body: form }, "Não foi possível vincular. Confira o arquivo ou o link e tente de novo.");
           n = Number(j.vinculados) || eqs.length;
         }
       } else {
@@ -82,12 +82,12 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
         for (const c of eqs) form.append("eqs", c);
         form.set("titulo", tituloManual);
         form.set("url", url.trim());
-        const j = await pedir("/api/manuais", { body: form }, "Não foi possível vincular.");
+        const j = await pedir("/api/manuais", { body: form }, "Não foi possível vincular. Confira o arquivo ou o link e tente de novo.");
         n = Number(j.vinculados) || eqs.length;
       }
     } catch (err) {
       setProgresso(null);
-      setEstado({ enviando: false, erro: err instanceof Error ? err.message : "Não foi possível vincular.", ok: "" });
+      setEstado({ enviando: false, erro: err instanceof Error ? err.message : "Não foi possível vincular. Confira o arquivo ou o link e tente de novo.", ok: "" });
       return;
     }
     setProgresso(null);

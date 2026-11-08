@@ -76,7 +76,7 @@ export function Kpi({ rotulo, valor, detalhe, icone, tom = "verde", dica, status
   return (
     <div title={dica} className="rounded-cartao border border-borda bg-superficie p-5 transition hover:border-borda-forte">
       {icone && <IconeQuadro icone={icone} tom={tom} />}
-      <div className={clsx("text-[13.5px] font-medium text-texto-2", icone && "mt-4")}>{rotulo}</div>
+      <div className={clsx("text-[13.5px] font-medium text-texto-2", icone && "mt-4")}>{rotulo}{dica && <span className="sr-only"> ({dica})</span>}</div>
       <div className="num mt-1.5 font-display text-[32px] font-medium leading-none tracking-[-0.03em]">{valor}</div>
       {status && <div className="mt-2"><Selo cor={status.cor}>{status.texto}</Selo></div>}
       {meta && <div className="mt-1.5 text-texto-3 text-[12.5px]">{meta}</div>}

@@ -43,7 +43,7 @@ export function AbasVisao({ visoes, atual, params }: { visoes: string[]; atual: 
         const p = new URLSearchParams(base);
         p.set("visao", v);
         return (
-          <Link prefetch={false} key={v} href={`?${p.toString()}`} scroll={false}
+          <Link prefetch={false} key={v} href={`?${p.toString()}`} scroll={false} aria-current={v === atual ? "page" : undefined}
             className={v === atual ? "rounded-full bg-superficie-3 px-4 py-2 text-[13.5px] font-medium text-texto" : "rounded-full px-4 py-2 text-[13.5px] text-texto-3 transition hover:text-texto"}>
             {v}
           </Link>

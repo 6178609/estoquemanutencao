@@ -124,7 +124,7 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
               <input className={clsx(ENTRADA, "pl-9")} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código ou descrição…" />
-              {buscando && <LoaderCircle className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" />}
+              {buscando && <span role="status" className="contents"><LoaderCircle aria-hidden="true" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" /><span className="sr-only">Buscando…</span></span>}
             </label>
             <ul className="mt-2 h-56 overflow-y-auto rounded-xl border border-borda">
               {cand && !cand.itens.length && <li className="px-3 py-3 text-[13px] text-texto-3">Nenhum item encontrado.</li>}
@@ -168,7 +168,7 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
       {erro && <div className="mt-5"><Mensagem>{erro}</Mensagem></div>}
       <div className="mt-6 flex flex-wrap gap-2">
         <button onClick={salvar} disabled={salvando} className={BOTAO_PRIMARIO}>
-          {salvando ? <LoaderCircle className="size-4 animate-spin" /> : editando ? <Check className="size-4" /> : <Plus className="size-4" />} Salvar equipamento
+          {salvando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : editando ? <Check className="size-4" /> : <Plus className="size-4" />} {salvando ? "Salvando…" : "Salvar equipamento"}
         </button>
         <button onClick={() => router.push(voltar, { scroll: false })} className={BOTAO_SECUNDARIO}>Cancelar</button>
       </div>

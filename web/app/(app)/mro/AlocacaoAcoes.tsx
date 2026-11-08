@@ -63,7 +63,7 @@ export function AlocarUm({ ativo, material }: { ativo: string; material: string 
   const [pendente, iniciar] = useTransition();
   const [feito, setFeito] = useState(false);
   const [erro, setErro] = useState("");
-  if (feito) return <span className="inline-flex items-center gap-1 text-[12.5px] text-[var(--selo-bom-texto)]"><Check className="size-3.5" /> vinculado</span>;
+  if (feito) return <span role="status" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--selo-bom-texto)]"><Check className="size-3.5" /> vinculado</span>;
   return (
     <span className="inline-flex flex-col gap-1">
       <button type="button" disabled={pendente} aria-busy={pendente} title={erro || undefined}
@@ -74,7 +74,7 @@ export function AlocarUm({ ativo, material }: { ativo: string; material: string 
         className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] font-medium text-texto-2 transition hover:bg-superficie-2">
         {pendente ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Alocar
       </button>
-      {erro && <span className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</span>}
+      {erro && <span role="alert" className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</span>}
     </span>
   );
 }

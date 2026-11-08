@@ -12,16 +12,19 @@ export function AbasEntrada({ demo }: { demo: boolean }) {
   if (demo) return <FormularioEntrada demo />;
   return (
     <div className="space-y-5">
-      <div role="tablist" className="grid grid-cols-2 gap-1 rounded-xl bg-superficie-2 p-1">
+      <div role="tablist" aria-label="Acesso" className="grid grid-cols-2 gap-1 rounded-xl bg-superficie-2 p-1"
+        onKeyDown={(e) => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); const n = aba === "entrar" ? "pedir" : "entrar"; setAba(n); document.getElementById(`aba-${n}`)?.focus(); } }}>
         {([["entrar", "Entrar"], ["pedir", "Solicitar acesso"]] as const).map(([id, titulo]) => (
-          <button key={id} role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
+          <button key={id} id={`aba-${id}`} role="tab" aria-selected={aba === id} aria-controls="painel-entrada" tabIndex={aba === id ? 0 : -1} onClick={() => setAba(id)}
             className={clsx("h-9 rounded-lg text-[14px] transition",
               aba === id ? "bg-superficie font-medium text-texto shadow-sm" : "text-texto-3 hover:text-texto")}>
             {titulo}
           </button>
         ))}
       </div>
-      {aba === "entrar" ? <FormularioEntrada demo={false} /> : <FormularioSolicitar />}
+      <div id="painel-entrada" role="tabpanel" aria-labelledby={`aba-${aba}`}>
+        {aba === "entrar" ? <FormularioEntrada demo={false} /> : <FormularioSolicitar />}
+      </div>
     </div>
   );
 }

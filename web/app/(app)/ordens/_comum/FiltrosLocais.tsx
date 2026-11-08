@@ -109,10 +109,10 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
       {outros.length > 0 && (
         <div className="hidden flex-wrap items-center gap-2 md:flex">
           {controles(outros)}
-          {pendente && <span className="text-[12.5px] text-texto-3">Filtrando…</span>}
+          {pendente && <span aria-live="polite" className="text-[12.5px] text-texto-3">Filtrando…</span>}
         </div>
       )}
-      {pendente && <span className="text-[12.5px] text-texto-3 md:hidden">Filtrando…</span>}
+      {pendente && <span aria-live="polite" className="text-[12.5px] text-texto-3 md:hidden">Filtrando…</span>}
       <Gaveta aberta={gaveta} aoFechar={() => setGaveta(false)} titulo={`Filtros${ligados ? ` · ${ligados}` : ""}`}
         subtitulo="Cada escolha já filtra a lista; feche para ver o resultado.">
         <div className="flex flex-col items-stretch gap-3 [&>*]:w-full">{controles(doCelular)}</div>

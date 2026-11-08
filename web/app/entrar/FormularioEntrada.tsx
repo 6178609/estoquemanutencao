@@ -60,7 +60,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
         )}
         <button disabled={enviando || demo}
           className={`${BOTAO_PRIMARIO} w-full`}>
-          {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <>Entrar <ArrowRight className="size-4" /></>}
+          Entrar {enviando ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" />}
         </button>
       </form>
       <p className="text-center text-[12.5px] text-texto-3">

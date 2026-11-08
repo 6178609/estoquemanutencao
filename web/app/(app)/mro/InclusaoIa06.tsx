@@ -101,7 +101,7 @@ export function InclusaoIa06({ equipamento, rotulo, pecas, listas, operacaoInici
           <label className="block pt-2 text-[12.5px] font-medium text-texto-2">Operação
             <input className={`${ENTRADA} ml-2 w-24 font-mono`} value={operacao} maxLength={4} onChange={(e) => setOperacao(e.target.value)} onBlur={() => setOperacao(operacao4(operacao))} />
           </label>
-          {!opValida && <p className="text-[12px] text-[color:var(--st-critico)]">Informe o número da operação (ex.: 0010).</p>}
+          {!opValida && <p role="alert" className="text-[12px] text-[color:var(--st-critico)]">Informe o número da operação (ex.: 0010).</p>}
         </div>
 
         <div className="min-w-0">

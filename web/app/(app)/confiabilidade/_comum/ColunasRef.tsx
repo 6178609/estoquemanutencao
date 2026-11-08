@@ -75,6 +75,8 @@ export function ColunasRef({ rotulos, series, referencia, formato = "padrao", al
                 })}
                 {i % passo === 0 && <text x={ESQ + i * banda + banda / 2} y={altura - 6} textAnchor="middle" className="fill-[var(--texto-3)] text-[10.5px]">{r}</text>}
                 <rect x={ESQ + i * banda} y={TOPO} width={banda} height={h} fill="transparent" tabIndex={0}
+                  aria-label={`${titulosDica?.[i] ?? r}: ${series.map((s) => `${s.nome} ${s.valores[i] == null ? "sem valor" : f(s.valores[i]!)}`).join("; ")}`}
+                  onBlur={() => setHover(null)}
                   onPointerMove={(e) => setHover({ i, x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY })}
                   onFocus={() => setHover({ i, x: ESQ + i * banda + banda / 2, y: TOPO })} />
               </g>

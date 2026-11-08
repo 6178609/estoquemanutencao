@@ -150,7 +150,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
           </label>
           <div className="flex gap-2">
             <button type="submit" className={BOTAO_COMPACTO}>Filtrar</button>
-            <Link prefetch={false} href="/manuais#lista" className={clsx(BOTAO_COMPACTO, "bg-transparent")}>Limpar</Link>
+            <Link prefetch={false} href="/manuais#lista" className="inline-flex h-9 min-h-9 items-center rounded-lg border border-borda-forte bg-superficie px-3 font-display text-[13px] font-medium text-texto hover:bg-superficie-2">Limpar</Link>
           </div>
         </form>
 

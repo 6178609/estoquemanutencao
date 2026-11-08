@@ -143,7 +143,7 @@ export function EquipeCadastro({ membros, edita, doCadastro }: { membros: Membro
         <div className="max-h-[560px] overflow-auto rounded-lg border border-borda">
           <table className="w-full min-w-[980px] whitespace-nowrap text-left text-[12.5px]">
             <thead className="sticky top-0 z-10 bg-superficie-2 text-[11.5px] text-texto-3">
-              <tr>{["Nº pessoal", "Nome", "Cargo", "Especialidade", "Centro", "Área", "Turma", "Supervisor", ""].map((h, i) => <th key={i} className="px-3 py-2 font-medium">{h}</th>)}</tr>
+              <tr>{["Nº pessoal", "Nome", "Cargo", "Especialidade", "Centro", "Área", "Turma", "Supervisor", ""].map((h, i) => <th key={i} className="px-3 py-2 font-medium">{h || <span className="sr-only">Ações</span>}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-borda">
               {vis.map((p) => (

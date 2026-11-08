@@ -99,7 +99,7 @@ export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: Linha
           <p className="text-[12.5px] text-texto-3">No formato do SIM (tipo A/B, meta, mês anterior, mês e acumulado): os KPIs do pilar MP contra a planilha, e os demais por tema — {rotuloMes(mes)}.</p>
         </div>
         {verSap ? (
-          <Suspense fallback={<div className="h-64 animate-pulse rounded-cartao border border-borda bg-superficie-2" aria-label="Calculando os indicadores do SAP" />}>
+          <Suspense fallback={<div role="status" className="h-64 animate-pulse rounded-cartao border border-borda bg-superficie-2"><span className="sr-only">Calculando os indicadores do SAP…</span></div>}>
             <IndicadoresSap mes={mes} rotulo={rotuloMes(mes)} deck={linhas} />
           </Suspense>
         ) : <p className="text-[13px] text-texto-3">Os indicadores do SAP aparecem para quem tem acesso ao Painel Geral.</p>}

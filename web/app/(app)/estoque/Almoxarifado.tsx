@@ -51,7 +51,7 @@ async function reduzir(img: ImageBitmap, lado: number, qualidade: number): Promi
   tela.width = Math.round(img.width * escala);
   tela.height = Math.round(img.height * escala);
   tela.getContext("2d")!.drawImage(img, 0, 0, tela.width, tela.height);
-  return new Promise((ok, erro) => tela.toBlob((b) => (b ? ok(b) : erro(new Error("Não consegui ler a foto."))), "image/jpeg", qualidade));
+  return new Promise((ok, erro) => tela.toBlob((b) => (b ? ok(b) : erro(new Error("Não foi possível ler a foto. Tente outra imagem (JPEG)."))), "image/jpeg", qualidade));
 }
 
 /** A foto (até 1600 px) e a miniatura da lista (240 px), reduzidas no aparelho: sobe rápido mesmo no 4G da fábrica. */
@@ -618,12 +618,12 @@ function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFo
   const salvar = async () => {
     const t = valor.trim().replace(/\./g, "").replace(",", ".");
     const minimo = t === "" ? null : Number(t);
-    if (minimo !== null && (!Number.isFinite(minimo) || minimo < 0)) { setEstado({ gravando: false, msg: "Mínimo inválido.", erro: true }); return; }
+    if (minimo !== null && (!Number.isFinite(minimo) || minimo < 0)) { setEstado({ gravando: false, msg: "Mínimo inválido. Use um número maior ou igual a 0, ex.: 12,5.", erro: true }); return; }
     setEstado({ gravando: true, msg: "", erro: false });
     const r = await fetch("/api/estoque/minimo", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ material: it.material, minimo }) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { setEstado({ gravando: false, msg: j.erro || "Não foi possível salvar.", erro: true }); return; }
+    if (!r.ok) { setEstado({ gravando: false, msg: j.erro || "Não foi possível salvar. Tente de novo; se persistir, avise o administrador.", erro: true }); return; }
     aoSalvar(it.material, minimo);
     setEstado({ gravando: false, msg: "Mínimo salvo.", erro: false });
   };
@@ -656,7 +656,7 @@ function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFo
               {estado.gravando ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
             </button>
           </div>
-          {estado.msg && <p className={clsx("mt-2 rounded-lg px-3 py-2 text-sm", estado.erro ? "bg-[var(--selo-critico-fundo)] text-[var(--selo-critico-texto)]" : "bg-[var(--selo-bom-fundo)] text-[var(--selo-bom-texto)]")}>{estado.msg}</p>}
+          {estado.msg && <p role={estado.erro ? "alert" : "status"} className={clsx("mt-2 rounded-lg px-3 py-2 text-sm", estado.erro ? "bg-[var(--selo-critico-fundo)] text-[var(--selo-critico-texto)]" : "bg-[var(--selo-bom-fundo)] text-[var(--selo-bom-texto)]")}>{estado.msg}</p>}
         </div>
       )}
       <section>

@@ -20,7 +20,7 @@ export function Numero({ rotulo, valor, detalhe, dica, tom }: { rotulo: string; 
     <div className="rounded-cartao border border-borda bg-superficie p-4 transition hover:border-borda-forte" title={dica}>
       <div className="flex items-start justify-between gap-2">
         <div className={clsx("text-[13px] font-medium leading-snug text-texto-2", dica && "cursor-help underline decoration-borda-forte decoration-dotted underline-offset-4")}>{rotulo}</div>
-        {I && <I className="size-4 shrink-0" style={{ color: `var(--st-${tom === "atencao" ? "atencao" : tom})` }} strokeWidth={2} />}
+        {I && <><I className="size-4 shrink-0" aria-hidden="true" style={{ color: `var(--st-${tom === "atencao" ? "atencao" : tom})` }} strokeWidth={2} /><span className="sr-only">{tom === "critico" ? "Crítico" : tom === "atencao" ? "Atenção" : "Em dia"}</span></>}
       </div>
       <div className="num mt-2 font-display text-[28px] font-medium leading-none tracking-[-0.02em]">{valor}</div>
       {detalhe && <div className="mt-2 text-[12px] leading-snug text-texto-3">{detalhe}</div>}
@@ -114,10 +114,10 @@ export function Paginacao({ params, pag, paginas, total, inicio, mostrados, rotu
         {paginas > 1 && (
           <>
             {pag > 1 ? <Link prefetch={false} scroll={false} href={hrefCom(params, { pag: pag - 1 })} className={btn} aria-label="Página anterior"><ChevronLeft className="size-4" /></Link>
-              : <span className={clsx(btn, "opacity-40")}><ChevronLeft className="size-4" /></span>}
+              : <span role="link" aria-disabled="true" aria-label="Página anterior" className={clsx(btn, "opacity-40")}><ChevronLeft className="size-4" aria-hidden="true" /></span>}
             <span className="num">{pag} / {paginas}</span>
             {pag < paginas ? <Link prefetch={false} scroll={false} href={hrefCom(params, { pag: pag + 1 })} className={btn} aria-label="Próxima página"><ChevronRight className="size-4" /></Link>
-              : <span className={clsx(btn, "opacity-40")}><ChevronRight className="size-4" /></span>}
+              : <span role="link" aria-disabled="true" aria-label="Próxima página" className={clsx(btn, "opacity-40")}><ChevronRight className="size-4" aria-hidden="true" /></span>}
           </>
         )}
       </div>
@@ -148,7 +148,7 @@ export function Cartao({ titulo, sub, children, acoes, className }: { titulo?: R
       {(titulo || acoes) && (
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            {titulo && <div className="font-display text-[15px] font-medium">{titulo}</div>}
+            {titulo && <h3 className="font-display text-[15px] font-medium">{titulo}</h3>}
             {sub && <div className="mt-0.5 text-[12.5px] text-texto-3">{sub}</div>}
           </div>
           {acoes}

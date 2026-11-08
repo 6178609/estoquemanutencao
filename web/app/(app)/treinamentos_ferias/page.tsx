@@ -233,7 +233,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
                       {titulos.map((t) => {
                         const r = m.celula.get(`${np}|${t.chave}`);
                         return <td key={t.chave} title={r ? `${t.titulo} · ${r.situacao}${r.validade != null ? ` (validade ${dataBr(r.validade)})` : ""}${r.agendado != null ? ` · agendado ${dataBr(r.agendado)}` : ""}` : `${t.titulo} · nunca fez`}
-                          className={clsx("h-6 min-w-[44px] rounded-[4px]", !r && "border border-dashed border-borda")} style={{ background: r ? COR_SITUACAO[r.situacao] : undefined }} />;
+                          className={clsx("h-6 min-w-[44px] rounded-[4px]", !r && "border border-dashed border-borda")} style={{ background: r ? COR_SITUACAO[r.situacao] : undefined }}><span className="sr-only">{r ? r.situacao : "nunca fez"}</span></td>;
                       })}
                     </tr>
                   ))}

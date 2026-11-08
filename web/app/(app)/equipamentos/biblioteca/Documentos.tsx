@@ -62,7 +62,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
     const r = await fetch("/api/equipamentos/documento", { method: "POST", body: form }).catch(() => null);
     const j = await r?.json().catch(() => ({})) ?? {};
     if (!r?.ok) {
-      setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo é grande demais para um envio só; tente de novo." : "Não foi possível enviar."), ok: "" });
+      setEstado({ enviando: false, erro: j.erro || (r?.status === 413 ? "O arquivo é grande demais para um envio só; tente de novo." : "Não foi possível enviar. Confira o arquivo ou o link e tente de novo."), ok: "" });
       return;
     }
     (e.target as HTMLFormElement).reset();
@@ -75,7 +75,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
     if (!confirm(`Remover "${d.titulo}" da biblioteca?`)) return;
     setRemovendo(d.id);
     const r = await fetch(`/api/equipamentos/documento?${new URLSearchParams({ eq, id: d.id })}`, { method: "DELETE" }).catch(() => null);
-    if (!r?.ok) setEstado({ enviando: false, erro: "Não foi possível remover.", ok: "" });
+    if (!r?.ok) setEstado({ enviando: false, erro: "Não foi possível remover. Atualize a página e tente de novo.", ok: "" });
     else router.refresh();
     setRemovendo("");
   };
@@ -152,7 +152,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
           {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
           <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={estado.enviando} aria-busy={estado.enviando} className={BOTAO_PRIMARIO}>
-              {estado.enviando ? <LoaderCircle className="size-4 animate-spin" /> : modo === "arquivo" ? <Upload className="size-4" /> : <Link2 className="size-4" />}
+              {estado.enviando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : modo === "arquivo" ? <Upload className="size-4" /> : <Link2 className="size-4" />}
               {estado.enviando ? "Enviando…" : "Adicionar à biblioteca"}
             </button>
             <span className="self-center text-[12.5px] text-texto-3">Acima de 4 MB o envio é feito em partes: não feche a página até terminar. Maior que {MB_GRANDE} MB? Use o link.</span>

@@ -56,9 +56,9 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
       <Cabecalho titulo="Estoque de manutenção," destaque="com a ficha técnica de cada item."
         sobre={<Pilula>{base?.atualizado ? `MB52 de ${dataHora(base.atualizado)} · ${idade(base.atualizado)}` : "Custos e suprimentos"}</Pilula>}
         subtitulo="O almoxarifado (MB52) com a Descr Completa do Sysmat e o catálogo inteiro de materiais cadastrados — tudo numa rolagem só, sem limite." />
-      <nav className="flex flex-wrap gap-1">
+      <nav aria-label="Seções do estoque" className="flex flex-wrap gap-1">
         {abas.map((a) => (
-          <Link prefetch={false} key={a.id} href={a.href} scroll={false}
+          <Link prefetch={false} key={a.id} href={a.href} scroll={false} aria-current={aba === a.id ? "page" : undefined}
             className={clsx("inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] transition",
               aba === a.id ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
             <a.icone className="size-4" strokeWidth={1.75} />{a.titulo}

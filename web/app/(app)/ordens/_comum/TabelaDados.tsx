@@ -146,7 +146,7 @@ function Paginacao({ params, pagina, paginas, chave = "pag" }: { params: Params;
   return (
     <nav className="flex items-center gap-0.5" aria-label="Páginas">
       {pagina > 1 ? <Link prefetch={false} scroll={false} href={href(params, { [chave]: pagina - 1 })} className={btn} aria-label="Página anterior"><ChevronLeft className="size-4" /></Link>
-        : <span className={clsx(btn, "opacity-40")}><ChevronLeft className="size-4" /></span>}
+        : <span role="link" aria-disabled="true" aria-label="Página anterior" className={clsx(btn, "opacity-40")}><ChevronLeft className="size-4" aria-hidden="true" /></span>}
       {nums.map((p, i) => (
         <span key={p} className="flex items-center">
           {i > 0 && p - nums[i - 1] > 1 && <span className="px-1">…</span>}
@@ -155,7 +155,7 @@ function Paginacao({ params, pagina, paginas, chave = "pag" }: { params: Params;
         </span>
       ))}
       {pagina < paginas ? <Link prefetch={false} scroll={false} href={href(params, { [chave]: pagina + 1 })} className={btn} aria-label="Próxima página"><ChevronRight className="size-4" /></Link>
-        : <span className={clsx(btn, "opacity-40")}><ChevronRight className="size-4" /></span>}
+        : <span role="link" aria-disabled="true" aria-label="Próxima página" className={clsx(btn, "opacity-40")}><ChevronRight className="size-4" aria-hidden="true" /></span>}
     </nav>
   );
 }

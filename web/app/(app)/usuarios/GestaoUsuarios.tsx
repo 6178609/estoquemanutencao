@@ -25,7 +25,7 @@ const PERFIS = { admin: "Administrador", editor: "Editor", leitor: "Leitor" };
 const VAZIO: EstadoUsuario = { erro: "", ok: "" };
 
 function Botao({ enviando, children, className = BOTAO_PRIMARIO }: { enviando: boolean; children: React.ReactNode; className?: string }) {
-  return <button disabled={enviando} className={className}>{enviando ? <LoaderCircle className="size-5 animate-spin" /> : children}</button>;
+  return <button disabled={enviando} className={className}>{enviando && <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />}{children}</button>;
 }
 
 function NovoUsuario() {
@@ -146,7 +146,7 @@ function Solicitacoes({ pedidos, abas }: { pedidos: PedidoAcesso[]; abas: Aba[] 
               {estadoAp.erro && <Mensagem>{estadoAp.erro}</Mensagem>}
               <Botao enviando={aprovando}><UserCheck className="size-4" /> Aprovar e criar usuário</Botao>
             </form>
-            <form action={recusarAcao} className="space-y-3 border-t border-borda pt-4">
+            <form action={recusarAcao} onSubmit={(e) => { if (!confirm(`Recusar o pedido de ${d.nome || d.login}?`)) e.preventDefault(); }} className="space-y-3 border-t border-borda pt-4">
               <input type="hidden" name="alvo" value={d.login} />
               <Campo rotulo="Motivo da recusa (opcional)" name="motivo" maxLength={300} className="max-w-xl" />
               {estadoRe.erro && <Mensagem>{estadoRe.erro}</Mensagem>}
@@ -251,7 +251,7 @@ export function GestaoUsuarios({ pessoas, eu, abas, pedidos }: { pessoas: Pessoa
     <Cartao className="p-6">
       <nav className="mb-6 flex flex-wrap gap-1">
         {ABAS.map((a) => (
-          <button key={a.id} onClick={() => setAba(a.id)}
+          <button key={a.id} onClick={() => setAba(a.id)} aria-pressed={aba === a.id}
             className={clsx("inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] transition",
               aba === a.id ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
             <a.icone className="size-4" strokeWidth={1.75} />{a.titulo}

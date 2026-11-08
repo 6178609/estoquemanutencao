@@ -31,7 +31,7 @@ export function PecasSemCadastro({ eq, pecas, edita }: { eq: string; pecas: Peca
   const remover = async (p: PecaTela) => {
     if (!confirm(`Tirar "${p.descricao}" da lista?`)) return;
     setRemovendo(p.id);
-    const r = await removerPecaSemCadastro(eq, p.id).catch(() => ({ erro: "Não foi possível remover." }));
+    const r = await removerPecaSemCadastro(eq, p.id).catch(() => ({ erro: "Não foi possível remover. Atualize a página e tente de novo." }));
     if ("erro" in r) setEstado({ enviando: false, erro: r.erro, ok: "" });
     else router.refresh();
     setRemovendo("");

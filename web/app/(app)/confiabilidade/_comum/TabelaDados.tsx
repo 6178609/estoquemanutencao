@@ -100,7 +100,7 @@ export function TabelaDados({ colunas, linhas, busca, baixar, limite = 400, altu
           <thead className="sticky top-0 z-[1] bg-superficie-2 text-[11.5px] text-texto-3">
             <tr>
               {colunas.map((c, j) => (
-                <th key={c.rotulo} title={c.dica} className={clsx("whitespace-nowrap px-3 py-2 font-medium", numerica(c.formato) && "text-right")}>
+                <th key={c.rotulo} title={c.dica} aria-sort={ordem?.coluna === j ? (ordem.desc ? "descending" : "ascending") : "none"} className={clsx("whitespace-nowrap px-3 py-2 font-medium", numerica(c.formato) && "text-right")}>
                   <button className="inline-flex items-center gap-1 hover:text-texto" onClick={() =>
                     setOrdem(ordem?.coluna === j ? { coluna: j, desc: !ordem.desc } : { coluna: j, desc: numerica(c.formato) })}>
                     {c.rotulo}
@@ -113,6 +113,8 @@ export function TabelaDados({ colunas, linhas, busca, baixar, limite = 400, altu
           <tbody className="divide-borda divide-y">
             {mostradas.map((l, i) => (
               <tr key={i} onClick={aoSelecionar ? () => aoSelecionar(l) : undefined}
+                tabIndex={aoSelecionar ? 0 : undefined} aria-selected={aoSelecionar ? (selecionada != null && l[colunaChave] === selecionada) : undefined}
+                onKeyDown={aoSelecionar ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); aoSelecionar(l); } } : undefined}
                 className={clsx(aoSelecionar && "cursor-pointer hover:bg-superficie-2", selecionada != null && l[colunaChave] === selecionada && "bg-superficie-3")}>
                 {l.map((v, j) => {
                   const c = colunas[j] ?? { rotulo: "" };

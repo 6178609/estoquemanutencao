@@ -199,6 +199,7 @@ export function Envio({ demo }: { demo: boolean }) {
           onChange={(e) => { if (e.target.files) anexar(e.target.files); e.target.value = ""; }} />
       </div>
 
+      <p role="status" className="sr-only">{resumoEnvio(itens)}</p>
       {itens.length > 0 && (
         <div className="mt-5 space-y-2">
           {itens.map((i) => (
@@ -236,7 +237,7 @@ export function Envio({ demo }: { demo: boolean }) {
           ))}
           <div className="flex flex-wrap items-center gap-3 pt-3">
             <button className={BOTAO_PRIMARIO} disabled={demo || enviando || lendo || (!aEnviar.length && !temTipos)} onClick={enviar}>
-              {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><Upload className="size-4" /> {aEnviar.length ? `Enviar ${aEnviar.length} base(s)` : "Enviar os tipos de ordem"}</>}
+              {enviando ? <><LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> Enviando…</> : <><Upload className="size-4" /> {aEnviar.length ? `Enviar ${aEnviar.length} base(s)` : "Enviar os tipos de ordem"}</>}
             </button>
             {!enviando && <button className={BOTAO_SECUNDARIO} onClick={() => setItens([])}>Limpar lista</button>}
             {demo && <span className="text-[12.5px] text-texto-3">Na demonstração dá para testar a leitura; o envio precisa do repositório de dados ligado.</span>}
@@ -245,4 +246,16 @@ export function Envio({ demo }: { demo: boolean }) {
       )}
     </Cartao>
   );
+}
+
+/** Resumo curto para o leitor de tela (a lista em si muda a cada % e não é anunciada). */
+function resumoEnvio(itens: Item[]): string {
+  if (itens.some((i) => i.situacao === "lendo")) return "Lendo os arquivos…";
+  const bases = itens.flatMap((i) => i.bases);
+  const enviando = bases.filter((b) => b.situacao === "enviando").length;
+  const gravadas = bases.filter((b) => b.situacao === "enviado").length;
+  const erros = bases.filter((b) => b.situacao === "erro").length + itens.filter((i) => i.situacao === "erro").length;
+  if (enviando) return `Enviando ${enviando} base(s); ${gravadas} gravada(s).`;
+  if (!gravadas && !erros) return "";
+  return [gravadas ? `${gravadas} base(s) gravada(s).` : "", erros ? `${erros} com erro.` : ""].filter(Boolean).join(" ");
 }

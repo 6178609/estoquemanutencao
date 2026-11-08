@@ -16,7 +16,7 @@ export function RemoverManual({ eq, id, titulo }: { eq: string; id: string; titu
     setErro("");
     const r = await fetch(`/api/equipamentos/documento?${new URLSearchParams({ eq, id })}`, { method: "DELETE" }).catch(() => null);
     const j = await r?.json().catch(() => ({})) ?? {};
-    if (!r?.ok) setErro(j.erro || "Não foi possível remover.");
+    if (!r?.ok) setErro(j.erro || "Não foi possível remover. Atualize a página e tente de novo.");
     else router.refresh();
     setOcupado(false);
   };

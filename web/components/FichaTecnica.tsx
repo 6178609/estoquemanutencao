@@ -19,7 +19,7 @@ export function DescrCorrida({ texto, className }: { texto: string; className?: 
         const p = partes(l);
         return (
           <span key={i}>
-            {i > 0 && <span className="mx-1.5 text-texto-3/60">·</span>}
+            {i > 0 && <span aria-hidden="true" className="mx-1.5 text-texto-3/60">·</span>}
             {p ? (<><span className="text-texto-3">{p[0]}:</span> <span className="font-medium text-texto">{p[1]}</span></>)
               : <span className={i === 0 ? "font-semibold text-texto" : ""}>{l}</span>}
           </span>

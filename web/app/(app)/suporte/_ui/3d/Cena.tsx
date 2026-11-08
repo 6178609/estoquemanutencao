@@ -47,6 +47,8 @@ interface CenaProps {
   naTela: boolean;
   /** contador: cada clique em Recentrar aumenta; volta ao modelo inteiro mesmo sem peça em foco */
   recentrar: number;
+  /** alternativa por botão ao mouse/toque: n aumenta a cada clique; zoom = fator de distância, giro = ângulo em radianos */
+  mover?: { n: number; zoom: number; giro: number };
   aoClicarPeca: (id: string) => void;
   /** o navegador perdeu o contexto WebGL: a página mostra a mensagem de indisponível */
   aoPerderContexto: () => void;
@@ -110,7 +112,7 @@ function enquadrar(
   };
 }
 
-function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recentrar, aoClicarPeca }: CenaProps) {
+function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recentrar, mover, aoClicarPeca }: CenaProps) {
   const Modelo = COMPONENTES[modelo];
   const raiz = useRef<Group>(null);
   const fase = useRef(0);
@@ -158,6 +160,19 @@ function CenaInterna({ modelo, destaque, explodir, girar, reduzir, naTela, recen
     centroSeguido.copy(centro);
     invalidate();
   }, [destaque, recentrar, camera, invalidate, centroSeguido]);
+
+  // Aproximar, afastar e girar por botão (teclado): move a câmera em torno do alvo, respeitando os limites.
+  useEffect(() => {
+    const ctl = controles.current;
+    if (!mover || mover.n === 0 || !ctl) return;
+    foco.current = null;
+    const rel = camera.position.clone().sub(ctl.target);
+    rel.applyAxisAngle(new Vector3(0, 1, 0), mover.giro);
+    rel.setLength(MathUtils.clamp(rel.length() * mover.zoom, DISTANCIA_MINIMA, DISTANCIA_MAXIMA));
+    camera.position.copy(ctl.target).add(rel);
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mover?.n]);
 
   // Quando parado, a cena só desenha ao pedido: os efeitos abaixo acordam o próximo quadro.
   useEffect(() => {

@@ -21,8 +21,10 @@ function Multi({ nome, chave, opcoes, selecionados, aoMudar }: {
   useEffect(() => {
     if (!aberto) return;
     const fora = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setAberto(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAberto(false); };
     document.addEventListener("mousedown", fora);
-    return () => document.removeEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", esc); };
   }, [aberto]);
   const vis = opcoes.filter((o) => !busca || (o.rotulo || o.valor).toLowerCase().includes(busca.toLowerCase()));
   const alternar = (v: string) => aoMudar(chave, selecionados.includes(v) ? selecionados.filter((x) => x !== v) : [...selecionados, v]);
@@ -40,7 +42,7 @@ function Multi({ nome, chave, opcoes, selecionados, aoMudar }: {
           {opcoes.length > 8 && (
             <label className="mb-1.5 flex items-center gap-2 rounded-lg border border-borda px-2.5">
               <Search className="size-3.5 text-texto-3" />
-              <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Procurar"
+              <input autoFocus aria-label={`Procurar em ${nome.toLowerCase()}`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Procurar"
                 className="h-8 w-full bg-transparent text-[13px]" />
             </label>
           )}
@@ -49,7 +51,7 @@ function Multi({ nome, chave, opcoes, selecionados, aoMudar }: {
             {vis.map((o) => {
               const marcado = selecionados.includes(o.valor);
               return (
-                <button key={o.valor} onClick={() => alternar(o.valor)}
+                <button key={o.valor} onClick={() => alternar(o.valor)} aria-pressed={marcado}
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-superficie-2">
                   <span className={clsx("grid size-4 shrink-0 place-items-center rounded border", marcado ? "border-marca-500 bg-marca-500 text-white" : "border-borda-forte")}>
                     {marcado && <Check className="size-3" strokeWidth={3} />}
@@ -116,15 +118,15 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimens
               <CalendarRange className="size-4 shrink-0 text-texto-3" />
               <input type="date" value={ini} max={fim} onChange={(e) => e.target.value && aplicar({ ini: e.target.value })}
                 aria-label="Data inicial" className="w-[6.9rem] min-w-0 bg-transparent [color-scheme:inherit] sm:w-auto" />
-              <span className="text-texto-4">→</span>
+              <span aria-hidden="true" className="text-texto-4">→</span>
               <input type="date" value={fim} min={ini} onChange={(e) => e.target.value && aplicar({ fim: e.target.value })}
                 aria-label="Data final" className="w-[6.9rem] min-w-0 bg-transparent sm:w-auto" />
             </div>
-            <button onClick={() => setMenuPeriodo(!menuPeriodo)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
+            <button onClick={() => setMenuPeriodo(!menuPeriodo)} aria-expanded={menuPeriodo} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
               Atalhos <ChevronDown className="size-3.5" />
             </button>
             {menuPeriodo && (
-              <div className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-borda bg-superficie p-1.5 shadow-flutuante" onMouseLeave={() => setMenuPeriodo(false)}>
+              <div className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-borda bg-superficie p-1.5 shadow-flutuante" onMouseLeave={() => setMenuPeriodo(false)} onKeyDown={(e) => { if (e.key === "Escape") setMenuPeriodo(false); }}>
                 {ATALHOS.map((a) => (
                   <button key={a} onClick={() => { setMenuPeriodo(false); aplicar({ atalho: a, ini: null, fim: null }); }}
                     className="block w-full rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-superficie-2">{a}</button>

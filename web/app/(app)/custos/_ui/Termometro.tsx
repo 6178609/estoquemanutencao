@@ -43,7 +43,7 @@ const corDaFaixa = (f: number | null) => (f == null ? NEUTRO : { background: FAI
 function Variacao({ atual, anterior, rotulo }: { atual: number; anterior: number; rotulo: string }) {
   if (!(anterior > 0)) return null;
   const v = ((atual - anterior) / anterior) * 100;
-  return <span className="text-texto-2">{v >= 0 ? "▲" : "▼"} {n0.format(Math.abs(v))}% {rotulo}</span>;
+  return <span className="text-texto-2"><span aria-hidden="true">{v >= 0 ? "▲" : "▼"}</span><span className="sr-only">{v >= 0 ? "alta de" : "queda de"}</span> {n0.format(Math.abs(v))}% {rotulo}</span>;
 }
 
 function Seta({ href, rotulo, sinal }: { href: string | null; rotulo: string; sinal: string }) {

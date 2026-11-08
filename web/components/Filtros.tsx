@@ -8,7 +8,7 @@ export function CampoBusca({ valor, aoMudar, placeholder }: { valor: string; aoM
   return (
     <label className="relative block min-w-0 flex-1">
       <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-      <input value={valor} onChange={(e) => aoMudar(e.target.value)} placeholder={placeholder} type="text" enterKeyHint="search"
+      <input value={valor} onChange={(e) => aoMudar(e.target.value)} placeholder={placeholder} aria-label={placeholder} type="text" enterKeyHint="search"
         className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
       {valor && (
         <button onClick={() => aoMudar("")} aria-label="Limpar busca" className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2">
@@ -24,7 +24,7 @@ export function Segmentos<T extends string>({ opcoes, valor, aoMudar }: { opcoes
   return (
     <div className="flex flex-wrap gap-1">
       {opcoes.map((o) => (
-        <button key={o.valor} onClick={() => aoMudar(o.valor)}
+        <button key={o.valor} onClick={() => aoMudar(o.valor)} aria-pressed={valor === o.valor}
           className={clsx("rounded-full px-3.5 py-1.5 text-[13.5px] transition",
             valor === o.valor ? "bg-superficie-3 font-medium text-texto" : "text-texto-3 hover:text-texto")}>
           {o.rotulo}{o.n !== undefined && <span className="num ml-1.5 text-xs text-texto-3">{o.n.toLocaleString("pt-BR")}</span>}
@@ -42,14 +42,16 @@ export function MultiEscolha({ rotulo, opcoes, valor, aoMudar }: { rotulo: strin
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const fora = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setAberta(false);
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAberta(false); };
     document.addEventListener("mousedown", fora);
-    return () => document.removeEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", esc); };
   }, []);
   const vis = opcoes.filter((o) => (o.rotulo || o.valor).toLowerCase().includes(filtro.toLowerCase()));
   const alternar = (v: string) => aoMudar(valor.includes(v) ? valor.filter((x) => x !== v) : [...valor, v]);
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setAberta(!aberta)}
+      <button onClick={() => setAberta(!aberta)} aria-expanded={aberta}
         className={clsx("flex h-11 items-center gap-2 rounded-xl border px-3.5 text-[13.5px] transition",
           valor.length ? "border-marca-300 bg-marca-50 font-medium text-marca-700 dark:bg-marca-900/30 dark:text-marca-200" : "border-borda bg-superficie-2 text-texto-2 hover:text-texto")}>
         {rotulo}{valor.length > 0 && <span className="num rounded-full bg-marca-500 px-1.5 text-xs text-white">{valor.length}</span>}
@@ -59,14 +61,14 @@ export function MultiEscolha({ rotulo, opcoes, valor, aoMudar }: { rotulo: strin
         <div className="absolute left-0 z-30 mt-2 w-72 overflow-hidden rounded-2xl border border-borda bg-superficie shadow-flutuante">
           {opcoes.length > 8 && (
             <div className="border-b border-borda p-2">
-              <input autoFocus value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Filtrar…"
+              <input autoFocus value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Filtrar…" aria-label={`Filtrar ${rotulo.toLowerCase()}`}
                 className="h-9 w-full rounded-lg bg-superficie-2 px-3 text-sm" />
             </div>
           )}
           <ul className="max-h-72 overflow-y-auto p-1.5">
             {vis.map((o) => (
               <li key={o.valor}>
-                <button onClick={() => alternar(o.valor)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-superficie-2">
+                <button onClick={() => alternar(o.valor)} aria-pressed={valor.includes(o.valor)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-superficie-2">
                   <span className={clsx("grid size-4 shrink-0 place-items-center rounded border", valor.includes(o.valor) ? "border-marca-500 bg-marca-500 text-white" : "border-borda")}>
                     {valor.includes(o.valor) && <Check className="size-3" />}
                   </span>
