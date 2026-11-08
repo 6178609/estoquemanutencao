@@ -18,8 +18,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Equipamentos · gestão de ativos. Quem tem a aba inteira vê as três visões;
- * quem só tem a parte parcial (conta sem função) vê só a Gestão de ativos, sem editar. Cadastrar/editar/remover: editor ou administrador.
+ * Equipamentos · gestão de ativos: as três visões. Cadastrar/editar/remover: editor ou administrador.
  */
 export default async function Equipamentos(props: { searchParams: Promise<Params> }) {
   const u = await exigir("equipamentos");

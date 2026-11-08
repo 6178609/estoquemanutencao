@@ -86,7 +86,7 @@ export async function criarBloco(p: Papel, d: { nome: string; login: string }, p
     const r = (await usuarios())[login];
     if (!r) throw new FonteErro("Escolha o usuário do site do portador.");
     if (r.ativo === false) throw new FonteErro("Este usuário está desativado.");
-    if (soEstoque({ ...r, login })) throw new FonteErro("Terceiro e Manutentor só veem Estoque e Suporte: não podem ter bloco de cartão.");
+    if (soEstoque({ ...r, login })) throw new FonteErro("Terceiro e Manutentor não podem ter bloco de cartão.");
   }
   const { blocos } = await lerCartao(true);
   if (blocos.some((b) => b.login.toLowerCase() === login.toLowerCase())) throw new FonteErro("Este usuário já tem um bloco.");

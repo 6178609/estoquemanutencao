@@ -26,14 +26,15 @@
   e-mails ou nomes de pessoas. Testes usam só dados fictícios.
 - Nunca pedir credenciais, tokens ou chaves no chat; se aparecerem, não repetir e orientar a revogar.
 
-## Acesso às abas novas
-- Toda aba nova entra liberada **100% para Líder e Analista** e **bloqueada para as demais funções** até o administrador
-  liberar (lista de abas do usuário em Usuários). Regra única em `web/lib/auth/acesso.ts`.
-- **Suporte Técnico é liberado para qualquer função** (`PAGINAS_LIVRES`), como o Estoque: todo usuário logado e ativo vê.
-  Gravar na biblioteca técnica segue a regra de antes (`podeEditarSuporte`): editor com a aba, nunca Terceiro/Manutentor.
-- **Terceiro e Manutentor veem só o Estoque e o Suporte Técnico** (`FUNCOES_SO_ESTOQUE` / `PAGINAS_SO_ESTOQUE`), mesmo com
-  lista de abas ou perfil administrador (não podem ser administradores); o Início manda direto para o Estoque. Teste em
-  `web/testes/acesso.test.ts`.
+## Acesso às abas (regra única: a lista de abas)
+- **Quem vê o quê é só a lista de abas do usuário** (Usuários → "Escolher as abas"), para qualquer função: Estoque,
+  Suporte Técnico e Equipamentos também ficam na lista; não há aba livre nem visão parcial. Regra em `web/lib/auth/acesso.ts`
+  (`abasDoUsuario`), teste em `web/testes/acesso.test.ts`.
+- **"Padrão da função"** (sem lista): Líder e Analista veem todas (toda aba nova entra liberada para eles); Manutentor e
+  Terceiro veem Estoque e Suporte Técnico (`ABAS_BASICAS`). Aba nova não entra sozinha em lista própria: o administrador marca.
+- Terceiro e Manutentor (`FUNCOES_SO_ESTOQUE`) não podem ser administradores, não gravam na biblioteca técnica
+  (`podeEditarSuporte`) nem na Gestão de MRO e não têm bloco de cartão. O Início leva ao Painel, ou ao Estoque se a pessoa
+  não vê o Painel.
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

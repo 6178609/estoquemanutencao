@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { BOTAO_SECUNDARIO, Cabecalho, Pagina, Selo } from "@/components/ui";
-import { ehAdmin, FUNCOES, FUNCOES_SO_ESTOQUE, PAGINAS_LIVRES, PERFIS, podeVer, veInteira } from "@/lib/auth/acesso";
+import { ehAdmin, FUNCOES, PERFIS, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { solicitacoes } from "@/lib/auth/solicitacoes";
 import { adminsAtivos, usuarios } from "@/lib/auth/usuarios";
@@ -17,11 +17,10 @@ export const metadata: Metadata = { title: "Usuários" };
 export const dynamic = "force-dynamic";
 
 function descrever(u: Pessoa): string {
-  if (FUNCOES_SO_ESTOQUE.has(u.funcao)) return "Só Estoque e Suporte";
-  // as abas livres (Estoque e Suporte Técnico) já contam; a lista guarda só as outras
-  if (Array.isArray(u.abas)) return `${u.abas.filter((a) => TODAS.includes(String(a)) && !PAGINAS_LIVRES.has(String(a))).length + PAGINAS_LIVRES.size} aba(s) escolhida(s)`;
-  if (u.funcao && u.funcao in FUNCOES) return "Todas";
-  return u.perfil === "admin" ? "Todas" : "Estoque, Suporte e Gestão de ativos";
+  if (Array.isArray(u.abas)) return `${u.abas.filter((a) => TODAS.includes(String(a))).length} aba(s) escolhida(s)`;
+  if (u.funcao === "lider" || u.funcao === "analista") return "Todas";
+  if (u.funcao && u.funcao in FUNCOES) return "Padrão: Estoque e Suporte";
+  return u.perfil === "admin" ? "Todas" : "Padrão: Estoque e Suporte";
 }
 
 export default async function Usuarios(props: { searchParams: Promise<{ primeiro?: string }> }) {
@@ -53,12 +52,12 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
   })).sort((a, b) => a.login.localeCompare(b.login));
   const semFuncao = pessoas.filter((p) => !(p.funcao in FUNCOES) && p.ativo).map((p) => p.login);
   const foraNp = pessoas.filter((p) => validarLogin(p.login)).map((p) => p.login);
-  const abas = GRUPOS.flatMap((g) => g.abas.filter((a) => !PAGINAS_LIVRES.has(a.id)).map((a) => ({ id: a.id, titulo: `${g.titulo} › ${a.titulo}` })));
+  const abas = GRUPOS.flatMap((g) => g.abas.map((a) => ({ id: a.id, titulo: `${g.titulo} › ${a.titulo}` })));
   const matriz = GRUPOS.flatMap((g) => g.abas.map((a) => ({
     aba: `${g.titulo} › ${a.titulo}`,
     funcoes: Object.keys(FUNCOES).map((f) => {
       const u = { login: "x", funcao: f };
-      return veInteira(u, a.id) ? "✓" : podeVer(u, a.id) ? "parcial" : "—";
+      return veInteira(u, a.id) ? "✓" : "—";
     }),
   })));
 
@@ -130,7 +129,7 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
             </tbody>
           </table>
         </div>
-        <p className="border-t border-borda px-5 py-3 text-[12.5px] text-texto-3">“Parcial” = só a Gestão de ativos, em Equipamentos. Minha conta aparece para todos; Usuários, só para administradores.</p>
+        <p className="border-t border-borda px-5 py-3 text-[12.5px] text-texto-3">Matriz do padrão de cada função. Com “Escolher as abas”, vale só a lista marcada. Minha conta aparece para todos; Usuários, só para administradores.</p>
       </details>
     </Pagina>
   );

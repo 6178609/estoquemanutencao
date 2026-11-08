@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BOTAO_SECUNDARIO, Cabecalho, Cartao, IconeQuadro, Pagina } from "@/components/ui";
-import { abasPersonalizadas, acessoTotal, nomeFuncao, PAGINAS_LIVRES, PAGINAS_PARCIAIS, PAGINAS_SO_ESTOQUE, PERFIS, soEstoque } from "@/lib/auth/acesso";
+import { abasDoUsuario, acessoTotal, nomeFuncao, PERFIS } from "@/lib/auth/acesso";
 import { proximaAtualizacao } from "@/lib/auth/atualizacaoDados";
 import { exigir } from "@/lib/auth/sessao";
 import { usuarios } from "@/lib/auth/usuarios";
@@ -21,12 +21,9 @@ export default async function MinhaConta() {
   const reg = u.demo ? null : (await usuarios())[u.login];
   const agora = new Date().toISOString();
   const aparelhos = (reg?.sessoes || []).filter((s) => (s.ate || "") > agora).length;
-  const pers = abasPersonalizadas(u);
   const titulos = Object.fromEntries(GRUPOS.flatMap((g) => g.abas.map((a) => [a.id, a.titulo])));
-  const vistas = acessoTotal(u) ? null : soEstoque(u) ? [...PAGINAS_SO_ESTOQUE].map((p) => titulos[p]).filter(Boolean) : [
-    ...[...PAGINAS_LIVRES].map((p) => titulos[p]).filter(Boolean),
-    ...(pers ? [...pers].filter((p) => !PAGINAS_LIVRES.has(p) && titulos[p]).map((p) => titulos[p]) : []),
-    ...Object.entries(PAGINAS_PARCIAIS).filter(([p]) => !pers?.has(p)).map(([, t]) => `${t} (Equipamentos)`)];
+  const minhas = abasDoUsuario(u);
+  const vistas = acessoTotal(u) ? null : GRUPOS.flatMap((g) => g.abas).filter((a) => minhas.has(a.id)).map((a) => titulos[a.id]);
   const confirmado = typeof reg?.dados_confirmados_em === "string" ? reg.dados_confirmados_em : "";
   const proxima = confirmado ? proximaAtualizacao(confirmado) : null;
   const dia = (d: string | Date) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(new Date(d));
@@ -46,7 +43,7 @@ export default async function MinhaConta() {
       {vistas && (
         <div className="flex gap-3 rounded-cartao border border-borda bg-superficie-2 px-4 py-3 text-[13.5px] text-texto-2">
           <Lock className="mt-0.5 size-4 shrink-0 text-texto-3" />
-          <span>Você vê as abas: <b>{vistas.join(" · ")}</b>. Para mudar, peça a um administrador.</span>
+          <span>{vistas.length ? <>Você vê as abas: <b>{vistas.join(" · ")}</b>.</> : "Nenhuma aba liberada para você."} Para mudar, peça a um administrador.</span>
         </div>
       )}
       {!u.demo && (

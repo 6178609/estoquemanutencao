@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { acessoTotal, ehAdmin, podeEditar, podeEditarSuporte, podeVer, veInteira } from "@/lib/auth/acesso";
+import { acessoTotal, ehAdmin, podeEditar, podeEditarSuporte, podeVer } from "@/lib/auth/acesso";
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { GRUPOS, TODAS } from "@/lib/navegacao";
 
@@ -16,18 +16,18 @@ describe("acesso por função", () => {
   });
   it("conta antiga sem função e abas escolhidas", () => {
     expect(acessoTotal({ login: "a", perfil: "admin" })).toBe(true);
-    expect(TODAS.filter((p) => podeVer({ login: "e", perfil: "editor" }, p))).toEqual(["suporte", "equipamentos", "estoque"]);
+    expect(TODAS.filter((p) => podeVer({ login: "e", perfil: "editor" }, p)).sort()).toEqual(["estoque", "suporte"]);
     const pers = { login: "p", perfil: "editor", abas: ["ordens", "planos"] };
-    expect(podeVer(pers, "ordens") && podeVer(pers, "planos") && podeVer(pers, "estoque")).toBe(true);
-    expect(podeVer(pers, "painel")).toBe(false);
+    expect(podeVer(pers, "ordens") && podeVer(pers, "planos")).toBe(true);
+    // regra única: só as abas marcadas — Estoque e Suporte não vêm mais de graça
+    expect(podeVer(pers, "estoque") || podeVer(pers, "suporte") || podeVer(pers, "painel")).toBe(false);
     expect(podeVer(null, "estoque")).toBe(false);
   });
-  it("terceiro e manutentor só veem o Estoque e o Suporte Técnico — mesmo com lista de abas ou perfil administrador", () => {
+  it("padrão da função: Terceiro e Manutentor veem o Estoque e o Suporte Técnico; não podem ser administradores", () => {
     for (const funcao of ["terceiro", "manutentor"]) {
-      for (const u of [{ login: "t", funcao, perfil: "leitor" }, { login: "t", funcao, perfil: "editor" }, { login: "t", funcao, perfil: "admin" },
-        { login: "t", funcao, abas: TODAS }, { login: "t", funcao, abas: ["ordens", "mro", "equipamentos"] }]) {
-        expect(TODAS.filter((p) => podeVer(u, p))).toEqual(["suporte", "estoque"]);
-        expect(TODAS.filter((p) => veInteira(u, p))).toEqual(["suporte", "estoque"]);
+      for (const perfil of ["leitor", "editor", "admin"]) {
+        const u = { login: "t", funcao, perfil };
+        expect(TODAS.filter((p) => podeVer(u, p)).sort()).toEqual(["estoque", "suporte"]);
         expect(acessoTotal(u)).toBe(false);
       }
     }
@@ -35,26 +35,16 @@ describe("acesso por função", () => {
     // manutentor que já era administrador segue administrando usuários (o site não fica sem administrador)
     expect(ehAdmin({ login: "m", funcao: "manutentor", perfil: "admin" })).toBe(true);
   });
-  it("suporte técnico é liberado para qualquer função, com ou sem lista de abas", () => {
-    const usuarios = [
-      { login: "l", funcao: "lider", perfil: "leitor" },
-      { login: "a", funcao: "analista", perfil: "leitor" },
-      { login: "m", funcao: "manutentor", perfil: "leitor" },
-      { login: "t", funcao: "terceiro", perfil: "leitor" },
-      { login: "s", perfil: "leitor" },
-      { login: "p", funcao: "analista", perfil: "leitor", abas: ["ordens"] },
-      { login: "q", funcao: "manutentor", perfil: "editor", abas: ["ordens"] },
-    ];
-    for (const u of usuarios) expect(podeVer(u, "suporte")).toBe(true);
-    expect(podeVer(null, "suporte")).toBe(false);
-  });
-  it("manutentor e terceiro continuam sem as demais abas (ex.: custos, manuais)", () => {
-    for (const funcao of ["manutentor", "terceiro"]) {
-      const u = { login: "x", funcao, perfil: "editor", abas: ["custos", "manuais"] };
-      expect(podeVer(u, "custos")).toBe(false);
-      expect(podeVer(u, "manuais")).toBe(false);
-      expect(podeVer(u, "suporte")).toBe(true);
-    }
+  it("lista própria vale para qualquer função, inclusive Terceiro e Manutentor", () => {
+    const m = { login: "m", funcao: "manutentor", perfil: "leitor", abas: ["estoque", "suporte", "manuais"] };
+    expect(TODAS.filter((p) => podeVer(m, p)).sort()).toEqual(["estoque", "manuais", "suporte"]);
+    const t = { login: "t", funcao: "terceiro", perfil: "leitor", abas: ["ordens"] };
+    expect(podeVer(t, "ordens")).toBe(true);
+    expect(podeVer(t, "estoque")).toBe(false);
+    const a = { login: "a", funcao: "analista", perfil: "leitor", abas: ["estoque"] };
+    expect(TODAS.filter((p) => podeVer(a, p))).toEqual(["estoque"]);
+    expect(acessoTotal({ login: "x", funcao: "manutentor", abas: TODAS })).toBe(true);
+    expect(TODAS.filter((p) => podeVer({ login: "v", funcao: "lider", abas: [] }, p))).toEqual([]);
   });
   it("gravar na biblioteca técnica segue a regra antiga: editor com a aba (ou função de acesso total), nunca Terceiro/Manutentor", () => {
     expect(podeEditarSuporte({ login: "l", funcao: "lider", perfil: "editor" })).toBe(true);
@@ -88,24 +78,19 @@ describe("senha e login", () => {
   });
 });
 
-describe("aba nova Indicadores SIM (MP)", () => {
-  it("liberada para Líder e Analista, bloqueada para Terceiro, Manutentor e lista de abas antiga", () => {
-    expect(podeVer({ login: "a", funcao: "lider", perfil: "leitor" }, "indicadores_sim")).toBe(true);
-    expect(podeVer({ login: "b", funcao: "analista", perfil: "leitor" }, "indicadores_sim")).toBe(true);
-    expect(podeVer({ login: "c", funcao: "terceiro", perfil: "editor" }, "indicadores_sim")).toBe(false);
-    expect(podeVer({ login: "d", funcao: "manutentor", perfil: "admin" }, "indicadores_sim")).toBe(false);
-    expect(podeVer({ login: "e", funcao: "analista", perfil: "leitor", abas: ["painel", "ordens"] }, "indicadores_sim")).toBe(false);
+describe("aba nova Indicadores SIM (MP) e Manuais", () => {
+  it("liberadas para Líder e Analista; fora do padrão de Terceiro e Manutentor e de lista que não as marca", () => {
+    for (const aba of ["indicadores_sim", "manuais"]) {
+      expect(podeVer({ login: "a", funcao: "lider", perfil: "leitor" }, aba)).toBe(true);
+      expect(podeVer({ login: "b", funcao: "analista", perfil: "leitor" }, aba)).toBe(true);
+      expect(podeVer({ login: "c", funcao: "terceiro", perfil: "editor" }, aba)).toBe(false);
+      expect(podeVer({ login: "d", funcao: "manutentor", perfil: "admin" }, aba)).toBe(false);
+      expect(podeVer({ login: "e", funcao: "analista", perfil: "leitor", abas: ["painel", "ordens"] }, aba)).toBe(false);
+    }
   });
 });
 
 describe("aba Manuais", () => {
-  it("liberada para Líder e Analista; Terceiro e Manutentor só veem o Estoque", () => {
-    expect(podeVer({ login: "a", funcao: "lider", perfil: "leitor" }, "manuais")).toBe(true);
-    expect(podeVer({ login: "b", funcao: "analista", perfil: "leitor" }, "manuais")).toBe(true);
-    expect(podeVer({ login: "c", funcao: "terceiro", perfil: "editor" }, "manuais")).toBe(false);
-    expect(podeVer({ login: "d", funcao: "manutentor", perfil: "admin" }, "manuais")).toBe(false);
-    expect(podeVer({ login: "e", funcao: "analista", perfil: "leitor", abas: ["painel", "ordens"] }, "manuais")).toBe(false);
-  });
   it("fica no grupo Confiabilidade, logo depois de Equipamentos", () => {
     const g = GRUPOS.find((x) => x.abas.some((a) => a.id === "manuais"));
     expect(g?.titulo).toBe("Confiabilidade");
