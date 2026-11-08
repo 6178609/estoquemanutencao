@@ -46,12 +46,12 @@ export default async function MinhaConta() {
       )}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Cartao className="p-6">
-          <div className="mb-5 font-display text-[17px] font-medium">Trocar senha</div>
+          <h2 className="mb-5 font-display text-[17px] font-medium">Trocar senha</h2>
           {u.demo ? <p className="text-[14px] text-texto-3">Na demonstração não há senha.</p> : <FormularioSenha pedirAtual />}
         </Cartao>
         <Cartao className="p-6">
           <IconeQuadro icone={MonitorSmartphone} tom="azul" />
-          <div className="mt-4 font-display text-[17px] font-medium">Aparelhos conectados</div>
+          <h2 className="mt-4 font-display text-[17px] font-medium">Aparelhos conectados</h2>
           <p className="mt-1 text-[13.5px] text-texto-3">{aparelhos} aparelho(s) com sessão ativa.</p>
           {aparelhos > 0 && (
             <DesconectarTodos acao={acaoDesconectarTodos} />
@@ -61,7 +61,7 @@ export default async function MinhaConta() {
       <Cartao className="flex flex-wrap items-center gap-4 p-6">
         <IconeQuadro icone={ShieldCheck} tom="verde" />
         <div className="min-w-60 flex-1">
-          <div className="font-display text-[17px] font-medium">Seus dados (LGPD)</div>
+          <h2 className="font-display text-[17px] font-medium">Seus dados (LGPD)</h2>
           <p className="mt-1 text-[13.5px] text-texto-3">
             Veja o que o site guarda sobre você em <Link href="/privacidade" className="underline">Privacidade</Link>. Para corrigir ou excluir, peça a um administrador.
           </p>

@@ -128,7 +128,7 @@ export function FiltroPessoas({ disponiveis, ativos, padrao, podeSalvarPadrao }:
           <div className="flex flex-wrap items-end gap-3">
             <label className="block min-w-0 max-w-sm flex-1">
               <span className="sr-only">Buscar pessoa</span>
-              <input type="search" placeholder="Buscar pessoa…" className={clsx(CAMPO, "h-10")} value={busca} onChange={(e) => setBusca(e.target.value)} />
+              <input type="search" name="buscar-pessoa" autoComplete="off" placeholder="Buscar pessoa…" className={clsx(CAMPO, "h-10")} value={busca} onChange={(e) => setBusca(e.target.value)} />
             </label>
             <span className="num pb-2 text-[13px] text-texto-2">{n === 1 ? "1 marcada" : `${n} marcadas`}</span>
           </div>

@@ -20,9 +20,13 @@ import { AbasProgramacao } from "./AbasProgramacao";
 import { RolarAte } from "./RolarAte";
 
 const MAX_LINHAS = 3000;
-const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES = Array.from({ length: 12 }, (_, i) => {
+  const m = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, i, 15))).replace(".", "");
+  return m.charAt(0).toUpperCase() + m.slice(1);
+});
 const n1 = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-const pctTxt = (p: number | null) => (p == null ? "—" : `${Math.round(p)}%`);
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const pctTxt = (p: number | null) => (p == null ? "—" : pctFmt.format(p / 100));
 const corCss = (c: Cor) => (c === "neutro" ? "var(--texto-4)" : `var(--${c})`);
 const tinta = (c: Cor, pct: number) => `color-mix(in srgb, ${corCss(c)} ${pct}%, transparent)`;
 
@@ -180,7 +184,7 @@ export async function Mapa52({ params }: { params: Params }) {
           return (
             <Link prefetch={false} key={s.n} href={hrefSem(s.n)} scroll={false}
               aria-label={`Semana ${s.rotulo}: ${carga[i].hh > 0 ? `${pctTxt(util[i])} da capacidade` : "sem chamadas"}`}
-              title={`Semana ${s.rotulo} · ${dataBr(s.segunda)} a ${dataBr(s.segunda + 6)} · ${n1(carga[i].hh)} HH · ${carga[i].ordens} ordens · capacidade ${capSemana[i] != null ? n1(capSemana[i]!) + " HH" : "—"}`}
+              title={`Semana ${s.rotulo} · ${dataBr(s.segunda)} a ${dataBr(s.segunda + 6)} · ${n1(carga[i].hh)} HH · ${inteiro(carga[i].ordens)} ordens · capacidade ${capSemana[i] != null ? n1(capSemana[i]!) + " HH" : "—"}`}
               className={clsx("flex w-10 shrink-0 flex-col items-center gap-0.5 px-0.5 py-1.5 text-center transition hover:bg-superficie-2", novoMes && "border-l border-borda")}>
               <span className="h-3.5 text-[10px] font-semibold uppercase text-texto-3">{novoMes ? s.mes : ""}</span>
               <span className="num text-[11px] text-texto-2">{s.rotulo}</span>
@@ -372,7 +376,7 @@ function DetalheSemana({ s, ch, carga, cap, disp, conf, per, hoje }: { s: m52.Se
         <Kpi rotulo="Sem ordem" valor={inteiro(carga.semOrdem)} detalhe="ainda a gerar" />
       </div>
       <div>
-        <div className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-texto-2">Carga por centro</div>
+        <h3 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-texto-2">Carga por centro</h3>
         <p className="mb-2 text-[11.5px] text-texto-3">Capacidade de cada centro = equipe que o atende (passe o dedo/mouse para ver qual); centros atendidos pela mesma equipe mostram a mesma capacidade.</p>
         <CargaCentros itens={centros} />
       </div>
@@ -398,7 +402,8 @@ function Chamadas({ ch, per, csv, hoje }: { ch: planos.ChamadaClassificada[]; pe
 
 const COR_SIT: Record<m52.Situacao, Cor> = { [m52.NO_PRAZO]: "st-bom", [m52.ATENCAO]: "st-atencao", [m52.ATRASADA]: "st-critico" };
 const SELO_SIT: Record<m52.Situacao, "verde" | "amarelo" | "vermelho"> = { [m52.NO_PRAZO]: "verde", [m52.ATENCAO]: "amarelo", [m52.ATRASADA]: "vermelho" };
-const pp = (v: number) => `${v > 0 ? "+" : ""}${Math.round(v)} p.p.`;
+const ppFmt = new Intl.NumberFormat("pt-BR", { signDisplay: "exceptZero", maximumFractionDigits: 0 });
+const pp = (v: number) => `${ppFmt.format(v)} p.p.`;
 /** O que fazer com o grupo, pela situação (o plano de ação da tabela). */
 function acao(a: m52.Avanco): string {
   if (a.situacao === m52.ATRASADA) return a.pendentes ? `Gerar/liberar e executar as ${a.pendentes} chamada(s) vencida(s); reprogramar na semanal` : "Rever a programação";
@@ -411,7 +416,7 @@ function Executivo({ ano, geral, curva, semanas, avanco }: { ano: number; geral:
   const barra = (v: number, c: Cor) => (
     <div className="flex items-center gap-2">
       <div className="h-2 w-20 overflow-hidden rounded-full bg-superficie-3"><div className="h-full rounded-full" style={{ width: `${Math.min(100, v)}%`, background: corCss(c) }} /></div>
-      <span className="num text-[12px]">{Math.round(v)}%</span>
+      <span className="num text-[12px]">{pctTxt(v)}</span>
     </div>
   );
   return (
@@ -420,11 +425,11 @@ function Executivo({ ano, geral, curva, semanas, avanco }: { ano: number; geral:
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-cartao p-5 text-white" style={{ background: "color-mix(in srgb, var(--serie-1) 85%, black)" }}>
           <div className="text-[13.5px] font-medium opacity-90">% previsto até hoje</div>
-          <div className="num mt-1.5 font-display text-[34px] font-medium leading-none">{Math.round(geral.previsto)}%</div>
+          <div className="num mt-1.5 font-display text-[34px] font-medium leading-none">{pctTxt(geral.previsto)}</div>
         </div>
         <div className="rounded-cartao p-5 text-white" style={{ background: "color-mix(in srgb, var(--st-bom) 75%, black)" }}>
           <div className="text-[13.5px] font-medium opacity-90">% realizado</div>
-          <div className="num mt-1.5 font-display text-[34px] font-medium leading-none">{Math.round(geral.realizado)}%</div>
+          <div className="num mt-1.5 font-display text-[34px] font-medium leading-none">{pctTxt(geral.realizado)}</div>
         </div>
         <Kpi rotulo="Desvio" valor={pp(geral.desvio)} detalhe={geral.situacao} tom={geral.situacao === m52.NO_PRAZO ? "verde" : "vermelho"} />
         <Kpi rotulo="Chamadas vencidas sem execução" valor={inteiro(geral.pendentes)} detalhe={`de ${inteiro(geral.chamadas)} no ano`} tom="vermelho" />
@@ -433,7 +438,7 @@ function Executivo({ ano, geral, curva, semanas, avanco }: { ano: number; geral:
         legenda={<div className="flex flex-wrap gap-x-4 text-[12px] text-texto-2">
           <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2" style={{ borderColor: "var(--serie-1)" }} />Previsto</span>
           <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2" style={{ borderColor: "var(--st-bom)" }} />Realizado</span></div>}
-        tabela={{ colunas: ["Semana", "Previsto", "Realizado"], linhas: curva.map((p, i) => [`S${semanas[i].rotulo}`, `${Math.round(p.previsto)}%`, p.realizado == null ? "—" : `${Math.round(p.realizado)}%`]) }}>
+        tabela={{ colunas: ["Semana", "Previsto", "Realizado"], linhas: curva.map((p, i) => [`S${semanas[i].rotulo}`, pctTxt(p.previsto), pctTxt(p.realizado)]) }}>
         <Linhas rotulos={semanas.map((s) => `S${s.rotulo}`)} formato="%" altura={240}
           series={[{ nome: "Previsto", cor: "serie-1", valores: curva.map((p) => Math.round(p.previsto * 10) / 10) },
             { nome: "Realizado", cor: "st-bom", valores: curva.map((p) => (p.realizado == null ? null : Math.round(p.realizado * 10) / 10)) }]} />
@@ -460,7 +465,7 @@ function Executivo({ ano, geral, curva, semanas, avanco }: { ano: number; geral:
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
         {avanco.slice(0, 7).map((a) => (
-          <Velocimetro key={a.grupo} titulo={a.grupo} valor={a.realizado} status={COR_SIT[a.situacao]} detalhe={`previsto ${Math.round(a.previsto)}%`} />
+          <Velocimetro key={a.grupo} titulo={a.grupo} valor={a.realizado} status={COR_SIT[a.situacao]} detalhe={`previsto ${pctTxt(a.previsto)}`} />
         ))}
       </div>
     </Secao>

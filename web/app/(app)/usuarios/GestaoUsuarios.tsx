@@ -24,8 +24,9 @@ const FUNCOES = { lider: "Líder de manutenção", analista: "Analista", manuten
 const PERFIS = { admin: "Administrador", editor: "Editor", leitor: "Leitor" };
 const VAZIO: EstadoUsuario = { erro: "", ok: "" };
 
-function Botao({ enviando, children, className = BOTAO_PRIMARIO }: { enviando: boolean; children: React.ReactNode; className?: string }) {
-  return <button disabled={enviando} className={className}>{enviando && <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />}{children}</button>;
+/** Durante o envio, o spinner toma o lugar do ícone e o texto vira `envio` (ex.: "Salvando…"). */
+function Botao({ enviando, envio, children, className = BOTAO_PRIMARIO }: { enviando: boolean; envio: string; children: React.ReactNode; className?: string }) {
+  return <button disabled={enviando} className={className}>{enviando ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />{envio}</> : children}</button>;
 }
 
 function NovoUsuario() {
@@ -34,8 +35,8 @@ function NovoUsuario() {
     // a chave muda a cada usuário criado: o formulário limpa só quando deu certo (com erro, o que foi digitado fica)
     <form action={enviar} key={estado.ok} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Campo rotulo="Nome" name="nome" required />
-        <Campo rotulo="Número Pessoal (NP)" name="login" required inputMode="numeric" placeholder="Ex.: 6178609" />
+        <Campo rotulo="Nome" name="nome" required autoComplete="off" />
+        <Campo rotulo="Número Pessoal (NP)" name="login" required inputMode="numeric" autoComplete="off" spellCheck={false} placeholder="Ex.: 6178609…" />
         <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" required
           dica="Líder e Analista veem todas as abas; Manutentor e Terceiro, só o Estoque." />
         <Seletor rotulo="Perfil" name="perfil" opcoes={PERFIS} defaultValue="leitor"
@@ -44,12 +45,12 @@ function NovoUsuario() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo rotulo="Senha provisória" name="senha" type="password" required autoComplete="new-password"
           dica="Mínimo de 8 caracteres, com letras e números. A pessoa troca no primeiro acesso." />
-        <Campo rotulo="E-mail (opcional)" name="email" type="email" autoComplete="off" inputMode="email"
+        <Campo rotulo="E-mail (opcional)" name="email" type="email" autoComplete="off" spellCheck={false} inputMode="email"
           dica="Líderes com e-mail recebem toda semana o aviso de treinamentos vencendo." />
       </div>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
-      <Botao enviando={enviando}><UserPlus className="size-4" /> Criar usuário</Botao>
+      <Botao enviando={enviando} envio="Criando…"><UserPlus className="size-4" /> Criar usuário</Botao>
     </form>
   );
 }
@@ -144,13 +145,13 @@ function Solicitacoes({ pedidos, abas }: { pedidos: PedidoAcesso[]; abas: Aba[] 
               </div>
               <EscolhaAbas abas={abas} marcadas={null} escolher={escolher} setEscolher={setEscolher} />
               {estadoAp.erro && <Mensagem>{estadoAp.erro}</Mensagem>}
-              <Botao enviando={aprovando}><UserCheck className="size-4" /> Aprovar e criar usuário</Botao>
+              <Botao enviando={aprovando} envio="Aprovando…"><UserCheck className="size-4" /> Aprovar e criar usuário</Botao>
             </form>
             <form action={recusarAcao} onSubmit={(e) => { if (!confirm(`Recusar o pedido de ${d.nome || d.login}?`)) e.preventDefault(); }} className="space-y-3 border-t border-borda pt-4">
               <input type="hidden" name="alvo" value={d.login} />
               <Campo rotulo="Motivo da recusa (opcional)" name="motivo" maxLength={300} className="max-w-xl" />
               {estadoRe.erro && <Mensagem>{estadoRe.erro}</Mensagem>}
-              <Botao enviando={recusando} className={clsx(BOTAO_SECUNDARIO, "text-perigo-500")}><UserX className="size-4" /> Recusar pedido</Botao>
+              <Botao enviando={recusando} envio="Recusando…" className={clsx(BOTAO_SECUNDARIO, "text-perigo-500")}><UserX className="size-4" /> Recusar pedido</Botao>
             </form>
           </div>
         </>
@@ -203,7 +204,7 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
       <form action={enviar} key={`${d.login}|${estado.ok}`} className="space-y-4">
         <input type="hidden" name="alvo" value={d.login} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Campo rotulo="Número Pessoal (NP)" name="novo_login" defaultValue={d.login} required
+          <Campo rotulo="Número Pessoal (NP)" name="novo_login" defaultValue={d.login} required autoComplete="off" spellCheck={false}
             dica="Mudar aqui troca o login (a senha continua a mesma)." />
           <Campo rotulo="Nome" name="nome" defaultValue={d.nome} />
           <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" defaultValue={d.funcao in FUNCOES ? d.funcao : ""} />
@@ -216,7 +217,7 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
         </label>
         {(d.unicoAdmin || proprio) && <input type="hidden" name="ativo" value="on" />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo rotulo="E-mail" name="email" type="email" defaultValue={d.email} autoComplete="off" inputMode="email"
+          <Campo rotulo="E-mail" name="email" type="email" defaultValue={d.email} autoComplete="off" spellCheck={false} inputMode="email"
             dica="Líderes com e-mail recebem toda semana o aviso de treinamentos vencendo. Vazio = sem e-mail." />
           <Campo rotulo="Redefinir senha (opcional)" name="nova_senha" type="password" autoComplete="new-password"
             dica="Só se a pessoa esqueceu a senha. Ela terá de trocar no próximo acesso." />
@@ -224,7 +225,7 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
         <EscolhaAbas abas={abas} marcadas={d.abas} escolher={escolher} setEscolher={setEscolher} />
         {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
         {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
-        <Botao enviando={enviando}><Save className="size-4" /> Salvar alterações</Botao>
+        <Botao enviando={enviando} envio="Salvando…"><Save className="size-4" /> Salvar alterações</Botao>
       </form>
       {!proprio && !d.unicoAdmin && (
         <form action={excluir} onSubmit={(e) => { if (!confirm(`Excluir ${d.login} de vez? (Para só bloquear o acesso, desative.)`)) e.preventDefault(); }}
@@ -232,7 +233,7 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
           <input type="hidden" name="alvo" value={d.login} />
           {estadoExc.erro && <div className="mb-3"><Mensagem>{estadoExc.erro}</Mensagem></div>}
           {estadoExc.ok && <div className="mb-3"><Mensagem tipo="ok">{estadoExc.ok}</Mensagem></div>}
-          <Botao enviando={excluindo} className={clsx(BOTAO_SECUNDARIO, "text-perigo-500")}><Trash2 className="size-4" /> Excluir usuário</Botao>
+          <Botao enviando={excluindo} envio="Excluindo…" className={clsx(BOTAO_SECUNDARIO, "text-perigo-500")}><Trash2 className="size-4" /> Excluir usuário</Botao>
         </form>
       )}
     </div>

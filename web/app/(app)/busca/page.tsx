@@ -78,7 +78,7 @@ export default async function Buscar(props: { searchParams: Promise<Params> }) {
       {valido && !total && (
         <div className="flex flex-col items-center gap-3 rounded-cartao border border-borda bg-superficie py-12 text-center">
           <SearchX className="size-8 text-texto-4" strokeWidth={1.5} />
-          <p className="text-[14px] text-texto-2">Nada encontrado para <b className="font-medium">{termo}</b>.</p>
+          <p className="max-w-full break-words text-[14px] text-texto-2">Nada encontrado para <b className="break-words font-medium">{termo}</b>.</p>
         </div>
       )}
       {res && cat && c && campoEq && (

@@ -27,6 +27,7 @@ export const maxDuration = 60;
 
 const VISOES = ["Visão geral", "Por equipamento", "Reincidências", VISAO_TIPOS];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+const n1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const COLUNAS_REINC: Coluna[] = [
   { rotulo: "Data", formato: "data" }, { rotulo: "Campo de ordenação" }, { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true },
@@ -141,12 +142,12 @@ function VisaoGeral({ c, q, qAll, serie, params, campoEq }: { c: Ctx; q: ind.Que
         acoes={<LinksParam chave="dim" opcoes={Object.keys(DIMENSOES)} atual={nomeDim} params={params} />}
         legenda={<Legenda series={[{ nome: "Concentram 80% das quebras", cor: "serie-2" }, { nome: "Demais", cor: "neutro" }]} />}
         tabela={{ colunas: [...(eqDim ? ["Campo de ordenação"] : []), nomeDim, "Quebras", "%", "% acumulado"],
-          linhas: par.itens.slice(0, 25).map((x) => [...(eqDim ? [campoEq(x.item)] : []), rot(x.item), x.valor, `${x.pct.toFixed(1).replace(".", ",")}%`, `${x.acumulado.toFixed(1).replace(".", ",")}%`]) }}>
+          linhas: par.itens.slice(0, 25).map((x) => [...(eqDim ? [campoEq(x.item)] : []), rot(x.item), x.valor, `${n1.format(x.pct)}%`, `${n1.format(x.acumulado)}%`]) }}>
         {topo.length ? (
           <>
             <Barras larguraRotulo={nomeDim === "Equipamento" || nomeDim === "Local de instalação" ? 280 : 200} formato="inteiro"
               itens={topo.map((x) => ({ rotulo: rotGrafico(x.item), valor: x.valor, cor: (x.vital ? "serie-2" : "neutro") as Cor,
-                detalhe: `quebras · ${x.acumulado.toFixed(0)}% acumulado` }))} />
+                detalhe: `quebras · ${n0.format(x.acumulado)}% acumulado` }))} />
             <p className="mt-3 text-[13px] text-texto-2">
               <b className="num font-medium text-texto">{n0.format(par.n80)}</b> {nomeDim.toLowerCase()}(s) concentram 80% das {n0.format(par.total)} quebras
               com {nomeDim.toLowerCase()} informado — foco para análise de falha (5 porquês / Ishikawa) e plano de ação.
@@ -191,7 +192,7 @@ function PorEquipamento({ c, d, q, dias, campoEq }: { c: Ctx; d: ind.Dados; q: i
       ]} />
       <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · primeira quebra × reincidente (≤ 30 dias)"
         legenda={<Legenda series={[{ nome: "Primeira", cor: "serie-1" }, { nome: "Reincidente", cor: "serie-2" }]} />}
-        tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Quebras", "Reincidências", "MTTR (h)"], linhas: bad.map((t) => [campoEq(t.codigo), t.codigo, t.nome, t.quebras, t.reincidencias, t.mttr == null ? "—" : t.mttr.toFixed(1).replace(".", ",")]) }}>
+        tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Quebras", "Reincidências", "MTTR (h)"], linhas: bad.map((t) => [campoEq(t.codigo), t.codigo, t.nome, t.quebras, t.reincidencias, t.mttr == null ? "—" : n1.format(t.mttr)]) }}>
         <Barras larguraRotulo={280} formato="inteiro" itens={bad.map((t) => ({ rotulo: `${campoEq(t.codigo) ? `${campoEq(t.codigo)} · ` : ""}${t.codigo} · ${t.nome.slice(0, 30)}`, valor: t.quebras,
           partes: [{ nome: "Primeira", valor: t.quebras - t.reincidencias, cor: "serie-1" as Cor }, { nome: "Reincidente", valor: t.reincidencias, cor: "serie-2" as Cor }] }))} />
       </Grafico>
@@ -216,9 +217,9 @@ function Reincidencias({ q, campoEq }: { q: ind.Quebra[]; campoEq: CampoEq }) {
   return (
     <div className="space-y-4">
       <Numeros colunas={4} itens={[
-        { rotulo: "Reincidências", valor: n0.format(rc.length), detalhe: `${pct.toFixed(1).replace(".", ",")}% das quebras`, dica: ind.POR_ID.reincidencia.formula },
+        { rotulo: "Reincidências", valor: n0.format(rc.length), detalhe: `${n1.format(pct)}% das quebras`, dica: ind.POR_ID.reincidencia.formula },
         { rotulo: "Equipamentos", valor: n0.format(eqs.size), detalhe: "com ao menos uma reincidência" },
-        { rotulo: "Dias até a reincidência", valor: medio == null ? "—" : `${medio.toFixed(1).replace(".", ",")} d`, detalhe: "média desde a quebra anterior" },
+        { rotulo: "Dias até a reincidência", valor: medio == null ? "—" : `${n1.format(medio)} d`, detalhe: "média desde a quebra anterior" },
         { rotulo: "Última reincidência", valor: rc.length ? dataBr(rc[0].data) : "—" },
       ]} />
       <div className="grid gap-4 lg:grid-cols-[1fr_1.6fr]">

@@ -30,7 +30,7 @@ export function ParaOnde({ grupos, planejadaPct, metaPlanejada, emergencial, eme
   return (
     <section className="flex min-w-0 flex-col gap-4 rounded-cartao border border-borda bg-superficie p-5">
       <div>
-        <div className="font-display text-[15px] font-medium">Para onde vai</div>
+        <h3 className="font-display text-[15px] font-medium">Para onde vai</h3>
         <div className="mt-0.5 text-[12.5px] text-texto-3">Custo por classe de manutenção no período</div>
       </div>
 

@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { LoaderCircle, RotateCcw, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
@@ -32,6 +32,16 @@ function useSalvar() {
   return { pend, msg, rodar };
 }
 
+/** Avisa antes de fechar a aba ou recarregar com alteração não salva; o aviso sai ao salvar (sujo = false). */
+function useAvisoSemSalvar(sujo: boolean) {
+  useEffect(() => {
+    if (!sujo) return;
+    const avisa = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", avisa);
+    return () => window.removeEventListener("beforeunload", avisa);
+  }, [sujo]);
+}
+
 function Botoes({ n, pend, aoSalvar, rotulo, invalido, extra }: { n: number; pend: boolean; aoSalvar: () => void; rotulo: string; invalido?: boolean; extra?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -39,7 +49,7 @@ function Botoes({ n, pend, aoSalvar, rotulo, invalido, extra }: { n: number; pen
         {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} {rotulo} ({n})
       </button>
       {extra}
-      {invalido && <span role="alert" className="text-[12.5px] text-[var(--st-critico)]">Há valores inválidos (use números ≥ 0).</span>}
+      {invalido && <span role="status" className="text-[12.5px] text-[var(--st-critico)]">Há valores inválidos (use números ≥ 0).</span>}
     </div>
   );
 }
@@ -52,6 +62,7 @@ export function EditorMetas({ linhas, edita, personalizadas }: { linhas: LinhaMe
   const { pend, msg, rodar } = useSalvar();
   const mud = useMemo(() => Object.fromEntries(linhas.filter((l) => l.id in txt && !igual(lerBr(txt[l.id]), l.meta)).map((l) => [l.id, lerBr(txt[l.id])])), [txt, linhas]);
   const invalido = Object.values(mud).some((v) => v != null && Number.isNaN(v));
+  useAvisoSemSalvar(Object.keys(mud).length > 0);
   const grupos = [...new Set(linhas.map((l) => l.grupo))];
   return (
     <div className="space-y-4">
@@ -109,14 +120,14 @@ export function EditorJornada({ horas, edita }: { horas: number; edita: boolean 
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Horas por semana</span>
-          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 128 }} inputMode="decimal" disabled={!edita} value={txt} onChange={(e) => setTxt(e.target.value)} />
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 128 }} name="horas_semana" autoComplete="off" inputMode="decimal" disabled={!edita} value={txt} onChange={(e) => setTxt(e.target.value)} />
         </label>
         {edita && (
           <button className={BOTAO_PRIMARIO} disabled={pend || !valido || igual(v, horas)} onClick={() => rodar(() => salvarJornada(v!))}>
             {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar jornada
           </button>
         )}
-        {!valido && <span role="alert" className="pb-3 text-[12.5px] text-[var(--st-critico)]">Entre 1 e 80 horas.</span>}
+        {!valido && <span role="status" className="pb-3 text-[12.5px] text-[var(--st-critico)]">Entre 1 e 80 horas.</span>}
       </div>
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
@@ -135,12 +146,12 @@ export function EditorCustoParada({ custoPar, paresHora, edita }: { custoPar: nu
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Custo do par (R$)</span>
-          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} inputMode="decimal" placeholder="não definido"
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} name="custo_par" autoComplete="off" inputMode="decimal" placeholder="não definido"
             disabled={!edita} value={txt.custo} onChange={(e) => setTxt({ ...txt, custo: e.target.value })} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Pares por hora</span>
-          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} inputMode="decimal" placeholder="não definido"
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} name="pares_hora" autoComplete="off" inputMode="decimal" placeholder="não definido"
             disabled={!edita} value={txt.pares} onChange={(e) => setTxt({ ...txt, pares: e.target.value })} />
         </label>
         {edita && (
@@ -152,7 +163,7 @@ export function EditorCustoParada({ custoPar, paresHora, edita }: { custoPar: nu
       <p className="text-[13px] leading-relaxed text-texto-3">
         Custo da produção parada = horas paradas × pares por hora × custo do par. Usado no iceberg da aba Custos.
       </p>
-      {erro && <p role="alert" className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
+      {erro && <p role="status" className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
   );
@@ -168,6 +179,7 @@ export function EditorCapacidade({ linhas, edita }: { linhas: LinhaCapacidade[];
     .map((l) => [l.centro, lerBr(txt[l.centro])])), [txt, linhas]);
   const invalido = Object.values(mud).some((v) => v != null && Number.isNaN(v));
   const max = Math.max(1, ...linhas.map((l) => Math.max(l.media ?? 0, l.configurada ?? 0, l.sugestao ?? 0)));
+  useAvisoSemSalvar(Object.keys(mud).length > 0);
   return (
     <div className="space-y-4">
       {edita && <Botoes n={Object.keys(mud).length} pend={pend} invalido={invalido} rotulo="Salvar capacidades" aoSalvar={() => rodar(() => salvarCapacidades(mud), () => setTxt({}))} />}
@@ -219,6 +231,7 @@ export function EditorTipos({ linhas, classes, edita }: { linhas: LinhaTipo[]; c
   const { pend, msg, rodar } = useSalvar();
   const mud = useMemo(() => Object.fromEntries(linhas.filter((l) => ed[l.codigo] && (ed[l.codigo].descricao !== l.descricao || ed[l.codigo].classe !== l.classe))
     .map((l) => [l.codigo, ed[l.codigo]])), [ed, linhas]);
+  useAvisoSemSalvar(Object.keys(mud).length > 0);
   const mudar = (l: LinhaTipo, campo: "descricao" | "classe", v: string) =>
     setEd({ ...ed, [l.codigo]: { descricao: ed[l.codigo]?.descricao ?? l.descricao, classe: ed[l.codigo]?.classe ?? l.classe, [campo]: v } });
   return (

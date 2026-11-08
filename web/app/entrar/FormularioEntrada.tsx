@@ -33,8 +33,8 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Número Pessoal (NP)</span>
           <span className="relative block">
             <UserRound className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-            <input name="login" inputMode="numeric" autoComplete="username" defaultValue={estado.login} required
-              placeholder="Ex.: 6178609" disabled={demo}
+            <input name="login" inputMode="numeric" autoComplete="username" spellCheck={false} defaultValue={estado.login} required
+              placeholder="Ex.: 6178609…" disabled={demo}
               className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-3 text-[15px] transition placeholder:text-texto-3 focus:border-[var(--acao)] focus:bg-superficie disabled:opacity-50" />
           </span>
         </label>
@@ -60,7 +60,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
         )}
         <button disabled={enviando || demo}
           className={`${BOTAO_PRIMARIO} w-full`}>
-          Entrar {enviando ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" />}
+          {enviando ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Entrando…</> : <>Entrar <ArrowRight className="size-4" /></>}
         </button>
       </form>
       <p className="text-center text-[12.5px] text-texto-3">

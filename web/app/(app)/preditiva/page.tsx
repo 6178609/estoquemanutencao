@@ -96,7 +96,7 @@ export default async function Preditiva(props: { searchParams: Promise<Record<st
   return (
     <PaginaWcm barra={barra(c)}>
       {cab}
-      <p className="max-w-4xl text-[12.5px] leading-relaxed text-texto-3">Uma anomalia = técnica + nº do código SEMEQ (ex.: SEMEQ-AVB-333). A nota registra a detecção e a ordem é a tratativa; o período vale pela data de detecção. Técnicas: AVB = vibração, AOL = análise de óleo, TMP = termografia.</p>
+      <p className="max-w-4xl text-[12.5px] leading-relaxed text-texto-3">Uma anomalia = técnica + nº do código SEMEQ (ex.: <span translate="no">SEMEQ-AVB-333</span>). A nota registra a detecção e a ordem é a tratativa; o período vale pela data de detecção. Técnicas: <span translate="no">AVB</span> = vibração, <span translate="no">AOL</span> = análise de óleo, <span translate="no">TMP</span> = termografia.</p>
 
       <Secao titulo="Indicadores" destaque={descrever(ini, fim)} sub={`Variações contra ${descrever(aIni, aFim)} (período anterior de mesma duração). Passe o mouse no nome para ver a fórmula.`}>
         <GradeKpis kpis={ind.KPIS.filter((k) => k.grupo === ind.PREDITIVA)} atual={atual} anterior={anterior} metas={c.cad.metas} serie={serie} link={false} colunas={5} />

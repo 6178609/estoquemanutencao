@@ -2,7 +2,7 @@
 
 import { Check, LoaderCircle, Undo2, Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
@@ -63,17 +63,25 @@ export function AlocarUm({ ativo, material }: { ativo: string; material: string 
   const [pendente, iniciar] = useTransition();
   const [feito, setFeito] = useState(false);
   const [erro, setErro] = useState("");
-  if (feito) return <span role="status" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--selo-bom-texto)]"><Check className="size-3.5" /> vinculado</span>;
+  const contorno = useRef<HTMLSpanElement>(null);
+  // ao vincular, o botão sai da tela: o foco vai para o contêiner (que fica montado), em vez de cair no body
+  useEffect(() => { if (feito) contorno.current?.focus(); }, [feito]);
   return (
-    <span className="inline-flex flex-col gap-1">
-      <button type="button" disabled={pendente} aria-busy={pendente} title={erro || undefined}
-        onClick={() => iniciar(async () => {
-          const r = await alterarPecas(ativo, [material], []);
-          if ("erro" in r) setErro(r.erro); else { setFeito(true); router.refresh(); }
-        })}
-        className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] font-medium text-texto-2 transition hover:bg-superficie-2">
-        {pendente ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Alocar
-      </button>
+    <span ref={contorno} tabIndex={-1} className="inline-flex flex-col gap-1">
+      {feito ? (
+        <span className="inline-flex items-center gap-1 text-[12.5px] text-[var(--selo-bom-texto)]"><Check className="size-3.5" /> vinculado</span>
+      ) : (
+        <button type="button" disabled={pendente} aria-busy={pendente} title={erro || undefined}
+          onClick={() => iniciar(async () => {
+            const r = await alterarPecas(ativo, [material], []);
+            if ("erro" in r) setErro(r.erro); else { setFeito(true); router.refresh(); }
+          })}
+          className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] font-medium text-texto-2 transition hover:bg-superficie-2">
+          {pendente ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Alocar
+        </button>
+      )}
+      {/* sempre montado: o anúncio é lido de forma confiável quando o texto muda */}
+      <span role="status" className="sr-only">{feito ? "Material vinculado ao ativo." : ""}</span>
       {erro && <span role="alert" className="text-[11.5px] text-[var(--selo-critico-texto)]">{erro}</span>}
     </span>
   );

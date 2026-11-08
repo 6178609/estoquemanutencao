@@ -27,7 +27,7 @@ export function Travado({ etapas, pessoas }: { etapas: Etapas; pessoas?: number 
   return (
     <section className="flex min-w-0 flex-col overflow-hidden rounded-cartao border border-borda bg-superficie">
       <div className="bg-marca-800 p-5 text-white">
-        <div className="text-[11.5px] font-medium tracking-[0.12em] text-white/85">TRAVADO</div>
+        <h3 className="text-[11.5px] font-medium tracking-[0.12em] text-white/85">TRAVADO</h3>
         <div className="num mt-2 font-display text-[30px] font-medium leading-none tracking-[-0.02em]">{comValor.length ? brlCurto(total) : "—"}</div>
         <div className="mt-1.5 text-[12.5px] text-white/85">{comValor.length ? "soma das etapas com valor" : "sem etapa com valor em R$"}</div>
       </div>

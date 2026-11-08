@@ -107,6 +107,14 @@ body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01
 /* foco do teclado sempre visível (contorno celeste) */
 :focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
 
+/* toque: sem o atraso de duplo toque nos controles, e com destaque discreto ao tocar (em @layer base: as classes mandam) */
+@layer base {
+  :where(a, button, summary, input, select, textarea, label, [role="button"]) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--acao) 18%, transparent);
+  }
+}
+
 /* tabelas (oito componentes): cabeçalho em caixa alta pequena e linha com destaque ao passar o mouse.
    Em @layer base, para as classes de cada componente continuarem valendo por cima. */
 @layer base {

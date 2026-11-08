@@ -38,7 +38,7 @@ export async function Diagnostico({ params, u }: { params: Params; u: Usuario })
           </div>
         </fieldset>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,320px)_auto] sm:items-end">
-          <Campo rotulo="Código do equipamento (opcional)" name="eq" defaultValue={eq} maxLength={60}
+          <Campo rotulo="Código do equipamento (opcional)" name="eq" defaultValue={eq} maxLength={60} autoComplete="off" spellCheck={false}
             dica="Se informar um equipamento do site, mostramos as últimas quebras e os modos de causa dele." />
           <button type="submit" className={BOTAO_SECUNDARIO}>Ver sintomas</button>
         </div>

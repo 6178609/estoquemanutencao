@@ -28,7 +28,7 @@ export function EnviarAgora() {
   return (
     <div className="space-y-2">
       <button type="button" onClick={enviar} disabled={estado.enviando} aria-busy={estado.enviando} className={BOTAO_SECUNDARIO}>
-        {estado.enviando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />} Enviar agora
+        {estado.enviando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />} {estado.enviando ? "Enviando…" : "Enviar agora"}
       </button>
       {estado.msg && <Mensagem tipo={estado.ok ? "ok" : "erro"}>{estado.msg}</Mensagem>}
     </div>

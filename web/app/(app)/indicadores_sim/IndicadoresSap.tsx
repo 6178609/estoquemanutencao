@@ -17,10 +17,12 @@ function periodo(mes: string, ytd = false): Record<string, string> {
   return { ini: ytd ? `${a}-01-01` : `${mes}-01`, fim: `${mes}-${String(ultimo).padStart(2, "0")}`, area: "", setor: "", centro: "", tipo: "" };
 }
 
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const fmtMp = (v: number | null, u: LinhaMp["unidade"]) => {
   if (v == null) return "—";
+  if (u === "%") return new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 }).format(v / 100);
   const t = v.toLocaleString("pt-BR", { maximumFractionDigits: u === "un" ? 0 : Math.abs(v) >= 100 ? 0 : 2 });
-  return u === "%" ? `${t}%` : u === "h" ? `${t} h` : t;
+  return u === "h" ? `${t} h` : t;
 };
 const TH = "px-2.5 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-texto-3";
 const TD = "num whitespace-nowrap px-2.5 py-2 text-center text-[13px]";
@@ -59,13 +61,16 @@ export async function IndicadoresSap({ mes, rotulo, deck }: { mes: string; rotul
   const comMeta = linhas.filter((l) => l.farol !== "neutro"), verdes = comMeta.filter((l) => l.farol === "verde").length;
   const pct = comMeta.length ? Math.round((verdes / comMeta.length) * 100) : null;
   const mpComp = mp.filter((x) => x.ok != null), mpOk = mpComp.filter((x) => x.ok).length;
-  const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const MESES = Array.from({ length: 12 }, (_, i) => {
+    const m = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, i, 15))).replace(".", "");
+    return m.charAt(0).toUpperCase() + m.slice(1);
+  });
   const antRot = MESES[Number(mesAnterior(mes).slice(5, 7)) - 1];
 
   return (
     <div className="space-y-6">
       <GradeNumeros colunas={4}>
-        <Numero rotulo={`Indicadores do SAP na meta (${rotulo})`} valor={pct == null ? "—" : `${pct}%`}
+        <Numero rotulo={`Indicadores do SAP na meta (${rotulo})`} valor={pct == null ? "—" : pctFmt.format(pct / 100)}
           tom={pct == null ? undefined : pct >= 90 ? "bom" : pct >= 70 ? "atencao" : "critico"}
           detalhe={`${verdes} de ${comMeta.length} com meta · ${linhas.length} indicadores calculados`} />
         <Numero rotulo="KPIs do pilar MP na meta do SIM" valor={mpComp.length ? `${mpOk} de ${mpComp.length}` : "—"}

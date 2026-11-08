@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Aviso } from "@/components/PaginaWcm";
 import { BOTAO_PRIMARIO, Selo } from "@/components/ui";
-import { brl } from "@/lib/formato";
+import { brl, dataHora } from "@/lib/formato";
 import * as ativos from "@/lib/wcm/ativos";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import type { Contexto } from "@/lib/wcm/contexto";
@@ -149,7 +149,7 @@ function Lista({ c, params, est, cadastra, campoEq }: { c: Contexto; params: Par
                   )}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <span className="text-[12px] text-texto-3">{v.atualizado_em ? `Última edição: ${String(v.atualizado_por || "sem nome")} em ${String(v.atualizado_em).slice(0, 16).replace("T", " ")} (UTC)` : ""}</span>
+                  <span className="text-[12px] text-texto-3">{v.atualizado_em ? `Última edição: ${String(v.atualizado_por || "sem nome")} em ${dataHora(String(v.atualizado_em))}` : ""}</span>
                   <span className="flex flex-wrap gap-2">
                     {c.b.ordens.dados && <Link prefetch={false} href={`?${new URLSearchParams({ visao: V_ANALISE, eq: tag })}#ficha`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><ClipboardList className="size-3.5" /> Ficha</Link>}
                     {cadastra && <Link prefetch={false} href={hrefCom(params, { form: tag }, "form")} scroll={false} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda px-3 text-[13px] transition hover:bg-superficie-2"><Pencil className="size-3.5" /> Editar</Link>}

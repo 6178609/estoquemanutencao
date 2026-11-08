@@ -48,7 +48,7 @@ function formatarCelula(c: Coluna, v: Celula): string {
   switch (c.tipo) {
     case "data": return typeof v === "number" ? dataBr(v) : String(v);
     case "num": case "barra": return typeof v === "number" ? n(c.casas ?? 0).format(v) : String(v);
-    case "pct": return typeof v === "number" ? `${n(c.casas ?? 0).format(v)}%` : String(v);
+    case "pct": return typeof v === "number" ? new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: c.casas ?? 0, maximumFractionDigits: c.casas ?? 0 }).format(v / 100) : String(v);
     case "h": return typeof v === "number" ? `${n(c.casas ?? 1).format(v)} h` : String(v);
     case "R$": return typeof v === "number" ? brl.format(v) : String(v);
     default: return String(v);
@@ -204,18 +204,20 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
         <p className="rounded-lg border border-dashed border-borda px-4 py-6 text-center text-[13px] text-texto-3">{vazio}</p>
       ) : (
         <div ref={caixa} className="overflow-auto rounded-lg border border-borda" style={{ height: alturaCaixa }}>
-          <div style={{ width: total, minWidth: "100%" }}>
-            <div className="sticky top-0 z-10 grid border-b border-borda bg-superficie-2 text-[11.5px] font-medium text-texto-3"
+          <div role="table" aria-rowcount={visiveis.length + 1} style={{ width: total, minWidth: "100%" }}>
+            <div role="row" aria-rowindex={1} className="sticky top-0 z-10 grid border-b border-borda bg-superficie-2 text-[11.5px] font-medium text-texto-3"
               style={{ gridTemplateColumns: grade }}>
               {colunas.map((c) => {
                 const ativo = ord?.campo === c.id;
                 const direita = c.tipo && !["texto", "situacao", "data", "link", "codigo"].includes(c.tipo);
                 return (
-                  <button key={c.id} title={c.dica} onClick={() => setOrd(ativo ? { campo: c.id, desc: !ord!.desc } : { campo: c.id, desc: !!direita })}
-                    className={clsx("flex h-9 items-center gap-1 px-3 text-left hover:text-texto", direita && "justify-end text-right", ativo && "text-texto")}>
-                    <span className="truncate">{c.rotulo}</span>
-                    {ativo && (ord!.desc ? <ArrowDown className="size-3 shrink-0" /> : <ArrowUp className="size-3 shrink-0" />)}
-                  </button>
+                  <div key={c.id} role="columnheader" aria-sort={ativo ? (ord!.desc ? "descending" : "ascending") : "none"} className="contents">
+                    <button title={c.dica} onClick={() => setOrd(ativo ? { campo: c.id, desc: !ord!.desc } : { campo: c.id, desc: !!direita })}
+                      className={clsx("flex h-9 items-center gap-1 px-3 text-left hover:text-texto", direita && "justify-end text-right", ativo && "text-texto")}>
+                      <span className="truncate">{c.rotulo}</span>
+                      {ativo && (ord!.desc ? <ArrowDown className="size-3 shrink-0" /> : <ArrowUp className="size-3 shrink-0" />)}
+                    </button>
+                  </div>
                 );
               })}
               {clicavel && <span />}
@@ -224,7 +226,7 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
               {virt.getVirtualItems().map((vi) => {
                 const l = visiveis[vi.index];
                 return (
-                  <div key={vi.key} role={clicavel ? "button" : undefined} tabIndex={clicavel ? 0 : undefined}
+                  <div key={vi.key} role="row" aria-rowindex={vi.index + 2} tabIndex={clicavel ? 0 : undefined}
                     onClick={clicavel ? () => abrir(l) : undefined} onKeyDown={clicavel ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrir(l); } } : undefined}
                     className={clsx("absolute inset-x-0 grid items-center border-b border-borda text-[12.5px]", clicavel && "cursor-pointer hover:bg-superficie-2")}
                     style={{ gridTemplateColumns: grade, height: ALTURA_LINHA, transform: `translateY(${vi.start}px)` }}>
@@ -243,10 +245,10 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
 
 function CelulaTabela({ c, v, cores, max }: { c: Coluna; v: Celula; cores: Record<string, Cor>; max?: number }) {
   const t = formatarCelula(c, v);
-  if (c.tipo === "situacao") return <span className="min-w-0 px-3 text-texto-2"><PontoSituacao nome={t} cor={cores[t]} /></span>;
+  if (c.tipo === "situacao") return <span role="cell" className="min-w-0 px-3 text-texto-2"><PontoSituacao nome={t} cor={cores[t]} /></span>;
   if (c.tipo === "link") {
     return (
-      <span className="px-3" onClick={(e) => e.stopPropagation()}>
+      <span role="cell" className="px-3" onClick={(e) => e.stopPropagation()}>
         {typeof v === "string" && /^https?:\/\//i.test(v)
           ? <a href={v} target="_blank" rel="noreferrer noopener" className="text-[var(--serie-1)] underline-offset-2 hover:underline">Abrir</a> : ""}
       </span>
@@ -255,7 +257,7 @@ function CelulaTabela({ c, v, cores, max }: { c: Coluna; v: Celula; cores: Recor
   if (c.tipo === "barra") {
     const p = typeof v === "number" && max ? Math.max(0, Math.min(1, v / max)) : 0;
     return (
-      <span className="flex min-w-0 items-center gap-2 px-3">
+      <span role="cell" className="flex min-w-0 items-center gap-2 px-3">
         <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
           <span className="block h-full rounded-full" style={{ width: `${p * 100}%`, background: corDe(c.corBarra ?? "serie-1") }} />
         </span>
@@ -265,7 +267,7 @@ function CelulaTabela({ c, v, cores, max }: { c: Coluna; v: Celula; cores: Recor
   }
   const direita = c.tipo && !["texto", "data", "codigo"].includes(c.tipo);
   return (
-    <span title={t.length > 24 ? t : undefined} className={clsx("min-w-0 truncate px-3", direita && "num text-right tabular-nums",
+    <span role="cell" title={t.length > 24 ? t : undefined} className={clsx("min-w-0 truncate px-3", direita && "num text-right tabular-nums",
       c.tipo === "codigo" && "num font-mono text-[12px]", c.tipo === "data" && "num tabular-nums text-texto-2")}>{t}</span>
   );
 }

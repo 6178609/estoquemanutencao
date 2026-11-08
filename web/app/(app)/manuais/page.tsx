@@ -112,7 +112,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
 
       {/* 2. vincular */}
       {edita ? (
-        <section id="vincular" aria-labelledby="vincular-titulo" className="space-y-4">
+        <section id="vincular" aria-labelledby="vincular-titulo" className="scroll-mt-24 space-y-4">
           <div>
             <h2 id="vincular-titulo" className="font-display text-[20px] font-medium">Vincular manual</h2>
             <p className="mt-1 text-[13px] text-texto-3">Escolha um ou mais equipamentos. Um arquivo é guardado uma vez e fica ligado a todos.</p>
@@ -127,23 +127,23 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
 
       {/* 3. lista geral */}
       <section aria-labelledby="lista" className="space-y-4">
-        <h2 id="lista" className="font-display text-[20px] font-medium">Todos os manuais <span className="text-texto-3">({inteiroBr(filtrados.length)})</span></h2>
+        <h2 id="lista" className="scroll-mt-24 font-display text-[20px] font-medium">Todos os manuais <span className="text-texto-3">({inteiroBr(filtrados.length)})</span></h2>
         <form method="get" className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" role="search">
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Buscar</span>
-            <input name="q" type="search" defaultValue={q} placeholder="Equipamento, campo ou título" autoComplete="off"
+            <input name="q" type="search" defaultValue={q} placeholder="Equipamento, campo ou título…" autoComplete="off"
               className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[15px] placeholder:text-texto-3" />
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Tipo</span>
-            <select name="tipo" defaultValue={tipo} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px]">
+            <select name="tipo" defaultValue={tipo} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
               <option value="">Todos</option>
               {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Área</span>
-            <select name="area" defaultValue={area} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px]">
+            <select name="area" defaultValue={area} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
               <option value="">Todas</option>
               {areas.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -210,7 +210,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
           <input type="hidden" name="area" value={area} />
           <label className="block min-w-[200px]">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Área</span>
-            <select name="sem" defaultValue={sem} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px]">
+            <select name="sem" defaultValue={sem} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
               <option value="">Todas</option>
               {areas.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>

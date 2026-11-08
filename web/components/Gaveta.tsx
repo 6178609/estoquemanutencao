@@ -33,7 +33,7 @@ export function Gaveta({ aberta, aoFechar, titulo, subtitulo, children }: { aber
                 <X className="size-5" aria-hidden="true" />
               </button>
             </header>
-            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">{children}</div>
+            <div className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-6">{children}</div>
           </motion.aside>
         </div>
       )}

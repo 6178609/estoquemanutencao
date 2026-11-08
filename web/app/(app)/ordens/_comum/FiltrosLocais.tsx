@@ -55,7 +55,7 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
                   className={clsx("flex h-11 items-center gap-2.5 rounded-xl border px-3.5 text-[13.5px] transition",
                     ativo ? "border-marca-300 bg-marca-50 font-medium text-marca-700 dark:bg-marca-900/30 dark:text-marca-200" : "border-borda bg-superficie-2 text-texto-2 hover:text-texto")}>
                   <span className={clsx("relative h-[18px] w-8 shrink-0 rounded-full transition", ativo ? "bg-marca-500" : "bg-superficie-3")}>
-                    <span className={clsx("absolute top-[2px] size-[14px] rounded-full bg-white shadow transition-all", ativo ? "left-[16px]" : "left-[2px]")} />
+                    <span className={clsx("absolute left-[2px] top-[2px] size-[14px] rounded-full bg-white shadow transition-transform", ativo ? "translate-x-[14px]" : "translate-x-0")} />
                   </span>
                   {c.rotulo}
                 </button>
@@ -101,7 +101,7 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
         {doCelular.length > 0 && (
           <button type="button" onClick={() => setGaveta(true)} aria-haspopup="dialog" aria-expanded={gaveta}
             className={clsx("flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-[13.5px] font-medium md:hidden",
-              ligados ? "border-transparent bg-tinta text-tinta-texto" : "border-borda bg-superficie-2 text-texto-2")}>
+              ligados ? "border-transparent bg-tinta text-tinta-texto hover:opacity-90 active:opacity-80" : "border-borda bg-superficie-2 text-texto-2 hover:bg-superficie-3 active:bg-superficie-3")}>
             <SlidersHorizontal className="size-4" aria-hidden /> Filtros{ligados ? ` · ${ligados}` : ""}
           </button>
         )}
@@ -109,14 +109,14 @@ export function FiltrosLocais({ campos, limpar = [] }: { campos: Campo[]; limpar
       {outros.length > 0 && (
         <div className="hidden flex-wrap items-center gap-2 md:flex">
           {controles(outros)}
-          {pendente && <span aria-live="polite" className="text-[12.5px] text-texto-3">Filtrando…</span>}
+          <span aria-live="polite" className="text-[12.5px] text-texto-3">{pendente ? "Filtrando…" : ""}</span>
         </div>
       )}
-      {pendente && <span aria-live="polite" className="text-[12.5px] text-texto-3 md:hidden">Filtrando…</span>}
+      <span aria-live="polite" className="text-[12.5px] text-texto-3 md:hidden">{pendente ? "Filtrando…" : ""}</span>
       <Gaveta aberta={gaveta} aoFechar={() => setGaveta(false)} titulo={`Filtros${ligados ? ` · ${ligados}` : ""}`}
         subtitulo="Cada escolha já filtra a lista; feche para ver o resultado.">
         <div className="flex flex-col items-stretch gap-3 [&>*]:w-full">{controles(doCelular)}</div>
-        <button type="button" onClick={() => setGaveta(false)} className="flex h-11 w-full items-center justify-center rounded-xl bg-tinta font-medium text-tinta-texto">
+        <button type="button" onClick={() => setGaveta(false)} className="flex h-11 w-full items-center justify-center rounded-xl bg-tinta font-medium text-tinta-texto transition hover:bg-[var(--acao-forte)] active:opacity-90">
           Ver resultado
         </button>
       </Gaveta>

@@ -29,7 +29,7 @@ export function PecasSemCadastro({ eq, pecas, edita }: { eq: string; pecas: Peca
   };
 
   const remover = async (p: PecaTela) => {
-    if (!confirm(`Tirar "${p.descricao}" da lista?`)) return;
+    if (!confirm(`Tirar “${p.descricao}” da lista?`)) return;
     setRemovendo(p.id);
     const r = await removerPecaSemCadastro(eq, p.id).catch(() => ({ erro: "Não foi possível remover. Atualize a página e tente de novo." }));
     if ("erro" in r) setEstado({ enviando: false, erro: r.erro, ok: "" });
@@ -80,12 +80,12 @@ export function PecasSemCadastro({ eq, pecas, edita }: { eq: string; pecas: Peca
       {edita && (
         <form onSubmit={incluir} className="space-y-3 rounded-cartao border border-borda bg-superficie-2 p-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Campo rotulo="Peça" name="descricao" required minLength={3} maxLength={120} placeholder="Ex.: Vedação U do cilindro de fechamento" className="lg:col-span-2" />
-            <Campo rotulo="Referência" name="referencia" maxLength={80} placeholder="Ex.: UHS 55x65x6" />
-            <Campo rotulo="Fabricante" name="fabricante" maxLength={60} placeholder="Ex.: Golden Eagle" />
-            <Campo rotulo="Quantidade" name="quantidade" maxLength={20} placeholder="Ex.: 2" />
+            <Campo rotulo="Peça" name="descricao" autoComplete="off" required minLength={3} maxLength={120} placeholder="Ex.: Vedação U do cilindro de fechamento…" className="lg:col-span-2" />
+            <Campo rotulo="Referência" name="referencia" autoComplete="off" spellCheck={false} maxLength={80} placeholder="Ex.: UHS 55x65x6…" />
+            <Campo rotulo="Fabricante" name="fabricante" autoComplete="off" maxLength={60} placeholder="Ex.: Golden Eagle…" />
+            <Campo rotulo="Quantidade" name="quantidade" autoComplete="off" inputMode="numeric" maxLength={20} placeholder="Ex.: 2…" />
           </div>
-          <Campo rotulo="Origem" name="origem" maxLength={120} placeholder="Ex.: Manual cap. 6 · Desenho 320.03.029-6 pos. 12" />
+          <Campo rotulo="Origem" name="origem" autoComplete="off" maxLength={120} placeholder="Ex.: Manual cap. 6 · Desenho 320.03.029-6 pos. 12…" />
           {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
           {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
           <button type="submit" disabled={estado.enviando} aria-busy={estado.enviando} className={BOTAO_PRIMARIO}>

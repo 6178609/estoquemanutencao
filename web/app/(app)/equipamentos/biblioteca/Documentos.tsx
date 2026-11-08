@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { ExternalLink, FileImage, FileText, Link2, LoaderCircle, Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Campo, Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
@@ -14,7 +14,8 @@ interface DocTela {
   id: string; titulo: string; tipo: string; tamanho: number; em: string; por: string; url?: string;
 }
 
-const tamanho = (b: number) => (b >= 1_000_000 ? `${(b / 1_000_000).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(b / 1000))} KB`);
+const n1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const tamanho = (b: number) => (b >= 1_000_000 ? `${n1.format(b / 1_000_000)} MB` : `${Math.max(1, Math.round(b / 1000))} KB`);
 const MB_GRANDE = Math.round(LIMITE_MANUAL_GRANDE / 1_000_000);
 const data = (iso: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(new Date(iso));
 
@@ -26,6 +27,14 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
   const [estado, setEstado] = useState<{ enviando: boolean; erro: string; ok: string }>({ enviando: false, erro: "", ok: "" });
   const [progresso, setProgresso] = useState<{ feitas: number; total: number } | null>(null);
 
+  // envio em partes: avisa se a página for fechada até terminar
+  useEffect(() => {
+    if (!estado.enviando) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [estado.enviando]);
+
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -36,7 +45,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
     }
     const f = form.get("arquivo");
     if (modo === "arquivo" && f instanceof File && f.size > LIMITE_MANUAL_GRANDE) {
-      setEstado({ enviando: false, erro: `O arquivo passa de ${MB_GRANDE} MB. Para manuais maiores, use “Adicionar link”.`, ok: "" });
+      setEstado({ enviando: false, erro: `O arquivo passa de ${MB_GRANDE} MB. Para manuais maiores, use “Adicionar link”.`, ok: "" });
       return;
     }
     // acima de 4 MB vai em partes (a Vercel recebe até ~4,5 MB por pedido); o título vazio vira o nome do arquivo
@@ -48,7 +57,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
         await enviarManualEmPartes(f, [eq], titulo, setProgresso);
       } catch (err) {
         setProgresso(null);
-        setEstado({ enviando: false, erro: err instanceof Error ? err.message : "Não foi possível enviar.", ok: "" });
+        setEstado({ enviando: false, erro: err instanceof Error ? err.message : "Não foi possível enviar. Confira o arquivo e tente de novo.", ok: "" });
         return;
       }
       setProgresso(null);
@@ -72,7 +81,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
 
   const [removendo, setRemovendo] = useState("");
   const remover = async (d: DocTela) => {
-    if (!confirm(`Remover "${d.titulo}" da biblioteca?`)) return;
+    if (!confirm(`Remover “${d.titulo}” da biblioteca?`)) return;
     setRemovendo(d.id);
     const r = await fetch(`/api/equipamentos/documento?${new URLSearchParams({ eq, id: d.id })}`, { method: "DELETE" }).catch(() => null);
     if (!r?.ok) setEstado({ enviando: false, erro: "Não foi possível remover. Atualize a página e tente de novo.", ok: "" });
@@ -120,21 +129,21 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
             {(["arquivo", "link"] as const).map((m) => (
               <button key={m} type="button" onClick={() => setModo(m)} aria-pressed={modo === m}
                 className={clsx("inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[13.5px]",
-                  modo === m ? "border-transparent bg-tinta font-semibold text-tinta-texto" : "border-borda bg-superficie text-texto-2")}>
+                  modo === m ? "border-transparent bg-tinta font-semibold text-tinta-texto hover:opacity-90" : "border-borda bg-superficie text-texto-2 hover:bg-superficie-2")}>
                 {m === "arquivo" ? <Upload className="size-4" /> : <Link2 className="size-4" />}{m === "arquivo" ? "Enviar arquivo" : "Adicionar link"}
               </button>
             ))}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Campo rotulo="Título" name="titulo" placeholder={modo === "arquivo" ? "Ex.: Manual de operação (vazio = nome do arquivo)" : "Ex.: Catálogo de peças do fabricante"} maxLength={120} />
+            <Campo rotulo="Título" name="titulo" placeholder={modo === "arquivo" ? "Ex.: Manual de operação (vazio = nome do arquivo)…" : "Ex.: Catálogo de peças do fabricante…"} maxLength={120} autoComplete="off" />
             {modo === "arquivo" ? (
               <label className="block">
-                <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (PDF ou imagem, até {MB_GRANDE} MB)</span>
-                <input ref={arquivo} name="arquivo" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
+                <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (PDF ou imagem, até {MB_GRANDE} MB)</span>
+                <input ref={arquivo} name="arquivo" type="file" autoComplete="off" accept="application/pdf,image/jpeg,image/png,image/webp"
                   className="block h-11 w-full rounded-xl border border-borda bg-superficie px-3 py-2 text-[13.5px] text-texto file:mr-3 file:rounded-lg file:border-0 file:bg-superficie-3 file:px-3 file:text-texto" />
               </label>
             ) : (
-              <Campo rotulo="Link" name="url" type="url" required placeholder="https://…" inputMode="url" />
+              <Campo rotulo="Link" name="url" type="url" required placeholder="https://…" inputMode="url" autoComplete="off" />
             )}
           </div>
           {progresso && (
@@ -155,7 +164,7 @@ export function Documentos({ eq, docs, edita }: { eq: string; docs: DocTela[]; e
               {estado.enviando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : modo === "arquivo" ? <Upload className="size-4" /> : <Link2 className="size-4" />}
               {estado.enviando ? "Enviando…" : "Adicionar à biblioteca"}
             </button>
-            <span className="self-center text-[12.5px] text-texto-3">Acima de 4 MB o envio é feito em partes: não feche a página até terminar. Maior que {MB_GRANDE} MB? Use o link.</span>
+            <span className="self-center text-[12.5px] text-texto-3">Acima de 4 MB o envio é feito em partes: não feche a página até terminar. Maior que {MB_GRANDE} MB? Use o link.</span>
           </div>
         </form>
       )}

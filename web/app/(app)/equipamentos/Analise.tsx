@@ -83,7 +83,7 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
             <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Ficha do equipamento</span>
             <span className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-              <input name="eq" list="eq-opcoes" defaultValue={sel} placeholder="Selecione na tabela acima ou digite o código…"
+              <input name="eq" list="eq-opcoes" defaultValue={sel} autoComplete="off" spellCheck={false} placeholder="Selecione na tabela acima ou digite o código…"
                 className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-3 text-[14px] transition focus:border-[var(--acao)] focus:bg-superficie" />
             </span>
             <datalist id="eq-opcoes">{opcoesFicha.map((x) => <option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</datalist>
@@ -133,12 +133,12 @@ async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel:
         <Numero rotulo="Ordens (todas as datas)" valor={inteiroBr(hist.length)} />
         <Numero rotulo="Custo total" valor={brl(custoTotal)} dica="Custo real de todas as ordens do equipamento no IW38." />
         <Numero rotulo="Backlog" valor={inteiroBr(corr.length)} detalhe={`${inteiroBr(hist.filter((o) => o.comPlano).length)} de plano de manutenção`} dica="Ordens sem plano de manutenção (todas as datas)." />
-        <Numero rotulo="Intervalo médio do backlog" valor={intervalo != null ? `${Math.round(intervalo)} dias` : "—"}
+        <Numero rotulo="Intervalo médio do backlog" valor={intervalo != null ? `${inteiroBr(Math.round(intervalo))} dias` : "—"}
           dica="Média de dias entre uma ordem de backlog (sem plano) e a seguinte (aproxima o MTBF)." />
         <Numero rotulo="Pendentes hoje" valor={inteiroBr(hist.filter((o) => PENDENTES.has(o.situacao)).length)} detalhe={`${inteiroBr(hist.filter((o) => o.atrasada).length)} atrasadas`} />
         <Numero rotulo="Quebras no período" valor={inteiroBr(qPer.length)} detalhe={`${inteiroBr(qEq.length)} em todas as datas`}
           dica="Notas Y1 da IW28 convertidas em ordem YM11 neste equipamento." tom={qPer.length ? "atencao" : undefined} />
-        <Numero rotulo="MTBF no período" valor={qPer.length ? `${Math.round(diasPer / qPer.length)} dias` : "—"} dica="Dias do período ÷ quebras do equipamento no período." />
+        <Numero rotulo="MTBF no período" valor={qPer.length ? `${inteiroBr(Math.round(diasPer / qPer.length))} dias` : "—"} dica="Dias do período ÷ quebras do equipamento no período." />
         <Numero rotulo="MTTR no período" valor={rep.length ? `${n1.format(rep.reduce((a, b) => a + b, 0) / rep.length)} h` : "—"} dica={ind.POR_ID.mttr.formula} />
         <Numero rotulo="Reincidências (≤ 30 dias)" valor={inteiroBr(qPer.filter((q) => q.reincidente).length)} dica="Quebras a até 30 dias da anterior no mesmo equipamento." />
         <Numero rotulo="HH apontadas (IW47)" valor={hh != null ? `${inteiroBr(hh)} h` : "—"} detalhe="nas ordens do IW38 deste equipamento" />

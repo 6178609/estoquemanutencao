@@ -111,10 +111,10 @@ export function TabelaDados({ colunas, linhas, busca, baixar, limite = 400, altu
             </tr>
           </thead>
           <tbody className="divide-borda divide-y">
+            {/* o clique é da linha (mouse); o teclado chega pelo botão da coluna-chave, cujo Enter/Espaço sobe até o clique da linha */}
             {mostradas.map((l, i) => (
               <tr key={i} onClick={aoSelecionar ? () => aoSelecionar(l) : undefined}
-                tabIndex={aoSelecionar ? 0 : undefined} aria-selected={aoSelecionar ? (selecionada != null && l[colunaChave] === selecionada) : undefined}
-                onKeyDown={aoSelecionar ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); aoSelecionar(l); } } : undefined}
+                aria-current={aoSelecionar && selecionada != null && l[colunaChave] === selecionada ? "true" : undefined}
                 className={clsx(aoSelecionar && "cursor-pointer hover:bg-superficie-2", selecionada != null && l[colunaChave] === selecionada && "bg-superficie-3")}>
                 {l.map((v, j) => {
                   const c = colunas[j] ?? { rotulo: "" };
@@ -135,7 +135,7 @@ export function TabelaDados({ colunas, linhas, busca, baixar, limite = 400, altu
                     <td key={j} title={c.largo ? t : undefined}
                       className={clsx("px-3 py-1.5", numerica(c.formato) ? "num whitespace-nowrap text-right tabular-nums" : c.largo ? "min-w-[220px] max-w-[420px] truncate" : "whitespace-nowrap",
                         c.formato === "codigo" && "font-mono text-[12px]")}>
-                      {t}
+                      {aoSelecionar && j === colunaChave ? <button type="button" aria-label={`Detalhar ${t}`} className="text-left hover:underline">{t}</button> : t}
                     </td>
                   );
                 })}

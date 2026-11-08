@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ChevronDown } from "lucide-react";
 
 import { Barras, Colunas, Grafico, Legenda, type Cor } from "@/components/graficos";
 import { PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
@@ -36,6 +37,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const pct = (a: number, b: number) => (b ? `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format((a / b) * 100)}%` : "—");
 const chaveMes = (a: number, m: number) => a * 12 + (m - 1);
 const mesParam = (a: number, m: number) => `${a}-${String(m).padStart(2, "0")}`;
@@ -220,10 +222,10 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
         <Orcamento {...orcamento} pessoas={pessoas} editor={podeEditar(u) ? <EditorOrcamento ano={oano} valores={valoresAno} /> : undefined} />
       </Secao>
 
-      <details className="rounded-cartao border border-borda bg-superficie">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-display text-[16px] font-medium [&::-webkit-details-marker]:hidden">
+      <details className="group rounded-cartao border border-borda bg-superficie">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-cartao px-5 py-4 font-display text-[16px] font-medium transition-colors hover:bg-superficie-2 [&::-webkit-details-marker]:hidden">
           Mais detalhes
-          <span className="text-[13px] font-normal text-texto-3">por mês, tipo, área, centro, equipamento e ordem</span>
+          <span className="flex items-center gap-2 text-[13px] font-normal text-texto-3">por mês, tipo, área, centro, equipamento e ordem<ChevronDown aria-hidden className="size-5 shrink-0 transition-transform group-open:rotate-180" /></span>
         </summary>
         <div className="space-y-10 border-t border-borda p-5">
           <Secao titulo="Onde está" destaque="o dinheiro">
@@ -242,7 +244,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
                 brl(mes12.classes.reduce((s, x) => s + x.valores[i], 0))]) }}>
               <Colunas rotulos={rotMes} series={mes12.series} empilhar meta={orc} formato="R$" altura={260} rotular="ultimo" />
               <div className="mt-3"><Nota>
-                Custo médio mensal no período: <b className="font-medium text-texto-2">{brl(r.total / r.meses)}</b> ({r.meses.toFixed(1).replace(".", ",")} meses).
+                Custo médio mensal no período: <b className="font-medium text-texto-2">{brl(r.total / r.meses)}</b> ({nf1.format(r.meses)} meses).
                 {!orc && " Defina o orçamento mensal em Metas e parâmetros (meta do indicador Custo médio mensal)."}
                 {" "}Planejada = preventiva, preditiva/inspeção, lubrificação e autônoma; a tabela traz cada classe.
               </Nota></div>
@@ -261,12 +263,12 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
               <Grafico titulo="Pareto de custo por equipamento" subtitulo="Os 12 que mais custaram · laranja = os que somam 80% do gasto"
                 legenda={<Legenda series={[{ nome: "Somam 80% do gasto", cor: "serie-2" }, { nome: "Demais", cor: "neutro" }]} />}
                 tabela={{ colunas: ["Campo de ordenação", "Código", "Equipamento", "Custo", "% acumulado"],
-                  linhas: topEq.map((x) => [campoEq(x.codigo), x.codigo, x.nome, brl(x.custo), `${x.acumulado.toFixed(1).replace(".", ",")}%`]) }}>
+                  linhas: topEq.map((x) => [campoEq(x.codigo), x.codigo, x.nome, brl(x.custo), `${nf1.format(x.acumulado)}%`]) }}>
                 {topEq.length ? (
                   <>
                     <Barras formato="R$" larguraRotulo={260} max={(topEq[0]?.custo ?? 1) * 1.18} itens={topEq.map((x) => ({
-                      rotulo: `${campoEq(x.codigo) ? `${campoEq(x.codigo)} · ` : ""}${x.codigo} · ${x.nome.slice(0, 28)}`, valor: x.custo,
-                      cor: (x.vital ? "serie-2" : "neutro") as Cor, detalhe: `${x.acumulado.toFixed(0)}% acumulado` }))} />
+                      rotulo: `${campoEq(x.codigo) ? `${campoEq(x.codigo)} · ` : ""}${x.codigo} · ${x.nome.length > 28 ? `${x.nome.slice(0, 28)}…` : x.nome}`, valor: x.custo,
+                      cor: (x.vital ? "serie-2" : "neutro") as Cor, detalhe: `${n0.format(x.acumulado)}% acumulado` }))} />
                     <p className="mt-3 text-[13px] text-texto-2"><b className="num font-medium text-texto">{n0.format(eq.n80)}</b> de {n0.format(eq.linhas.length)} equipamentos
                       com custo respondem por 80% do gasto com equipamento.</p>
                   </>
@@ -278,13 +280,13 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
           <Secao titulo="Equipamentos e ordens" destaque="que mais custaram">
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-                <div className="font-display text-[15px] font-medium">Por equipamento</div>
+                <h3 className="font-display text-[15px] font-medium">Por equipamento</h3>
                 <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">200 maiores · clique numa linha para abrir a ficha do equipamento</div>
                 <TabelaFicha colunas={COL_EQ} limite={200} baixar="custo_por_equipamento" busca="Buscar equipamento…" colunaCodigo={1} colunaNome={2}
                   linhas={eq.linhas.slice(0, 200).map((x) => [campoEq(x.codigo), x.codigo, x.nome, x.custo, x.ordens, x.backlog, x.medio, x.acumulado])} />
               </div>
               <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-                <div className="font-display text-[15px] font-medium">Por ordem</div>
+                <h3 className="font-display text-[15px] font-medium">Por ordem</h3>
                 <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">200 ordens mais caras do período</div>
                 <TabelaDados colunas={COL_ORD} limite={200} baixar="ordens_mais_caras" busca="Buscar ordem, texto, equipamento…"
                   linhas={topOrd.map((x) => [x.ordem, x.tipoNome, x.natureza, x.texto, campoEq(x.equipChave), x.equipChave, x.custoReal, x.data, x.situacao])} />

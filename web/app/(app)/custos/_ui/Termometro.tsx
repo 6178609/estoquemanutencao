@@ -25,6 +25,9 @@ const CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
 const SEMANA = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const FAIXAS = ["var(--seq-2)", "var(--seq-3)", "var(--seq-4)", "var(--seq-5)", "var(--seq-6)"];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+const FMT_MES_ANO = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+const FMT_DIA_MES = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", timeZone: "UTC" });
+const mesAno = (ano: number, mes: number) => FMT_MES_ANO.format(new Date(Date.UTC(ano, mes - 1, 1)));
 
 /** Faixa 0–4 por quantil dos valores positivos do conjunto (mesma escala para todos os dias do mês). */
 function faixaDe(valores: number[]) {
@@ -61,7 +64,8 @@ export function Termometro(p: TermometroProps) {
   const mensal = p.modo === "mensal";
   const totalMes = p.dias.reduce((s, d) => s + d.valor, 0);
   const totalAno = p.meses.reduce((s, v) => s + v, 0);
-  const titulo = mensal ? `${NOMES[p.mes - 1].charAt(0).toUpperCase()}${NOMES[p.mes - 1].slice(1)} de ${p.ano}` : `${p.ano}`;
+  const mesAnoTxt = mesAno(p.ano, p.mes);
+  const titulo = mensal ? `${mesAnoTxt.charAt(0).toUpperCase()}${mesAnoTxt.slice(1)}` : `${p.ano}`;
   const offset = (new Date(Date.UTC(p.ano, p.mes - 1, 1)).getUTCDay() + 6) % 7; // segunda = 0
   const faixaDia = faixaDe(p.dias.map((d) => d.valor));
   const faixaMes = faixaDe(p.meses);
@@ -70,7 +74,7 @@ export function Termometro(p: TermometroProps) {
     <section className="flex min-w-0 flex-col rounded-cartao border border-borda bg-superficie p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-display text-[15px] font-medium">Termômetro</div>
+          <h3 className="font-display text-[15px] font-medium">Termômetro</h3>
           <div className="mt-0.5 text-[12.5px] text-texto-3">{titulo}</div>
         </div>
         <div className="flex items-center gap-2">
@@ -88,7 +92,7 @@ export function Termometro(p: TermometroProps) {
       <div className="mt-4 text-[13px] text-texto-2">
         {mensal ? (
           <>Total do mês <b className="num font-medium text-texto">{brl(totalMes)}</b>{" "}
-            <Variacao atual={totalMes} anterior={p.mesAnterior} rotulo={`vs ${NOMES[p.mes - 1]} de ${p.anoAnterior}`} /></>
+            <Variacao atual={totalMes} anterior={p.mesAnterior} rotulo={`vs ${mesAno(p.anoAnterior, p.mes)}`} /></>
         ) : (
           <>Total do ano <b className="num font-medium text-texto">{brl(totalAno)}</b>{" "}
             <Variacao atual={totalAno} anterior={p.anoAnteriorTotal} rotulo={`vs ${p.anoAnterior}`} /></>
@@ -102,7 +106,7 @@ export function Termometro(p: TermometroProps) {
           {p.dias.map((d) => {
             const f = d.valor > 0 ? faixaDia(d.valor) : null;
             return (
-              <div key={d.dia} role="img" aria-label={`${d.dia} de ${NOMES[p.mes - 1]}: ${brl(d.valor)}`} title={`${d.dia} · ${brl(d.valor)}`} style={corDaFaixa(f)}
+              <div key={d.dia} role="img" aria-label={`${FMT_DIA_MES.format(new Date(Date.UTC(p.ano, p.mes - 1, d.dia)))}: ${brl(d.valor)}`} title={`${d.dia} · ${brl(d.valor)}`} style={corDaFaixa(f)}
                 className="flex min-h-[3.4rem] min-w-0 flex-col items-center justify-between rounded-md px-0.5 py-1 text-center">
                 <span className="text-[10px] font-medium opacity-80">{d.dia}</span>
                 <span className="num break-words text-[10px] leading-tight">{d.valor > 0 ? brlCurto(d.valor) : "–"}</span>

@@ -76,8 +76,8 @@ export function PecasAtivo({ tag, pecas, grupos, edita }: { tag: string; pecas: 
             <>
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-                <input className={ENTRADA} value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar peça para vincular" placeholder="Buscar código, descrição, Sysmat ou fabricante…" />
-                {buscando && <LoaderCircle role="img" aria-label="Buscando" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" />}
+                <input className={ENTRADA} value={busca} onChange={(e) => setBusca(e.target.value)} autoComplete="off" spellCheck={false} aria-label="Buscar peça para vincular" placeholder="Buscar código, descrição, Sysmat ou fabricante…" />
+                {buscando && <LoaderCircle role="img" aria-label="Buscando…" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" />}
               </label>
               <p role="status" className="sr-only">{cand && !buscando ? (cand.itens.length ? `${cand.itens.length} material(is) encontrado(s)` : "Nenhum material encontrado") : ""}</p>
               <ul className="mt-2 h-64 overflow-y-auto rounded-xl border border-borda">

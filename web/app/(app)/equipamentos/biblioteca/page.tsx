@@ -104,7 +104,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
 
       {/* 1. resumo */}
       <section aria-labelledby="resumo" className="space-y-4">
-        <h2 id="resumo" className="font-display text-[20px] font-medium">Resumo do ativo</h2>
+        <h2 id="resumo" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Resumo do ativo</h2>
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
           <Selo>{r.situacao}</Selo>
           <Selo cor={r.criticidade === "Alta" ? "vermelho" : r.criticidade === "Média" ? "laranja" : r.criticidade === "Baixa" ? "verde" : "cinza"}>Criticidade {r.criticidade || "sem classe"}</Selo>
@@ -136,7 +136,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {/* 2. componentes */}
       <section aria-labelledby="componentes" className="space-y-4">
         <div>
-          <h2 id="componentes" className="font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({nPecas})</span></h2>
+          <h2 id="componentes" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Componentes <span className="text-texto-3">({nPecas})</span></h2>
           <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas ao equipamento e aos sistemas dele no SAP, com o saldo no almoxarifado (MB52). Toque na peça para ver o detalhe.{edita ? " Para vincular mais, use Editar cadastro ou a Gestão de MRO." : ""}</p>
           <div className="mt-3"><BaixarPecas eq={r.codigo} n={nPecas + nBloqueadas + semCadastro.length} /></div>
         </div>
@@ -150,7 +150,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {nBloqueadas > 0 && (
         <section aria-labelledby="bloqueados" className="space-y-4">
           <div>
-            <h2 id="bloqueados" className="font-display text-[20px] font-medium">Componentes bloqueados no Sysmat <span className="text-texto-3">({nBloqueadas})</span></h2>
+            <h2 id="bloqueados" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Componentes bloqueados no Sysmat <span className="text-texto-3">({nBloqueadas})</span></h2>
             <p className="mt-1 text-[13px] text-texto-3">Peças vinculadas ao equipamento cujo cadastro no Sysmat está bloqueado, cancelado ou duplicado: não dá para pedir nem reservar até o cadastro ser desbloqueado ou trocado pelo código substituto.</p>
           </div>
           <PecasPorSistema grupos={gruposBloqueados} />
@@ -159,7 +159,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
 
       {/* 2a'. peças pelo consumo real (IW13) */}
       <section aria-labelledby="consumo" className="space-y-2">
-        <h2 id="consumo" className="font-display text-[20px] font-medium">Peças pelo consumo real{consumo.linhas?.length ? <span className="text-texto-3"> ({consumo.linhas.filter((l) => l.ordens).length})</span> : null}</h2>
+        <h2 id="consumo" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Peças pelo consumo real{consumo.linhas?.length ? <span className="text-texto-3"> ({consumo.linhas.filter((l) => l.ordens).length})</span> : null}</h2>
         <p className="text-[13px] text-texto-3">O que de fato saiu do almoxarifado para ordens deste equipamento e dos subconjuntos dele (export IW13 do SAP), com o vínculo na Gestão de MRO e o saldo da MB52.</p>
         <ConsumoAtivo tag={r.codigo} linhas={consumo.linhas} periodo={consumo.periodo} edita={false} />
       </section>
@@ -167,7 +167,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {/* 2b. peças sem cadastro no Sysmat */}
       <section aria-labelledby="sem-cadastro" className="space-y-4">
         <div>
-          <h2 id="sem-cadastro" className="font-display text-[20px] font-medium">Peças sem cadastro no Sysmat <span className="text-texto-3">({semCadastro.length})</span></h2>
+          <h2 id="sem-cadastro" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Peças sem cadastro no Sysmat <span className="text-texto-3">({semCadastro.length})</span></h2>
           <p className="mt-1 text-[13px] text-texto-3">Peças deste equipamento que ainda não têm código de material (do manual, de desenho ou da máquina). A lista também sai no PDF e no Excel de peças, para pedir o cadastro.</p>
         </div>
         <PecasSemCadastro eq={r.codigo} edita={edita}
@@ -178,7 +178,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {ficha && modelo && (
         <section aria-labelledby="ficha" className="space-y-4">
           <div>
-            <h2 id="ficha" className="font-display text-[20px] font-medium">Ficha técnica do modelo <span className="text-texto-3">· {ficha.ativo.modelo ?? modelo}</span></h2>
+            <h2 id="ficha" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Ficha técnica do modelo <span className="text-texto-3">· {ficha.ativo.modelo ?? modelo}</span></h2>
             <p className="mt-1 text-[13px] text-texto-3">{ficha.ativo.nome}. Dados dos manuais, das listas de tarefas e das planilhas do modelo, sem TAG nem nº de série: valem para todas as máquinas deste modelo.</p>
           </div>
           <FichaModelo modelo={modelo} ficha={ficha} peca={(m) => pecaMro(m, bm, c.cad.materiais)} />
@@ -188,7 +188,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {/* 3. manuais e documentos */}
       <section aria-labelledby="manuais" className="space-y-4">
         <div>
-          <h2 id="manuais" className="font-display text-[20px] font-medium">Manuais e documentos <span className="text-texto-3">({docs.length})</span></h2>
+          <h2 id="manuais" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Manuais e documentos <span className="text-texto-3">({docs.length})</span></h2>
           <p className="mt-1 text-[13px] text-texto-3">Manuais, catálogos de peças, desenhos, fotos da plaqueta, procedimentos — arquivo (PDF ou imagem) ou link.{edita ? "" : " Só editor ou administrador adiciona."}</p>
         </div>
         <Documentos eq={r.codigo} edita={edita}
@@ -198,7 +198,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
       {/* 4. últimas ordens */}
       {ordens.length > 0 && verOrdens && (
         <section aria-labelledby="ordens" className="space-y-4">
-          <h2 id="ordens" className="font-display text-[20px] font-medium">Últimas ordens <span className="text-texto-3">({inteiroBr(ordens.length)} no IW38)</span></h2>
+          <h2 id="ordens" className="scroll-mt-24 text-balance font-display text-[20px] font-medium">Últimas ordens <span className="text-texto-3">({inteiroBr(ordens.length)} no IW38)</span></h2>
           <ul className="divide-y divide-borda overflow-hidden rounded-cartao border border-borda bg-superficie">
             {ordens.slice(0, 8).map((o) => (
               <li key={o.ordem}>

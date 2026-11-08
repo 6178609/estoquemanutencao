@@ -27,7 +27,13 @@ export const dynamic = "force-dynamic";
 const VISOES = ["Visão geral", "Férias", "Treinamentos"];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
-const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+/** abreviação dos meses em português ("Jan" … "Dez"), pelo Intl */
+const MESES = Array.from({ length: 12 }, (_, m) => {
+  const s = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(Date.UTC(2026, m, 1)).replace(".", "");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+});
+/** dia (dias desde 1970, em UTC) → dd/mm */
+const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 const COR_SITUACAO: Record<tr.SituacaoReciclagem, string> = {
   "Vencido": "var(--st-critico)", "Vence em breve": "var(--st-serio)", "Em dia": "var(--st-bom)", "Sem validade": "var(--superficie-3)",
   "Agendado": "var(--serie-1)",
@@ -122,13 +128,13 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
         ]} />
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-            <div className="font-display text-[15px] font-medium">Próximos 30 dias</div>
+            <h3 className="font-display text-[15px] font-medium">Próximos 30 dias</h3>
             <div className="mb-3 mt-0.5 text-[12.5px] text-texto-3">Férias e treinamentos que começam até {dataBr(hoje + 30)}.</div>
             {proximas.length ? (
               <ul className="divide-y divide-borda text-[13px]">
                 {proximas.slice(0, 15).map((a) => (
                   <li key={`${a.np}-${a.id}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
-                    <span className="num w-24 tabular-nums text-texto-2">{dataBr(a.de)}{a.ate > a.de ? ` a ${dataBr(a.ate).slice(0, 5)}` : ""}</span>
+                    <span className="num w-24 tabular-nums text-texto-2">{dataBr(a.de)}{a.ate > a.de ? ` a ${dataCurta.format(a.ate * 86_400_000)}` : ""}</span>
                     <span className="font-medium">{nome(a.np)}</span>
                     <span className="text-texto-3">{a.tipo}{a.titulo ? ` · ${a.titulo}` : ""} · {centro(a.np)}</span>
                   </li>
@@ -137,7 +143,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
             ) : <p className="text-[13px] text-texto-3">Nada programado.</p>}
           </div>
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-            <div className="font-display text-[15px] font-medium">Cobertura por centro</div>
+            <h3 className="font-display text-[15px] font-medium">Cobertura por centro</h3>
             <div className="mb-3 mt-0.5 text-[12.5px] text-texto-3">
               Semanas do período em que mais de {tr.LIMITE_COBERTURA}% dos técnicos de um centro ficam fora no mesmo dia (férias + treinamento).
             </div>
@@ -162,14 +168,14 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
     return (
       <div className="space-y-5">
         <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-          <div className="font-display text-[15px] font-medium">Férias no ano de {anoAtual}</div>
+          <h3 className="font-display text-[15px] font-medium">Férias no ano de {anoAtual}</h3>
           <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">Dias corridos por pessoa: gozados até hoje e programados até dezembro, contra {tr.DIAS_FERIAS} dias.</div>
           <TabelaDados colunas={COLS_FERIAS} baixar={`ferias_${anoAtual}`} limite={500} busca="Buscar nome, matrícula, centro…" ordemInicial={{ coluna: 5, desc: true }}
             linhas={ano.map((f) => [nome(f.np), f.np, centro(f.np), f.gozados, f.programados, f.restante, f.proxima])} />
         </div>
         {mapa.length > 0 && (
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-            <div className="font-display text-[15px] font-medium">Mapa de férias</div>
+            <h3 className="font-display text-[15px] font-medium">Mapa de férias</h3>
             <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">Dias de férias de cada pessoa em cada mês de {anoAtual} · mais escuro = mais dias.</div>
             <div className="overflow-x-auto">
               <table className="border-separate border-spacing-[2px] text-[11.5px]">
@@ -206,7 +212,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
     return (
       <div className="space-y-5">
         <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-          <div className="font-display text-[15px] font-medium">Reciclagens</div>
+          <h3 className="font-display text-[15px] font-medium">Reciclagens</h3>
           <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">
             O último treinamento já realizado de cada pessoa com o mesmo nome define a validade (uma turma agendada aparece em Próxima turma). {n0.format(prioridade.length)} vencido(s) ou vencendo em até {tr.JANELA_VENCIMENTO} dias.
           </div>
@@ -215,7 +221,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
         </div>
         {titulos.length > 0 && (
           <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-            <div className="font-display text-[15px] font-medium">Matriz pessoa × treinamento</div>
+            <h3 className="font-display text-[15px] font-medium">Matriz pessoa × treinamento</h3>
             <div className="mb-3 mt-0.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-texto-2">
               {(Object.keys(COR_SITUACAO) as tr.SituacaoReciclagem[]).map((s) => (
                 <span key={s} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: COR_SITUACAO[s] }} />{s}</span>

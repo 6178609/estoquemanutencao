@@ -27,8 +27,8 @@ export function Guias({ q, area, guia }: { q: string; area?: Area; guia?: string
       <form method="get" action="/suporte" role="search" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <input type="hidden" name="visao" value="guias" />
         {area && <input type="hidden" name="area" value={area} />}
-        <Campo rotulo="Buscar guia" name="q" type="search" defaultValue={q} maxLength={120}
-          placeholder="Ex.: rolamento, graxa, NR-10, vibração" dica="Aceita sem acento e sem maiúsculas. Cada palavra precisa aparecer no guia." />
+        <Campo rotulo="Buscar guia" name="q" type="search" defaultValue={q} maxLength={120} autoComplete="off"
+          placeholder="Ex.: rolamento, graxa, NR-10, vibração…" dica="Aceita sem acento e sem maiúsculas. Cada palavra precisa aparecer no guia." />
         <button type="submit" className={BOTAO_SECUNDARIO}>Buscar</button>
       </form>
 
@@ -82,7 +82,7 @@ function GuiaAberto({ guia: g, q, area }: { guia: Guia; q: string; area?: Area }
       </Link>
       <header className="space-y-3">
         <Pilula>{nomeArea(g.area)}</Pilula>
-        <h2 className="font-display text-[26px] font-medium tracking-[-0.02em] text-texto">{g.titulo}</h2>
+        <h2 className="font-display text-[26px] font-medium tracking-[-0.02em] text-balance text-texto">{g.titulo}</h2>
         <p className="max-w-3xl text-[15px] text-texto-2">{g.resumo}</p>
       </header>
 

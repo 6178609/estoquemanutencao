@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { CalendarRange, Check, ChevronDown, FilterX, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 
 export interface Opcao { valor: string; rotulo?: string; n: number }
 export interface OpcoesFiltro { areas: Opcao[]; setores: Opcao[]; centros: Opcao[]; tipos: Opcao[] }
@@ -42,7 +42,7 @@ function Multi({ nome, chave, opcoes, selecionados, aoMudar }: {
           {opcoes.length > 8 && (
             <label className="mb-1.5 flex items-center gap-2 rounded-lg border border-borda px-2.5">
               <Search className="size-3.5 text-texto-3" />
-              <input autoFocus aria-label={`Procurar em ${nome.toLowerCase()}`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Procurar"
+              <input name="procurar-opcao" autoComplete="off" aria-label={`Procurar em ${nome.toLowerCase()}`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Procurar…"
                 className="h-8 w-full bg-transparent text-[13px]" />
             </label>
           )}
@@ -85,6 +85,17 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimens
   const params = useSearchParams();
   const [pendente, iniciar] = useTransition();
   const [menuPeriodo, setMenuPeriodo] = useState(false);
+  const periodoRef = useRef<HTMLDivElement>(null);
+  const menuAtalhosId = useId();
+  // o menu de atalhos fecha ao clicar fora e com Escape (além de sair com o mouse)
+  useEffect(() => {
+    if (!menuPeriodo) return;
+    const fora = (e: MouseEvent) => { if (!periodoRef.current?.contains(e.target as Node)) setMenuPeriodo(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuPeriodo(false); };
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", esc); };
+  }, [menuPeriodo]);
   const sel = useMemo(() => ({
     area: (params.get("area") || "").split(",").filter(Boolean), setor: (params.get("setor") || "").split(",").filter(Boolean),
     centro: (params.get("centro") || "").split(",").filter(Boolean), tipo: (params.get("tipo") || "").split(",").filter(Boolean),
@@ -113,20 +124,20 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimens
     <div className="nao-imprimir relative z-20 -mx-4 border-b border-borda bg-fundo/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:sticky lg:top-0">
       <div className="flex flex-wrap items-center gap-2">
         {periodo && (
-          <div className="relative flex max-w-full items-center gap-1.5">
+          <div ref={periodoRef} className="relative flex max-w-full items-center gap-1.5">
             <div className="inline-flex h-9 min-w-0 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-2 text-[13px]">
               <CalendarRange className="size-4 shrink-0 text-texto-3" />
-              <input type="date" value={ini} max={fim} onChange={(e) => e.target.value && aplicar({ ini: e.target.value })}
+              <input type="date" name="data-inicial" autoComplete="off" value={ini} max={fim} onChange={(e) => e.target.value && aplicar({ ini: e.target.value })}
                 aria-label="Data inicial" className="w-[6.9rem] min-w-0 bg-transparent [color-scheme:inherit] sm:w-auto" />
               <span aria-hidden="true" className="text-texto-4">→</span>
-              <input type="date" value={fim} min={ini} onChange={(e) => e.target.value && aplicar({ fim: e.target.value })}
+              <input type="date" name="data-final" autoComplete="off" value={fim} min={ini} onChange={(e) => e.target.value && aplicar({ fim: e.target.value })}
                 aria-label="Data final" className="w-[6.9rem] min-w-0 bg-transparent sm:w-auto" />
             </div>
-            <button onClick={() => setMenuPeriodo(!menuPeriodo)} aria-expanded={menuPeriodo} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
+            <button onClick={() => setMenuPeriodo(!menuPeriodo)} aria-expanded={menuPeriodo} aria-controls={menuAtalhosId} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
               Atalhos <ChevronDown className="size-3.5" />
             </button>
             {menuPeriodo && (
-              <div className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-borda bg-superficie p-1.5 shadow-flutuante" onMouseLeave={() => setMenuPeriodo(false)} onKeyDown={(e) => { if (e.key === "Escape") setMenuPeriodo(false); }}>
+              <div id={menuAtalhosId} className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-borda bg-superficie p-1.5 shadow-flutuante" onMouseLeave={() => setMenuPeriodo(false)} onKeyDown={(e) => { if (e.key === "Escape") setMenuPeriodo(false); }}>
                 {ATALHOS.map((a) => (
                   <button key={a} onClick={() => { setMenuPeriodo(false); aplicar({ atalho: a, ini: null, fim: null }); }}
                     className="block w-full rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-superficie-2">{a}</button>

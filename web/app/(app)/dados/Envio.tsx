@@ -22,7 +22,8 @@ interface Item {
 
 const EXTENSOES = ".xlsx,.xlsm,.xls,.csv,.txt,.htm,.html";
 const n0 = new Intl.NumberFormat("pt-BR");
-const mb = (b: number) => `${(b / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const mb = (b: number) => `${(b / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}\u00A0MB`;
 
 function novoEnvio() {
   return Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 16);
@@ -141,6 +142,14 @@ export function Envio({ demo }: { demo: boolean }) {
   const lendo = itens.some((i) => i.situacao === "lendo");
   // os nomes dos tipos de ordem da planilha de HH continuam indo (para Metas), mesmo sem enviar a equipe
   const temTipos = itens.some((i) => i.tiposOrdem && Object.keys(i.tiposOrdem).length);
+  // arquivos lidos e ainda não enviados (ou envio em andamento): avisa antes de sair da página
+  const perderia = enviando || aEnviar.length > 0;
+  useEffect(() => {
+    if (!perderia) return;
+    const aviso = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", aviso);
+    return () => window.removeEventListener("beforeunload", aviso);
+  }, [perderia]);
 
   async function enviar() {
     setEnviando(true);
@@ -227,7 +236,7 @@ export function Envio({ demo }: { demo: boolean }) {
                       {b.partes.length > 1 ? ` · ${b.partes.length} partes` : ""}</span>
                     {ignorada && <span className="text-[12px] text-texto-4">(há um arquivo mais novo desta base na lista)</span>}
                     {semEnvio && <span className="text-[12px] text-texto-3">Não é enviada: {MOTIVO_SEM_ENVIO}.</span>}
-                    {b.situacao === "enviando" && <span className="flex items-center gap-1.5 text-texto-3"><LoaderCircle className="size-3.5 animate-spin" /> enviando {Math.round((b.progresso || 0) * 100)}%</span>}
+                    {b.situacao === "enviando" && <span className="flex items-center gap-1.5 text-texto-3"><LoaderCircle className="size-3.5 animate-spin" /> enviando {pctFmt.format(b.progresso || 0)}</span>}
                     {b.situacao === "enviado" && <span className="flex items-center gap-1 text-marca-600 dark:text-marca-300"><CheckCircle2 className="size-3.5" /> gravada</span>}
                     {b.erro && <span className="text-perigo-500">{b.erro}</span>}
                   </div>

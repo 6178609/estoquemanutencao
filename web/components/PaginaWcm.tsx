@@ -24,7 +24,7 @@ export function Secao({ titulo, destaque, sub, acoes, children }: { titulo: stri
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-[22px] font-medium tracking-[-0.02em]">{titulo}{destaque && <> <span className="tom2">{destaque}</span></>}</h2>
+          <h2 className="font-display text-[22px] font-medium tracking-[-0.02em] text-balance">{titulo}{destaque && <> <span className="tom2">{destaque}</span></>}</h2>
           {sub && <p className="mt-1 max-w-3xl text-[13px] text-texto-3">{sub}</p>}
         </div>
         {acoes}

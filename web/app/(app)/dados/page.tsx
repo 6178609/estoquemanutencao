@@ -57,7 +57,7 @@ export default async function FontesDeDados() {
         : <p className="text-[14px] text-texto-3">Só editores e administradores enviam bases. Peça a um deles para atualizar.</p>}
 
       <section className="space-y-4">
-        <div className="font-display text-[20px] font-medium">Bases no repositório</div>
+        <h2 className="font-display text-[20px] font-medium">Bases no repositório</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {bases.map((b) => (
             <Cartao key={b.tipo} className="p-5">
@@ -65,7 +65,7 @@ export default async function FontesDeDados() {
                 <IconeQuadro icone={!b.carregada ? CircleDashed : b.velha ? Clock : CheckCircle2}
                   tom={!b.carregada ? "neutro" : b.velha ? "laranja" : "verde"} />
                 <div className="min-w-0 flex-1">
-                  <div className="font-display text-[15px] font-medium leading-snug">{b.nome}</div>
+                  <h3 className="font-display text-[15px] font-medium leading-snug">{b.nome}</h3>
                   {b.carregada ? (
                     <div className="mt-1.5 space-y-0.5 text-[12.5px] text-texto-3">
                       <div>

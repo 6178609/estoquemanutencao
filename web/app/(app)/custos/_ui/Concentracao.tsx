@@ -22,7 +22,7 @@ export function Concentracao({ conc, nomeEq, campoEq }: {
   return (
     <section className="flex min-w-0 flex-col gap-4 rounded-cartao border border-borda bg-superficie p-5">
       <div>
-        <div className="font-display text-[15px] font-medium">Concentração do custo</div>
+        <h3 className="font-display text-[15px] font-medium">Concentração do custo</h3>
         <div className="mt-0.5 text-[12.5px] text-texto-3">Quanto do custo cai em poucos equipamentos</div>
       </div>
 

@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { Download, Lock, Save, Trash2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
@@ -33,6 +33,7 @@ const COR_TIPO: [string, Cor][] = [["Férias", "serie-1"], ["Afastamento (atesta
 const OUTROS = "Outros (folga, licença, cedido…)";
 const corTipo = (t: string): Cor => COR_TIPO.find(([n]) => n === t)?.[1] ?? "serie-4";
 const grupoTipo = (t: string) => (COR_TIPO.some(([n]) => n === t) ? t : OUTROS);
+const FMT_DIA_MES = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }); // "05/03"
 
 export function GestaoHh({ visao, pessoas, ausencias, hoje, ini, fim, edita, horasSemana, tipos }: {
   visao: string; pessoas: PessoaLinha[]; ausencias: AusenciaLinha[]; hoje: number; ini: number; fim: number; edita: boolean;
@@ -118,6 +119,14 @@ function Pessoas({ vis, edita, horasSemana }: { vis: PessoaLinha[]; edita: boole
   const mudar = (p: PessoaLinha, k: keyof Edicao, v: string | boolean) => setEd((s) => ({ ...s, [p.np]: { ...valor(p), [k]: v } }));
   const maxDisp = Math.max(1, ...orden.map((p) => p.horasDisp));
 
+  // edições na tabela ainda não salvas: avisa antes de sair da página
+  useEffect(() => {
+    if (!mudados.length) return;
+    const avisa = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avisa);
+    return () => window.removeEventListener("beforeunload", avisa);
+  }, [mudados.length]);
+
   function salvar() {
     const itens: EdicaoPessoa[] = mudados.map((p) => {
       const e = ed[p.np];
@@ -172,11 +181,11 @@ function Pessoas({ vis, edita, horasSemana }: { vis: PessoaLinha[]; edita: boole
                   <td className="num px-3 py-1.5 font-mono text-[12px]">{p.centro}</td>
                   <td className="px-3 py-1.5">{p.turma}</td>
                   <td className="px-3 py-1.5 text-right">
-                    <input aria-label={`Jornada de ${p.nome}`} disabled={!edita} type="number" min={0} max={80} step={0.5} value={v.jornada}
+                    <input aria-label={`Jornada de ${p.nome}`} name={`jornada-${p.np}`} autoComplete="off" disabled={!edita} type="number" min={0} max={80} step={0.5} value={v.jornada}
                       onChange={(e) => mudar(p, "jornada", e.target.value)} className={clsx(ent, "num w-20 text-right")} />
                   </td>
                   <td className="px-3 py-1.5 text-right">
-                    <input aria-label={`Disponível de ${p.nome}`} disabled={!edita} type="number" min={0} max={100} step={5} value={v.disponivel}
+                    <input aria-label={`Disponível de ${p.nome}`} name={`disponivel-${p.np}`} autoComplete="off" disabled={!edita} type="number" min={0} max={100} step={5} value={v.disponivel}
                       onChange={(e) => mudar(p, "disponivel", e.target.value)} className={clsx(ent, "num w-16 text-right")} />
                   </td>
                   <td className="px-3 py-1.5">
@@ -184,7 +193,7 @@ function Pessoas({ vis, edita, horasSemana }: { vis: PessoaLinha[]; edita: boole
                       onChange={(e) => mudar(p, "conta", e.target.checked)} className="size-4 accent-[var(--color-marca-500)]" />
                   </td>
                   <td className="px-3 py-1.5">
-                    <input aria-label={`Observação de ${p.nome}`} disabled={!edita} value={v.obs} maxLength={500}
+                    <input aria-label={`Observação de ${p.nome}`} name={`obs-${p.np}`} autoComplete="off" disabled={!edita} value={v.obs} maxLength={500}
                       onChange={(e) => mudar(p, "obs", e.target.value)} className={clsx(ent, "w-44")} placeholder={edita ? "—" : ""} />
                   </td>
                   <td className="num px-3 py-1.5 text-right tabular-nums">{p.diasAusente ? int(p.diasAusente) : ""}</td>
@@ -312,7 +321,7 @@ function Calendario({ pessoas, ausencias, ini, fim }: { pessoas: PessoaLinha[]; 
   const colunas = useMemo(() => {
     const out: { de: number; ate: number; rot: string; fds: boolean }[] = [];
     if (!porSemana) for (let d = ini; d <= fim; d++) { const p = partes(d); out.push({ de: d, ate: d, rot: String(p.dia), fds: p.semana === 0 || p.semana === 6 }); }
-    else for (let d = ini - ((partes(ini).semana + 6) % 7); d <= fim; d += 7) out.push({ de: Math.max(d, ini), ate: Math.min(d + 6, fim), rot: dataBr(Math.max(d, ini)).slice(0, 5), fds: false });
+    else for (let d = ini - ((partes(ini).semana + 6) % 7); d <= fim; d += 7) out.push({ de: Math.max(d, ini), ate: Math.min(d + 6, fim), rot: FMT_DIA_MES.format(new Date(Math.max(d, ini) * 86_400_000)), fds: false });
     return out;
   }, [ini, fim, porSemana]);
   const nps = new Set(pessoas.map((p) => p.np));
