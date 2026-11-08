@@ -200,7 +200,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
           <div className="barra-progresso h-full w-1/3 rounded-full bg-[var(--acao)]" />
         </div>
       )}
-      <main className="min-w-0 flex-1">
+      <main id="conteudo" tabIndex={-1} className="min-w-0 flex-1 focus:outline-none">
         <FaixaMarca />
         {/* barra do computador: caminho da página à esquerda; busca à direita */}
         <div className="nao-imprimir hidden items-center gap-4 border-b border-borda bg-superficie px-8 py-2.5 lg:flex">
