@@ -42,7 +42,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
         </div>
       </header>
 
-      <main>
+      <main id="conteudo" tabIndex={-1} className="focus:outline-none">
         <section className="relative overflow-hidden">
           <div aria-hidden className="pontos absolute inset-0" />
           <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 py-14 sm:px-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:py-20">

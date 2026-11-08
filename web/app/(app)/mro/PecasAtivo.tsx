@@ -79,7 +79,8 @@ export function PecasAtivo({ tag, pecas, grupos, edita }: { tag: string; pecas: 
                 <input className={ENTRADA} value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar peça para vincular" placeholder="Buscar código, descrição, Sysmat ou fabricante…" />
                 {buscando && <LoaderCircle role="img" aria-label="Buscando" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" />}
               </label>
-              <ul aria-live="polite" className="mt-2 h-64 overflow-y-auto rounded-xl border border-borda">
+              <p role="status" className="sr-only">{cand && !buscando ? (cand.itens.length ? `${cand.itens.length} material(is) encontrado(s)` : "Nenhum material encontrado") : ""}</p>
+              <ul className="mt-2 h-64 overflow-y-auto rounded-xl border border-borda">
                 {cand && !cand.itens.length && <li className="px-3 py-3 text-[13px] text-texto-3">Nenhum material encontrado.</li>}
                 {cand?.itens.map((p) => {
                   const on = vinculados.has(p.codigo);

@@ -130,7 +130,7 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
 
       <p aria-live="polite" className="flex items-center gap-2 text-[13px] text-texto-3">
         {total === null ? "Buscando…" : <><span className="num font-semibold text-texto">{inteiro(total)}</span> material(is) — role até o fim, sem limite.</>}
-        {carregando && <LoaderCircle className="size-4 animate-spin" aria-label="Carregando" role="img" />}
+        {carregando && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
       </p>
       {erro && <p role="alert" className="rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-4 py-3 text-sm text-perigo-500">{erro}</p>}
 
