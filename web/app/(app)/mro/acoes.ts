@@ -55,7 +55,7 @@ export async function alterarPecas(tag: string, adicionar: string[], remover: st
 }
 
 // ----------------------------------------------------------------------------
-// Alocação automática (pelo texto) — em lote, com desfazer da última
+// Alocação automática (consumo real IW13 + texto) — em lote, com desfazer da última
 // ----------------------------------------------------------------------------
 const ARQ_LOG = "alocacao_automatica.json";
 const MAX_LOTE = 20_000;

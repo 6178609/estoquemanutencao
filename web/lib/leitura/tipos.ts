@@ -4,14 +4,14 @@ import { chave } from "../dados/texto";
  * As bases que o site entende — tipos, nomes e destinos no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",
-  "equipe", "af", "acoes_af", "indicadores_sim", "roadmap_sim"] as const;
+  "iw13", "equipe", "af", "acoes_af", "indicadores_sim", "roadmap_sim"] as const;
 export type Tipo = (typeof TIPOS)[number];
 
 export const NOMES_BASE: Record<Tipo, string> = {
   iw38: "Ordens (IW38)", ip19: "Planos de manutenção (IP19)", iw38op: "Operações das ordens (IW38OP)",
   iw28: "Notas de manutenção (IW28)", ih08: "Cadastro de equipamentos (IH08)", mb52: "Estoque (MB52)",
   catalogo_materiais: "Catálogo de materiais cadastrados (Sysmat)", requisicoes: "Requisições de compra",
-  iw47: "Apontamentos de horas (IW47)", equipe: "Equipe de manutenção (Gestão de HH)",
+  iw47: "Apontamentos de horas (IW47)", iw13: "Consumo de materiais das ordens (IW13)", equipe: "Equipe de manutenção (Gestão de HH)",
   af: "Análises de falha (Gerenciador de AF)", acoes_af: "Ações das análises de falha (Gerenciador de AF)",
   indicadores_sim: "Indicadores SIM — pilar MP (Dashboard F26)", roadmap_sim: "Roadmap SIM — passos por máquina (previsto × realizado)",
 };
@@ -19,7 +19,7 @@ export const NOMES_BASE: Record<Tipo, string> = {
 export const DESTINO: Record<Tipo, string> = {
   iw38: "bases/IW38.parquet", mb52: "bases/MB52.parquet", requisicoes: "bases/REQUISICOES.parquet",
   ip19: "bases/IP19.parquet", iw38op: "bases/IW38OP.parquet", iw28: "bases/IW28.parquet", ih08: "bases/IH08.parquet",
-  iw47: "bases/IW47.parquet", equipe: "bases/EQUIPE.parquet", af: "bases/AF.parquet", acoes_af: "bases/AF_ACOES.parquet",
+  iw47: "bases/IW47.parquet", iw13: "bases/IW13.parquet", equipe: "bases/EQUIPE.parquet", af: "bases/AF.parquet", acoes_af: "bases/AF_ACOES.parquet",
   catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet", indicadores_sim: "bases/INDICADORES_SIM.parquet",
   roadmap_sim: "bases/ROADMAP_SIM.parquet",
 };
@@ -49,6 +49,7 @@ export function identificar(colunas: unknown[]): Tipo | null {
   if (tem(/^CODIGO SYSMAT$|^CODIGOSYSMAT$/) && tem(/CODIGO ?ALPARGATAS/) && tem(/DESCR(ICAO)? COMPLETA/)) return "catalogo_materiais";
   if (tem(/^N DA ANALISE$/) && tem(/^N DA ACAO$/) && tem(/^ACAO$/)) return "acoes_af";
   if (tem(/^N DA ANALISE$/) && tem(/^STATUS DA ANALISE$/) && tem(/^DATA DA FALHA$/)) return "af";
+  if (tem(/^ORDEM$/) && tem(/^MATERIAL$/) && tem(/^RESERVADO$/) && tem(/^TOMADOS$/)) return "iw13";
   if (tem(/^TRABALHO REAL$/) && tem(/^ORDEM$/) && tem(/^N PESSOAL$|NUMERO PESSOAL/)) return "iw47";
   if (tem(/^N PESSOAL$|NUMERO PESSOAL|MATRICULA/) && tem(/^NOME/) && tem(/^CARGO$|^FUNCAO$/) && !tem(/TRABALHO REAL/)) return "equipe";
   if (tem(/^ORDEM$/) && tem(/^OPERACAO$/) && tem(/^TRABALHO$|DURACAO NORMAL/)) return "iw38op";
