@@ -8,6 +8,7 @@ import { cadastrosNoSupabase, gravarCadastroLote, lerCadastro } from "../dados/c
 import { registrar } from "../auditoria";
 import { fonte } from "../dados/fonte";
 import { podeEditar, podeVer, type Usuario } from "./acesso";
+import { precisaAtualizarDados } from "./atualizacaoDados";
 import { COOKIE_ATIVO, COOKIE_SESSAO, VALIDADE_S } from "./inatividade";
 import { confere, hashToken, normalizarLogin } from "./senha";
 
@@ -26,6 +27,8 @@ interface UsuarioSessao extends Usuario {
   login: string;
   demo?: boolean;
   trocarSenha?: boolean;
+  /** dados cadastrais vencidos (atualização mensal obrigatória) */
+  atualizarDados?: boolean;
 }
 
 type Registro = Record<string, unknown> & { sessoes?: { h?: string; ate?: string }[] };
@@ -45,6 +48,7 @@ function publico(login: string, u: Registro): UsuarioSessao {
   return {
     login, nome: (u.nome as string) || login, funcao: u.funcao as string | undefined,
     perfil: u.perfil as string | undefined, abas: u.abas, ativo: u.ativo !== false, trocarSenha: !!u.trocar_senha,
+    atualizarDados: precisaAtualizarDados(u.dados_confirmados_em),
   };
 }
 
@@ -137,7 +141,8 @@ export async function usuarioAtual(): Promise<UsuarioSessao | null> {
   let u = (await usuarios())[login];
   // sessão criada há pouco em outra instância do servidor: no Supabase (consulta leve) confere a versão de agora
   // antes de recusar; falha na releitura = sem sessão, nunca página de erro
-  if (!valida(u) && cadastrosNoSupabase()) u = (await usuarios(true).catch(() => ({} as Record<string, Registro>)))[login] ?? u;
+  // e quem aparece com os dados vencidos acabou de salvar noutra instância? relê antes de mostrar o formulário de novo
+  if ((!valida(u) || (u && precisaAtualizarDados(u.dados_confirmados_em))) && cadastrosNoSupabase()) u = (await usuarios(true).catch(() => ({} as Record<string, Registro>)))[login] ?? u;
   return valida(u) ? publico(login, u!) : null;
 }
 

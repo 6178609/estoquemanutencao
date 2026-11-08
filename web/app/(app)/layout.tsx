@@ -2,9 +2,11 @@ import { Inatividade } from "@/components/Inatividade";
 import { Shell, type ItemMenu } from "@/components/Shell";
 import { ehAdmin, nomeFuncao, PERFIS, podeVer } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { usuarios } from "@/lib/auth/usuarios";
 import { pendentes } from "@/lib/auth/solicitacoes";
 import { GRUPOS } from "@/lib/navegacao";
 import { acaoSair, acaoSairPorInatividade } from "./acoes";
+import { AtualizacaoObrigatoria } from "./AtualizacaoObrigatoria";
 import { TrocaObrigatoria } from "./TrocaObrigatoria";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,12 @@ export const dynamic = "force-dynamic";
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
   const u = await exigir();
   if (u.trocarSenha && !u.demo) return <><TrocaObrigatoria nome={u.nome || u.login} sair={acaoSair} /><Inatividade sair={acaoSairPorInatividade} /></>;
+  // atualização mensal obrigatória dos dados cadastrais (nome completo e e-mail), depois da senha
+  if (u.atualizarDados && !u.demo) {
+    const reg = (await usuarios())[u.login];
+    return <><AtualizacaoObrigatoria nome={reg?.nome || u.nome || ""} email={reg?.email || ""} primeira={!reg?.dados_confirmados_em}
+      sair={acaoSair} /><Inatividade sair={acaoSairPorInatividade} /></>;
+  }
   const grupos = GRUPOS.map((g) => ({
     titulo: g.titulo,
     itens: g.abas

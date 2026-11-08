@@ -25,6 +25,7 @@ export const ACOES: Record<string, string> = {
   logout_inatividade: "Saiu por inatividade",
   senha_trocada: "Trocou a própria senha",
   sessoes_encerradas: "Desconectou todos os aparelhos",
+  dados_atualizados: "Atualizou os próprios dados cadastrais",
   primeiro_admin: "Criou o primeiro administrador",
   usuario_criado: "Cadastrou usuário",
   usuario_editado: "Alterou usuário",
