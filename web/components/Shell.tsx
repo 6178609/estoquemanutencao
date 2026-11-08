@@ -158,7 +158,6 @@ export function Shell({ grupos, pessoa, sair, children }: {
 
   return (
     <div className="min-h-dvh lg:flex">
-      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-superficie focus:px-4 focus:py-2.5 focus:text-[14px] focus:font-medium focus:text-texto focus:shadow-flutuante">Pular para o conteúdo</a>
       {/* barra lateral (computador) */}
       <aside className={clsx("nao-imprimir sticky top-0 hidden h-dvh shrink-0 flex-col bg-menu text-menu-texto lg:flex",
         recolhido ? "w-[72px]" : "w-[256px]")}>

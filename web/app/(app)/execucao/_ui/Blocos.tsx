@@ -19,11 +19,11 @@ export function Tile({ rotulo, valor, detalhe, dica, variacao, farol }: {
   return (
     <div className="rounded-cartao border border-borda bg-superficie p-4">
       <div className="flex items-start justify-between gap-2">
-        <div className="inline-flex items-center gap-1 text-[13px] font-medium leading-snug text-texto-2" title={dica}>
+        <div className="inline-flex items-center gap-1 text-[13px] font-medium leading-snug text-texto-2">
           {rotulo}{dica && (
             <span tabIndex={0} role="img" aria-label={dica} className="group relative inline-flex rounded-sm">
               <Info className="size-3.5 shrink-0 text-texto-4" aria-hidden />
-              <span role="tooltip" className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-borda bg-superficie p-2 text-[12px] font-normal leading-snug text-texto-2 shadow-flutuante group-hover:visible group-focus-visible:visible">{dica}</span>
+              <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-64 max-w-[min(16rem,calc(100vw-2rem))] rounded-md border border-borda bg-superficie p-2 text-[12px] font-normal leading-snug text-texto-2 shadow-flutuante group-hover:block group-focus-visible:block">{dica}</span>
             </span>
           )}
         </div>

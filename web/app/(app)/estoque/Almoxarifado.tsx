@@ -650,7 +650,7 @@ function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFo
         <div className="rounded-2xl border border-borda p-4">
           <label className="text-sm font-semibold" htmlFor="minimo">Estoque mínimo (ponto de reposição)</label>
           <div className="mt-2 flex gap-2">
-            <input id="minimo" name="minimo" value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="Ex.: 12,5…"
+            <input id="minimo" name="minimo" value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="sem mínimo"
               className="num h-11 w-40 rounded-xl border border-borda bg-superficie px-3 focus:border-[var(--acao)]" />
             <button onClick={salvar} disabled={estado.gravando} className={BOTAO_PRIMARIO}>
               {estado.gravando ? <><LoaderCircle className="size-4 animate-spin" />Salvando…</> : <><Save className="size-4" /> Salvar</>}

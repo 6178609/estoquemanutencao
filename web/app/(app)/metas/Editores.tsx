@@ -146,12 +146,12 @@ export function EditorCustoParada({ custoPar, paresHora, edita }: { custoPar: nu
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Custo do par (R$)</span>
-          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} name="custo_par" autoComplete="off" inputMode="decimal" placeholder="Ex.: 150,00…"
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} name="custo_par" autoComplete="off" inputMode="decimal" placeholder="não definido"
             disabled={!edita} value={txt.custo} onChange={(e) => setTxt({ ...txt, custo: e.target.value })} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Pares por hora</span>
-          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} name="pares_hora" autoComplete="off" inputMode="decimal" placeholder="Ex.: 2,5…"
+          <input className={clsx(CAMPO, "text-right", "h-11 text-[15px]")} style={{ width: 150 }} name="pares_hora" autoComplete="off" inputMode="decimal" placeholder="não definido"
             disabled={!edita} value={txt.pares} onChange={(e) => setTxt({ ...txt, pares: e.target.value })} />
         </label>
         {edita && (

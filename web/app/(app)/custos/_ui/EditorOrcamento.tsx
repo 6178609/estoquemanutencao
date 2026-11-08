@@ -112,7 +112,7 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
               <span className="mb-1.5 block text-[13px] font-medium text-texto-2">{m} <span className="text-texto-3">(R$)</span></span>
               <input
                 className={clsx(CAMPO, invalida ? "border-[var(--st-critico)]" : n > 0 && !igual(nums[i], valores[i] ?? null) && "border-marca-500")}
-                disabled={!edita} inputMode="decimal" name={`valor-${m}`} autoComplete="off" placeholder="ex.: 1.250,50…" value={texto(i)}
+                disabled={!edita} inputMode="decimal" name={`valor-${m}`} autoComplete="off" placeholder="sem valor" value={texto(i)}
                 aria-invalid={invalida || undefined}
                 aria-describedby={invalida ? erroId : undefined}
                 onChange={(e) => setTxt((antes) => { const c = [...antes]; c[i] = e.target.value; return c; })}

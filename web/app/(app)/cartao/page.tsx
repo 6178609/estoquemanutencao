@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Cartão de crédito" };
 export const dynamic = "force-dynamic";
 
 const SELO: Record<R.StatusGasto, "azul" | "verde" | "vermelho"> = { [R.LANCADO]: "azul", [R.CONFERIDO]: "verde", [R.RECUSADO]: "vermelho" };
-const dataBr = (d: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+const dataBr = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`)) : d);
 
 export default async function Cartao(props: { searchParams: Promise<Params> }) {
   const u = await exigir("cartao");

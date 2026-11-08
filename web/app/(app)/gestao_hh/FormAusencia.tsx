@@ -41,6 +41,9 @@ export function FormAusencia({ pessoas, tipos, hoje, tipoInicial, titulo = "Nova
       document.getElementById(novos.np ? "ausencia-pessoa" : "ausencia-treino")?.focus();
       return;
     }
+    // demais regras do navegador (validade ≥ até, passo da carga horária), já que o form usa noValidate
+    const form = e.currentTarget as HTMLFormElement;
+    if (!form.checkValidity()) { form.reportValidity(); return; }
     iniciar(async () => {
       const r = await adicionarAusencia(f.np, f.tipo, f.de, f.ate, f.obs,
         treino ? { titulo: f.titulo, horas: f.horas, entidade: f.entidade, validade: f.validade } : undefined);
@@ -64,7 +67,7 @@ export function FormAusencia({ pessoas, tipos, hoje, tipoInicial, titulo = "Nova
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1.4fr_1fr]">
             <Campo id="ausencia-treino" name="treinamento" autoComplete="off" rotulo="Treinamento" placeholder="Ex.: NR-10 reciclagem…" value={f.titulo} maxLength={120} required list="treinamentos-conhecidos" erro={erros.titulo}
               onChange={(e) => { setF({ ...f, titulo: e.target.value }); setErros((x) => ({ ...x, titulo: undefined })); }} />
-            <Campo name="carga_horaria" autoComplete="off" inputMode="decimal" rotulo="Carga horária (h)" type="number" min={0} step={0.5} placeholder="dias inteiros…" value={f.horas}
+            <Campo name="carga_horaria" autoComplete="off" inputMode="decimal" rotulo="Carga horária (h)" type="number" min={0} step={0.5} placeholder="dias inteiros" value={f.horas}
               dica="0 = EAD ou fora do horário (não tira HH)" onChange={(e) => setF({ ...f, horas: e.target.value })} />
             <Campo name="entidade" autoComplete="off" rotulo="Entidade / instrutor" placeholder="opcional…" value={f.entidade} maxLength={120} onChange={(e) => setF({ ...f, entidade: e.target.value })} />
             <Campo name="validade" autoComplete="off" rotulo="Validade (reciclagem)" type="date" value={f.validade} min={f.ate} onChange={(e) => setF({ ...f, validade: e.target.value })} />

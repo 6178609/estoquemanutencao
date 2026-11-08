@@ -79,11 +79,11 @@ export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, rotuloC
         </div>
       )}
       <div ref={ref} className="overflow-auto rounded-xl border border-borda" style={{ maxHeight: altura }}>
-        <div role="table" aria-rowcount={linhas.length + 1} style={{ minWidth: minimo }}>
-          <div role="row" aria-rowindex={1} className="sticky top-0 z-[2] grid border-b border-borda bg-superficie-2 text-[11.5px] font-medium text-texto-3"
+        <div style={{ minWidth: minimo }}>
+          <div className="sticky top-0 z-[2] grid border-b border-borda bg-superficie-2 text-[11.5px] font-medium text-texto-3"
             style={{ gridTemplateColumns: modelo }}>
             {colunas.map((c, j) => (
-              <div key={c.titulo + j} role="columnheader" title={c.dica} className={clsx("truncate px-3 py-2", (c.num || c.centro) && "text-right", c.centro && "text-center", fixa(j))}>{c.titulo}</div>
+              <div key={c.titulo + j} title={c.dica} className={clsx("truncate px-3 py-2", (c.num || c.centro) && "text-right", c.centro && "text-center", fixa(j))}>{c.titulo}</div>
             ))}
           </div>
           {!linhas.length && <div className="px-4 py-6 text-[13px] text-texto-3">{vazio}</div>}
@@ -95,7 +95,7 @@ export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, rotuloC
                 const o = c != null && typeof c === "object" ? c : null;
                 const t = texto(c);
                 return (
-                  <div key={j} role="cell" title={o?.dica ?? (t.length > 18 ? t : undefined)}
+                  <div key={j} title={o?.dica ?? (t.length > 18 ? t : undefined)}
                     className={clsx("flex items-center truncate px-3 text-[12.5px]", colunas[j]?.num && "num justify-end tabular-nums",
                       colunas[j]?.centro && "justify-center", o?.forte && "font-medium", fixa(j))}>
                     {o?.fundo ? (
@@ -107,8 +107,8 @@ export function TabelaLonga({ colunas, linhas, links, altura = 520, csv, rotuloC
               });
               const cls = clsx("absolute inset-x-0 grid border-b border-borda bg-superficie", href && "transition hover:bg-superficie-2");
               const estilo = { gridTemplateColumns: modelo, height: ALT, transform: `translateY(${r.start}px)` };
-              return href ? <Link prefetch={false} key={r.key} href={href} scroll={false} role="row" aria-rowindex={r.index + 2} className={cls} style={estilo}>{conteudo}</Link>
-                : <div key={r.key} role="row" aria-rowindex={r.index + 2} className={cls} style={estilo}>{conteudo}</div>;
+              return href ? <Link prefetch={false} key={r.key} href={href} scroll={false} className={cls} style={estilo}>{conteudo}</Link>
+                : <div key={r.key} className={cls} style={estilo}>{conteudo}</div>;
             })}
           </div>
         </div>
