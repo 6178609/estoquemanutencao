@@ -19,7 +19,8 @@ import { lerCadastro } from "@/lib/dados/cadastros";
 
 import { AlocacaoAcoes, AlocarUm } from "./AlocacaoAcoes";
 import { NIVEIS, ROTULO_NIVEL, type Nivel, type Sugestao } from "./alocacao";
-import { baseMateriais, camposDosAtivos, listasDosAtivos, sugestoesAlocacao } from "./dados";
+import { baseMateriais, camposDosAtivos, consumoDoAtivo, listasDosAtivos, sugestoesAlocacao } from "./dados";
+import { ConsumoAtivo } from "./ConsumoAtivo";
 import * as M from "./logica";
 import { InclusaoIa06 } from "./InclusaoIa06";
 import { identificarAtivo, type ListaTarefas } from "./ia06";
@@ -59,6 +60,7 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
   const pedida = param(params, "visao");
   const grupos = param(params, "at") ? gruposDoAtivo(c, param(params, "at"), bm) : null;
   const visao = pedida === M.V_MATERIAIS || pedida === M.V_ALOCACAO ? pedida : M.V_ATIVOS;
+  const consumo = param(params, "at") && visao === M.V_ATIVOS ? await consumoDoAtivo(c, param(params, "at"), bm, materiaisDe(infoCad(c, param(params, "at")))) : null;
 
   return (
     <PaginaWcm barra={barra(c)} periodo={false} dimensoes={false}>
@@ -90,7 +92,7 @@ export default async function Mro(props: { searchParams: Promise<Params> }) {
           <div id="abas" className="scroll-mt-24 space-y-4">
             <AbasParam params={params} param="visao" abas={ABAS} atual={visao} ancora="abas" />
             {visao === M.V_ATIVOS ? <PorAtivo t={t} params={params} edita={edita} listas={edita ? await listasDosAtivos(c) : null}
-              grupos={grupos} />
+              grupos={grupos} consumo={consumo} />
               : visao === M.V_MATERIAIS ? <PorMaterial t={t} params={params} />
               : <Alocacao t={t} params={params} edita={edita}
                   sugestoes={await sugestoesAlocacao(c, inv, bm, campos, (k) => new Set(materiaisDe(infoCad(c, k))))}
@@ -119,8 +121,8 @@ const COLS_ATIVOS = [
   { rotulo: "Situação MRO" },
 ];
 
-function PorAtivo({ t, params, edita, listas, grupos }: { t: M.AtivoMro[]; params: Params; edita: boolean; listas: Map<string, ListaTarefas[]> | null;
-  grupos: GrupoPecas[] | null }) {
+function PorAtivo({ t, params, edita, listas, grupos, consumo }: { t: M.AtivoMro[]; params: Params; edita: boolean; listas: Map<string, ListaTarefas[]> | null;
+  grupos: GrupoPecas[] | null; consumo: Awaited<ReturnType<typeof consumoDoAtivo>> | null }) {
   const f = M.lerFiltroAtivos(params);
   const vis = M.filtrarAtivos(t, f);
   const pg = paginar(vis, Number(param(params, "pag")) || 1);
@@ -149,6 +151,7 @@ function PorAtivo({ t, params, edita, listas, grupos }: { t: M.AtivoMro[]; param
             <Link prefetch={false} scroll={false} href={hrefCom(params, { at: null })} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] text-texto-3 hover:text-texto">Fechar</Link>
           </div>}>
           <PecasAtivo key={a.codigo} tag={a.codigo} pecas={a.pecas} grupos={grupos ?? []} edita={edita} />
+          {consumo && <ConsumoAtivo tag={a.codigo} linhas={consumo.linhas} periodo={consumo.periodo} edita={edita} />}
           {edita && listas && a.pecas.length > 0 && (
             <details id="ia06" open={param(params, "ia06") === "1"} className="mt-4 scroll-mt-24 rounded-xl border border-borda">
               <summary className="flex min-h-11 cursor-pointer items-center px-3 text-[13.5px] font-medium hover:bg-superficie-2">Incluir no SAP (IA06) — peças do ativo nas listas de tarefas</summary>
@@ -219,15 +222,16 @@ function PorMaterial({ t, params }: { t: M.AtivoMro[]; params: Params }) {
   );
 }
 
-const SELO_NIVEL: Record<Nivel, "verde" | "amarelo" | "cinza"> = { alta: "verde", media: "amarelo", baixa: "cinza" };
+const SELO_NIVEL: Record<Nivel, "verde" | "amarelo" | "cinza" | "azul"> = { consumo: "azul", alta: "verde", media: "amarelo", baixa: "cinza" };
 const COLS_ALOC = [
   { rotulo: "Equipamento" }, { rotulo: "Nome", larga: true }, { rotulo: "Material" }, { rotulo: "Descrição do material", larga: true },
   { rotulo: "Confiança" }, { rotulo: "Por quê", larga: true },
 ];
 
 /**
- * Alocação automática: cada material do catálogo/MB52 casado com os ativos pelo texto (lib: ./alocacao.ts), com o nível
- * de confiança e o motivo. Alta e média vão em lote; baixa, uma a uma. Só sugere o que ainda não está vinculado.
+ * Alocação automática: primeiro o consumo real nas ordens (IW13); depois cada material do catálogo/MB52 casado com os ativos
+ * pelo texto (lib: ./alocacao.ts), com o nível e o motivo. Consumo, alta e média vão em lote; baixa (inclusive material de
+ * uso geral do consumo), uma a uma. Só sugere o que ainda não está vinculado.
  */
 function Alocacao({ t, sugestoes, params, edita, temDesfazer }: { t: M.AtivoMro[]; sugestoes: Sugestao[]; params: Params; edita: boolean; temDesfazer: boolean }) {
   const porCodigo = new Map(t.map((a) => [a.codigo, a]));
@@ -242,14 +246,17 @@ function Alocacao({ t, sugestoes, params, edita, temDesfazer }: { t: M.AtivoMro[
   return (
     <div className="space-y-4">
       <p className="text-[13.5px] text-texto-2">
-        Compara a descrição de cada material (curta + Descr Completa do Sysmat, com o campo <b>APLICAÇÃO</b>) com o nome, o código, o campo de ordenação,
-        o fabricante e o modelo de cada ativo. Material genérico (parafuso, EPI…) não casa com nada e fica sem ativo. Só aparece o que ainda não está vinculado.
+        Primeiro vem o <b>consumo real</b>: material retirado do almoxarifado para uma ordem do próprio equipamento (export <b>IW13</b>). Depois, a
+        comparação de texto: a descrição de cada material (curta + Descr Completa do Sysmat, com o campo <b>APLICAÇÃO</b>) com o nome, o código, o campo
+        de ordenação, o fabricante e o modelo de cada ativo. Material genérico (parafuso, EPI…) não casa com nada pelo texto. Só aparece o que ainda não
+        está vinculado.
       </p>
-      <GradeNumeros colunas={4}>
+      <GradeNumeros colunas={5}>
+        <Numero rotulo={ROTULO_NIVEL.consumo} valor={inteiroBr(contagem.consumo)} detalhe="retirado para ordens do próprio equipamento (IW13)" tom="bom" />
         <Numero rotulo={ROTULO_NIVEL.alta} valor={inteiroBr(contagem.alta)} detalhe="cita o equipamento, a aplicação com o número dele ou fabricante + modelo" tom="bom" />
         <Numero rotulo={ROTULO_NIVEL.media} valor={inteiroBr(contagem.media)} detalhe="aplicação pelo tipo de equipamento ou só o modelo" />
         <Numero rotulo={ROTULO_NIVEL.baixa} valor={inteiroBr(contagem.baixa)} detalhe="a descrição só cita o tipo do equipamento" />
-        <Numero rotulo="Ativos que ganham peças (alta + média)" valor={inteiroBr(ativosComSug)} detalhe={`${inteiroBr(semPecasHoje)} ativo(s) ainda sem peça`} />
+        <Numero rotulo="Ativos que ganham peças (consumo + alta + média)" valor={inteiroBr(ativosComSug)} detalhe={`${inteiroBr(semPecasHoje)} ativo(s) ainda sem peça`} />
       </GradeNumeros>
       {edita ? <AlocacaoAcoes contagem={contagem} temDesfazer={temDesfazer} /> : null}
       <FiltrosUrl campos={[
@@ -257,7 +264,7 @@ function Alocacao({ t, sugestoes, params, edita, temDesfazer }: { t: M.AtivoMro[
         { tipo: "pilulas", param: "anivel", rotulo: "Confiança", opcoes: NIVEIS.map((n) => ROTULO_NIVEL[n]) },
       ]} />
       <p className="text-[12.5px] text-texto-3">{inteiroBr(vis.length)} sugestão(ões).</p>
-      <TabelaT colunas={edita ? [...COLS_ALOC, { rotulo: "" }] : COLS_ALOC} vazio={sugestoes.length ? "Nenhuma sugestão com estes filtros." : "Nenhuma sugestão: os materiais não citam os ativos na descrição (ou já estão todos vinculados)."}
+      <TabelaT colunas={edita ? [...COLS_ALOC, { rotulo: "" }] : COLS_ALOC} vazio={sugestoes.length ? "Nenhuma sugestão com estes filtros." : "Nenhuma sugestão: nada retirado para os ativos na IW13 nem citado na descrição dos materiais (ou já está tudo vinculado)."}
         linhas={pg.itens.map((s) => {
           const a = porCodigo.get(s.ativo);
           return {

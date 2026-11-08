@@ -47,7 +47,7 @@ export default async function FontesDeDados() {
     <Pagina>
       <Cabecalho titulo="Fontes de dados," destaque="os exports do SAP num lugar só."
         sobre={<Pilula>{modo() === "demo" ? "Demonstração" : `${carregadas} de ${bases.length} bases carregadas`}</Pilula>}
-        subtitulo="Anexe os exports (IW38, MB52, IW28, IH08, IP19, IW47, requisições, Sysmat, Gerenciador de AF; a equipe é cadastrada no Gerenciador de HH). O site reconhece cada base pelos cabeçalhos, compacta no seu navegador e grava no repositório de dados — vale sempre o envio mais recente." />
+        subtitulo="Anexe os exports (IW38, MB52, IW28, IH08, IP19, IW47, IW13, requisições, Sysmat, Gerenciador de AF; a equipe é cadastrada no Gerenciador de HH). O site reconhece cada base pelos cabeçalhos, compacta no seu navegador e grava no repositório de dados — vale sempre o envio mais recente." />
 
       <FotosAutomaticas resumo={fotos} pode={podeEditar(u)} />
 

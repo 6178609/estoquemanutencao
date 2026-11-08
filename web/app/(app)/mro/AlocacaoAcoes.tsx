@@ -35,8 +35,11 @@ export function AlocacaoAcoes({ contagem, temDesfazer }: { contagem: Record<Nive
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={pendente || !contagem.alta} onClick={() => alocar(["alta"], contagem.alta)} className={BOTAO_PRIMARIO}>
-          {pendente ? <LoaderCircle className="size-4 animate-spin" /> : <Wand2 className="size-4" />} Alocar as de confiança alta (até {br(contagem.alta)})
+        <button type="button" disabled={pendente || !contagem.consumo} onClick={() => alocar(["consumo"], contagem.consumo)} className={BOTAO_PRIMARIO}>
+          {pendente ? <LoaderCircle className="size-4 animate-spin" /> : <Wand2 className="size-4" />} Alocar as do consumo real (até {br(contagem.consumo)})
+        </button>
+        <button type="button" disabled={pendente || !contagem.alta} onClick={() => alocar(["alta"], contagem.alta)} className={BOTAO_SECUNDARIO}>
+          Alocar as de confiança alta (até {br(contagem.alta)})
         </button>
         <button type="button" disabled={pendente || !(contagem.alta + contagem.media)} onClick={() => alocar(["alta", "media"], contagem.alta + contagem.media)} className={BOTAO_SECUNDARIO}>
           Alocar alta + média (até {br(contagem.alta + contagem.media)})

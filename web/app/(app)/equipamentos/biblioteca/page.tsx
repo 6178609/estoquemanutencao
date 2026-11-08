@@ -15,13 +15,14 @@ import { dataBr } from "@/lib/wcm/util";
 
 import { BarraSaude, Cartao, GradeNumeros, inteiroBr, Numero } from "../_ui/Blocos";
 import type { Params } from "../_ui/url";
-import { baseMateriais } from "../../mro/dados";
+import { baseMateriais, consumoDoAtivo } from "../../mro/dados";
+import { ConsumoAtivo } from "../../mro/ConsumoAtivo";
 import { fichasTecnicas } from "@/lib/dados/fichasTecnicas";
 import { modeloDoEquipamento } from "@/lib/wcm/fichaTecnica";
 import { pecaMro } from "../../mro/logica";
 import { FichaModelo } from "./FichaModelo";
 import { PecasPorSistema } from "../_ui/PecasPorSistema";
-import { infoCad, inventarioAtivos } from "../dados";
+import { infoCad, materiaisDe, inventarioAtivos } from "../dados";
 import { gruposDoAtivo } from "../gruposPecas";
 import { SELO_REC } from "../GestaoAtivos";
 import { ROTULO_CAMPO, V_ANALISE, V_CADASTRO } from "../logica";
@@ -69,6 +70,8 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
     );
   }
   const campo = campoEq(r.codigo);
+  // lida junto com o resto da página (não espera as outras leituras)
+  const consumoP = consumoDoAtivo(c, r.codigo, bm, materiaisDe(infoCad(c, r.codigo)));
   const info = infoCad(c, r.codigo);
   const verEstoque = podeVer(u, "estoque");
   const grupos = gruposDoAtivo(c, r.codigo, bm,
@@ -85,6 +88,7 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
   const modelo = modeloDoEquipamento(r.equipamento);
   const ficha = modelo ? (await fichasTecnicas())[modelo] : null;
   const obs = typeof info.observacoes === "string" ? info.observacoes : "";
+  const consumo = await consumoP;
 
   return (
     <Pagina>
@@ -152,6 +156,13 @@ export default async function Biblioteca(props: { searchParams: Promise<Params> 
           <PecasPorSistema grupos={gruposBloqueados} />
         </section>
       )}
+
+      {/* 2a'. peças pelo consumo real (IW13) */}
+      <section aria-labelledby="consumo" className="space-y-2">
+        <h2 id="consumo" className="font-display text-[20px] font-medium">Peças pelo consumo real{consumo.linhas?.length ? <span className="text-texto-3"> ({consumo.linhas.filter((l) => l.ordens).length})</span> : null}</h2>
+        <p className="text-[13px] text-texto-3">O que de fato saiu do almoxarifado para ordens deste equipamento e dos subconjuntos dele (export IW13 do SAP), com o vínculo na Gestão de MRO e o saldo da MB52.</p>
+        <ConsumoAtivo tag={r.codigo} linhas={consumo.linhas} periodo={consumo.periodo} edita={false} />
+      </section>
 
       {/* 2b. peças sem cadastro no Sysmat */}
       <section aria-labelledby="sem-cadastro" className="space-y-4">

@@ -12,10 +12,14 @@ import { aplicarPecas, limparCodigos, semZeros } from "./logica";
  *   ou cita o modelo do ativo (até 30 ativos);
  * - baixa: a descrição cita o tipo do equipamento (ex.: "ROLAMENTO P/ COMPRESSOR") e há poucos ativos desse tipo.
  * Material genérico (parafuso, EPI…) não casa com nada e fica sem ativo. Testado em testes/alocacao.test.ts.
+ *
+ * Acima de todos fica o nível "consumo": o material saiu do almoxarifado para uma ordem do próprio equipamento (IW13).
+ * É evidência real, não de texto (ver sugestoesPorConsumo).
  */
-export type Nivel = "alta" | "media" | "baixa";
-export const NIVEIS: Nivel[] = ["alta", "media", "baixa"];
-export const ROTULO_NIVEL: Record<Nivel, string> = { alta: "Confiança alta", media: "Confiança média", baixa: "Confiança baixa" };
+export type Nivel = "consumo" | "alta" | "media" | "baixa";
+export const NIVEIS: Nivel[] = ["consumo", "alta", "media", "baixa"];
+export const ROTULO_NIVEL: Record<Nivel, string> = { consumo: "Consumo real (IW13)", alta: "Confiança alta", media: "Confiança média",
+  baixa: "Confiança baixa" };
 
 export interface AtivoTexto { codigo: string; nome: string; campo?: string; fabricante?: string; modelo?: string; desativado?: boolean }
 export interface MaterialTexto { codigo: string; descricao: string; descrCompleta: string }
@@ -43,7 +47,7 @@ export function aplicacaoDe(descrCompleta: string): string {
 
 interface Indice { ativo: AtivoTexto; nomePal: string[]; nomeNum: Set<string>; tipo: string; modelo: string[]; fabricante: string[] }
 
-const PONTOS: Record<Nivel, number> = { alta: 90, media: 65, baixa: 40 };
+const PONTOS: Record<Nivel, number> = { consumo: 100, alta: 90, media: 65, baixa: 40 };
 const MAX_BAIXA = 10; // tipo citado na descrição só sugere quando há poucos ativos desse tipo
 const MAX_MEDIA = 30; // aplicação sem número / só o modelo: acima disso é genérico demais para sugerir
 const MAX_ALTA_MODELO = 5; // fabricante + modelo: alta só quando poucos ativos têm esse modelo
@@ -170,4 +174,48 @@ export function incluirPecas(atual: Record<string, unknown> | undefined, mats: s
   const depois = new Set(limparCodigos(item?.materiais));
   const incluidos = novos.filter((m) => depois.has(m));
   return { item, incluidos, foraDoLimite: novos.length - incluidos.length };
+}
+
+/** Material retirado para mais equipamentos que isso é de uso geral (graxa, parafuso, fita, EPI…): não vai no lote. */
+export const MAX_ATIVOS_CONSUMO = 10;
+
+/**
+ * Sugestões pelo consumo real (IW13): cada material retirado para uma ordem do equipamento, ainda não vinculado a ele.
+ * Só equipamentos da lista (não desativados) e materiais conhecidos (MB52 ou catálogo, sem cadastro inativo). Material de
+ * uso geral (retirado para mais de MAX_ATIVOS_CONSUMO equipamentos) fica como confiança baixa: só entra um a um.
+ */
+export function sugestoesPorConsumo(consumo: { porEquipamento: Map<string, { material: string; descricao: string; ordens: number; ultima: number | null }[]>;
+  ativosPorMaterial: Map<string, number> }, ativoValido: (codigo: string) => boolean, materialValido: (codigo: string) => boolean,
+  jaVinculados: (ativo: string) => Set<string> = () => new Set(), dataBr: (d: number | null) => string = () => ""): Sugestao[] {
+  const out: Sugestao[] = [];
+  for (const [ativo, itens] of consumo.porEquipamento) {
+    if (!ativoValido(ativo)) continue;
+    const ja = new Set([...jaVinculados(ativo)].map(semZeros));
+    for (const it of itens) {
+      if (!it.ordens || ja.has(semZeros(it.material)) || !materialValido(it.material)) continue;
+      const ult = it.ultima != null ? `, a última em ${dataBr(it.ultima)}` : "";
+      const base = `retirado para ${it.ordens} ${it.ordens > 1 ? "ordens" : "ordem"} deste equipamento${ult} (IW13)`;
+      const nAtivos = consumo.ativosPorMaterial.get(it.material) ?? 1;
+      const geral = nAtivos > MAX_ATIVOS_CONSUMO;
+      out.push({ ativo, material: it.material, descricao: it.descricao, nivel: geral ? "baixa" : "consumo", pontos: geral ? PONTOS.baixa : PONTOS.consumo,
+        motivo: geral ? `${base}; material de uso geral (retirado para ${nAtivos} equipamentos): confira se é peça do ativo` : base });
+    }
+  }
+  return out;
+}
+
+/**
+ * Junta as sugestões do consumo e as do texto: o mesmo par ativo × material fica só com a primeira (a do consumo, que vem
+ * antes). `codigoAtivo` devolve o código do ativo como está na lista; `codigoMaterial`, o código como está na MB52/Sysmat.
+ */
+export function juntarSugestoes(porConsumo: Sugestao[], porTexto: Sugestao[], codigoAtivo: (k: string) => string,
+  codigoMaterial: (m: string) => string): Sugestao[] {
+  const out: Sugestao[] = [], vistos = new Set<string>();
+  for (const s of [...porConsumo.map((x) => ({ ...x, ativo: codigoAtivo(x.ativo), material: codigoMaterial(x.material) })), ...porTexto]) {
+    const k = `${s.ativo}|${semZeros(s.material)}`;
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    out.push(s);
+  }
+  return out;
 }
