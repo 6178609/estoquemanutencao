@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { CalendarRange, ChevronDown, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { MultiEscolha } from "@/components/Filtros";
 
@@ -52,7 +52,7 @@ function Busca({ c, aplicar }: { c: Extract<Controle, { tipo: "busca" }>; aplica
   return (
     <label className="relative block min-w-[220px] flex-1">
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={c.placeholder} aria-label={c.placeholder || "Buscar"} type="search" enterKeyHint="search"
+      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={c.placeholder} aria-label={c.placeholder || "Buscar"} type="search" enterKeyHint="search" name={c.chave} autoComplete="off" spellCheck={false}
         onKeyDown={(e) => e.key === "Enter" && aplicar({ [c.chave]: v.trim() || null })}
         className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
       {v && (
@@ -67,15 +67,23 @@ function Busca({ c, aplicar }: { c: Extract<Controle, { tipo: "busca" }>; aplica
 
 function Periodo({ c, aplicar }: { c: Extract<Controle, { tipo: "periodo" }>; aplicar: (m: Record<string, string | null>) => void }) {
   const [menu, setMenu] = useState(false);
+  const raiz = useRef<HTMLDivElement>(null);
+  // fecha o menu de atalhos ao tocar/clicar fora dele
+  useEffect(() => {
+    if (!menu) return;
+    const fora = (e: PointerEvent) => { if (!raiz.current?.contains(e.target as Node)) setMenu(false); };
+    document.addEventListener("pointerdown", fora);
+    return () => document.removeEventListener("pointerdown", fora);
+  }, [menu]);
   return (
-    <div className="relative flex flex-wrap items-center gap-1.5" onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }}>
+    <div ref={raiz} className="relative flex flex-wrap items-center gap-1.5" onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }}>
       {c.rotulo && <span className="text-[13px] text-texto-3">{c.rotulo}</span>}
       <div className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-3 text-[13.5px]">
         <CalendarRange className="size-4 text-texto-3" />
-        <input type="date" value={c.valorDe} max={c.valorAte} aria-label="Data inicial" className="bg-transparent"
+        <input type="date" name={c.de} autoComplete="off" value={c.valorDe} max={c.valorAte} aria-label="Data inicial" className="bg-transparent"
           onChange={(e) => e.target.value && aplicar({ [c.de]: e.target.value })} />
         <span className="text-texto-4">→</span>
-        <input type="date" value={c.valorAte} min={c.valorDe} aria-label="Data final" className="bg-transparent"
+        <input type="date" name={c.ate} autoComplete="off" value={c.valorAte} min={c.valorDe} aria-label="Data final" className="bg-transparent"
           onChange={(e) => e.target.value && aplicar({ [c.ate]: e.target.value })} />
       </div>
       {!!c.atalhos?.length && (
@@ -122,8 +130,8 @@ export function Controles({ controles, limpar = [], className }: { controles: Co
             return (
               <label key={c.chave} className="inline-flex h-11 items-center gap-2 rounded-xl border border-borda bg-superficie-2 px-3 text-[13.5px]">
                 <span className="text-texto-3">{c.rotulo}</span>
-                <select value={c.valor} onChange={(e) => aplicar({ [c.chave]: e.target.value })}
-                  className="max-w-[60vw] bg-transparent font-medium">
+                <select name={c.chave} autoComplete="off" value={c.valor} onChange={(e) => aplicar({ [c.chave]: e.target.value })}
+                  className="max-w-[60vw] bg-superficie-2 font-medium text-texto">
                   {c.opcoes.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
                 </select>
               </label>

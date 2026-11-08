@@ -84,7 +84,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
           <Barras itens={porGrupo} larguraRotulo={190} formato="ind" />
         </Grafico>
         <div className="rounded-cartao border border-borda bg-superficie p-5">
-          <div className="font-display text-[15px] font-medium">Pontos de atenção</div>
+          <h3 className="font-display text-[15px] font-medium">Pontos de atenção</h3>
           <div className="mt-0.5 text-[12.5px] text-texto-3">Fora da meta, do pior para o melhor</div>
           <ul className="mt-4 space-y-2.5">
             {!piores.length && <li className="text-[13.5px] text-texto-2">Todos os indicadores com meta estão dentro dela no recorte.</li>}
@@ -145,7 +145,7 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
       <div className="space-y-8">
         {ind.GRUPOS.map((g) => (
           <div key={g} className="space-y-3">
-            <div className="font-display text-[16px] font-medium">{g}</div>
+            <h3 className="font-display text-[16px] font-medium">{g}</h3>
             {g === ind.ANALISE_FALHA && <p className="text-[12.5px] text-texto-3">Do Gerenciador de AF, com a fábrica inteira: só o período vale (as áreas do gerenciador não são as do SAP).</p>}
             <GradeKpis kpis={ind.KPIS.filter((k) => k.grupo === g)} atual={atual} anterior={anterior} metas={metas} serie={serie} />
           </div>

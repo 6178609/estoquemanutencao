@@ -117,6 +117,20 @@ export function Shell({ grupos, pessoa, sair, children }: {
     if (href !== rota) setDestino(href);
   };
   const carregando = destino !== null && destino !== rota;
+  // o cabeçalho do celular é sticky: a rolagem até um item focado não pode escondê-lo atrás dele
+  const cabecalho = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = cabecalho.current;
+    if (!el) return;
+    const ajusta = () => { document.documentElement.style.scrollPaddingTop = `${el.offsetHeight + 8}px`; };
+    ajusta();
+    const ro = new ResizeObserver(ajusta);
+    ro.observe(el);
+    return () => { ro.disconnect(); document.documentElement.style.scrollPaddingTop = ""; };
+  }, []);
+  // a gaveta do celular leva o foco para o botão de fechar ao abrir (Escape fecha; o foco não fica no menu de trás)
+  const botaoFechar = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (aberto) botaoFechar.current?.focus(); }, [aberto]);
   const terminou = useCallback(() => setDestino(null), []);
   const caminho = caminhoDe(grupos, rota);
   // a busca só aparece para quem pode abrir /busca (o layout já filtra os grupos por função)
@@ -144,6 +158,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
 
   return (
     <div className="min-h-dvh lg:flex">
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-superficie focus:px-4 focus:py-2.5 focus:text-[14px] focus:font-medium focus:text-texto focus:shadow-flutuante">Pular para o conteúdo</a>
       {/* barra lateral (computador) */}
       <aside className={clsx("nao-imprimir sticky top-0 hidden h-dvh shrink-0 flex-col bg-menu text-menu-texto lg:flex",
         recolhido ? "w-[72px]" : "w-[256px]")}>
@@ -165,7 +180,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
       </aside>
 
       {/* topo (celular) */}
-      <header className="nao-imprimir sticky top-0 z-30 flex items-center justify-between bg-menu px-4 py-3 text-white lg:hidden">
+      <header ref={cabecalho} className="nao-imprimir sticky top-0 z-30 flex items-center justify-between bg-menu px-4 py-3 text-white lg:hidden">
         <Marca compacta claro />
         <div className="flex items-center gap-2">
           {temBusca && (
@@ -186,11 +201,11 @@ export function Shell({ grupos, pessoa, sair, children }: {
         <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-menu text-menu-texto shadow-flutuante">
           <div className="flex items-center justify-between p-4">
             <Marca claro />
-            <button onClick={() => setAberto(false)} aria-label="Fechar menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
+            <button ref={botaoFechar} onClick={() => setAberto(false)} aria-label="Fechar menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
               <X className="size-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-3 pb-4"><Navegacao grupos={grupos} aoNavegar={navegar} aoTerminar={terminou} /></div>
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4"><Navegacao grupos={grupos} aoNavegar={navegar} aoTerminar={terminou} /></div>
           <div className="border-t border-white/10 p-3">{rodape(false)}</div>
         </div>
       </div>
@@ -213,7 +228,7 @@ export function Shell({ grupos, pessoa, sair, children }: {
               <label htmlFor="busca-topo" className="sr-only">Buscar</label>
               <div className="relative">
                 <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-                <input id="busca-topo" type="search" name="q" placeholder="Buscar ordem, equipamento ou material"
+                <input id="busca-topo" type="search" name="q" autoComplete="off" placeholder="Buscar ordem, equipamento ou material…"
                   className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-3 text-[13.5px] text-texto placeholder:text-texto-3 focus:border-[var(--acao)]" />
               </div>
             </form>

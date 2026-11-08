@@ -24,7 +24,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const KPIS = ["quebras", "quebras_a", "reincidencia", "notas_7d"];
-const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 1000) / 10}%`.replace(".", ",") : "—");
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 });
+const pct = (n: number, d: number) => (d ? pctFmt.format(n / d) : "—");
 
 export default async function Notas(props: { searchParams: Promise<Params> }) {
   await exigir("notas");

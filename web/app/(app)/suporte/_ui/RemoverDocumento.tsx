@@ -13,7 +13,7 @@ export function RemoverDocumento({ area, id, titulo }: { area: string; id: strin
   const [erro, setErro] = useState("");
 
   const remover = async () => {
-    if (!confirm(`Remover "${titulo}" da biblioteca técnica?`)) return;
+    if (!confirm(`Remover “${titulo}” da biblioteca técnica?`)) return;
     setEnviando(true);
     setErro("");
     const r = await fetch(`/api/suporte/documento?${new URLSearchParams({ area, id })}`, { method: "DELETE" }).catch(() => null);

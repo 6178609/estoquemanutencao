@@ -24,6 +24,8 @@ export const metadata: Metadata = { title: "Planos de AF" };
 export const dynamic = "force-dynamic";
 
 const NAO_INF = "(não informado)";
+const FMT_SEM = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+const FMT_SEM_ANO = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 const PAG = "/af_planos";
 /** KPIs de AF que o motor de indicadores não tem. */
 const EXTRA: Record<string, ind.Kpi> = {
@@ -130,7 +132,7 @@ function Semanal({ afs, acoes, ini, fim, hoje, params }: { afs: af.Af[]; acoes: 
     const j1 = Date.UTC(a, 0, 1) / 86_400_000;
     return Math.floor((qui - j1) / 7) + 1;
   };
-  const rot = (s: Dia) => `S${String(nSem(s)).padStart(2, "0")} · ${dataBr(s).slice(0, variosAnos ? 10 : 5)}`;
+  const rot = (s: Dia) => `S${String(nSem(s)).padStart(2, "0")} · ${(variosAnos ? FMT_SEM_ANO : FMT_SEM).format(new Date(s * 86_400_000))}`;
   const linhas: { celulas: React.ReactNode[]; estilos?: (React.CSSProperties | undefined)[] }[] = [];
   for (const indicador of af.INDICADORES_SEMANAIS) {
     const sub = new Map(sem.filter((l) => l.indicador === indicador).map((l) => [l.semana, l]));
@@ -432,7 +434,7 @@ function TabelaAfs({ afs, acoes, ini, fim, params, campoEq }: { afs: af.Af[]; ac
             ["Data da falha", dataBr(sel.dataFalha)], ["Data limite", dataBr(sel.dataLimite)], ["Ajuste", sel.ajuste], ["Data da análise", dataBr(sel.dataAnalise)],
             ["Dias para análise", num(sel.diasParaAnalise, 0)], ["% ações concluídas", pct(nan(sel.pctAcoesConcluidas), 0)], ["Observações", sel.observacoes]]} />
           <div className="mt-6">
-            <div className="mb-2 font-display text-[14px] font-medium">Plano de ação da AF · {int(acs.length)} ação(ões)</div>
+            <h3 className="mb-2 font-display text-[14px] font-medium">Plano de ação da AF · {int(acs.length)} ação(ões)</h3>
             {acs.length ? (
               <Tabela colunas={COLS_ACAO} cores={COR_ACAO} contagem="ações" altura={320}
                 linhas={acs.map((a) => ({ n: a.numeroAcao, situacao: a.situacao, acao: a.acao, tipo: a.tipoDaAcao, resp: a.responsavel, ini: a.dataInicio,

@@ -9,7 +9,7 @@ import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
 import { barra, contexto, dados, resultados, serieMensal } from "@/lib/wcm/contexto";
 import * as hh from "@/lib/wcm/hh";
 import * as ind from "@/lib/wcm/indicadores";
-import { dataBr, partes, type Dia } from "@/lib/wcm/util";
+import { dataBr, type Dia } from "@/lib/wcm/util";
 
 import { ColunasRef } from "../confiabilidade/_comum/ColunasRef";
 import { Nota, Numeros } from "../confiabilidade/_comum/Numeros";
@@ -25,7 +25,11 @@ export const maxDuration = 60;
 const VISOES = ["Equipe e pessoas", "Distribuição das horas", "Apontamentos (IW47)", "Backlog e carga futura"];
 const n0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const n1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
-const ddmm = (d: Dia) => { const p = partes(d); return `${String(p.dia).padStart(2, "0")}/${String(p.mes).padStart(2, "0")}`; };
+const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+const percentual = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const percentual1 = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 });
+/** dia (dias desde 1970, em UTC) → dd/mm */
+const ddmm = (d: Dia) => dataCurta.format(d * 86_400_000);
 const COR_NAT: Cor[] = ["serie-1", "serie-2", "serie-3"];
 
 type Ctx = Awaited<ReturnType<typeof contexto>>;
@@ -62,7 +66,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
       {titulo}
       {!c.b.confirmacoes.dados && <Aviso tom="azul">Sem a IW47 (apontamentos) os indicadores de HH usam o trabalho das operações concluídas do IW38OP.</Aviso>}
       {cob != null && cob < 90 && (
-        <Aviso>Só <b>{Math.round(cob)}%</b> das horas apontadas são de ordens que estão no IW38 carregado — as demais (provavelmente corretivas YM11/YM12,
+        <Aviso>Só <b>{percentual.format(cob / 100)}</b> das horas apontadas são de ordens que estão no IW38 carregado — as demais (provavelmente corretivas YM11/YM12,
           que não vieram no export) aparecem como “{ind.FORA_DO_IW38}” e ficam fora dos % de plano e de emergencial. Exporte o IW38 com todos os tipos de ordem.</Aviso>
       )}
       <Secao titulo="Indicadores" destaque="de mão de obra"
@@ -113,7 +117,7 @@ function Equipe({ c, d, ex, jan }: { c: Ctx; d: ind.Dados; ex: Exec[]; jan: [Dia
             { rotulo: "Pessoas na equipe", valor: n0.format(equipe.length) },
             { rotulo: "Técnicos de execução", valor: n0.format(tec.length), detalhe: "sem apoio e planejamento" },
             { rotulo: "HH disponíveis no período", valor: `${n0.format(disp ?? 0)} h`, detalhe: "jornada, % e ausências (Gerenciador de HH)" },
-            { rotulo: "HH apontadas pelos técnicos", valor: `${n0.format(apont)} h`, detalhe: disp ? `${n1.format((apont / disp) * 100)}% do disponível` : undefined },
+            { rotulo: "HH apontadas pelos técnicos", valor: `${n0.format(apont)} h`, detalhe: disp ? `${percentual1.format(apont / disp)} do disponível` : undefined },
           ]} />
           <div className="grid gap-4 lg:grid-cols-3">
             {([["especialidade", "Equipe por especialidade"], ["area", "Equipe por área"], ["turma", "Equipe por turma"]] as const).map(([campo, t]) => {
@@ -128,13 +132,13 @@ function Equipe({ c, d, ex, jan }: { c: Ctx; d: ind.Dados; ex: Exec[]; jan: [Dia
         </>
       )}
       <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-        <div className="font-display text-[15px] font-medium">Horas por pessoa</div>
+        <h3 className="font-display text-[15px] font-medium">Horas por pessoa</h3>
         <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">Apontamentos do período · utilização = HH apontadas ÷ horas disponíveis da pessoa (Gerenciador de HH; sem cadastro, jornada padrão).</div>
         {tabela.length ? <Pessoas linhas={tabela} /> : <p className="text-[13px] text-texto-3">Sem apontamentos por pessoa (IW47) no recorte.</p>}
       </div>
       {semAp.length > 0 && (
         <details className="rounded-cartao border border-borda bg-superficie p-5">
-          <summary className="cursor-pointer font-display text-[15px] font-medium">{semAp.length} técnico(s) da equipe sem apontamento no período</summary>
+          <summary className="cursor-pointer font-display text-[15px] font-medium transition-colors hover:text-acao">{semAp.length} técnico(s) da equipe sem apontamento no período</summary>
           <div className="mt-4">
             <Tabela colunas={["Nº pessoal", "Nome", "Cargo", "Área", "Turma", "Centro de trabalho"]}
               linhas={semAp.map((p) => [p.np, p.nome, p.cargo, p.area, p.turma, p.centroTrabalho])} />
@@ -176,8 +180,8 @@ function Distribuicao({ d, ex }: { d: ind.Dados; ex: Exec[] }) {
             partes: x.partes.map((v, i) => ({ nome: NATUREZAS_HH[i], valor: v, cor: COR_NAT[i] })) }))} />
         </Grafico>
         <Grafico titulo="HH por classe de manutenção" subtitulo={`${n0.format(total)} h no período`}
-          tabela={{ colunas: ["Classe", "HH", "%"], linhas: cl.map(([k, v]) => [k, n1.format(v), `${n1.format((v / total) * 100)}%`]) }}>
-          <Barras formato="h" larguraRotulo={190} itens={cl.map(([rotulo, valor]) => ({ rotulo, valor, cor: "serie-1" as Cor, detalhe: `${n0.format((valor / total) * 100)}% das horas` }))} />
+          tabela={{ colunas: ["Classe", "HH", "%"], linhas: cl.map(([k, v]) => [k, n1.format(v), percentual1.format(v / total)]) }}>
+          <Barras formato="h" larguraRotulo={190} itens={cl.map(([rotulo, valor]) => ({ rotulo, valor, cor: "serie-1" as Cor, detalhe: `${percentual.format(valor / total)} das horas` }))} />
         </Grafico>
         {temAtiv && (
           <Grafico titulo="HH por tipo de atividade" subtitulo="10 maiores (MECA, ELETRI…)" tabela={{ colunas: ["Atividade", "HH"], linhas: at.map(([k, v]) => [k, n1.format(v)]) }}>
@@ -223,8 +227,8 @@ function Apontamentos({ c, d, campoEq }: { c: Ctx; d: ind.Dados; campoEq: (codig
     <div className="space-y-4">
       <Numeros itens={[
         { rotulo: "HH apontadas no período", valor: `${n0.format(total)} h`, detalhe: `${n0.format(ap.length)} apontamento(s) · ${n0.format(new Set(ap.map((x) => x.np)).size)} pessoa(s)` },
-        { rotulo: "Com texto de confirmação", valor: ap.length ? `${n0.format((comTexto.length / ap.length) * 100)}%` : "—",
-          detalhe: `${n0.format(comTexto.length)} apontamento(s) · ${total ? n0.format((hhTexto / total) * 100) : 0}% das horas` },
+        { rotulo: "Com texto de confirmação", valor: ap.length ? percentual.format(comTexto.length / ap.length) : "—",
+          detalhe: `${n0.format(comTexto.length)} apontamento(s) · ${percentual.format(total ? hhTexto / total : 0)} das horas` },
         { rotulo: "Ordens com horas", valor: n0.format(new Set(ap.map((x) => x.ordem)).size) },
         { rotulo: "Equipamentos com horas", valor: n0.format(new Set(ap.map(equipDe).filter(Boolean)).size) },
       ]} />
@@ -320,14 +324,14 @@ function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Result
         </Grafico>
       )}
       <div className="min-w-0 rounded-cartao border border-borda bg-superficie p-5">
-        <div className="font-display text-[15px] font-medium">Ordens em aberto</div>
+        <h3 className="font-display text-[15px] font-medium">Ordens em aberto</h3>
         <div className="mb-4 mt-0.5 text-[12.5px] text-texto-3">Mais antigas primeiro{bk.length > lista.length ? ` · ${n0.format(lista.length)} de ${n0.format(bk.length)}` : ""}</div>
         <TabelaDados colunas={COL_BK} baixar="backlog" busca="Buscar ordem, texto, equipamento, centro…" limite={500}
           linhas={lista.map((b) => [b.ordem, b.tipo, b.natureza, b.texto, campoEq(b.equipChave), b.equipChave, b.centroTrabalho, b.data, b.idade, b.hhPendentes, b.situacao])} />
       </div>
       {sc.length > 0 && (
         <details className="rounded-cartao border border-borda bg-superficie p-5">
-          <summary className="cursor-pointer font-display text-[15px] font-medium">Tabela de semanas de backlog por centro</summary>
+          <summary className="cursor-pointer font-display text-[15px] font-medium transition-colors hover:text-acao">Tabela de semanas de backlog por centro</summary>
           <div className="mt-4"><TabelaDados colunas={COL_SC} linhas={sc.map((x) => [x.centro, x.h, x.cap, x.semanas, x.ordens])} /></div>
         </details>
       )}

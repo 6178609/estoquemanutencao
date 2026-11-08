@@ -47,7 +47,7 @@ export function CartaoKpi({ kpi, valor, anterior, metas, serie, link = true }: {
           <div className="text-[13px] font-medium leading-snug text-texto-2" title={kpi.formula}>{kpi.nome}</div>
           <SeloFarol farol={f} compacto />
         </div>
-        <div className="mt-2 font-display text-[28px] font-medium leading-none tracking-[-0.02em]">{ind.formatar(kpi, valor)}</div>
+        <div className="num mt-2 font-display text-[28px] font-medium leading-none tracking-[-0.02em]">{ind.formatar(kpi, valor)}</div>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-texto-3">
           <span>{alvo == null ? "sem meta" : `meta ${kpi.sentido > 0 ? "≥" : "≤"} ${ind.formatar(kpi, alvo)}`}</span>
           {textoVariacao(kpi, valor, anterior)}

@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Auditoria" };
 export const dynamic = "force-dynamic";
 
 const LIMITE = 500;
-const CAMPO = "min-h-10 rounded-lg border border-borda-forte bg-superficie px-3 text-[13.5px] focus:border-marca-500 focus:outline-none";
+const CAMPO = "min-h-10 rounded-lg border border-borda-forte bg-superficie px-3 text-[13.5px] focus:border-marca-500";
 const quando = (s: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "medium" }).format(new Date(s));
 const valor = (v: unknown) => (Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "sim" : "não") : String(v ?? ""));
 

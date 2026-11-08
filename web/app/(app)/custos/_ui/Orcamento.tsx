@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Colunas, Grafico, Legenda, type Cor } from "@/components/graficos";
@@ -36,7 +37,7 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor, pessoas }:
     ...(pessoas ? [] : ["Requisições valem para a fábrica inteira; as ordens seguem o recorte do filtro."]),
     "Requisição entra no mês 30 dias após o envio (material) ou 15 dias (serviço); sem data de envio, conta a partir do último envio.",
     "Possível duplicidade: a mesma despesa pode aparecer como ordem e como requisição; o gasto soma as duas bases.",
-    "A entrar = requisições aguardando aprovação. 'Ação de comprador pendente' já é aprovada e entra no valor (no cartão Travado ela aparece como pendente).",
+    "A entrar = requisições aguardando aprovação. “Ação de comprador pendente” já é aprovada e entra no valor (no cartão Travado ela aparece como pendente).",
     "Mês sem valor disponível cadastrado fica com saldo “—”, nunca como zero.",
   ];
   if (temPrevisao) notas.push("Meses em previsão têm só as requisições projetadas; não entram nos totais.");
@@ -68,9 +69,10 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor, pessoas }:
       </div>
 
       {editor && (
-        <details className="rounded-cartao border border-borda bg-superficie">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-display text-[16px] font-medium [&::-webkit-details-marker]:hidden">
+        <details className="group rounded-cartao border border-borda bg-superficie">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-cartao px-5 py-4 font-display text-[16px] font-medium transition-colors hover:bg-superficie-2 [&::-webkit-details-marker]:hidden">
             Lançar valor disponível
+            <ChevronDown aria-hidden className="size-5 shrink-0 text-texto-3 transition-transform group-open:rotate-180" />
           </summary>
           <div className="border-t border-borda p-5">{editor}</div>
         </details>

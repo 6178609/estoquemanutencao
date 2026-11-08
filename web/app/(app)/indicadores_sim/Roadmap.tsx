@@ -8,7 +8,11 @@ import { ComentarioEditavel } from "./ComentarioEditavel";
 
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
-const NOMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const NOMES = Array.from({ length: 12 }, (_, i) => {
+  const m = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, i, 15))).replace(".", "");
+  return m.charAt(0).toUpperCase() + m.slice(1);
+});
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const passo = (v: number | null) => (v == null ? "" : v.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
 
 /** Célula de um mês: previsto em cima, realizado embaixo com a cor da situação (e texto para leitor de tela). */
@@ -59,7 +63,7 @@ export function Roadmap({ maquinas, params, enviada, edita }: { maquinas: Maquin
         <p className="text-[12.5px] text-texto-3">{enviada} Mês em destaque: <b className="text-texto-2">{NOMES[mes]}</b> (o último com realizado, se nenhum for escolhido).</p>
       </div>
       <GradeNumeros colunas={4}>
-        <Numero rotulo={`No previsto em ${NOMES[mes]}`} valor={pct == null ? "—" : `${pct}%`} detalhe={`${r.ok} de ${r.ok + r.atrasadas} máquina(s) com previsto e realizado`}
+        <Numero rotulo={`No previsto em ${NOMES[mes]}`} valor={pct == null ? "—" : pctFmt.format(pct / 100)} detalhe={`${r.ok} de ${r.ok + r.atrasadas} máquina(s) com previsto e realizado`}
           tom={pct == null ? undefined : pct >= 90 ? "bom" : pct >= 70 ? "atencao" : "critico"} />
         <Numero rotulo={`Atrasadas em ${NOMES[mes]}`} valor={String(r.atrasadas)} detalhe="realizado abaixo do passo previsto" tom={r.atrasadas ? "critico" : "bom"} />
         <Numero rotulo="Passo médio realizado" valor={n1(r.passoMedio)} detalhe={`em ${NOMES[mes]}, das ${r.total} máquina(s) mostradas`} />

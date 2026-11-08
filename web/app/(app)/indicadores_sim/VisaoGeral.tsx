@@ -13,11 +13,15 @@ import { IndicadoresSap } from "./IndicadoresSap";
 
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
-const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES = Array.from({ length: 12 }, (_, i) => {
+  const m = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, i, 15))).replace(".", "");
+  return m.charAt(0).toUpperCase() + m.slice(1);
+});
 const rotuloMes = (m: string) => `${MESES[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`;
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const fmtPct = (c: Conta) => {
   const p = pct(c);
-  return p == null ? "—" : `${Math.round(p)}%`;
+  return p == null ? "—" : pctFmt.format(p / 100);
 };
 const tom = (c: Conta) => {
   const p = pct(c);
@@ -26,8 +30,9 @@ const tom = (c: Conta) => {
 const valor = (v: number | null, kpi: string) => {
   if (v == null) return "—";
   const u = unidadeKpi(kpi);
+  if (u === "%") return new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 }).format(v / 100);
   const t = v.toLocaleString("pt-BR", { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 });
-  return u === "%" ? `${t}%` : u === "h" ? `${t} h` : t;
+  return u === "h" ? `${t} h` : t;
 };
 
 /** Barrinha "n de m na meta": a cor vem da faixa (≥ 90% bom, ≥ 70% atenção, abaixo crítico), sempre com o número ao lado. */
@@ -108,7 +113,7 @@ export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: Linha
       <h2 className="font-display text-[18px] font-medium">Deck do pilar MP — por indicador e por área</h2>
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
-          <h2 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por indicador de manutenção</h2>
+          <h3 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por indicador de manutenção</h3>
           <div className="relative overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse">
               <thead><tr className="border-b border-borda">
@@ -132,7 +137,7 @@ export function VisaoGeral({ linhas, maquinas, params, verSap }: { linhas: Linha
           </div>
         </section>
         <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
-          <h2 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por área <span className="text-[12.5px] font-normal text-texto-3">(as piores primeiro)</span></h2>
+          <h3 className="border-b border-borda px-4 py-3 font-display text-[15px] font-medium">Por área <span className="text-[12.5px] font-normal text-texto-3">(as piores primeiro)</span></h3>
           <div className="relative overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse">
               <thead><tr className="border-b border-borda">

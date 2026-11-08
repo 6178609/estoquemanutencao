@@ -69,7 +69,7 @@ export function FotoDetalhe({ f, className }: { f: FotoDoItem; className?: strin
             ? "Foto de um produto com a mesma especificação da descrição (o item não tem fabricante/referência cadastrados)."
             : "Foto do fabricante, achada pela referência do item."}</p>
           {f.pagina && (
-            <a href={f.pagina} target="_blank" rel="noopener noreferrer" className="block break-all text-acao underline underline-offset-2">
+            <a href={f.pagina} target="_blank" rel="noopener noreferrer" className="block break-all text-acao underline underline-offset-2 hover:text-[var(--acao-forte)]">
               Ver página de origem
             </a>
           )}

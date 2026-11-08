@@ -27,8 +27,8 @@ export function FormularioSolicitar() {
     <form action={enviar} className="space-y-4">
       <Campo rotulo="Seu nome" name="nome" defaultValue={estado.nome} required autoComplete="name" maxLength={80} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Campo rotulo="Número Pessoal (NP)" name="login" defaultValue={estado.login} required inputMode="numeric"
-          placeholder="Ex.: 6178609" autoComplete="username" />
+        <Campo rotulo="Número Pessoal (NP)" name="login" defaultValue={estado.login} required inputMode="numeric" spellCheck={false}
+          placeholder="Ex.: 6178609…" autoComplete="username" />
         <Seletor rotulo="Sua função" name="funcao" opcoes={FUNCOES} vazio="Escolha" defaultValue={estado.funcao} />
       </div>
       <label className="block">
@@ -42,7 +42,7 @@ export function FormularioSolicitar() {
       <p className="-mt-2 text-[12px] text-texto-3">Mínimo de 8 caracteres, com letras e números. Ela vale assim que o pedido for aprovado.</p>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       <button disabled={enviando} className={`${BOTAO_PRIMARIO} w-full`}>
-        {enviando ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <Send className="size-4" />} Enviar pedido
+        {enviando ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Enviando…</> : <><Send className="size-4" /> Enviar pedido</>}
       </button>
     </form>
   );

@@ -51,7 +51,7 @@ export async function Biblioteca({ u, edita, filtros }: { u: Usuario; edita: boo
     <div className="space-y-10">
       <form method="get" action="/suporte" role="search" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] lg:items-end">
         <input type="hidden" name="visao" value="biblioteca" />
-        <Campo rotulo="Buscar na biblioteca" name="q" type="search" defaultValue={q} maxLength={120} placeholder="Ex.: SKF, NR-10, lubrificação" />
+        <Campo rotulo="Buscar na biblioteca" name="q" type="search" defaultValue={q} maxLength={120} autoComplete="off" placeholder="Ex.: SKF, NR-10, lubrificação…" />
         <Seletor rotulo="Área" name="area" opcoes={AREAS_OPCOES} vazio="Todas as áreas" defaultValue={area ?? ""} />
         <Seletor rotulo="Tipo" name="tipo" opcoes={TIPO_ROTULO} vazio="Todos os tipos" defaultValue={tipo ?? ""} />
         <button type="submit" className={BOTAO_SECUNDARIO}>Filtrar</button>

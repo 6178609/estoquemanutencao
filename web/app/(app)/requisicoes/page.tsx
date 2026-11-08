@@ -99,7 +99,7 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
             {pend.length > 0 && (
               <Grafico className="min-w-0 lg:col-span-2" titulo="Há quanto tempo esperam" subtitulo="Pendentes por dias aguardando aprovação — valor parado em cada faixa"
                 tabela={{ colunas: ["Espera", "Requisições", "Total"], linhas: FAIXAS_ESPERA.map(([r], i) => [r, espera[i].n, brl(espera[i].valor)]) }}>
-                <Barras formato="R$" larguraRotulo={130} max={folga(espera.map((e) => ["", e.valor]))} itens={FAIXAS_ESPERA.map(([r], i) => ({ rotulo: r, valor: espera[i].valor, detalhe: `${espera[i].n} req.`,
+                <Barras formato="R$" larguraRotulo={130} max={folga(espera.map((e) => ["", e.valor]))} itens={FAIXAS_ESPERA.map(([r], i) => ({ rotulo: r, valor: espera[i].valor, detalhe: `${inteiro(espera[i].n)} req.`,
                   cor: (["st-bom", "st-atencao", "st-serio", "st-critico"] as const)[i] }))} />
               </Grafico>
             )}

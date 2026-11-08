@@ -37,8 +37,20 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
   const [busca, setBusca] = useState("");
   const [cand, setCand] = useState<{ itens: SituacaoPeca[]; total: number; semBase: boolean } | null>(null);
   const [buscando, setBuscando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
   const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tagRef = useRef<HTMLInputElement>(null);
+  const nomeRef = useRef<HTMLInputElement>(null);
   const mudar = <K extends keyof FormCadastro>(k: K, v: FormCadastro[K]) => setF((x) => ({ ...x, [k]: v }));
+  const sujo = !salvo && (JSON.stringify(f) !== JSON.stringify(inicial)
+    || pecas.map((p) => p.codigo).join() !== vinculados.map((p) => p.codigo).join());
+
+  useEffect(() => {
+    if (!sujo) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [sujo]);
 
   useEffect(() => {
     if (espera.current) clearTimeout(espera.current);
@@ -65,10 +77,22 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
     setErro("");
     iniciar(async () => {
       const r = await salvarEquipamento({ ...f, materiais: pecas.map((p) => p.codigo) }, editando);
-      if ("erro" in r) { setErro(r.erro); return; }
+      if ("erro" in r) {
+        setErro(r.erro);
+        // leva o foco ao primeiro campo com problema (TAG, depois nome)
+        const alvo = !f.tag.trim() || /TAG/i.test(r.erro) ? tagRef : !f.nome.trim() ? nomeRef : null;
+        alvo?.current?.focus();
+        return;
+      }
+      setSalvo(true);
       router.push(voltar, { scroll: false });
       router.refresh();
     });
+  }
+
+  function sair() {
+    if (sujo && !window.confirm("Descartar as alterações não salvas?")) return;
+    router.push(voltar, { scroll: false });
   }
 
   return (
@@ -78,43 +102,43 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
           <div className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-alp-azul">{editando ? "Editar equipamento" : "Novo equipamento"}</div>
           <div className="mt-1 font-display text-[20px] font-medium">{editando ? `${editando} · ${inicial.nome}` : "Cadastro do equipamento"}</div>
         </div>
-        <button onClick={() => router.push(voltar, { scroll: false })} aria-label="Fechar" className="grid size-9 place-items-center rounded-xl text-texto-3 hover:bg-superficie-2"><X className="size-5" /></button>
+        <button onClick={sair} aria-label="Fechar" className="grid size-9 place-items-center rounded-xl text-texto-3 hover:bg-superficie-2"><X className="size-5" /></button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.1fr_1.8fr_1fr_1fr]">
         <Rotulo texto="TAG (obrigatório)" dica="Código do equipamento no SAP (IW38/IH08) ou uma TAG própria. Sendo do SAP, o nome é sugerido.">
-          <input className={ENTRADA} value={f.tag} maxLength={60} placeholder="Ex: MT-102" onChange={(e) => mudar("tag", e.target.value)} onBlur={sugerir} />
+          <input ref={tagRef} name="tag" autoComplete="off" spellCheck={false} className={ENTRADA} value={f.tag} maxLength={60} placeholder="Ex: MT-102…" onChange={(e) => mudar("tag", e.target.value)} onBlur={sugerir} />
         </Rotulo>
-        <Rotulo texto="Nome (obrigatório)"><input className={ENTRADA} value={f.nome} maxLength={160} placeholder="Ex: Motor bomba centrífuga" onChange={(e) => mudar("nome", e.target.value)} /></Rotulo>
+        <Rotulo texto="Nome (obrigatório)"><input ref={nomeRef} name="nome" autoComplete="off" className={ENTRADA} value={f.nome} maxLength={160} placeholder="Ex: Motor bomba centrífuga…" onChange={(e) => mudar("nome", e.target.value)} /></Rotulo>
         <Rotulo texto="Categoria">
-          <select className={ENTRADA} value={f.categoria} onChange={(e) => mudar("categoria", e.target.value)}>{CATEGORIAS.map((c) => <option key={c}>{c}</option>)}</select>
+          <select name="categoria" className={ENTRADA} value={f.categoria} onChange={(e) => mudar("categoria", e.target.value)}>{CATEGORIAS.map((c) => <option key={c}>{c}</option>)}</select>
         </Rotulo>
         <Rotulo texto="Criticidade">
-          <select className={ENTRADA} value={f.criticidade} onChange={(e) => mudar("criticidade", e.target.value)}>{CRITICIDADES.map((c) => <option key={c}>{c}</option>)}</select>
+          <select name="criticidade" className={ENTRADA} value={f.criticidade} onChange={(e) => mudar("criticidade", e.target.value)}>{CRITICIDADES.map((c) => <option key={c}>{c}</option>)}</select>
         </Rotulo>
       </div>
 
       <div className="mb-3 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-texto-3">Gestão do ativo · situação e ciclo de vida</div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Rotulo texto="Situação">
-          <select className={ENTRADA} value={f.situacao} onChange={(e) => mudar("situacao", e.target.value)}>{ativos.SITUACOES.map((c) => <option key={c}>{c}</option>)}</select>
+          <select name="situacao" className={ENTRADA} value={f.situacao} onChange={(e) => mudar("situacao", e.target.value)}>{ativos.SITUACOES.map((c) => <option key={c}>{c}</option>)}</select>
         </Rotulo>
-        <Rotulo texto="Fabricante"><input className={ENTRADA} value={f.fabricante} maxLength={80} onChange={(e) => mudar("fabricante", e.target.value)} /></Rotulo>
-        <Rotulo texto="Modelo"><input className={ENTRADA} value={f.modelo} maxLength={80} onChange={(e) => mudar("modelo", e.target.value)} /></Rotulo>
-        <Rotulo texto="Nº de série"><input className={ENTRADA} value={f.serie} maxLength={60} onChange={(e) => mudar("serie", e.target.value)} /></Rotulo>
+        <Rotulo texto="Fabricante"><input name="fabricante" autoComplete="off" className={ENTRADA} value={f.fabricante} maxLength={80} onChange={(e) => mudar("fabricante", e.target.value)} /></Rotulo>
+        <Rotulo texto="Modelo"><input name="modelo" autoComplete="off" className={ENTRADA} value={f.modelo} maxLength={80} onChange={(e) => mudar("modelo", e.target.value)} /></Rotulo>
+        <Rotulo texto="Nº de série"><input name="serie" autoComplete="off" spellCheck={false} className={ENTRADA} value={f.serie} maxLength={60} onChange={(e) => mudar("serie", e.target.value)} /></Rotulo>
         <Rotulo texto="Ano de instalação">
-          <input className={ENTRADA} type="number" min={1900} max={anoMax} step={1} placeholder="Ex: 2015" value={f.ano_instalacao ?? ""} onChange={(e) => mudar("ano_instalacao", e.target.value || null)} />
+          <input name="ano_instalacao" autoComplete="off" inputMode="numeric" className={ENTRADA} type="number" min={1900} max={anoMax} step={1} placeholder="Ex: 2015…" value={f.ano_instalacao ?? ""} onChange={(e) => mudar("ano_instalacao", e.target.value || null)} />
         </Rotulo>
         <Rotulo texto="Vida útil (anos)" dica="Com o ano de instalação, a gestão de ativos avisa o fim da vida útil.">
-          <input className={ENTRADA} type="number" min={1} max={100} step={1} placeholder="Ex: 20" value={f.vida_util ?? ""} onChange={(e) => mudar("vida_util", e.target.value || null)} />
+          <input name="vida_util" autoComplete="off" inputMode="numeric" className={ENTRADA} type="number" min={1} max={100} step={1} placeholder="Ex: 20…" value={f.vida_util ?? ""} onChange={(e) => mudar("vida_util", e.target.value || null)} />
         </Rotulo>
-        <Rotulo texto="Garantia até"><input className={ENTRADA} type="date" value={f.garantia_ate ?? ""} onChange={(e) => mudar("garantia_ate", e.target.value || null)} /></Rotulo>
+        <Rotulo texto="Garantia até"><input name="garantia_ate" autoComplete="off" className={ENTRADA} type="date" value={f.garantia_ate ?? ""} onChange={(e) => mudar("garantia_ate", e.target.value || null)} /></Rotulo>
         <Rotulo texto="Valor de reposição (R$)" dica={`Custo de um equipamento novo. Custo de manutenção em 12 meses acima de ${ativos.LIMITE_SUBSTITUICAO * 100}% dele = avaliar substituição.`}>
-          <input className={ENTRADA} type="number" min={0} step={100} placeholder="Ex: 85000" value={f.valor_reposicao ?? ""} onChange={(e) => mudar("valor_reposicao", e.target.value || null)} />
+          <input name="valor_reposicao" autoComplete="off" className={ENTRADA} type="number" min={0} step={100} placeholder="Ex: 85000…" value={f.valor_reposicao ?? ""} onChange={(e) => mudar("valor_reposicao", e.target.value || null)} />
         </Rotulo>
       </div>
       <Rotulo texto="Visão geral" className="mt-4">
-        <textarea className={clsx(ENTRADA, "h-20 py-2")} maxLength={2000} value={f.observacoes} placeholder="Função do equipamento, observações gerais de manutenção…" onChange={(e) => mudar("observacoes", e.target.value)} />
+        <textarea name="observacoes" className={clsx(ENTRADA, "h-20 py-2")} maxLength={2000} value={f.observacoes} placeholder="Função do equipamento, observações gerais de manutenção…" onChange={(e) => mudar("observacoes", e.target.value)} />
       </Rotulo>
 
       <div className="mb-3 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-texto-3">Componentes vinculados (base de material)</div>
@@ -123,7 +147,7 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
           <div className="min-w-0">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-              <input className={clsx(ENTRADA, "pl-9")} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código ou descrição…" />
+              <input name="busca_material" autoComplete="off" spellCheck={false} className={clsx(ENTRADA, "pl-9")} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código ou descrição…" />
               {buscando && <span role="status" className="contents"><LoaderCircle aria-hidden="true" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" /><span className="sr-only">Buscando…</span></span>}
             </label>
             <ul className="mt-2 h-56 overflow-y-auto rounded-xl border border-borda">
@@ -170,7 +194,7 @@ export function FormEquipamento({ inicial, editando, vinculados, anoMax, voltar 
         <button onClick={salvar} disabled={salvando} className={BOTAO_PRIMARIO}>
           {salvando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : editando ? <Check className="size-4" /> : <Plus className="size-4" />} {salvando ? "Salvando…" : "Salvar equipamento"}
         </button>
-        <button onClick={() => router.push(voltar, { scroll: false })} className={BOTAO_SECUNDARIO}>Cancelar</button>
+        <button onClick={sair} className={BOTAO_SECUNDARIO}>Cancelar</button>
       </div>
     </div>
   );

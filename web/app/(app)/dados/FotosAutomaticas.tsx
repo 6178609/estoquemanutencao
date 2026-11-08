@@ -5,24 +5,26 @@ import { useState } from "react";
 
 import { BOTAO_SECUNDARIO, Cartao } from "@/components/ui";
 import type { Cobertura, ResumoFotos } from "@/lib/fotos/rodadaFotos";
-import { dataHora } from "@/lib/formato";
+import { dataHora, inteiro } from "@/lib/formato";
 
 const pct = (parte: number, total: number) => (total ? Math.round((parte * 100) / total) : 0);
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const pctTxt = (parte: number, total: number) => pctFmt.format(total ? parte / total : 0);
 
 function Linha({ rotulo, c }: { rotulo: string; c: Cobertura }) {
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-[13px]">
         <span className="font-medium text-texto-2">{rotulo}</span>
-        <span className="text-texto-3">{c.total} itens</span>
+        <span className="text-texto-3">{inteiro(c.total)} itens</span>
       </div>
       <div className="flex h-2 overflow-hidden rounded-full bg-superficie-2" role="img"
-        aria-label={`${pct(c.exata, c.total)}% com foto exata, ${pct(c.sem, c.total)}% sem foto`}>
+        aria-label={`${pctTxt(c.exata, c.total)} com foto exata, ${pctTxt(c.sem, c.total)} sem foto`}>
         <div className="bg-[var(--selo-bom-texto)]" style={{ width: `${pct(c.exata, c.total)}%` }} />
       </div>
       <div className="text-[12.5px] text-texto-3">
-        <b className="text-texto-2">{pct(c.exata, c.total)}%</b> com foto exata ({c.exata}) ·{" "}
-        <b className="text-texto-2">{pct(c.sem, c.total)}%</b> sem foto ({c.sem})
+        <b className="text-texto-2">{pctTxt(c.exata, c.total)}</b> com foto exata ({inteiro(c.exata)}) ·{" "}
+        <b className="text-texto-2">{pctTxt(c.sem, c.total)}</b> sem foto ({inteiro(c.sem)})
       </div>
     </div>
   );
@@ -49,7 +51,7 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
     <Cartao className="space-y-4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="font-display text-[16px] font-medium">Fotos automáticas</div>
+          <h2 className="font-display text-[16px] font-medium">Fotos automáticas</h2>
           <p className="mt-1 text-[13px] text-texto-3">
             Todo dia, de madrugada, o site procura a foto do fabricante pela referência dos materiais sem foto. Só entra
             foto cujo título ou página traz a referência do item; foto genérica do tipo de material não é usada.{" "}
@@ -68,9 +70,9 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
 
       <div className="text-[13px] text-texto-3">
         {resumo.ultima
-          ? <>Última rodada: <b className="text-texto-2">{dataHora(resumo.ultima.em)}</b> · {resumo.ultima.buscados} buscas, {resumo.ultima.achados} fotos achadas ({resumo.ultima.motivo}).</>
+          ? <>Última rodada: <b className="text-texto-2">{dataHora(resumo.ultima.em)}</b> · {inteiro(resumo.ultima.buscados)} buscas, {inteiro(resumo.ultima.achados)} fotos achadas ({resumo.ultima.motivo}).</>
           : "Nenhuma rodada ainda."}
-        {" "}Orçamento de hoje: {resumo.orcamentoHoje.usadas} de {resumo.orcamentoHoje.limite} buscas.
+        {" "}Orçamento de hoje: {inteiro(resumo.orcamentoHoje.usadas)} de {inteiro(resumo.orcamentoHoje.limite)} buscas.
       </div>
 
       <Linha rotulo="Almoxarifado (MB52)" c={resumo.almoxarifado} />

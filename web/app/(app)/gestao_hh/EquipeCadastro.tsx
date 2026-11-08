@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { ArrowRightLeft, Download, Pencil, UserMinus, UserPlus, UserRoundCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Campo, Mensagem } from "@/components/Campos";
 import { CampoBusca } from "@/components/Filtros";
@@ -61,6 +61,7 @@ export function EquipeCadastro({ membros, edita, doCadastro }: { membros: Membro
   const [busca, setBusca] = useState("");
   const [desligados, setDesligados] = useState(false);
   const [form, setForm] = useState<PessoaForm | null>(null);
+  const [formInicial, setFormInicial] = useState("");  // como o formulário abriu: quando difere, há alteração não salva
   const [nova, setNova] = useState(true);
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [ocupado, iniciar] = useTransition();
@@ -70,6 +71,14 @@ export function EquipeCadastro({ membros, edita, doCadastro }: { membros: Membro
   const nDesl = membros.filter((p) => !p.ativo).length;
   // sugestões dos campos (o que já existe na equipe)
   const lista = (k: keyof MembroLinha) => [...new Set(membros.map((p) => String(p[k])).filter(Boolean))].sort();
+
+  const sujo = form !== null && JSON.stringify(form) !== formInicial;
+  useEffect(() => {
+    if (!sujo) return;
+    const avisa = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avisa);
+    return () => window.removeEventListener("beforeunload", avisa);
+  }, [sujo]);
 
   const responder = (r: Awaited<ReturnType<typeof salvarPessoa>>, depois?: () => void) => {
     setMsg(r.ok ? { tipo: "ok", texto: r.msg } : { tipo: "erro", texto: r.erro });
@@ -86,7 +95,9 @@ export function EquipeCadastro({ membros, edita, doCadastro }: { membros: Membro
   };
   const editar = (p: MembroLinha) => {
     setNova(false);
-    setForm({ np: p.np, nome: p.nome, cargo: p.cargo, centro: p.centro, area: p.area, turma: p.turma, supervisor: p.supervisor });
+    const f = { np: p.np, nome: p.nome, cargo: p.cargo, centro: p.centro, area: p.area, turma: p.turma, supervisor: p.supervisor };
+    setForm(f);
+    setFormInicial(JSON.stringify(f));
     setMsg(null);
   };
 
@@ -100,14 +111,14 @@ export function EquipeCadastro({ membros, edita, doCadastro }: { membros: Membro
           acoes={<button onClick={() => setForm(null)} aria-label="Fechar" className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2"><X className="size-4" /></button>}>
           <form onSubmit={salvar} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Campo rotulo="Nº pessoal (matrícula)" inputMode="numeric" value={form.np} required disabled={!nova} maxLength={14}
+              <Campo rotulo="Nº pessoal (matrícula)" name="np" autoComplete="off" spellCheck={false} inputMode="numeric" value={form.np} required disabled={!nova} maxLength={14}
                 onChange={(e) => setForm({ ...form, np: e.target.value })} />
-              <Campo rotulo="Nome" value={form.nome} required maxLength={120} className="lg:col-span-2" onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-              <Campo rotulo="Cargo" value={form.cargo} maxLength={80} list="hh-cargos" onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
-              <Campo rotulo="Centro de trabalho" value={form.centro} required maxLength={20} list="hh-centros" onChange={(e) => setForm({ ...form, centro: e.target.value })} />
-              <Campo rotulo="Área" value={form.area} maxLength={40} list="hh-areas" onChange={(e) => setForm({ ...form, area: e.target.value })} />
-              <Campo rotulo="Turma" value={form.turma} maxLength={20} list="hh-turmas" onChange={(e) => setForm({ ...form, turma: e.target.value })} />
-              <Campo rotulo="Supervisor" value={form.supervisor} maxLength={120} list="hh-supervisores" onChange={(e) => setForm({ ...form, supervisor: e.target.value })} />
+              <Campo rotulo="Nome" name="nome" autoComplete="off" value={form.nome} required maxLength={120} className="lg:col-span-2" onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+              <Campo rotulo="Cargo" name="cargo" autoComplete="off" value={form.cargo} maxLength={80} list="hh-cargos" onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
+              <Campo rotulo="Centro de trabalho" name="centro" autoComplete="off" spellCheck={false} value={form.centro} required maxLength={20} list="hh-centros" onChange={(e) => setForm({ ...form, centro: e.target.value })} />
+              <Campo rotulo="Área" name="area" autoComplete="off" value={form.area} maxLength={40} list="hh-areas" onChange={(e) => setForm({ ...form, area: e.target.value })} />
+              <Campo rotulo="Turma" name="turma" autoComplete="off" value={form.turma} maxLength={20} list="hh-turmas" onChange={(e) => setForm({ ...form, turma: e.target.value })} />
+              <Campo rotulo="Supervisor" name="supervisor" autoComplete="off" value={form.supervisor} maxLength={120} list="hh-supervisores" onChange={(e) => setForm({ ...form, supervisor: e.target.value })} />
             </div>
             {([["hh-cargos", "cargo"], ["hh-centros", "centro"], ["hh-areas", "area"], ["hh-turmas", "turma"], ["hh-supervisores", "supervisor"]] as const).map(([id, k]) => (
               <datalist key={id} id={id}>{lista(k).map((v) => <option key={v} value={v} />)}</datalist>
@@ -133,7 +144,7 @@ export function EquipeCadastro({ membros, edita, doCadastro }: { membros: Membro
               <Download className="size-3.5" /> Baixar CSV
             </button>
             {edita && (
-              <button onClick={() => { setNova(true); setForm({ ...VAZIO }); setMsg(null); }} className={clsx(BOTAO_PRIMARIO, "!h-8 !rounded-lg !px-3 !text-[13px]")}>
+              <button onClick={() => { setNova(true); setForm({ ...VAZIO }); setFormInicial(JSON.stringify(VAZIO)); setMsg(null); }} className={clsx(BOTAO_PRIMARIO, "!h-8 !rounded-lg !px-3 !text-[13px]")}>
                 <UserPlus className="size-3.5" /> Cadastrar pessoa
               </button>
             )}

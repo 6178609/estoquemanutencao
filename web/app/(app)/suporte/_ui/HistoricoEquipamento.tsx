@@ -9,6 +9,8 @@ import { dataBr } from "@/lib/wcm/util";
 
 import type { Params } from "./url";
 
+const percentual = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+
 /**
  * Histórico do equipamento informado no diagnóstico: as últimas 5 quebras (mesma regra da Confiabilidade) e os 5
  * modos de causa mais frequentes (IW47 das ordens YM11 dele; regra em lib/suporte/historico.ts). Sem nada, não aparece.
@@ -54,7 +56,7 @@ export async function HistoricoEquipamento({ params, eq, podeFicha }: { params: 
                 <li key={m.modo} className="space-y-0.5 px-5 py-3 text-[13.5px]">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <span className="font-medium text-texto">{m.modo}</span>
-                    <span className="num font-mono text-texto-3">{m.ordens} ordem(ns) · {Math.round(m.pct * 100)}%</span>
+                    <span className="num font-mono text-texto-3">{m.ordens} ordem(ns) · {percentual.format(m.pct)}</span>
                   </div>
                   {m.exemplos[0] && <div className="text-texto-3">Ex.: {m.exemplos[0]}</div>}
                 </li>

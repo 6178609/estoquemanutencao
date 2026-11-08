@@ -11,7 +11,7 @@ export function RemoverManual({ eq, id, titulo }: { eq: string; id: string; titu
   const [erro, setErro] = useState("");
 
   const remover = async () => {
-    if (!confirm(`Remover "${titulo}" deste equipamento?`)) return;
+    if (!confirm(`Remover “${titulo}” deste equipamento?`)) return;
     setOcupado(true);
     setErro("");
     const r = await fetch(`/api/equipamentos/documento?${new URLSearchParams({ eq, id })}`, { method: "DELETE" }).catch(() => null);

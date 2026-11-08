@@ -115,7 +115,7 @@ export function Grafico({ titulo, subtitulo, dica, legenda, tabela, acoes, child
     <div className={clsx("rounded-cartao border border-borda bg-superficie p-5", className)}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-display text-[15px] font-medium" title={dica}>{titulo}</div>
+          <h3 className="font-display text-[15px] font-medium" title={dica}>{titulo}</h3>
           {subtitulo && <div className="mt-0.5 text-[12.5px] text-texto-3">{subtitulo}</div>}
         </div>
         <div className="flex items-center gap-1">
@@ -219,7 +219,8 @@ export function Colunas({ rotulos, series, empilhar, meta, metaPorRotulo, nomeMe
                 {i % passoRotulo === 0 && (
                   <text x={ESQ + i * banda + banda / 2} y={altura - 6} textAnchor="middle" className="fill-[var(--texto-3)] text-[10.5px]">{r}</text>
                 )}
-                <rect x={ESQ + i * banda} y={TOPO} width={banda} height={h} fill="transparent" tabIndex={0}
+                <rect x={ESQ + i * banda} y={TOPO} width={banda} height={h} fill="transparent" tabIndex={0} role="img"
+                  aria-label={`${r}: ${series.map((s) => `${s.nome} ${s.valores[i] == null ? "sem valor" : fmtV(s.valores[i]!)}`).join("; ")}`}
                   onBlur={() => setDica(null)}
                   onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: r,
                     linhas: [...series.map((s, j) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!), linha: false,

@@ -72,7 +72,7 @@ export function FiltrosUrl({ campos, zerar = [] }: { campos: CampoFiltro[]; zera
                 onClick={() => ir((p) => (!v === padrao ? p.delete(c.param) : p.set(c.param, !v ? "1" : "0")))}
                 className="inline-flex h-11 items-center gap-2 rounded-xl border border-borda bg-superficie-2 px-3.5 text-[13.5px] text-texto-2 transition hover:text-texto">
                 <span className={clsx("relative h-5 w-9 rounded-full transition", v ? "bg-marca-500" : "bg-superficie-3")}>
-                  <span className={clsx("absolute top-0.5 size-4 rounded-full bg-white shadow transition-all", v ? "left-[18px]" : "left-0.5")} />
+                  <span className={clsx("absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow transition-transform", v ? "translate-x-[18px]" : "translate-x-0")} />
                 </span>
                 {c.rotulo}
               </button>
@@ -86,7 +86,7 @@ export function FiltrosUrl({ campos, zerar = [] }: { campos: CampoFiltro[]; zera
             <FilterX className="size-4" /> Limpar
           </button>
         )}
-        <span role="status">{pendente && <LoaderCircle className="size-4 animate-spin text-texto-3" aria-label="Atualizando" />}</span>
+        <span role="status">{pendente && <><LoaderCircle className="size-4 animate-spin text-texto-3" aria-hidden="true" /><span className="sr-only">Atualizando…</span></>}</span>
       </div>
       {campos.filter((c) => c.tipo === "pilulas").map((c) => {
         if (c.tipo !== "pilulas") return null;

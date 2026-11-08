@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { ChevronLeft, ChevronRight, LoaderCircle, Save } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 
 import { Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
@@ -53,6 +53,20 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
   const erro = invalido ? "Há valores inválidos (use números de R$ 0 em diante)." : validarOrcamento(ano, nums);
   const n = nums.reduce<number>((c, v, i) => c + (igual(v, valores[i] ?? null) ? 0 : 1), 0);
 
+  // há valores digitados e não salvos: avisa antes de sair da página
+  useEffect(() => {
+    if (!n) return;
+    const avisa = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avisa);
+    return () => window.removeEventListener("beforeunload", avisa);
+  }, [n]);
+
+  const clicarSalvar = () => {
+    if (!n) return setMsg({ erro: "Nenhum valor foi alterado.", ok: "" });
+    if (erro) return setMsg({ erro: "Corrija os valores antes de salvar.", ok: "" });
+    salvar();
+  };
+
   const salvar = () => iniciar(async () => {
     const r = await salvarOrcamento(ano, nums as (number | null)[]);
     setMsg(r);
@@ -80,7 +94,7 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
           )}
         </div>
         {edita && (
-          <button className={BOTAO_PRIMARIO} disabled={!n || pend || !!erro} onClick={salvar}>
+          <button className={BOTAO_PRIMARIO} disabled={pend} onClick={clicarSalvar}>
             {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
           </button>
         )}
@@ -98,7 +112,7 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
               <span className="mb-1.5 block text-[13px] font-medium text-texto-2">{m} <span className="text-texto-3">(R$)</span></span>
               <input
                 className={clsx(CAMPO, invalida ? "border-[var(--st-critico)]" : n > 0 && !igual(nums[i], valores[i] ?? null) && "border-marca-500")}
-                disabled={!edita} inputMode="decimal" placeholder="sem valor" value={texto(i)}
+                disabled={!edita} inputMode="decimal" name={`valor-${m}`} autoComplete="off" placeholder="ex.: 1.250,50…" value={texto(i)}
                 aria-invalid={invalida || undefined}
                 aria-describedby={invalida ? erroId : undefined}
                 onChange={(e) => setTxt((antes) => { const c = [...antes]; c[i] = e.target.value; return c; })}
@@ -108,7 +122,7 @@ function Miolo({ ano, valores, edita }: { ano: number; valores: (number | null)[
         })}
       </div>
 
-      {erro && <p id={erroId} role="alert" className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
+      {erro && <p id={erroId} role="status" className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
   );

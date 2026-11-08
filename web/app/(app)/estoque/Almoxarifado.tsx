@@ -404,7 +404,7 @@ function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; ao
         <div className="relative">
           <div ref={trilho} role="region" aria-roledescription="carrossel" aria-label={`Fotos do material ${it.material}`}
             tabIndex={0} onKeyDown={teclas} onScroll={aoRolar}
-            className="flex snap-x snap-mandatory overflow-x-auto rounded-2xl outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            className="flex snap-x snap-mandatory overflow-x-auto rounded-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {fotos.map((ref, k) => {
               const url = urlFotoMaterial(it.material, ref);
               return (
@@ -454,8 +454,8 @@ function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; ao
           <div role="group" aria-label="Escolher foto" className="flex flex-wrap items-center">
             {fotos.map((ref, k) => (
               <button key={ref} type="button" onClick={() => irPara(k)} aria-label={`Ir para a foto ${k + 1}`} aria-current={atual === k}
-                className="grid size-9 place-items-center">
-                <span className={clsx("h-2 rounded-full transition-all", atual === k ? "w-6 bg-acao" : "w-2 bg-[var(--texto-4)]")} />
+                className="grid size-9 place-items-center rounded-full hover:bg-superficie-2">
+                <span className={clsx("h-2 rounded-full transition-[width,background-color]", atual === k ? "w-6 bg-acao" : "w-2 bg-[var(--texto-4)]")} />
               </button>
             ))}
           </div>
@@ -491,8 +491,8 @@ function FotoMaterial({ it, aoFotos, pedirFoto, lerPedido }: { it: ItemAlmox; ao
           ) : (
             <div role="group" aria-label="Confirmar remoção" className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--selo-critico-fundo)] px-3 py-2 text-sm text-[var(--selo-critico-texto)]">
               <span>Remover esta foto do material?</span>
-              <button type="button" onClick={() => alterar("remover", fotos[atual])} className="font-semibold underline underline-offset-2">Sim, remover</button>
-              <button type="button" onClick={() => setConfirmar(false)} className="font-medium underline underline-offset-2">Cancelar</button>
+              <button type="button" onClick={() => alterar("remover", fotos[atual])} className="rounded-md font-semibold underline underline-offset-2 hover:bg-superficie-2">Sim, remover</button>
+              <button type="button" onClick={() => setConfirmar(false)} className="rounded-md font-medium underline underline-offset-2 hover:bg-superficie-2">Cancelar</button>
             </div>
           )}
         </div>
@@ -589,7 +589,7 @@ function SugestoesFoto({ material, lista, cheio, aoFotos, aoSugestoes, pedirFoto
             <div className="min-w-0 text-sm">
               <div className="font-medium">{s.titulo || "Sem título"}</div>
               {s.pagina && (
-                <a href={s.pagina} target="_blank" rel="noopener noreferrer" className="break-all text-acao underline underline-offset-2">Ver página de origem</a>
+                <a href={s.pagina} target="_blank" rel="noopener noreferrer" className="break-all text-acao underline underline-offset-2 hover:text-[var(--acao-forte)]">Ver página de origem</a>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -650,10 +650,10 @@ function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFo
         <div className="rounded-2xl border border-borda p-4">
           <label className="text-sm font-semibold" htmlFor="minimo">Estoque mínimo (ponto de reposição)</label>
           <div className="mt-2 flex gap-2">
-            <input id="minimo" value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" placeholder="sem mínimo"
+            <input id="minimo" name="minimo" value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="Ex.: 12,5…"
               className="num h-11 w-40 rounded-xl border border-borda bg-superficie px-3 focus:border-[var(--acao)]" />
             <button onClick={salvar} disabled={estado.gravando} className={BOTAO_PRIMARIO}>
-              {estado.gravando ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar
+              {estado.gravando ? <><LoaderCircle className="size-4 animate-spin" />Salvando…</> : <><Save className="size-4" /> Salvar</>}
             </button>
           </div>
           {estado.msg && <p role={estado.erro ? "alert" : "status"} className={clsx("mt-2 rounded-lg px-3 py-2 text-sm", estado.erro ? "bg-[var(--selo-critico-fundo)] text-[var(--selo-critico-texto)]" : "bg-[var(--selo-bom-fundo)] text-[var(--selo-bom-texto)]")}>{estado.msg}</p>}

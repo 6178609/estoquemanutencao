@@ -15,7 +15,8 @@ import { GradeNumeros, Numero } from "../equipamentos/_ui/Blocos";
 type Params = Record<string, string | string[] | undefined>;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
 const n0 = new Intl.NumberFormat("pt-BR");
-const pct = (v: number) => `${Math.round(v * 100)}%`;
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const pct = (v: number) => pctFmt.format(v);
 // as mais frequentes mais escuras (rampa sequencial do site); a cor só reforça o tamanho
 const COR = ["var(--seq-4)", "var(--seq-5)", "var(--seq-6)", "var(--seq-7)"];
 

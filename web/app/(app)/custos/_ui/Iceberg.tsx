@@ -23,7 +23,7 @@ export function Iceberg({ ice, temIw47, pessoas }: { ice: Ice; temIw47: boolean;
 
   return (
     <section className="flex flex-col overflow-hidden rounded-cartao bg-marca-800 p-5 text-white">
-      <div className="text-[11.5px] font-medium tracking-[0.12em] text-white/75">ICEBERG DO CUSTO</div>
+      <h3 className="text-[11.5px] font-medium tracking-[0.12em] text-white/75">ICEBERG DO CUSTO</h3>
       <div className="num mt-2 font-display text-[30px] font-medium leading-none tracking-[-0.02em]">{brlCurto(ice.visivel)}</div>
       <div className="mt-1.5 text-[12.5px] text-white/75">custo visível: ordens do período</div>
 

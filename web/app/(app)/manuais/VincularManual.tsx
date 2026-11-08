@@ -3,11 +3,12 @@
 import clsx from "clsx";
 import { Link2, LoaderCircle, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Campo, Mensagem } from "@/components/Campos";
 import { BOTAO_PRIMARIO } from "@/components/ui";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
+import { inteiro } from "@/lib/formato";
 import { LIMITE_DOCUMENTO, LIMITE_MANUAL_GRANDE } from "@/lib/limitesManual";
 import { enviarManualEmPartes, pedir } from "@/lib/manuais/envioEmPartes";
 
@@ -35,6 +36,23 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
   const [escolhidoAcervo, setEscolhidoAcervo] = useState("");
   const [estado, setEstado] = useState({ enviando: false, erro: "", ok: "" });
   const [progresso, setProgresso] = useState<{ feitas: number; total: number } | null>(null);
+  const [erroEquip, setErroEquip] = useState(false);
+  const buscaRef = useRef<HTMLDivElement>(null);
+  const listaRef = useRef<HTMLUListElement>(null);
+
+  // chegou pelo link da seção (#vincular) num computador: o cursor já vai para a busca (no celular não, para não abrir o teclado)
+  useEffect(() => {
+    if (window.location.hash !== "#vincular" || !window.matchMedia("(pointer: fine)").matches) return;
+    buscaRef.current?.querySelector("input")?.focus();
+  }, []);
+
+  // envio em partes: avisa se a página for fechada até terminar
+  useEffect(() => {
+    if (!estado.enviando) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [estado.enviando]);
 
   const achados = useMemo(() => equipamentos.filter((e) =>
     casaBusca(normalizarBusca([e.codigo, e.campo, e.nome, e.area].join(" ")), busca)), [equipamentos, busca]);
@@ -42,8 +60,10 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
   const itensAcervo = useMemo(() => acervo.map((a, i) => ({ ...a, i })).filter((a) =>
     casaBusca(normalizarBusca([a.titulo, a.fonte, a.area].join(" ")), buscaAcervo)), [acervo, buscaAcervo]);
 
-  const alternar = (codigo: string) => setMarcados((m) => m.includes(codigo) ? m.filter((x) => x !== codigo)
-    : m.length >= MAX_LOTE ? m : [...m, codigo]);
+  const alternar = (codigo: string) => {
+    setErroEquip(false);
+    setMarcados((m) => m.includes(codigo) ? m.filter((x) => x !== codigo) : m.length >= MAX_LOTE ? m : [...m, codigo]);
+  };
 
   const escolherAcervo = (i: string) => {
     setEscolhidoAcervo(i);
@@ -56,7 +76,7 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formulario = e.currentTarget;
-    if (!marcados.length) { setEstado({ enviando: false, erro: "Escolha pelo menos um equipamento.", ok: "" }); return; }
+    if (!marcados.length) { setErroEquip(true); listaRef.current?.focus(); return; }
     const eqs = marcados;
     const tituloManual = titulo;
     let n: number;
@@ -104,15 +124,17 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
     <form onSubmit={enviar} className="space-y-5 rounded-cartao border border-borda bg-superficie p-4 sm:p-5">
       <fieldset className="space-y-3">
         <legend className="mb-1 text-[13px] font-semibold text-texto">1. Equipamentos ({marcados.length} de até {MAX_LOTE})</legend>
-        <Campo rotulo="Buscar equipamento" name="busca-equipamento" type="search" value={busca} onChange={(e) => setBusca(e.target.value)}
-          placeholder="Código, campo, nome ou área" autoComplete="off" />
+        <div ref={buscaRef}>
+          <Campo rotulo="Buscar equipamento" name="busca-equipamento" type="search" value={busca} onChange={(e) => setBusca(e.target.value)}
+            placeholder="Código, campo, nome ou área…" autoComplete="off" spellCheck={false} />
+        </div>
         {marcados.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-texto-2">
             <span>Escolhidos: {marcados.join(", ")}</span>
             <button type="button" onClick={() => setMarcados([])} className="min-h-11 rounded-lg px-2 font-medium text-acao underline-offset-2 hover:underline">Limpar</button>
           </div>
         )}
-        <ul className="max-h-72 divide-y divide-borda overflow-y-auto rounded-xl border border-borda bg-superficie-2" aria-label="Equipamentos encontrados">
+        <ul ref={listaRef} tabIndex={-1} className="max-h-72 divide-y divide-borda overflow-y-auto rounded-xl border border-borda bg-superficie-2" aria-label="Equipamentos encontrados">
           {achados.slice(0, MOSTRAR).map((e) => {
             const marcado = marcados.includes(e.codigo);
             const cheio = !marcado && marcados.length >= MAX_LOTE;
@@ -131,7 +153,8 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
           })}
           {!achados.length && <li className="px-3 py-4 text-center text-[13px] text-texto-3">Nenhum equipamento com esta busca.</li>}
         </ul>
-        {achados.length > MOSTRAR && <p className="text-[12px] text-texto-3">Mostrando {MOSTRAR} de {achados.length}. Refine a busca para ver os outros.</p>}
+        {erroEquip && <p role="alert" className="text-[12.5px] font-medium text-[var(--selo-critico-texto)]">Escolha pelo menos um equipamento.</p>}
+        {achados.length > MOSTRAR && <p className="text-[12px] text-texto-3">Mostrando {MOSTRAR} de {inteiro(achados.length)}. Refine a busca para ver os outros.</p>}
       </fieldset>
 
       <fieldset className="space-y-3">
@@ -140,15 +163,15 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
           {(["arquivo", "link"] as const).map((m) => (
             <button key={m} type="button" onClick={() => setModo(m)} aria-pressed={modo === m}
               className={clsx("inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[13.5px]",
-                modo === m ? "border-transparent bg-tinta font-semibold text-tinta-texto" : "border-borda bg-superficie text-texto-2")}>
+                modo === m ? "border-transparent bg-tinta font-semibold text-tinta-texto hover:opacity-90" : "border-borda bg-superficie text-texto-2 hover:bg-superficie-2")}>
               {m === "arquivo" ? <Upload className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
               {m === "arquivo" ? "Arquivo (PDF ou imagem)" : "Link"}
             </button>
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Campo rotulo="Título" name="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={120} required
-            placeholder="Ex.: Manual de operação da prensa" />
+          <Campo rotulo="Título" name="titulo" autoComplete="off" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={120} required
+            placeholder="Ex.: Manual de operação da prensa…" />
           {modo === "arquivo" ? (
             <label className="block">
               <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (até 100 MB)</span>
@@ -157,7 +180,7 @@ export function VincularManual({ equipamentos, acervo, inicial }: { equipamentos
               <span className="mt-1.5 block text-[12px] text-texto-3">Acima de 4 MB, o envio é feito em partes. Não feche a página até terminar.</span>
             </label>
           ) : (
-            <Campo rotulo="Link" name="url" type="url" inputMode="url" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+            <Campo rotulo="Link" name="url" type="url" inputMode="url" autoComplete="off" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
           )}
         </div>
         {modo === "link" && acervo.length > 0 && (

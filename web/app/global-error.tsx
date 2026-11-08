@@ -11,10 +11,12 @@ export default function ErroGeral({ error, retry }: { error: Error & { digest?: 
           <p style={{ fontSize: 14, opacity: 0.75 }}>
             Pode ser uma instabilidade momentânea. Tente de novo{error.digest ? ` (código ${error.digest})` : ""}.
           </p>
-          <button type="button" onClick={() => retry()}
+          <button type="button" onClick={() => retry()} className="tentar-de-novo"
             style={{ marginTop: 12, padding: "8px 16px", borderRadius: 8, border: "1px solid #888", background: "transparent", cursor: "pointer" }}>
             Tentar de novo
           </button>
+          {/* hover discreto: esta página não carrega o CSS do site, então o estilo vai aqui */}
+          <style>{".tentar-de-novo:hover { background: rgba(127, 127, 127, 0.12); }"}</style>
         </div>
       </body>
     </html>

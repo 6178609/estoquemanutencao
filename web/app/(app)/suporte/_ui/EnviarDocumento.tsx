@@ -47,8 +47,8 @@ export function EnviarDocumento({ areas, areaInicial }: { areas: { id: string; t
       <div className="flex flex-wrap gap-2" role="group" aria-label="O que enviar">
         {(["arquivo", "link"] as const).map((m) => (
           <button key={m} type="button" onClick={() => setModo(m)} aria-pressed={modo === m}
-            className={clsx("inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[13.5px]",
-              modo === m ? "border-transparent bg-tinta font-semibold text-tinta-texto" : "border-borda bg-superficie text-texto-2")}>
+            className={clsx("inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[13.5px] transition-colors",
+              modo === m ? "border-transparent bg-tinta font-semibold text-tinta-texto" : "border-borda bg-superficie text-texto-2 hover:border-borda-forte")}>
             {m === "arquivo" ? <Upload className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
             {m === "arquivo" ? "Enviar arquivo" : "Adicionar link"}
           </button>
@@ -56,8 +56,8 @@ export function EnviarDocumento({ areas, areaInicial }: { areas: { id: string; t
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <Seletor rotulo="Área" name="area" opcoes={opcoes} defaultValue={areaInicial ?? areas[0]?.id} required />
-        <Campo rotulo="Título" name="titulo" maxLength={120}
-          placeholder={modo === "arquivo" ? "Vazio = nome do arquivo" : "Ex.: Tabela de lubrificantes do fabricante"} />
+        <Campo rotulo="Título" name="titulo" maxLength={120} autoComplete="off"
+          placeholder={modo === "arquivo" ? "Vazio = nome do arquivo…" : "Ex.: Tabela de lubrificantes do fabricante…"} />
         {modo === "arquivo" ? (
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Arquivo (PDF ou imagem, até 4 MB)</span>
@@ -65,7 +65,7 @@ export function EnviarDocumento({ areas, areaInicial }: { areas: { id: string; t
               className="block h-11 w-full rounded-xl border border-borda bg-superficie px-3 py-2 text-[13.5px] text-texto file:mr-3 file:rounded-lg file:border-0 file:bg-superficie-3 file:px-3 file:text-texto" />
           </label>
         ) : (
-          <Campo rotulo="Link" name="url" type="url" required placeholder="https://…" inputMode="url" />
+          <Campo rotulo="Link" name="url" type="url" required autoComplete="off" placeholder="https://…" inputMode="url" />
         )}
       </div>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}

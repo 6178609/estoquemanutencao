@@ -22,12 +22,12 @@ export function ImportarFotos() {
 
   return (
     <Cartao className="p-5">
-      <div className="font-display text-[16px] font-medium">Fotos dos materiais</div>
+      <h2 className="font-display text-[16px] font-medium">Fotos dos materiais</h2>
       <p className="mt-1 text-[13px] text-texto-3">
         Importe o arquivo JSON de fotos com <code>&quot;materiais&quot;</code> (foto do fabricante, por código). As fotos entram direto no Estoque; a foto própria,
         quando existir, continua na frente.
       </p>
-      <label className={`${BOTAO_SECUNDARIO} mt-3 cursor-pointer`}>
+      <label className={`${BOTAO_SECUNDARIO} mt-3 cursor-pointer focus-within:ring-2 focus-within:ring-[color:var(--foco)]`}>
         {estado.enviando ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <ImagePlus className="size-4" aria-hidden />}
         {estado.enviando ? "Importando…" : "Importar fotos (JSON)"}
         <input type="file" accept=".json,application/json" className="sr-only" disabled={estado.enviando}

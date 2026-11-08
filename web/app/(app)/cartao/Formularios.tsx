@@ -59,16 +59,16 @@ export function FormGasto({ bloco, categorias, hoje, gasto, aoFechar }: { bloco:
     <form onSubmit={submeter} className="space-y-3 rounded-cartao border border-borda bg-superficie-2 p-4">
       <div className="font-display text-[15px] font-medium">{gasto ? "Editar gasto" : "Lançar gasto"}</div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Campo rotulo="Data da compra" name="data" type="date" required max={hoje} defaultValue={gasto?.data ?? hoje} />
-        <Campo rotulo="Valor (R$)" name="valor" required inputMode="decimal" placeholder="0,00"
-          defaultValue={gasto ? gasto.valor.toFixed(2).replace(".", ",") : ""} />
-        <Campo rotulo="Estabelecimento" name="estabelecimento" required maxLength={120} defaultValue={gasto?.estabelecimento} />
+        <Campo rotulo="Data da compra" name="data" autoComplete="off" type="date" required max={hoje} defaultValue={gasto?.data ?? hoje} />
+        <Campo rotulo="Valor (R$)" name="valor" autoComplete="off" required inputMode="decimal" placeholder="0,00"
+          defaultValue={gasto ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }).format(gasto.valor) : ""} />
+        <Campo rotulo="Estabelecimento" name="estabelecimento" autoComplete="off" required maxLength={120} defaultValue={gasto?.estabelecimento} />
         <Seletor rotulo="Categoria" name="categoria" required vazio="Escolha…" defaultValue={gasto?.categoria ?? ""}
           opcoes={Object.fromEntries(categorias.map((c) => [c, c]))} />
-        <Campo rotulo="O que foi comprado" name="descricao" required maxLength={300} className="sm:col-span-2" defaultValue={gasto?.descricao} />
-        <Campo rotulo="Nº do cupom / NF" name="documento" maxLength={40} defaultValue={gasto?.documento} />
-        <Campo rotulo="Ordem de manutenção" name="ordem" inputMode="numeric" maxLength={12} placeholder="opcional" defaultValue={gasto?.ordem} />
-        <Campo rotulo="Centro de custo" name="centroCusto" maxLength={20} placeholder="opcional" defaultValue={gasto?.centroCusto} />
+        <Campo rotulo="O que foi comprado" name="descricao" autoComplete="off" required maxLength={300} className="sm:col-span-2" defaultValue={gasto?.descricao} />
+        <Campo rotulo="Nº do cupom / NF" name="documento" autoComplete="off" spellCheck={false} maxLength={40} defaultValue={gasto?.documento} />
+        <Campo rotulo="Ordem de manutenção" name="ordem" autoComplete="off" spellCheck={false} inputMode="numeric" maxLength={12} placeholder="opcional" defaultValue={gasto?.ordem} />
+        <Campo rotulo="Centro de custo" name="centroCusto" autoComplete="off" spellCheck={false} maxLength={20} placeholder="opcional" defaultValue={gasto?.centroCusto} />
         <label className="block sm:col-span-2 lg:col-span-3">
           <span className="mb-1.5 block text-[13px] font-semibold text-texto">
             Cupom fiscal (PDF ou foto, até 4 MB){gasto ? " — só se for trocar" : ""}

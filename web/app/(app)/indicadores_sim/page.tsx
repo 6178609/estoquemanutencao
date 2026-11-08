@@ -23,7 +23,10 @@ export const metadata: Metadata = { title: "Indicadores SIM (MP)" };
 export const dynamic = "force-dynamic";
 
 type Params = Record<string, string | string[] | undefined>;
-const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES = Array.from({ length: 12 }, (_, i) => {
+  const m = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, i, 15))).replace(".", "");
+  return m.charAt(0).toUpperCase() + m.slice(1);
+});
 const rotuloMes = (m: string) => `${MESES[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`;
 const um = (p: Params, k: string) => (Array.isArray(p[k]) ? p[k]![0] : p[k]) ?? "";
 
@@ -31,8 +34,9 @@ function valor(v: number | null, kpi: string): string {
   if (v == null) return "—";
   const u = unidadeKpi(kpi);
   const casas = Number.isInteger(v) && !u ? 0 : Math.abs(v) >= 100 ? 1 : 2;
+  if (u === "%") return new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: casas, maximumFractionDigits: casas }).format(v / 100);
   const t = v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
-  return u === "%" ? `${t}%` : u === "h" ? `${t} h` : t;
+  return u === "h" ? `${t} h` : t;
 }
 
 /** Real com o farol: verde na meta, vermelho fora (com ícone e texto para quem não distingue a cor). */
@@ -189,7 +193,8 @@ export default async function IndicadoresSim(props: { searchParams: Promise<Para
   };
   const mesOk = conta((l) => l.atual.ok), ytdOk = conta((l) => l.ytd.ok), anoOk = conta((l) => l.ano.ok);
   const melhoraram = todas.filter((l) => l.atual.melhorou === true).length, pioraram = todas.filter((l) => l.atual.melhorou === false).length;
-  const pct = (x: { na: number; de: number }) => (x.de ? `${Math.round((x.na / x.de) * 100)}%` : "—");
+  const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+  const pct = (x: { na: number; de: number }) => (x.de ? pctFmt.format(x.na / x.de) : "—");
   const tom = (x: { na: number; de: number }) => (!x.de ? undefined : x.na / x.de >= 0.8 ? "bom" : x.na / x.de >= 0.5 ? "atencao" : "critico");
 
   return (

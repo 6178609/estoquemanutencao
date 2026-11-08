@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Privacidade" };
 
 const Secao = ({ titulo, children }: { titulo: string; children: React.ReactNode }) => (
   <section className="space-y-2">
-    <h2 className="font-display text-[18px] font-medium text-texto">{titulo}</h2>
+    <h2 className="font-display text-[18px] font-medium text-balance text-texto">{titulo}</h2>
     <div className="space-y-2 text-[14.5px] leading-relaxed text-texto-2">{children}</div>
   </section>
 );
@@ -29,13 +29,13 @@ export default function Privacidade() {
     <div className="min-h-dvh bg-fundo">
       <header className="border-b border-borda">
         <div className="mx-auto flex h-16 max-w-[900px] items-center gap-3 px-4 sm:px-8">
-          <Link href="/" className="font-display text-[15px] font-medium tracking-[-0.02em] text-texto">Central de Manutenção</Link>
+          <Link href="/" className="rounded-md px-1.5 py-1 font-display text-[15px] font-medium tracking-[-0.02em] text-texto transition-colors hover:bg-superficie-2">Central de Manutenção</Link>
           <span className="text-[12px] text-texto-3">Privacidade</span>
         </div>
       </header>
       <main id="conteudo" tabIndex={-1} className="focus:outline-none mx-auto max-w-[900px] space-y-8 px-4 py-10 sm:px-8">
         <div className="space-y-2">
-          <h1 className="font-display text-[30px] font-medium tracking-[-0.02em] text-texto">Privacidade e dados pessoais</h1>
+          <h1 className="font-display text-[30px] font-medium tracking-[-0.02em] text-balance text-texto">Privacidade e dados pessoais</h1>
           <p className="text-[15px] text-texto-3">Como a Central de Manutenção trata os dados das pessoas que usam o site, de acordo com a LGPD (Lei 13.709/2018).</p>
         </div>
 

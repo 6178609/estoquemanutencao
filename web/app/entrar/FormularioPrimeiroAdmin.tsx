@@ -21,8 +21,8 @@ export function FormularioPrimeiroAdmin({ pedeCodigo }: { pedeCodigo: boolean })
       </div>
       <Campo rotulo="Seu nome" name="nome" defaultValue={estado.nome} required autoComplete="name" />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Campo rotulo="Número Pessoal (NP)" name="login" defaultValue={estado.login} required inputMode="numeric"
-          placeholder="Ex.: 6178609" autoComplete="username" />
+        <Campo rotulo="Número Pessoal (NP)" name="login" defaultValue={estado.login} required inputMode="numeric" spellCheck={false}
+          placeholder="Ex.: 6178609…" autoComplete="username" />
         <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES_ADMIN} defaultValue={estado.funcao || "lider"} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -36,7 +36,7 @@ export function FormularioPrimeiroAdmin({ pedeCodigo }: { pedeCodigo: boolean })
       )}
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       <button disabled={enviando} className={`${BOTAO_PRIMARIO} w-full`}>
-        Criar administrador {enviando ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" />}
+        {enviando ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Criando…</> : <>Criar administrador <ArrowRight className="size-4" /></>}
       </button>
     </form>
   );

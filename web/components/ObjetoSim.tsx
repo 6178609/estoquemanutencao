@@ -25,11 +25,11 @@ export function ObjetoSim({ className = "", tamanho = 420 }: { className?: strin
             <div key={c.nome} className={`absolute inset-0 ${c.nome === "foguete" ? "objeto-sim-foguete" : ""}`} style={{ transformStyle: "preserve-3d" }}>
               {Array.from({ length: PASSOS }, (_, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={i} src={`/logo-sim/${c.nome}.svg`} alt="" className="absolute inset-0 size-full"
+                <img key={i} src={`/logo-sim/${c.nome}.svg`} alt="" width={1000} height={540} className="absolute inset-0 size-full"
                   style={{ transform: `translateZ(${c.z - c.espessura + (c.espessura * i) / PASSOS}px)`, filter: `brightness(${c.brilho})` }} />
               ))}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/logo-sim/${c.nome}.svg`} alt="" className="absolute inset-0 size-full drop-shadow-[0_18px_24px_rgba(9,9,11,0.16)]"
+              <img src={`/logo-sim/${c.nome}.svg`} alt="" width={1000} height={540} className="absolute inset-0 size-full drop-shadow-[0_18px_24px_rgba(9,9,11,0.16)]"
                 style={{ transform: `translateZ(${c.z}px)` }} />
             </div>
           ))}

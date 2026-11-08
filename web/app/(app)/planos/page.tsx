@@ -26,7 +26,8 @@ export const maxDuration = 60;
 
 const MAX_LINHAS = 3000;
 const p2 = (n: number) => String(n).padStart(2, "0");
-const pct = (a: planos.Aderencia) => (a.taxa == null ? "—" : `${Math.round(a.taxa * 100)}%`);
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const pct = (a: planos.Aderencia) => (a.taxa == null ? "—" : pctFmt.format(a.taxa));
 
 export default async function Planos(props: { searchParams: Promise<Params> }) {
   await exigir("planos");
@@ -201,7 +202,7 @@ function DetalhePlano({ det, hoje, temIw38, campoEq }: { det: planos.DetalhePlan
     <>
       <div className="grid grid-cols-2 gap-3">
         <Kpi rotulo="Chamadas (todas as datas)" valor={inteiro(d.length)} />
-        <Kpi rotulo="Aderência até hoje" valor={pct(det.aderencia)} detalhe={`${det.aderencia.concluidas} de ${det.aderencia.vencidas} vencidas`} />
+        <Kpi rotulo="Aderência até hoje" valor={pct(det.aderencia)} detalhe={`${inteiro(det.aderencia.concluidas)} de ${inteiro(det.aderencia.vencidas)} vencidas`} />
         <Kpi rotulo="Próxima chamada" valor={det.proxima != null ? dataBr(det.proxima) : "—"} detalhe={det.proxima != null ? `em ${det.proxima - hoje} dia(s)` : undefined} />
         <Kpi rotulo="Custo das ordens" valor={temIw38 ? brlCurto(det.custoReal) : "—"} detalhe={temIw38 ? brl(det.custoReal) : undefined} />
       </div>

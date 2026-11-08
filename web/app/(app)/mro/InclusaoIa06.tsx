@@ -90,18 +90,18 @@ export function InclusaoIa06({ equipamento, rotulo, pecas, listas, operacaoInici
             })}
           </ul>
           <div className="flex flex-wrap items-center gap-2">
-            <input className={`${ENTRADA} w-32`} placeholder="Grupo" value={novoGrupo} maxLength={20} onChange={(e) => setNovoGrupo(e.target.value)}
+            <input className={`${ENTRADA} w-32`} name="grupo" autoComplete="off" spellCheck={false} placeholder="Ex.: A123…" value={novoGrupo} maxLength={20} onChange={(e) => setNovoGrupo(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarLista(); } }} aria-label="Grupo da lista de tarefas" />
-            <input className={`${ENTRADA} w-20`} placeholder="Numerador" value={novoNum} maxLength={4} onChange={(e) => setNovoNum(e.target.value)}
+            <input className={`${ENTRADA} w-20`} name="numerador" autoComplete="off" spellCheck={false} inputMode="numeric" placeholder="Numerador" value={novoNum} maxLength={4} onChange={(e) => setNovoNum(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarLista(); } }} aria-label="Numerador da lista de tarefas" />
             <button type="button" onClick={adicionarLista} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] hover:bg-superficie-2">
               <Plus className="size-3.5" /> Lista
             </button>
           </div>
           <label className="block pt-2 text-[12.5px] font-medium text-texto-2">Operação
-            <input className={`${ENTRADA} ml-2 w-24 font-mono`} value={operacao} maxLength={4} onChange={(e) => setOperacao(e.target.value)} onBlur={() => setOperacao(operacao4(operacao))} />
+            <input className={`${ENTRADA} ml-2 w-24 font-mono`} name="operacao" autoComplete="off" spellCheck={false} inputMode="numeric" value={operacao} maxLength={4} onChange={(e) => setOperacao(e.target.value)} onBlur={() => setOperacao(operacao4(operacao))} />
           </label>
-          {!opValida && <p role="alert" className="text-[12px] text-[color:var(--st-critico)]">Informe o número da operação (ex.: 0010).</p>}
+          {!opValida && <p role="status" className="text-[12px] text-[color:var(--st-critico)]">Informe o número da operação (ex.: 0010).</p>}
         </div>
 
         <div className="min-w-0">

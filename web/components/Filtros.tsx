@@ -8,7 +8,7 @@ export function CampoBusca({ valor, aoMudar, placeholder }: { valor: string; aoM
   return (
     <label className="relative block min-w-0 flex-1">
       <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-      <input value={valor} onChange={(e) => aoMudar(e.target.value)} placeholder={placeholder} aria-label={placeholder} type="text" enterKeyHint="search"
+      <input name="busca" autoComplete="off" value={valor} onChange={(e) => aoMudar(e.target.value)} placeholder={placeholder} aria-label={placeholder} type="text" enterKeyHint="search"
         className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-10 pr-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
       {valor && (
         <button onClick={() => aoMudar("")} aria-label="Limpar busca" className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2">
@@ -61,7 +61,7 @@ export function MultiEscolha({ rotulo, opcoes, valor, aoMudar }: { rotulo: strin
         <div className="absolute left-0 z-30 mt-2 w-72 overflow-hidden rounded-2xl border border-borda bg-superficie shadow-flutuante">
           {opcoes.length > 8 && (
             <div className="border-b border-borda p-2">
-              <input autoFocus value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Filtrar…" aria-label={`Filtrar ${rotulo.toLowerCase()}`}
+              <input name="filtrar-opcao" autoComplete="off" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Filtrar…" aria-label={`Filtrar ${rotulo.toLowerCase()}`}
                 className="h-9 w-full rounded-lg bg-superficie-2 px-3 text-sm" />
             </div>
           )}

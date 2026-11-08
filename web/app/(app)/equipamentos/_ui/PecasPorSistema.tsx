@@ -73,12 +73,12 @@ export function PecasPorSistema({ grupos, onDesvincular, mexendo, ocupado }: {
         <label className="relative min-w-56 flex-1">
           <span className="sr-only">Buscar peça</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" aria-hidden />
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} type="search" placeholder="Buscar código, descrição ou fabricante…"
+          <input name="busca_peca" autoComplete="off" value={busca} onChange={(e) => setBusca(e.target.value)} type="search" placeholder="Buscar código, descrição ou fabricante…"
             className="h-10 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-3 text-[14px] placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
         </label>
         <button type="button" onClick={() => setSoFalta((v) => !v)} aria-pressed={soFalta}
           className={clsx("inline-flex min-h-10 items-center rounded-full border px-3.5 text-[13px]",
-            soFalta ? "border-transparent bg-tinta font-semibold text-tinta-texto" : "border-borda bg-superficie text-texto-2")}>
+            soFalta ? "border-transparent bg-tinta font-semibold text-tinta-texto hover:opacity-90" : "border-borda bg-superficie text-texto-2 hover:bg-superficie-2")}>
           Só em falta
         </button>
       </div>
@@ -165,7 +165,7 @@ function Linha({ p, aberto, alternar, onDesvincular, mexendo, ocupado }: {
             <div className="flex gap-3 text-[12.5px] text-texto-2">
               {p.foto ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.foto} alt="" loading="lazy" className="size-20 shrink-0 rounded-xl border border-borda bg-white object-cover" />
+                <img src={p.foto} alt="" width={80} height={80} loading="lazy" className="size-20 shrink-0 rounded-xl border border-borda bg-white object-cover" />
               ) : (
                 <span className="grid size-20 shrink-0 place-items-center rounded-xl bg-superficie text-texto-3"><PackageOpen className="size-6" aria-hidden /></span>
               )}
