@@ -6,6 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 
 import { Campo, Mensagem, Seletor } from "@/components/Campos";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Cartao } from "@/components/ui";
+import { abasPadrao } from "@/lib/auth/acesso";
 import { acaoAprovar, acaoCriarUsuario, acaoEditarUsuario, acaoExcluirUsuario, acaoRecusar, type EstadoUsuario } from "./acoes";
 
 export interface Pessoa {
@@ -38,7 +39,7 @@ function NovoUsuario() {
         <Campo rotulo="Nome" name="nome" required autoComplete="off" />
         <Campo rotulo="Número Pessoal (NP)" name="login" required inputMode="numeric" autoComplete="off" spellCheck={false} placeholder="Ex.: 6178609…" />
         <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" required
-          dica="Líder e Analista veem todas as abas; Manutentor e Terceiro, só o Estoque." />
+          dica="Padrão da função: Líder e Analista veem todas as abas; Manutentor e Terceiro, o Estoque e o Suporte Técnico." />
         <Seletor rotulo="Perfil" name="perfil" opcoes={PERFIS} defaultValue="leitor"
           dica="Editor altera cadastros; Administrador também gerencia usuários." />
       </div>
@@ -57,8 +58,10 @@ function NovoUsuario() {
 
 type Aba = { id: string; titulo: string };
 
-function EscolhaAbas({ abas, marcadas, escolher, setEscolher }: {
+function EscolhaAbas({ abas, marcadas, padrao, escolher, setEscolher }: {
   abas: Aba[]; marcadas: string[] | null; escolher: boolean; setEscolher: (v: boolean) => void;
+  /** o que a pessoa já vê pelo padrão da função: vem pré-marcado ao passar para "Escolher as abas" */
+  padrao: Set<string>;
 }) {
   return (
     <fieldset className="space-y-3 rounded-xl border border-borda p-4">
@@ -73,11 +76,11 @@ function EscolhaAbas({ abas, marcadas, escolher, setEscolher }: {
         <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {abas.map((a) => (
             <label key={a.id} className="flex items-center gap-2 text-[13px] text-texto-2">
-              <input type="checkbox" name="abas" value={a.id} defaultChecked={marcadas?.includes(a.id)} className="size-4 accent-marca-600" />
+              <input type="checkbox" name="abas" value={a.id} defaultChecked={marcadas ? marcadas.includes(a.id) : padrao.has(a.id)} className="size-4 accent-marca-600" />
               {a.titulo}
             </label>
           ))}
-          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">O Estoque e o Suporte Técnico são sempre liberados para todos; a Gestão de ativos também, mesmo sem marcar Equipamentos. Para Manutentor e Terceiro vale sempre só o Estoque e o Suporte Técnico.</p>
+          <p className="text-[12px] text-texto-3 sm:col-span-2 lg:col-span-3">A pessoa vê só as abas marcadas, em qualquer função (Minha conta é de todos). No padrão da função: Líder e Analista veem todas; Manutentor e Terceiro, o Estoque e o Suporte Técnico.</p>
         </div>
       )}
     </fieldset>
@@ -143,7 +146,7 @@ function Solicitacoes({ pedidos, abas }: { pedidos: PedidoAcesso[]; abas: Aba[] 
                 <Seletor rotulo="Perfil" name="perfil" opcoes={PERFIS} defaultValue="leitor"
                   dica="Editor altera cadastros; Administrador também gerencia usuários." />
               </div>
-              <EscolhaAbas abas={abas} marcadas={null} escolher={escolher} setEscolher={setEscolher} />
+              <EscolhaAbas abas={abas} marcadas={null} padrao={abasPadrao({ login: d.login, funcao: d.funcao })} escolher={escolher} setEscolher={setEscolher} />
               {estadoAp.erro && <Mensagem>{estadoAp.erro}</Mensagem>}
               <Botao enviando={aprovando} envio="Aprovando…"><UserCheck className="size-4" /> Aprovar e criar usuário</Botao>
             </form>
@@ -222,7 +225,7 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
           <Campo rotulo="Redefinir senha (opcional)" name="nova_senha" type="password" autoComplete="new-password"
             dica="Só se a pessoa esqueceu a senha. Ela terá de trocar no próximo acesso." />
         </div>
-        <EscolhaAbas abas={abas} marcadas={d.abas} escolher={escolher} setEscolher={setEscolher} />
+        <EscolhaAbas abas={abas} marcadas={d.abas} padrao={abasPadrao({ login: d.login, funcao: d.funcao, perfil: d.perfil })} escolher={escolher} setEscolher={setEscolher} />
         {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
         {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
         <Botao enviando={enviando} envio="Salvando…"><Save className="size-4" /> Salvar alterações</Botao>
