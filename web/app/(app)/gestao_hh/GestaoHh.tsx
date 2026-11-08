@@ -273,7 +273,7 @@ export function Ausencias({ pessoas, npsVis, ausencias, hoje, edita, tipos, tipo
           <div className="max-h-[460px] overflow-auto rounded-lg border border-borda">
             <table className="w-full min-w-[820px] whitespace-nowrap text-left text-[12.5px]">
               <thead className="sticky top-0 bg-superficie-2 text-[11.5px] text-texto-3">
-                <tr>{edita && <th className="w-8 px-3 py-2" />}{["Nome", "Nº pessoal", "Centro", "Tipo", "De", "Até", "Dias", "Situação", "Obs"].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr>
+                <tr>{edita && <th className="w-8 px-3 py-2"><span className="sr-only">Selecionar</span></th>}{["Nome", "Nº pessoal", "Centro", "Tipo", "De", "Até", "Dias", "Situação", "Obs"].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-borda">
                 {linhas.map((l) => (
@@ -356,7 +356,9 @@ function Calendario({ pessoas, ausencias, ini, fim }: { pessoas: PessoaLinha[]; 
                 <td className="sticky left-0 z-10 max-w-[180px] truncate bg-superficie pr-2 text-[12px] text-texto-2" title={n as string}>{n as string}</td>
                 {(cs as ReturnType<typeof celula>[]).map((x, j) => (
                   <td key={j} title={x ? `${n} · ${porSemana ? `semana de ${dataBr(colunas[j].de)}` : dataBr(colunas[j].de)} · ${x.tipo}${porSemana ? ` (${x.dias} dia(s))` : ""}` : undefined}
-                    className="h-6 rounded-[4px]" style={{ background: x ? cor(corTipo(x.tipo)) : colunas[j].fds ? "var(--superficie-3)" : "var(--superficie-2)" }} />
+                    className="h-6 rounded-[4px]" style={{ background: x ? cor(corTipo(x.tipo)) : colunas[j].fds ? "var(--superficie-3)" : "var(--superficie-2)" }}>
+                    {x && <span className="sr-only">{x.tipo}, {porSemana ? `semana de ${dataBr(colunas[j].de)}` : dataBr(colunas[j].de)}</span>}
+                  </td>
                 ))}
               </tr>
             ))}

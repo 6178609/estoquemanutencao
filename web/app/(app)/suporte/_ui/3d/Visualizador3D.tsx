@@ -42,6 +42,8 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
   const [pausado, setPausado] = useState(false);
   /** contador de Recentrar: cada clique refoca o modelo inteiro, mesmo sem peça em foco */
   const [recentrarN, setRecentrarN] = useState(0);
+  const [mover, setMover] = useState({ n: 0, zoom: 1, giro: 0 });
+  const moverCena = (zoom: number, giro: number) => setMover((m) => ({ n: m.n + 1, zoom, giro }));
   /** o navegador perdeu o contexto WebGL depois de montar a cena */
   const [perdido, setPerdido] = useState(false);
   const reduzir = useMovimentoReduzido();
@@ -78,7 +80,7 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
               <Mensagem role="status">Visualização 3D indisponível neste navegador</Mensagem>
             ) : suporte === true ? (
               <div
-                role="img"
+                role="group"
                 aria-label={`Modelo 3D: ${modelo.titulo}.${marcador ? ` Peça em destaque: ${nomeDe(marcador.peca)}.` : ""}`}
                 className="absolute inset-0 touch-pan-y"
               >
@@ -90,6 +92,7 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
                   reduzir={reduzir}
                   naTela={naTela}
                   recentrar={recentrarN}
+                  mover={mover}
                   aoClicarPeca={aoClicarPeca}
                   aoPerderContexto={() => setPerdido(true)}
                 />
@@ -116,6 +119,10 @@ function Bloco({ modelo: idModelo, marcadores, rotulo }: { modelo: ModeloComCena
               >
                 Recentrar
               </button>
+              <button type="button" onClick={() => moverCena(0.8, 0)} className={BOTAO_NO_MODELO}>Aproximar</button>
+              <button type="button" onClick={() => moverCena(1.25, 0)} className={BOTAO_NO_MODELO}>Afastar</button>
+              <button type="button" aria-label="Girar para a esquerda" onClick={() => moverCena(1, -Math.PI / 8)} className={BOTAO_NO_MODELO}>Girar ←</button>
+              <button type="button" aria-label="Girar para a direita" onClick={() => moverCena(1, Math.PI / 8)} className={BOTAO_NO_MODELO}>Girar →</button>
               {/* com uma peça em foco o giro já está parado: o botão só aparece quando há giro para pausar */}
               {!reduzir && peca === null && (
                 <button type="button" onClick={() => setPausado((p) => !p)} className={BOTAO_NO_MODELO}>

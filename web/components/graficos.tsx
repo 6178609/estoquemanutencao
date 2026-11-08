@@ -121,7 +121,7 @@ export function Grafico({ titulo, subtitulo, dica, legenda, tabela, acoes, child
         <div className="flex items-center gap-1">
           {acoes}
           {tabela && (
-            <button onClick={() => setVerTabela(!verTabela)} title={verTabela ? "Ver gráfico" : "Ver tabela"}
+            <button onClick={() => setVerTabela(!verTabela)} title={verTabela ? "Ver gráfico" : "Ver tabela"} aria-label={verTabela ? "Ver gráfico" : "Ver tabela"}
               aria-pressed={verTabela}
               className={clsx("grid size-8 place-items-center rounded-lg transition hover:bg-superficie-2",
                 verTabela ? "text-texto" : "text-texto-3")}>
@@ -220,6 +220,7 @@ export function Colunas({ rotulos, series, empilhar, meta, metaPorRotulo, nomeMe
                   <text x={ESQ + i * banda + banda / 2} y={altura - 6} textAnchor="middle" className="fill-[var(--texto-3)] text-[10.5px]">{r}</text>
                 )}
                 <rect x={ESQ + i * banda} y={TOPO} width={banda} height={h} fill="transparent" tabIndex={0}
+                  onBlur={() => setDica(null)}
                   onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: r,
                     linhas: [...series.map((s, j) => ({ nome: s.nome, valor: s.valores[i] == null ? "—" : fmtV(s.valores[i]!), linha: false,
                       cor: corPorValor ? corPorValor(s.valores[i] ?? 0, i) : (s.cor ?? (`serie-${(j % 4) + 1}` as Cor)) })),
@@ -288,7 +289,8 @@ export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo 
   return (
     <div ref={ref} className="relative" onPointerLeave={() => setDica(null)}>
       {largura > 0 && (
-        <svg width={largura} height={altura} role="img">
+        <svg width={largura} height={altura} role={aoClicar ? "group" : "img"}
+          aria-label={`Barras: ${itens.map((it) => `${it.rotulo} ${fmtV(it.valor)}`).join("; ")}`}>
           {itens.map((it, i) => {
             const y = i * ESP + (ESP - Math.min(ALT, 18)) / 2;
             const hB = Math.min(ALT, 18);
@@ -296,6 +298,8 @@ export function Barras({ itens, formato: fmtNome = "padrao", max, larguraRotulo 
             let acc = 0;
             return (
               <g key={it.rotulo + i} className={aoClicar ? "cursor-pointer" : undefined} onClick={() => aoClicar?.(it)}
+                {...(aoClicar ? { tabIndex: 0, role: "button", "aria-label": `${it.rotulo}: ${fmtV(it.valor)}`,
+                  onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); aoClicar(it); } } } : {})}
                 onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: it.rotulo,
                   linhas: it.partes?.length ? it.partes.map((p) => ({ nome: p.nome, valor: fmtV(p.valor), cor: p.cor, linha: false }))
                     : [{ nome: it.detalhe ?? "", valor: fmtV(it.valor), cor: it.cor ?? "serie-1", linha: false }] })}>
@@ -358,7 +362,13 @@ export function Linhas({ rotulos, series, meta, formato: fmtNome = "padrao", alt
   return (
     <div ref={ref} className="relative" onPointerLeave={() => setHover(null)}>
       {largura > 0 && (
-        <svg width={largura} height={altura} role="img"
+        <svg width={largura} height={altura} role="img" aria-label={`Linhas: ${series.map((s) => s.nome).join(", ")}`}
+          tabIndex={0} onBlur={() => setHover(null)}
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+            e.preventDefault();
+            setHover((h0) => Math.max(0, Math.min(rotulos.length - 1, (h0 ?? (e.key === "ArrowRight" ? -1 : rotulos.length)) + (e.key === "ArrowRight" ? 1 : -1))));
+          }}
           onPointerMove={(e) => {
             const px = e.nativeEvent.offsetX;
             const i = Math.round(((px - ESQ) / w) * (rotulos.length - 1));
@@ -440,7 +450,8 @@ export function MapaDeCalor({ linhas, colunas, valores, formato: fmtNome = "padr
   return (
     <div ref={ref} className="relative" onPointerLeave={() => setDica(null)}>
       {largura > 0 && (
-        <svg width={largura} height={linhas.length * ch + 22} role="img">
+        <svg width={largura} height={linhas.length * ch + 22} role={aoClicar ? "group" : "img"}
+          aria-label={`Mapa de calor: ${linhas.length} linhas por ${colunas.length} colunas`}>
           {colunas.map((c, j) => j % passo === 0 && (
             <text key={c + j} x={rotW + j * cw + cw / 2} y={12} textAnchor="middle" className="fill-[var(--texto-3)] text-[10.5px]">{c}</text>
           ))}
@@ -456,6 +467,8 @@ export function MapaDeCalor({ linhas, colunas, valores, formato: fmtNome = "padr
                   <rect key={c + j} x={rotW + j * cw + 1} y={22 + i * ch + 1} width={cw - 2} height={ch - 2} rx={3}
                     fill={nivel < 0 ? "var(--superficie-2)" : `var(${SEQ[nivel]})`} className={aoClicar ? "cursor-pointer" : undefined}
                     onClick={() => aoClicar?.(i, j)}
+                    {...(aoClicar ? { tabIndex: 0, role: "button", "aria-label": `${l}, ${c}: ${v == null ? "sem dado" : fmtV(v)}`,
+                      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); aoClicar(i, j); } } } : {})}
                     onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: `${l} · ${c}`,
                       linhas: [{ nome: "", valor: v == null ? "—" : fmtV(v) }] })} />
                 );
@@ -574,7 +587,7 @@ export function Dispersao({ pontos, formatoX = "padrao", formatoY = "padrao", no
   return (
     <div ref={ref} className="relative" onPointerLeave={() => setDica(null)}>
       {largura > 0 && pontos.length > 0 && (
-        <svg width={largura} height={altura} aria-label={`${nomeY} × ${nomeX}`}>
+        <svg width={largura} height={altura} role="group" aria-label={`${nomeY} × ${nomeX}`}>
           {ey.ticks.map((t) => (
             <g key={`y${t}`}>
               <line x1={ESQ} x2={largura - DIR} y1={Y(t)} y2={Y(t)} stroke="var(--grade)" />
@@ -590,7 +603,7 @@ export function Dispersao({ pontos, formatoX = "padrao", formatoY = "padrao", no
           {pontos.map((p, i) => {
             const ultimo = i === pontos.length - 1;
             return (
-              <g key={p.rotulo + i} tabIndex={0} role="button" aria-label={`${p.rotulo}: ${nomeY} ${fy(p.y)}, ${nomeX} ${fx(p.x)}`}
+              <g key={p.rotulo + i} tabIndex={0} role="img" aria-label={`${p.rotulo}: ${nomeY} ${fy(p.y)}, ${nomeX} ${fx(p.x)}`}
                 onBlur={() => setDica(null)}
                 onPointerMove={(e) => setDica({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, titulo: p.rotulo,
                   linhas: [{ nome: nomeY, valor: fy(p.y) }, { nome: nomeX, valor: fx(p.x) }] })}

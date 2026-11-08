@@ -158,14 +158,14 @@ export function FiltroPessoas({ disponiveis, ativos, padrao, podeSalvarPadrao }:
 
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className={BOTAO_PRIMARIO} disabled={pend || demais} onClick={aplicar}>Aplicar</button>
-            {demais && <span className="text-[12.5px] text-[var(--st-critico)]">Marque no máximo 50 pessoas.</span>}
+            <span role="status" className={demais ? "text-[12.5px] text-[var(--st-critico)]" : "sr-only"}>{demais ? "Marque no máximo 50 pessoas." : ""}</span>
             <button type="button" className={BOTAO_SECUNDARIO} disabled={pend || !n} onClick={() => setSel({})}>Limpar</button>
             {podeSalvarPadrao && (
               <>
                 <button type="button" className={BOTAO_SECUNDARIO} disabled={pend || !!erroPadrao} onClick={salvarPadrao}>
                   {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar como padrão
                 </button>
-                {erroPadrao && <span className="basis-full text-[12.5px] text-[var(--st-critico)]">Para salvar como padrão: {erroPadrao}</span>}
+                {erroPadrao && <span role="status" className="basis-full text-[12.5px] text-[var(--st-critico)]">Para salvar como padrão: {erroPadrao}</span>}
               </>
             )}
           </div>

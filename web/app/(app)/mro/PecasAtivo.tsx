@@ -58,6 +58,7 @@ export function PecasAtivo({ tag, pecas, grupos, edita }: { tag: string; pecas: 
   ) : <PecasPorSistema grupos={grupos} mexendo={mexendo} ocupado={ocupado}
     onDesvincular={edita ? (p) => {
       if (p.origem !== tag && !confirm(`A peça ${p.codigo} está vinculada ao subconjunto ${p.origem}. Desvincular de lá?`)) return;
+      else if (p.origem === tag && !confirm(`Desvincular a peça ${p.codigo} deste ativo?`)) return;
       mudar(p.codigo, false, p.origem || tag);
     } : undefined} />;
 
@@ -75,10 +76,10 @@ export function PecasAtivo({ tag, pecas, grupos, edita }: { tag: string; pecas: 
             <>
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-                <input className={ENTRADA} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, descrição, Sysmat ou fabricante…" />
-                {buscando && <LoaderCircle className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" />}
+                <input className={ENTRADA} value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar peça para vincular" placeholder="Buscar código, descrição, Sysmat ou fabricante…" />
+                {buscando && <LoaderCircle role="img" aria-label="Buscando" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-3" />}
               </label>
-              <ul className="mt-2 h-64 overflow-y-auto rounded-xl border border-borda">
+              <ul aria-live="polite" className="mt-2 h-64 overflow-y-auto rounded-xl border border-borda">
                 {cand && !cand.itens.length && <li className="px-3 py-3 text-[13px] text-texto-3">Nenhum material encontrado.</li>}
                 {cand?.itens.map((p) => {
                   const on = vinculados.has(p.codigo);

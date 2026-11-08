@@ -66,7 +66,7 @@ export function ComentarioEditavel({ fabrica, maquina, comentario, planilha, man
           <span>Manual{manual.por ? ` · ${manual.por}` : ""}{quando ? ` · ${quando}` : ""}</span>
           {planilha && planilha !== comentario && <span className="text-texto-4">Na planilha: “{planilha}”</span>}
           {edita && (
-            <button type="button" disabled={pendente} onClick={() => salvar(null)}
+            <button type="button" disabled={pendente} onClick={() => { if (confirm("Voltar ao comentário da planilha? O comentário manual será apagado.")) salvar(null); }}
               className="inline-flex items-center gap-1 font-medium text-alp-azul hover:underline disabled:opacity-60">
               {pendente ? <LoaderCircle className="size-3 animate-spin" /> : <RotateCcw className="size-3" />} voltar ao da planilha
             </button>

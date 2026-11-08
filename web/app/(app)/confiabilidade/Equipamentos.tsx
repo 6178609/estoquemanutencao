@@ -48,9 +48,9 @@ export function Equipamentos({ linhas }: { linhas: Celula[][] }) {
       p.set("eq", eq);
       const r = await fetch(`/api/confiabilidade?${p.toString()}`);
       const j = await r.json();
-      setHist({ eq, linhas: r.ok ? j.linhas : [], erro: r.ok ? undefined : j.erro || "Falha ao buscar o histórico." });
+      setHist({ eq, linhas: r.ok ? j.linhas : [], erro: r.ok ? undefined : j.erro || "Falha ao buscar o histórico. Tente de novo." });
     } catch {
-      setHist({ eq, linhas: [], erro: "Falha ao buscar o histórico." });
+      setHist({ eq, linhas: [], erro: "Falha ao buscar o histórico. Verifique a conexão e tente de novo." });
     }
   }
 
@@ -92,8 +92,8 @@ export function Equipamentos({ linhas }: { linhas: Celula[][] }) {
                 Quebras do equipamento <Selo>todas as datas</Selo>
               </div>
               {hist?.linhas == null ? (
-                <p className="flex items-center gap-2 text-[13px] text-texto-3"><LoaderCircle className="size-4 animate-spin" /> Buscando o histórico…</p>
-              ) : hist.erro ? <p className="text-[13px] text-texto-3">{hist.erro}</p>
+                <p role="status" className="flex items-center gap-2 text-[13px] text-texto-3"><LoaderCircle className="size-4 animate-spin" /> Buscando o histórico…</p>
+              ) : hist.erro ? <p role="alert" className="text-[13px] text-texto-3">{hist.erro}</p>
                 : <TabelaDados colunas={COLUNAS_HIST} linhas={hist.linhas} alturaMax={520} baixar={`quebras_${hist.eq}`} />}
             </div>
           </>

@@ -47,7 +47,7 @@ export function Kpis360(p: Kpis360Props) {
         <span className="block">{brl(p.total)}</span>
         {p.variacao != null && (
           <span className="mt-1 block text-texto-2" title="vs período anterior de mesma duração">
-            {p.variacao >= 0 ? "▲" : "▼"} {nf0.format(Math.abs(p.variacao))}% vs período anterior
+            <span aria-hidden="true">{p.variacao >= 0 ? "▲" : "▼"}</span><span className="sr-only">{p.variacao >= 0 ? "alta de" : "queda de"}</span> {nf0.format(Math.abs(p.variacao))}% vs período anterior
           </span>
         )}
       </Cartao>

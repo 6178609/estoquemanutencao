@@ -129,7 +129,7 @@ function Matriz({ t, params }: { t: saude.LinhaSaude[]; params: Params }) {
               const prioridade = cr === "Alta" && f === saude.CRITICA;
               return (
                 <Link prefetch={false} key={f} scroll={false} href={hrefCom(params, { sfaixa: f, scrit: cr, sq: null, scausa: null, pag: null, eq: null }, "fila")}
-                  title={`${cr} × ${f}: ${n} equipamento(s)`}
+                  title={`${cr} × ${f}: ${n} equipamento(s)`} aria-label={`${cr} × ${f}: ${n} equipamento(s)`}
                   className={`grid h-16 place-items-center rounded-lg border transition hover:border-borda-forte ${prioridade ? "border-[var(--st-critico)]" : "border-transparent"}`}
                   style={{ background: n ? `color-mix(in srgb, var(--${COR_FAIXA[f]}) ${forca}%, var(--superficie))` : "var(--superficie-2)" }}>
                   <span className={`num font-display text-[22px] font-medium ${n ? "text-texto" : "text-texto-4"}`}>{n}</span>

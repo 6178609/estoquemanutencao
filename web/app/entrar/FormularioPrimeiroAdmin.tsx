@@ -36,7 +36,7 @@ export function FormularioPrimeiroAdmin({ pedeCodigo }: { pedeCodigo: boolean })
       )}
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       <button disabled={enviando} className={`${BOTAO_PRIMARIO} w-full`}>
-        {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <>Criar administrador <ArrowRight className="size-4" /></>}
+        Criar administrador {enviando ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" />}
       </button>
     </form>
   );

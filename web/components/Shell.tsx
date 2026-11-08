@@ -64,7 +64,7 @@ function Navegacao({ grupos, aoNavegar, aoTerminar, recolhido }: { grupos: { tit
           <ul className="space-y-0.5">
             {g.itens.map((it) => (
               <li key={it.id}>
-                <Link prefetch={false} href={it.href} onClick={clicar(it.href)} title={it.titulo}
+                <Link prefetch={false} href={it.href} onClick={clicar(it.href)} title={it.titulo} aria-label={recolhido ? it.titulo : undefined}
                   onMouseEnter={preparar(it.href)} onFocus={preparar(it.href)} onTouchStart={preparar(it.href)}
                   className={clsx("flex min-h-11 items-center gap-3 rounded-lg px-3 py-[7px] text-[13.5px] transition",
                     ativo(it.href) ? "bg-menu-2 font-semibold text-white shadow-[inset_3px_0_0_var(--menu-marcador)]" : "text-menu-texto hover:bg-white/8")}>
@@ -174,13 +174,14 @@ export function Shell({ grupos, pessoa, sair, children }: {
               <Search className="size-5" />
             </Link>
           )}
-          <button onClick={() => setAberto(true)} aria-label="Abrir menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
+          <button onClick={() => setAberto(true)} aria-label="Abrir menu" aria-expanded={aberto} aria-controls="gaveta-menu" className="grid size-11 place-items-center rounded-xl text-white transition hover:bg-white/8">
             <Menu className="size-5" />
           </button>
         </div>
       </header>
       {/* a gaveta fica montada (só escondida) para o link tocado avisar quando a navegação terminar */}
-      <div className={clsx("fixed inset-0 z-40 lg:hidden", !aberto && "hidden")} aria-hidden={!aberto}>
+      <div id="gaveta-menu" className={clsx("fixed inset-0 z-40 lg:hidden", !aberto && "hidden")} aria-hidden={!aberto}
+        onKeyDown={(e) => { if (e.key === "Escape") setAberto(false); }}>
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setAberto(false)} />
         <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-menu text-menu-texto shadow-flutuante">
           <div className="flex items-center justify-between p-4">

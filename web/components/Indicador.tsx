@@ -13,8 +13,8 @@ export function SeloFarol({ farol, compacto }: { farol: ind.Farol; compacto?: bo
   const I = ICONE_FAROL[farol];
   return (
     <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-texto-2" title={ind.NOME_FAROL[farol]}>
-      <I className="size-3.5" style={{ color: `var(--${COR_FAROL[farol] === "neutro" ? "texto-4" : COR_FAROL[farol]})` }} strokeWidth={2} />
-      {!compacto && ind.NOME_FAROL[farol]}
+      <I className="size-3.5" aria-hidden="true" style={{ color: `var(--${COR_FAROL[farol] === "neutro" ? "texto-4" : COR_FAROL[farol]})` }} strokeWidth={2} />
+      {compacto ? <span className="sr-only">{ind.NOME_FAROL[farol]}</span> : ind.NOME_FAROL[farol]}
     </span>
   );
 }
@@ -28,7 +28,7 @@ function textoVariacao(kpi: ind.Kpi, atual: number | null | undefined, anterior:
   return (
     <span title="vs período anterior de mesma duração" className={clsx("inline-flex items-center gap-0.5 font-medium",
       melhorou == null ? "text-texto-3" : melhorou ? "text-[var(--st-bom)]" : "text-[var(--st-critico)]")}>
-      {delta !== 0 && <I className="size-3.5" />}{delta === 0 ? "=" : txt}
+      {delta !== 0 && <I className="size-3.5" aria-hidden="true" />}{delta === 0 ? "=" : txt}{delta !== 0 && <span className="sr-only"> ({delta > 0 ? "subiu" : "caiu"})</span>}
     </span>
   );
 }

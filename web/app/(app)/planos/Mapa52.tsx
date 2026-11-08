@@ -312,6 +312,7 @@ function Alternar({ params, chave, atual, opcoes }: { params: Params; chave: str
     <div className="inline-flex rounded-lg border border-borda p-0.5 text-[12px]">
       {opcoes.map(([v, r]) => (
         <Link prefetch={false} key={v} href={hrefCom(params, { [chave]: v, sem: null, plano: null })} scroll={false}
+          aria-current={v === atual ? "true" : undefined}
           className={clsx("rounded-md px-2.5 py-1 transition", v === atual ? "bg-tinta text-tinta-texto" : "text-texto-2 hover:bg-superficie-2")}>{r}</Link>
       ))}
     </div>

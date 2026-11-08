@@ -200,7 +200,7 @@ export function Envio({ demo }: { demo: boolean }) {
       </div>
 
       {itens.length > 0 && (
-        <div className="mt-5 space-y-2">
+        <div className="mt-5 space-y-2" aria-live="polite">
           {itens.map((i) => (
             <div key={i.id} className="rounded-xl border border-borda bg-superficie-2 px-4 py-3">
               <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ export function Envio({ demo }: { demo: boolean }) {
           ))}
           <div className="flex flex-wrap items-center gap-3 pt-3">
             <button className={BOTAO_PRIMARIO} disabled={demo || enviando || lendo || (!aEnviar.length && !temTipos)} onClick={enviar}>
-              {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><Upload className="size-4" /> {aEnviar.length ? `Enviar ${aEnviar.length} base(s)` : "Enviar os tipos de ordem"}</>}
+              {enviando ? <><LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> Enviando…</> : <><Upload className="size-4" /> {aEnviar.length ? `Enviar ${aEnviar.length} base(s)` : "Enviar os tipos de ordem"}</>}
             </button>
             {!enviando && <button className={BOTAO_SECUNDARIO} onClick={() => setItens([])}>Limpar lista</button>}
             {demo && <span className="text-[12.5px] text-texto-3">Na demonstração dá para testar a leitura; o envio precisa do repositório de dados ligado.</span>}

@@ -52,7 +52,7 @@ function Busca({ c, aplicar }: { c: Extract<Controle, { tipo: "busca" }>; aplica
   return (
     <label className="relative block min-w-[220px] flex-1">
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-3" />
-      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={c.placeholder} type="search" enterKeyHint="search"
+      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={c.placeholder} aria-label={c.placeholder || "Buscar"} type="search" enterKeyHint="search"
         onKeyDown={(e) => e.key === "Enter" && aplicar({ [c.chave]: v.trim() || null })}
         className="h-11 w-full rounded-xl border border-borda bg-superficie-2 pl-9 pr-9 text-[14px] transition placeholder:text-texto-4 focus:border-[var(--acao)] focus:bg-superficie" />
       {v && (
@@ -68,7 +68,7 @@ function Busca({ c, aplicar }: { c: Extract<Controle, { tipo: "busca" }>; aplica
 function Periodo({ c, aplicar }: { c: Extract<Controle, { tipo: "periodo" }>; aplicar: (m: Record<string, string | null>) => void }) {
   const [menu, setMenu] = useState(false);
   return (
-    <div className="relative flex flex-wrap items-center gap-1.5">
+    <div className="relative flex flex-wrap items-center gap-1.5" onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }}>
       {c.rotulo && <span className="text-[13px] text-texto-3">{c.rotulo}</span>}
       <div className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-borda bg-superficie-2 px-3 text-[13.5px]">
         <CalendarRange className="size-4 text-texto-3" />

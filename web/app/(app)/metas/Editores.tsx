@@ -39,7 +39,7 @@ function Botoes({ n, pend, aoSalvar, rotulo, invalido, extra }: { n: number; pen
         {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} {rotulo} ({n})
       </button>
       {extra}
-      {invalido && <span className="text-[12.5px] text-[var(--st-critico)]">Há valores inválidos (use números ≥ 0).</span>}
+      {invalido && <span role="alert" className="text-[12.5px] text-[var(--st-critico)]">Há valores inválidos (use números ≥ 0).</span>}
     </div>
   );
 }
@@ -116,7 +116,7 @@ export function EditorJornada({ horas, edita }: { horas: number; edita: boolean 
             {pend ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar jornada
           </button>
         )}
-        {!valido && <span className="pb-3 text-[12.5px] text-[var(--st-critico)]">Entre 1 e 80 horas.</span>}
+        {!valido && <span role="alert" className="pb-3 text-[12.5px] text-[var(--st-critico)]">Entre 1 e 80 horas.</span>}
       </div>
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
@@ -152,7 +152,7 @@ export function EditorCustoParada({ custoPar, paresHora, edita }: { custoPar: nu
       <p className="text-[13px] leading-relaxed text-texto-3">
         Custo da produção parada = horas paradas × pares por hora × custo do par. Usado no iceberg da aba Custos.
       </p>
-      {erro && <p className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
+      {erro && <p role="alert" className="text-[12.5px] text-[var(--st-critico)]">{erro}</p>}
       {msg && <Mensagem tipo={msg.erro ? "erro" : "ok"}>{msg.erro || msg.ok}</Mensagem>}
     </div>
   );

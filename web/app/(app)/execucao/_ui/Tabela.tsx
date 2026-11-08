@@ -225,7 +225,7 @@ export function Tabela({ colunas, linhas, busca, facetas = [], alternancias = []
                 const l = visiveis[vi.index];
                 return (
                   <div key={vi.key} role={clicavel ? "button" : undefined} tabIndex={clicavel ? 0 : undefined}
-                    onClick={clicavel ? () => abrir(l) : undefined} onKeyDown={clicavel ? (e) => e.key === "Enter" && abrir(l) : undefined}
+                    onClick={clicavel ? () => abrir(l) : undefined} onKeyDown={clicavel ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrir(l); } } : undefined}
                     className={clsx("absolute inset-x-0 grid items-center border-b border-borda text-[12.5px]", clicavel && "cursor-pointer hover:bg-superficie-2")}
                     style={{ gridTemplateColumns: grade, height: ALTURA_LINHA, transform: `translateY(${vi.start}px)` }}>
                     {colunas.map((c) => <CelulaTabela key={c.id} c={c} v={l[c.id]} cores={cores} max={maximos[c.id]} />)}

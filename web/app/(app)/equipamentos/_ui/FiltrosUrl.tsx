@@ -86,7 +86,7 @@ export function FiltrosUrl({ campos, zerar = [] }: { campos: CampoFiltro[]; zera
             <FilterX className="size-4" /> Limpar
           </button>
         )}
-        {pendente && <LoaderCircle className="size-4 animate-spin text-texto-3" aria-label="Atualizando" />}
+        <span role="status">{pendente && <LoaderCircle className="size-4 animate-spin text-texto-3" aria-label="Atualizando" />}</span>
       </div>
       {campos.filter((c) => c.tipo === "pilulas").map((c) => {
         if (c.tipo !== "pilulas") return null;

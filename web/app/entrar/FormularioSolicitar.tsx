@@ -14,7 +14,7 @@ export function FormularioSolicitar() {
     { erro: "", ok: false, nome: "", login: "", funcao: "", motivo: "" });
   if (estado.ok) {
     return (
-      <div className="space-y-3 text-[14px] text-texto-2">
+      <div role="status" className="space-y-3 text-[14px] text-texto-2">
         <p className="flex items-center gap-2 font-display text-[16px] font-medium text-marca-600 dark:text-marca-300">
           <CheckCircle2 className="size-5" /> Pedido enviado
         </p>
@@ -42,7 +42,7 @@ export function FormularioSolicitar() {
       <p className="-mt-2 text-[12px] text-texto-3">Mínimo de 8 caracteres, com letras e números. Ela vale assim que o pedido for aprovado.</p>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       <button disabled={enviando} className={`${BOTAO_PRIMARIO} w-full`}>
-        {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <><Send className="size-4" /> Enviar pedido</>}
+        {enviando ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <Send className="size-4" />} Enviar pedido
       </button>
     </form>
   );

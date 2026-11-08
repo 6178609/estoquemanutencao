@@ -22,7 +22,7 @@ export function RemoverEquip({ tag }: { tag: string }) {
         const r = await removerEquipamento(tag);
         if ("erro" in r) setErro(r.erro); else router.refresh();
       })} className={`${btn} border-transparent bg-perigo-500 font-medium text-white hover:opacity-90`}>
-        {indo && <LoaderCircle className="size-3.5 animate-spin" />} Remover
+        {indo && <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />} {indo ? "Removendo…" : "Remover"}
       </button>
       <button onClick={() => setConfirmar(false)} className={`${btn} border-borda hover:bg-superficie-2`}>Cancelar</button>
       {erro && <span role="alert" className="text-perigo-500">{erro}</span>}

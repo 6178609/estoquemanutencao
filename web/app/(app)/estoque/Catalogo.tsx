@@ -77,7 +77,7 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
       const r = await fetch(`/api/catalogo?${p}`);
       const j = await r.json();
       if (minha !== geracao.current) return; // filtro mudou no meio: descarta
-      if (!r.ok) throw new Error(j.erro || "Falha ao buscar.");
+      if (!r.ok) throw new Error(j.erro || "Falha ao buscar. Tente de novo ou mude os filtros.");
       setItens((a) => (reiniciar ? j.itens : [...a, ...j.itens]));
       setTotal(j.total);
       setProximo(j.proximo);
@@ -128,11 +128,11 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
           { valor: "todos", rotulo: "Todos" }, { valor: "almox", rotulo: "No almoxarifado" }, { valor: "fora", rotulo: "Fora do almoxarifado" }]} />
       </div>
 
-      <p className="flex items-center gap-2 text-[13px] text-texto-3">
+      <p aria-live="polite" className="flex items-center gap-2 text-[13px] text-texto-3">
         {total === null ? "Buscando…" : <><span className="num font-semibold text-texto">{inteiro(total)}</span> material(is) — role até o fim, sem limite.</>}
-        {carregando && <LoaderCircle className="size-4 animate-spin" />}
+        {carregando && <LoaderCircle className="size-4 animate-spin" aria-label="Carregando" role="img" />}
       </p>
-      {erro && <p className="rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-4 py-3 text-sm text-perigo-500">{erro}</p>}
+      {erro && <p role="alert" className="rounded-xl border border-perigo-500/30 bg-perigo-500/10 px-4 py-3 text-sm text-perigo-500">{erro}</p>}
 
       <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {total === 0 ? (
@@ -151,7 +151,7 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
         )}
       </div>
       {proximo !== null && itens.length > 0 && (
-        <div className="grid place-items-center py-4 text-sm text-texto-3"><LoaderCircle className="size-5 animate-spin" /></div>
+        <div role="status" className="grid place-items-center py-4 text-sm text-texto-3"><LoaderCircle className="size-5 animate-spin" aria-hidden="true" /><span className="sr-only">Carregando mais materiais…</span></div>
       )}
 
       <Gaveta aberta={!!aberto} aoFechar={() => setAberto(null)}

@@ -121,8 +121,8 @@ function Lista({ c, params, est, cadastra, campoEq }: { c: Contexto; params: Par
                   <Selo cor="azul">{String(v.categoria || "—")}</Selo>
                   <Selo cor={SELO_CRIT[crit] ?? "cinza"}>{crit || "sem criticidade"}</Selo>
                   {sit && sit !== ativos.OPERACAO && <Selo cor="ciano">{sit}</Selo>}
-                  <span className="inline-flex items-center gap-1 text-[12px] text-texto-3" title="Componentes vinculados"><Link2 className="size-3.5" />{comps.length}</span>
-                  {alerta > 0 && <span title={`${alerta} peça(s) sem estoque ou abaixo do mínimo`} className="inline-flex items-center gap-1 text-[12px] font-medium text-texto-2"><AlertTriangle className="size-3.5" style={{ color: "var(--st-critico)" }} />{alerta}</span>}
+                  <span className="inline-flex items-center gap-1 text-[12px] text-texto-3" title="Componentes vinculados"><Link2 className="size-3.5" />{comps.length}<span className="sr-only"> componente(s) vinculado(s)</span></span>
+                  {alerta > 0 && <span title={`${alerta} peça(s) sem estoque ou abaixo do mínimo`} className="inline-flex items-center gap-1 text-[12px] font-medium text-texto-2"><AlertTriangle className="size-3.5" style={{ color: "var(--st-critico)" }} />{alerta}<span className="sr-only"> peça(s) sem estoque ou abaixo do mínimo</span></span>}
                   <ChevronDown className="size-4 text-texto-3 transition group-open:rotate-180" />
                 </span>
               </summary>
