@@ -6,9 +6,9 @@
  * Regras atuais (materiais aprovados no catálogo do Sysmat):
  * - injetoras KCLKA da EXP 12 em diante: os materiais com referência EK3 (modelo EK3-6E2/10E2);
  * - injetoras Golden Eagle 01 a 12 (UGB1): os materiais do modelo 180S (GEL 180/S, GEK 180/S, GEL/GEK 180/S…; não
- *   GEL 180, GEL 180L nem GEK 180/700/S);
+ *   GEL 180, GEL 180L nem GEK 180/700/S) e as peças da lista de sobressalentes do fornecedor (PECAS_LISTA_180S);
  * - injetoras PVC (Golden Eagle): os materiais dos modelos GEK 220 / GEKK e GES 270/S / GES 220W/S (porta-molde fica de
- *   fora), na máquina e no sistema certo dela (hidráulico, injeção, aquecimento…; ver sistemaGoldenPvc);
+ *   fora) e as da lista de sobressalentes GEK 220WS do fornecedor (PECAS_LISTA_GEK220), na máquina e no sistema certo dela (hidráulico, injeção, aquecimento…; ver sistemaGoldenPvc);
  * - injetoras Tien Kang (2 estações): os materiais com TIEN KANG no descritivo;
  * - Pan Stone (máquinas com o código JOB no nome): os materiais com PAN STONE e JOB no descritivo;
  * - Banbury Bonfanti (UGB1): os materiais Bonfanti do misturador BMI-80 (BMI-80T, MIXER BMI80, Banbury 80 L);
@@ -170,6 +170,23 @@ export type AlvoBmi80 = keyof typeof ALVOS_BMI80;
  * Peças do manual BMI-80T (lista de peças de reposição, lista Sysmat/SAP do fabricante e listas dos desenhos) achadas no
  * Sysmat pela referência, com o subconjunto do Banbury onde entram.
  */
+/**
+ * Lista de peças sobressalentes do fornecedor das Golden Eagle (Golden Maq, revisão de 09/11/2026: abas GEL 180, GEK 180S,
+ * GEK 220WS e vistas explodidas), cruzada com o Sysmat pelo código do fornecedor no descritivo ("… GOLDEN EAGLE 1569") ou
+ * pela referência técnica, conferindo a descrição. Só os códigos; a lista em si não fica no repositório.
+ */
+const PECAS_LISTA_180S = new Set([
+  "1740135", "1740140", "1740141", "1740145", "1740146", "1740147", "1740459", "1740659", "1741515", "1741519",
+  "1741527", "1744157", "1744378", "1744387", "1746154", "1746907", "1755378", "1755379", "1756620", "1756947",
+  "1758021", "1758023", "1758955", "1758960", "1758961", "1758963", "1758964", "1758966", "1758969", "1758971",
+  "1758972", "1758973", "1758974", "1759065", "1769870", "1771928", "1772897", "1773084", "1773085", "1773086",
+  "1773553", "1774990", "1782449", "1783435", "1785596", "1786900", "1791927", "1793647",
+]);
+const PECAS_LISTA_GEK220 = new Set([
+  "1740145", "1740146", "1740147", "1740168", "1740659", "1741519", "1741547", "1746154", "1772128", "1772897",
+  "1773553", "1780472", "1783654", "1785596", "1786900", "1786901", "1793647",
+]);
+
 const PECAS_BMI80: Record<string, readonly AlvoBmi80[]> = {
   // rotores: uniões rotativas 3038/25-D (e kits de reparo), cordão O-ring da refrigeração do rotor
   58975: ["rotores", "refrigRotores"], 58974: ["rotores", "refrigRotores"], 1680065: ["rotores", "refrigRotores"],
@@ -251,7 +268,8 @@ export const REGRAS: RegraVinculo[] = [
       const m = /^INJETORA (\d+) UGB1 GOLDEN EAGLE\b/.exec(chave(e.denominacao));
       return !!m && Number(m[1]) >= 1 && Number(m[1]) <= 12;
     },
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && modelo180S(m.descrCompleta),
+    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO"
+      && (modelo180S(m.descrCompleta) || PECAS_LISTA_180S.has(m.material.trim())),
   },
   {
     id: "golden-pvc",
@@ -317,7 +335,7 @@ export function bonfantiBmi80(curta: string, completa: string, codigo = ""): boo
 
 /** Material das injetoras PVC Golden Eagle: modelo GEK 220 / GEKK ou GES 270/S, GES 220W/S; porta-molde (ferramental) não. */
 export function materialGoldenPvc(curta: string, completa: string, codigo = ""): boolean {
-  if (PECAS_MANUAL_GEK220[codigo.trim()]) return true;
+  if (PECAS_MANUAL_GEK220[codigo.trim()] || PECAS_LISTA_GEK220.has(codigo.trim())) return true;
   if (/^PORTA MOLDE\b/.test(chave(curta))) return false;
   const mo = chave(/MODELO:\s*([^;]+)/i.exec(completa)?.[1] ?? "").replace(/\s/g, "");
   return modeloGek220(curta, completa) || /GES(270|220)/.test(mo);
@@ -416,8 +434,9 @@ export function comPecasDaRegra(atual: Record<string, unknown> | undefined, nome
   return { ...base, materiais: [...tem, ...novos].sort() };
 }
 
-/** A peça foi conferida peça a peça na lista de peças ou no desenho do manual do fabricante (EK3, GEK 220W/S, BMI-80T). */
+/** A peça foi conferida peça a peça na lista de peças ou no desenho do manual do fabricante (EK3, GEK 220W/S, BMI-80T) ou na
+ *  lista de sobressalentes do fornecedor das Golden Eagle (180S e GEK 220WS). */
 export function conferidaNoManual(codigo: string): boolean {
   const c = String(codigo ?? "").trim().replace(/^0+(?=\d)/, "");
-  return !!(PECAS_MANUAL_EK3[c] || PECAS_MANUAL_GEK220[c] || PECAS_BMI80[c]);
+  return !!(PECAS_MANUAL_EK3[c] || PECAS_MANUAL_GEK220[c] || PECAS_BMI80[c] || PECAS_LISTA_180S.has(c) || PECAS_LISTA_GEK220.has(c));
 }
