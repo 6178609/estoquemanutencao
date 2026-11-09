@@ -173,9 +173,12 @@ export type AlvoBmi80 = keyof typeof ALVOS_BMI80;
 /**
  * Lista de peças sobressalentes do fornecedor das Golden Eagle (Golden Maq, revisão de 09/11/2026: abas GEL 180, GEK 180S,
  * GEK 220WS e vistas explodidas), cruzada com o Sysmat pelo código do fornecedor no descritivo ("… GOLDEN EAGLE 1569") ou
- * pela referência técnica, conferindo a descrição. Só os códigos; a lista em si não fica no repositório.
+ * pela referência técnica, conferindo a descrição. Só os códigos; a lista em si não fica no repositório. Entram
+ * independentemente do status no Sysmat (aprovado ou bloqueado): a peça é da máquina mesmo que a compra esteja bloqueada.
  */
 const PECAS_LISTA_180S = new Set([
+  // bloqueadas no Sysmat, mas conferidas na lista: entram assim mesmo (pedido do PCM, 09/11/2026)
+  "1739175", "1739430", "1739681", "1741520", "1741525", "1741528", "1741529", "1741530", "1741543", "1741544", "1741560", "1744155", "1744156", "1744353", "1744379", "1744833", "1746153", "1749764", "1755958", "1782002", "1782097",
   "1740135", "1740140", "1740141", "1740145", "1740146", "1740147", "1740459", "1740659", "1741515", "1741519",
   "1741527", "1744157", "1744378", "1744387", "1746154", "1746907", "1755378", "1755379", "1756620", "1756947",
   "1758021", "1758023", "1758955", "1758960", "1758961", "1758963", "1758964", "1758966", "1758969", "1758971",
@@ -183,6 +186,8 @@ const PECAS_LISTA_180S = new Set([
   "1773553", "1774990", "1782449", "1783435", "1785596", "1786900", "1791927", "1793647",
 ]);
 const PECAS_LISTA_GEK220 = new Set([
+  // bloqueadas no Sysmat, mas conferidas na lista
+  "1739175", "1741520", "1741525", "1741530", "1741534", "1741543", "1741544", "1744306", "1746153",
   "1740145", "1740146", "1740147", "1740168", "1740659", "1741519", "1741547", "1746154", "1772128", "1772897",
   "1773553", "1780472", "1783654", "1785596", "1786900", "1786901", "1793647",
 ]);
@@ -268,14 +273,15 @@ export const REGRAS: RegraVinculo[] = [
       const m = /^INJETORA (\d+) UGB1 GOLDEN EAGLE\b/.exec(chave(e.denominacao));
       return !!m && Number(m[1]) >= 1 && Number(m[1]) <= 12;
     },
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO"
-      && (modelo180S(m.descrCompleta) || PECAS_LISTA_180S.has(m.material.trim())),
+    material: (m) => !!m.material.trim()
+      && (PECAS_LISTA_180S.has(m.material.trim()) || (chave(m.status) === "APROVADO" && modelo180S(m.descrCompleta))),
   },
   {
     id: "golden-pvc",
     descricao: "Injetoras PVC (Golden Eagle): materiais GEK 220 / GEKK e GES 270/S aprovados no Sysmat",
     equipamento: (e) => !e.inativo && !e.desativado && /^INJETORA PVC GOLDEN EAGLE \d+$/.test(chave(e.denominacao)),
-    material: (m) => !!m.material.trim() && chave(m.status) === "APROVADO" && materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material),
+    material: (m) => !!m.material.trim() && (PECAS_LISTA_GEK220.has(m.material.trim())
+      || (chave(m.status) === "APROVADO" && materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material))),
   },
   ...regrasDosSistemasPvc(),
   {
@@ -375,7 +381,8 @@ function regrasDosSistemasPvc(): RegraVinculo[] {
       return !e.inativo && !e.desativado && /^INJ PVC \d+ GOLDEN /.test(n) && SISTEMAS_PVC[s].test(n);
     },
     material: (m) => {
-      if (!m.material.trim() || chave(m.status) !== "APROVADO" || !materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material)) return false;
+      const daLista = PECAS_LISTA_GEK220.has(m.material.trim());
+      if (!m.material.trim() || (!daLista && chave(m.status) !== "APROVADO") || !materialGoldenPvc(m.descricaoCurta, m.descrCompleta, m.material)) return false;
       const q = sistemaGoldenPvc(m.descricaoCurta, m.material);
       return q === s || (s === "hidraulico" && q === "unidadeHidraulica");
     },
