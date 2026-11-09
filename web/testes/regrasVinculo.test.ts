@@ -42,10 +42,11 @@ describe("lista de sobressalentes do fornecedor das Golden Eagle (180S e GEK 220
   // códigos da lista (PECAS_LISTA_180S / PECAS_LISTA_GEK220) com descrição fictícia e sem o campo MODELO
   const sem = (material: string, status = "APROVADO") => ({ material, descricaoCurta: "PECA TESTE", descrCompleta: "PECA TESTE", status });
   const equips = [eq("1", "INJETORA 03 UGB1 GOLDEN EAGLE"), eq("2", "INJETORA PVC (GOLDEN EAGLE) 006")];
-  const v = vinculosDasRegras(equips, [sem("1758021"), sem("1780472"), sem("1758964", "BLOQUEADO"), sem("999999")]);
-  it("entra pela lista mesmo sem o modelo no Sysmat, só aprovado", () => {
-    expect(v.get("1")!.materiais).toEqual(["1758021"]);
-    expect(v.get("2")!.materiais).toEqual(["1780472"]);
+  const v = vinculosDasRegras(equips, [sem("1758021"), sem("1780472"), sem("1758964", "BLOQUEADO"), sem("1741534", "BLOQUEADO"),
+    sem("999999"), sem("888888", "BLOQUEADO")]);
+  it("entra pela lista mesmo sem o modelo no Sysmat e independentemente do status (aprovado ou bloqueado)", () => {
+    expect(v.get("1")!.materiais).toEqual(["1758021", "1758964"]);
+    expect(v.get("2")!.materiais).toEqual(["1741534", "1780472"]);
   });
   it("conta como conferida no manual/lista do fabricante", () => {
     expect(conferidaNoManual("1758021") && conferidaNoManual("01780472") && !conferidaNoManual("999999")).toBe(true);
