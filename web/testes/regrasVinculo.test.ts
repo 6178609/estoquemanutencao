@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { comPecasDaRegra, vinculosDasRegras } from "@/lib/dados/regrasVinculo";
+import { comPecasDaRegra, conferidaNoManual, vinculosDasRegras } from "@/lib/dados/regrasVinculo";
 
 /** Só dados fictícios. */
 const eq = (equipamento: string, denominacao: string, inativo = false) => ({ equipamento, denominacao, inativo, desativado: inativo });
@@ -36,6 +36,20 @@ describe("regra: injetoras Golden Eagle 01 a 12 recebem os materiais do modelo 1
   const v = vinculosDasRegras(equips, cat);
   it("só as injetoras 01 a 12 UGB1 ativas", () => expect([...v.keys()]).toEqual(["1", "2"]));
   it("só a família 180S aprovada", () => expect(v.get("1")!.materiais).toEqual(["10", "11", "12", "13", "18"]));
+});
+
+describe("lista de sobressalentes do fornecedor das Golden Eagle (180S e GEK 220WS)", () => {
+  // códigos da lista (PECAS_LISTA_180S / PECAS_LISTA_GEK220) com descrição fictícia e sem o campo MODELO
+  const sem = (material: string, status = "APROVADO") => ({ material, descricaoCurta: "PECA TESTE", descrCompleta: "PECA TESTE", status });
+  const equips = [eq("1", "INJETORA 03 UGB1 GOLDEN EAGLE"), eq("2", "INJETORA PVC (GOLDEN EAGLE) 006")];
+  const v = vinculosDasRegras(equips, [sem("1758021"), sem("1780472"), sem("1758964", "BLOQUEADO"), sem("999999")]);
+  it("entra pela lista mesmo sem o modelo no Sysmat, só aprovado", () => {
+    expect(v.get("1")!.materiais).toEqual(["1758021"]);
+    expect(v.get("2")!.materiais).toEqual(["1780472"]);
+  });
+  it("conta como conferida no manual/lista do fabricante", () => {
+    expect(conferidaNoManual("1758021") && conferidaNoManual("01780472") && !conferidaNoManual("999999")).toBe(true);
+  });
 });
 
 describe("regra: injetoras PVC (Golden Eagle) recebem os materiais GEK 220 / GEKK", () => {
