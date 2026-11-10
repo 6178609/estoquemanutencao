@@ -98,14 +98,15 @@ export const ROTULO_FOTO: Record<Exclude<OrigemFoto, "propria">, string> = {
 };
 
 /**
- * A foto a mostrar no item, pela prioridade: foto própria (a principal) → do fabricante (referência do item) ou de
- * produto equivalente (mesma especificação) → nenhuma (null: a tela segue sem foto). Usado no navegador e no servidor.
+ * A foto a mostrar no item, pela prioridade: foto própria (a principal) → do fabricante (referência do item) → nenhuma
+ * (null: a tela segue sem foto). Foto de produto equivalente não entra (regra: só foto real do item). Navegador e servidor.
  */
 export function fotoDoItem(it: ItemComFoto, mini = false): FotoDoItem | null {
   const codigo = it.codigoFoto ?? it.material;
   const propria = urlFotoMaterial(codigo, it.foto ?? null, mini);
   if (propria) return { origem: "propria", url: propria, pagina: null, titulo: "" };
-  if (it.fotoRef) {
+  // foto de produto equivalente (genérica, sem a referência do item) não é mostrada: pode ser peça diferente da descrição
+  if (it.fotoRef && !it.fotoRef.eq) {
     const q = new URLSearchParams({ m: codigo, k: it.fotoRef.k });
     if (mini && it.fotoRef.mini) q.set("mini", "1");
     return { origem: it.fotoRef.eq ? "equivalente" : "referencia", url: `/api/estoque/foto/referencia?${q}`,
