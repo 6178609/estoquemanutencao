@@ -40,7 +40,7 @@ export function Calendario({ meses }: { meses: CalendarioMes[] }) {
           <Printer className="size-3.5" aria-hidden /> Imprimir (A4 paisagem)
         </button>
       </div>
-      <h3 className="font-display text-[18px] font-medium capitalize">Programação de paradas · {mesLongo(c.mes)}</h3>
+      <h3 className="font-display text-[18px] font-medium">Programação de paradas · {mesLongo(c.mes).replace(/^./, (x) => x.toUpperCase())}</h3>
       {r && (
         <dl className="grid grid-cols-2 gap-2 text-[12.5px] sm:grid-cols-4">
           {[["Carga IP19", r.carga], ["Capacidade", r.capacidade], ["Programado", r.programado], ["Ativos sem HH", r.semHh]].map(([t, v]) => {
@@ -80,10 +80,8 @@ function DiaCal({ d }: { d: CalendarioMes["semanas"][number]["dias"][number] }) 
   const sem = d.condicao !== "util" && d.condicao !== "sabado";
   return (
     <div className="cal-dia min-w-0 rounded-lg border border-borda bg-superficie px-2 py-1.5" data-dia={d.data}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[12.5px] font-semibold">{titulo}</span>
-        {!sem && <span className="text-[11px] tabular-nums text-texto-3">MEC {h(d.hhDia.mec[0])}/{h(d.hhDia.mec[1])} · ELE {h(d.hhDia.ele[0])}/{h(d.hhDia.ele[1])}</span>}
-      </div>
+      <p className="text-[12.5px] font-semibold">{titulo}</p>
+      {!sem && <p className="text-[11px] tabular-nums text-texto-3">MEC {h(d.hhDia.mec[0])}/{h(d.hhDia.mec[1])} h · ELE {h(d.hhDia.ele[0])}/{h(d.hhDia.ele[1])} h</p>}
       {sem && <p className="mt-1 text-[12px] text-texto-3">{d.condicao === "feriado" ? `Feriado – ${d.feriado ?? ""}` : d.condicao === "antes" ? "Antes do início" : "Sem atuação"}</p>}
       {d.turnos.map((t) => (
         <div key={t.t} className="mt-1.5">
