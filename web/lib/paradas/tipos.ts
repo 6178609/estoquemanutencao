@@ -91,6 +91,8 @@ export interface Parametros {
   hhIrrelevante: { tipos: string[]; limite: number };
   agrupamentos: { ativo: string; padrao: string }[];
   classes: ClasseAtivo[];
+  /** tipo do ativo sem classe: início da denominação → tipo ("INJ" → "INJETORA") */
+  sinonimosTipo: Record<string, string>;
 }
 export interface ClasseAtivo {
   padrao: string; nome: string; tipo: string; grupo?: GrupoCritico; papel?: "prensa" | "moinho";

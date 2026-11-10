@@ -67,6 +67,7 @@ export const PARAMETROS_PADRAO: Parametros = {
     { ativo: "PELLET $1", padrao: "^LINHA PELLET\\s*-?\\s*0?([1-9])" },
   ],
   classes: CLASSES_PADRAO,
+  sinonimosTipo: { INJ: "INJETORA", MOI: "MOINHO", MICRO: "MICROINJ", "SIST AQUECMENTO": "SIST AQUECIMENTO" },
 };
 
 export const GRUPOS_CRITICOS: GrupoCritico[] = ["DRY BLEND", "BANBURY", "PELLET", "PRENSA/MOINHO SF", "INJ EXP"];
@@ -149,6 +150,9 @@ function validar(campo: keyof Parametros, v: unknown): unknown {
     case "classes":
       return Array.isArray(v) && v.every((c) => ehObj(c) && regexOk(c.padrao) && typeof c.nome === "string" && c.nome
         && typeof c.tipo === "string" && c.tipo && (c.grupo == null || grupoOk(c.grupo))) ? v : undefined;
+    case "sinonimosTipo":
+      return ehObj(v) && Object.entries(v).every(([k, x]) => k.trim() && typeof x === "string" && x.trim())
+        ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k.trim().toUpperCase(), String(x).trim().toUpperCase()])) : undefined;
     default:
       return undefined;
   }

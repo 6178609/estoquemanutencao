@@ -29,6 +29,17 @@ describe("classes de ativo", () => {
   });
 });
 
+describe("tipo sem classe", () => {
+  it("1ª palavra sem pontuação e sinônimos do parâmetro", () => {
+    expect(classificar("INJ. SOPRO 01", P).tipo).toBe("INJETORA");
+    expect(classificar("MOI FACAS 3", P).tipo).toBe("MOINHO");
+    expect(classificar("MICRO 02 TESTE", P).tipo).toBe("MICROINJ");
+    expect(classificar("SIST AQUECMENTO 3", P).tipo).toBe("SIST AQUECIMENTO");
+    expect(classificar("MAQUINA-XYZ 1", P).tipo).toBe("MAQUINA");
+    expect(classificar("MOINHOS X", P).tipo).toBe("MOINHOS");
+  });
+});
+
 describe("montar ativos", () => {
   it("equipamentos com o mesmo campo = um ativo (máquina-mãe)", () => {
     const eqs = new Map<string, Equipamento>([["EQ-1", eq("EQ-1", "GAL1", "C-100", "DRY BLEND 01 TESTE")],

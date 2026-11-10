@@ -41,6 +41,14 @@ describe("parâmetros da programação de paradas", () => {
     expect(d.avisos).toHaveLength(2);
   });
 
+  it("sinônimos de tipo", () => {
+    expect(PARAMETROS_PADRAO.sinonimosTipo.INJ).toBe("INJETORA");
+    expect(parametrosDe({ parametros: { sinonimosTipo: { PRS: "PRENSA" } } }).p.sinonimosTipo).toEqual({ PRS: "PRENSA" });
+    const r = parametrosDe({ parametros: { sinonimosTipo: { PRS: 3 } } });
+    expect(r.p.sinonimosTipo).toEqual(PARAMETROS_PADRAO.sinonimosTipo);
+    expect(r.avisos).toHaveLength(1);
+  });
+
   it("padrão semanal dos críticos", () => {
     expect(PARAMETROS_PADRAO.padraoSemanal[3]).toEqual(["PRENSA/MOINHO SF"]);
     expect(PARAMETROS_PADRAO.padraoSemanal[1]).toEqual(["DRY BLEND", "BANBURY"]);

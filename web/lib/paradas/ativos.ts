@@ -1,4 +1,4 @@
-import { semAcento } from "@/lib/dados/texto";
+import { chave, semAcento } from "@/lib/dados/texto";
 import type { Equipamento } from "@/lib/wcm/preparo";
 
 import type { Ativo, ClasseAtivo, Demanda, ItemPlano, Parametros } from "./tipos";
@@ -32,11 +32,18 @@ export function classeDe(denominacao: string, p: Parametros): { classe: ClasseAt
   return null;
 }
 
+/** Tipo de um ativo sem classe: o sinônimo do parâmetro que abre a denominação; senão a 1ª palavra sem pontuação. */
+export function tipoSemClasse(denominacao: string, p: Parametros): string {
+  const k = chave(denominacao);
+  const sin = Object.keys(p.sinonimosTipo).sort((a, b) => b.length - a.length).find((s) => k === s || k.startsWith(`${s} `));
+  return sin ? p.sinonimosTipo[sin] : k.split(" ")[0] ?? "";
+}
+
 export function classificar(denominacao: string, p: Parametros): Omit<Ativo, "campos" | "equipamentos" | "denominacao" | "juntoCom"> {
   const achou = classeDe(denominacao, p);
   if (!achou) {
     const k = normalizarDenominacao(denominacao);
-    const tipo = k.split(" ")[0] ?? "";
+    const tipo = tipoSemClasse(denominacao, p);
     return { id: k.slice(0, 30).trim(), tipo, grupo: null, so1Turno: false, soSabado: false, exclusivoT1: false,
       preferenciaT1: p.tiposPreferenciaT1.includes(tipo) };
   }
