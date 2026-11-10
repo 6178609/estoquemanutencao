@@ -87,7 +87,7 @@ export class Estado {
   }
 
   ativosNoDia(d: Dia): string[] {
-    return this.doDia(d).ativos;
+    return this.doDia(d).ativos.slice();
   }
 
   ativosNoTurno(d: Dia, t: Turno): string[] {

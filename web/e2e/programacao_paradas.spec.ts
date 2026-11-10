@@ -41,3 +41,16 @@ test("programação de paradas: calendário, saldo de HH, campos por dia e ativo
   expect(baixa.suggestedFilename()).toMatch(/^programacao_paradas_.*\.xlsx$/);
   expect(erros).toEqual([]);
 });
+
+// Impressão do mural (A4 paisagem): só o calendário fica no papel, o resto da página sai do fluxo
+test("programação de paradas: impressão do calendário", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/programacao_paradas?visao=Calend%C3%A1rio");
+  await expect(page.locator("[data-dia]").first()).toBeVisible();
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator("h1").first()).toBeHidden();
+  await expect(page.locator("[data-dia]").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Imprimir/ })).toBeHidden();
+  if (process.env.PDF_CALENDARIO) await page.pdf({ path: process.env.PDF_CALENDARIO, landscape: true, format: "A4" });
+  expect(erros).toEqual([]);
+});

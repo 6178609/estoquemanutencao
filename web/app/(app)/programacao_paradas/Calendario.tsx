@@ -14,7 +14,7 @@ const diaSem = (d: number) => DIA[new Date(d * 86_400_000).getUTCDay()];
 
 /** Cor de cada grupo crítico (sempre com o nome do grupo escrito: a cor só ajuda). */
 export const COR_GRUPO: Record<string, string> = {
-  "DRY BLEND": "var(--serie-1)", BANBURY: "var(--serie-2)", "PRENSA/MOINHO SF": "var(--serie-3)", PELLET: "var(--serie-4)", "INJ EXP": "var(--seq-6)",
+  "DRY BLEND": "var(--serie-1)", BANBURY: "var(--serie-2)", "PRENSA/MOINHO SF": "var(--serie-3)", PELLET: "var(--serie-4)", "INJ EXP": "var(--st-atencao)",
 };
 
 /** Visão "Calendário": um mês por vez, semanas de segunda a sábado, cartões por turno; imprime em A4 paisagem. */
@@ -25,9 +25,10 @@ export function Calendario({ meses }: { meses: CalendarioMes[] }) {
   const r = c.resumo;
   return (
     <div className="calendario-paradas space-y-4">
-      {/* impressão do mural: A4 paisagem, só o calendário */}
-      <style>{"@media print{@page{size:A4 landscape;margin:7mm}body *{visibility:hidden}.calendario-paradas,.calendario-paradas *{visibility:visible}"
-        + ".calendario-paradas{position:absolute;left:0;top:0;width:100%;font-size:9px}.calendario-paradas .cal-dia{break-inside:avoid}}"}</style>
+            {/* impressão do mural: A4 paisagem, só o calendário (o resto some do fluxo, sem páginas em branco) */}
+      <style>{"@media print{@page{size:A4 landscape;margin:7mm}"
+        + "body:has(.calendario-paradas) *:not(:has(.calendario-paradas)):not(.calendario-paradas):not(.calendario-paradas *){display:none!important}"
+        + ".calendario-paradas{font-size:9px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.calendario-paradas section,.calendario-paradas .cal-dia{break-inside:avoid}}"}</style>
       <div className="nao-imprimir flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-[13px]">
           <span className="text-texto-3">Mês</span>
@@ -88,8 +89,8 @@ function DiaCal({ d }: { d: CalendarioMes["semanas"][number]["dias"][number] }) 
           <p className="text-[10.5px] uppercase tracking-wide text-texto-3">{t.t}º turno · {t.janela}</p>
           {!t.cartoes.length && <p className="text-[11.5px] text-texto-4">— vazio</p>}
           <ul className="mt-0.5 space-y-1">
-            {t.cartoes.map((k) => (
-              <li key={k.ativo} className="rounded-md border-l-4 bg-superficie-2 px-1.5 py-1 text-[11.5px] leading-snug"
+            {t.cartoes.map((k, n) => (
+              <li key={`${k.ativo}-${n}`} className="rounded-md border-l-4 bg-superficie-2 px-1.5 py-1 text-[11.5px] leading-snug"
                 style={{ borderLeftColor: k.grupo ? COR_GRUPO[k.grupo] : "var(--borda-forte)", ...(k.alerta ? { outline: "2px solid var(--st-critico)" } : {}) }}>
                 <span className="block font-semibold break-words">{k.rotulo}</span>
                 <span className="block tabular-nums text-texto-3">MEC {h(k.hh.mec)} | ELE {h(k.hh.ele)} h{k.grupo ? ` · ${k.grupo}` : ""}</span>

@@ -8,7 +8,7 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   - Parte 1 (leitura, motor R1–R15, 11 conferências, aba com Programação, Verificação e "Fora das classes"): publicada,
     com a revisão do Opus aplicada.
   - Parte 2 (calendário do mês com impressão, Saldo HH, Campos por dia, Ativos sem HH, Excel) + motor ~10x mais rápido:
-    pronta no ramo, AGUARDANDO a revisão do Opus (interrompida pelo limite) antes de publicar.
+    revisada pelo Opus (sem bloqueantes; impressão A4 corrigida e conferida em PDF) e publicada.
   - Ajustes pendentes da parte 1: desempenho do motor (hoje ~5 s com os dados reais; meta < 500 ms antes da parte 3);
     (desempenho resolvido na parte 2) ocupação da semana anterior (prensa/Pellet/mesma máquina na semana que começou antes de hoje); confirmar com o
     planejador se EMPILHADEIRA, BANHEIRO, PINHEIRO e FORNO TÚNEL entram na programação de Componentes.

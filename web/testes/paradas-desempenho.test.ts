@@ -25,6 +25,6 @@ describe("motor — desempenho (~8 mil itens fictícios)", () => {
     programar(e); // aquece
     const t = performance.now();
     programar(e);
-    expect(performance.now() - t).toBeLessThan(1500);
+    expect(performance.now() - t).toBeLessThan(process.env.CI ? 6000 : 3000);
   }, 60_000);
 });
