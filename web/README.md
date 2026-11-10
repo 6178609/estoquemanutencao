@@ -66,7 +66,7 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 | `BUSCA_IMAGENS_POR_DIA` | buscas por dia (padrão 30; máximo 200) |
 
 Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
-cada push no `main` publica em produção (https://estoquemanutencao.vercel.app) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para
+cada push no `main` publica em produção (https://pcmemacao.vercel.app — endereço gratuito da Vercel; os domínios .com só funcionam com DNS configurado) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para
 uso na empresa, o plano Pro.
 
 ## Desenvolvimento
