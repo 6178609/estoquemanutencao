@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
 
 import * as R from "@/lib/cadastroMaterial/regras";
 
@@ -113,5 +115,140 @@ describe("cadastro de material: regras", () => {
     expect(csv.split("\r\n")).toHaveLength(2);
     expect(csv).toContain(";");
     expect(csv).toContain(`"'=CMD()"`);
+  });
+});
+
+describe("cadastro de material: gravação (demonstração, na memória)", async () => {
+  const { afterAll, beforeAll } = await import("vitest");
+  const { _definirFonte } = await import("@/lib/dados/fonte");
+  const { _definirSupabase } = await import("@/lib/dados/supabase");
+  const { gravarCadastroLote, lerCadastro } = await import("@/lib/dados/cadastros");
+  const D = await import("@/lib/cadastroMaterial/dados");
+  beforeAll(async () => {
+    _definirFonte(null); _definirSupabase(null);
+    await gravarCadastroLote("cadastro_equipamentos.json", {
+      "EQ-TESTE": { nome: "Equipamento Teste", materiais: ["1111111"] },
+      "EQ-TESTE2": { nome: "Equipamento Teste 2" },
+    }, "teste");
+  });
+  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+
+  /** JPEG fictício (só o cabeçalho conta para o tipo). */
+  const JPG = (marca = 1) => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, marca, 2, 3, 4, 5, 6]);
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 1]);
+  const DONO: R.Papel = { login: "dono1", almox: false, pcm: false };
+  const ALM: R.Papel = { login: "almox1", almox: true, pcm: false };
+  const PC: R.Papel = { login: "pcm1", almox: false, pcm: true };
+  const ent = (x: Partial<R.EntradaPedido> = {}): R.EntradaPedido =>
+    ({ descricao: "Rolamento fictício 6205", sap: "9999901", tag: "EQ-TESTE", observacao: "", ...x });
+  const pedido = async (id: string) => (await D.lerPedidos(true)).find((p) => p.id === id);
+  const materiais = async (tag: string) => (await lerCadastro("cadastro_equipamentos.json", { fresco: true }))[tag]?.materiais;
+
+  it("papel: só quem vê a aba e está marcado; Terceiro nunca; administrador não ganha nada", () => {
+    expect(D.papelDe({ login: "a", aprova_almox: true, funcao: "lider" }, true)).toEqual({ login: "a", almox: true, pcm: false });
+    expect(D.papelDe({ login: "a", aprova_almox: true, aprova_pcm: true }, false)).toEqual({ login: "a", almox: false, pcm: false });
+    expect(D.papelDe({ login: "a", aprova_almox: true, aprova_pcm: true, funcao: "terceiro" }, true)).toEqual({ login: "a", almox: false, pcm: false });
+    expect(D.papelDe({ login: "a", aprova_pcm: "true", funcao: "manutentor" }, true).pcm).toBe(false);
+    expect(D.papelDe({ login: "a", aprova_pcm: true, funcao: "manutentor" }, true).pcm).toBe(true);
+  });
+
+  it("lista de equipamentos inclui o cadastro do site", async () => {
+    const tags = await D.tagsEquipamentos();
+    expect(tags.get("EQ-TESTE")).toBe("Equipamento Teste");
+  });
+
+  it("fluxo completo", async () => {
+    const id = await D.lancarPedido(DONO, ent(), { nome: "foto.jpg", bytes: JPG() }, "Dono Teste");
+    let p = (await pedido(id))!;
+    expect(p).toMatchObject({ situacao: R.AG_ALMOX, criadoPor: "dono1", sap: "9999901",
+      equipamento: { tag: "EQ-TESTE", nome: "Equipamento Teste" }, foto: { tipo: "image/jpeg" } });
+    expect((await D.lerFoto(id, "pedido"))?.tipo).toBe("image/jpeg");
+    expect(await D.lerFoto(id, "chegada")).toBeNull();
+
+    await expect(D.agir(DONO, id, "aprovar", "", null, "x")).rejects.toThrow(/Almoxarifado/);
+    await D.agir(ALM, id, "aprovar", "", null, "Almox Teste");
+    await expect(D.agir(ALM, id, "chegou", "", null, "Almox Teste")).rejects.toThrow(/foto/);
+    await D.agir(ALM, id, "chegou", "", { nome: "chegada.png", bytes: PNG }, "Almox Teste");
+    expect((await D.lerFoto(id, "chegada"))?.tipo).toBe("image/png");
+
+    // PCM recusa a chegada: volta para o almoxarifado, que manda outra foto (a antiga sai)
+    await expect(D.agir(PC, id, "recusar_chegada", "", null, "x")).rejects.toThrow(/motivo/);
+    await D.agir(PC, id, "recusar_chegada", "Foto não confere", null, "PCM Teste");
+    p = (await pedido(id))!;
+    expect(p.situacao).toBe(R.AG_CHEGADA);
+    const antiga = p.fotoChegada!.arquivo;
+    await D.agir(ALM, id, "chegou", "", { nome: "chegada2.jpg", bytes: JPG(9) }, "Almox Teste");
+    p = (await pedido(id))!;
+    expect(p.fotoChegada?.arquivo).not.toBe(antiga);
+    expect(D._fotosGuardadas().some((c) => c.endsWith(`/${antiga}`))).toBe(false);
+
+    expect(await D.agir(PC, id, "validar", "", null, "PCM Teste")).toEqual({});
+    p = (await pedido(id))!;
+    expect(p.situacao).toBe(R.CONCLUIDO);
+    expect(p.historico.map((e) => e.acao)).toEqual(["lancar", "aprovar", "chegou", "recusar_chegada", "chegou", "validar"]);
+    expect(await materiais("EQ-TESTE")).toEqual(["1111111", "9999901"]);
+    await expect(D.agir(PC, id, "validar", "", null, "x")).rejects.toThrow(/não vale agora/);
+  });
+
+  it("corrida", async () => {
+    const id = await D.lancarPedido(DONO, ent({ sap: "9999902" }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
+    const [a, b] = await Promise.allSettled([D.agir(ALM, id, "aprovar", "", null, "A"), D.agir(ALM, id, "aprovar", "", null, "B")]);
+    expect(a.status).toBe("fulfilled");
+    expect(b.status).toBe("rejected");
+    expect((b as PromiseRejectedResult).reason.message).toMatch(/já mudou de situação/);
+    expect((await pedido(id))!.historico.filter((e) => e.acao === "aprovar")).toHaveLength(1);
+  });
+
+  it("foto inválida", async () => {
+    const antes = D._fotosGuardadas().length;
+    const PDF = new TextEncoder().encode("%PDF-1.4\n% teste\n");
+    await expect(D.lancarPedido(DONO, ent(), { nome: "x.pdf", bytes: PDF }, "x")).rejects.toThrow(/JPEG, PNG ou WebP/);
+    await expect(D.lancarPedido(DONO, ent(), { nome: "x.bin", bytes: new Uint8Array([7, 3, 1, 9, 4, 4, 2, 8]) }, "x")).rejects.toThrow(/JPEG, PNG ou WebP/);
+    await expect(D.lancarPedido(DONO, ent(), { nome: "vazio.jpg", bytes: new Uint8Array() }, "x")).rejects.toThrow(/JPEG, PNG ou WebP/);
+    const grande = new Uint8Array(4_000_001); grande.set(JPG());
+    await expect(D.lancarPedido(DONO, ent(), { nome: "g.jpg", bytes: grande }, "x")).rejects.toThrow(/MB/);
+    await expect(D.lancarPedido(DONO, ent({ tag: "EQ-NAO-EXISTE" }), { nome: "f.jpg", bytes: JPG() }, "x")).rejects.toThrow(/equipamento/);
+    expect(D._fotosGuardadas().length).toBe(antes);
+  });
+
+  it("validar não duplica e tolera equipamento ausente", async () => {
+    // mesmo SAP já vinculado: não duplica
+    const id1 = await D.lancarPedido(DONO, ent({ sap: "1111111" }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
+    await D.agir(ALM, id1, "aprovar", "", null, "A");
+    await D.agir(ALM, id1, "chegou", "", { nome: "c.jpg", bytes: JPG(2) }, "A");
+    expect(await D.agir(PC, id1, "validar", "", null, "P")).toEqual({});
+    expect((await materiais("EQ-TESTE") as string[]).filter((m) => m === "1111111")).toHaveLength(1);
+    // equipamento removido do cadastro no meio do caminho: conclui e avisa
+    const id2 = await D.lancarPedido(DONO, ent({ sap: "9999903", tag: "EQ-TESTE2" }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
+    await D.agir(ALM, id2, "aprovar", "", null, "A");
+    await D.agir(ALM, id2, "chegou", "", { nome: "c.jpg", bytes: JPG(3) }, "A");
+    await gravarCadastroLote("cadastro_equipamentos.json", { "EQ-TESTE2": null }, "teste");
+    expect(await D.agir(PC, id2, "validar", "", null, "P")).toEqual({ aviso: "Equipamento não encontrado no cadastro: vincule à mão." });
+    expect((await pedido(id2))!.situacao).toBe(R.CONCLUIDO);
+    expect((await lerCadastro("cadastro_equipamentos.json", { fresco: true }))["EQ-TESTE2"]).toBeUndefined();
+  });
+
+  it("excluir só o dono, antes da aprovação, e apaga as fotos", async () => {
+    const id = await D.lancarPedido(DONO, ent({ sap: "9999904" }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
+    // editar troca a foto num arquivo novo e apaga a antiga
+    const f1 = (await pedido(id))!.foto!.arquivo;
+    await expect(D.editarPedido(ALM, id, ent({ descricao: "Outra descrição" }), null, "x")).rejects.toThrow(/Só quem lançou/);
+    await D.editarPedido(DONO, id, ent({ descricao: "Rolamento fictício editado" }), { nome: "g.jpg", bytes: JPG(5) }, "Dono Teste");
+    const p = (await pedido(id))!;
+    expect(p.descricao).toBe("Rolamento fictício editado");
+    expect(p.foto!.arquivo).not.toBe(f1);
+    expect(D._fotosGuardadas().some((c) => c.endsWith(`/${f1}`))).toBe(false);
+
+    await expect(D.excluirPedido(ALM, id, "x")).rejects.toThrow(/Só quem lançou/);
+    await D.excluirPedido(DONO, id, "Dono Teste");
+    expect(await pedido(id)).toBeUndefined();
+    expect(D._fotosGuardadas().some((c) => c.includes(`/${id}/`))).toBe(false);
+
+    // depois da aprovação, nem o dono exclui
+    const id2 = await D.lancarPedido(DONO, ent({ sap: "9999905" }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
+    await D.agir(ALM, id2, "aprovar", "", null, "A");
+    await expect(D.excluirPedido(DONO, id2, "x")).rejects.toThrow(/Só quem lançou/);
+    await expect(D.editarPedido(DONO, id2, ent(), null, "x")).rejects.toThrow(/Só quem lançou/);
+    expect(D._fotosGuardadas().some((c) => c.includes(`/${id2}/`))).toBe(true);
   });
 });
