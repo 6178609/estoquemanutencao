@@ -134,3 +134,8 @@ export function ativosSemHh(r: ResultadoMotor, ativos: Record<string, Ativo>): L
     primeiraData: s.primeiraData, hh: { ...s.hh }, total: s.hh.mec + s.hh.ele, itens: s.itens.length, motivo: s.motivo,
   })).sort((a, b) => (a.mes < b.mes ? -1 : a.mes > b.mes ? 1 : a.ativo < b.ativo ? -1 : a.ativo > b.ativo ? 1 : 0));
 }
+
+/** Campos de ordenação de vários dias numa lista "c1; c2" (sem repetir), para colar no SAP. */
+export function listaDeCampos(dias: Pick<CamposDoDia, "lista">[]): string {
+  return [...new Set(dias.flatMap((d) => d.lista.split("; ").filter(Boolean)))].join("; ");
+}

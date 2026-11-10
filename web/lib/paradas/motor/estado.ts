@@ -39,6 +39,10 @@ export class Estado {
   readonly linhas = new Map<string, LinhaProgramacao>();
   private readonly porDia = new Map<Dia, LinhaProgramacao[]>();
   private readonly porAtivo = new Map<string, LinhaProgramacao[]>();
+  private readonly porSemana = new Map<Dia, LinhaProgramacao[]>();
+  private readonly porMes = new Map<string, LinhaProgramacao[]>();
+  /** ativos e grupo crítico de cada dia (refeito quando uma linha entra ou sai do dia) */
+  private readonly cacheDia = new Map<Dia, { ativos: string[]; grupo: GrupoCritico | null }>();
   readonly comDemanda: Set<string>;
   readonly anterior: { seg: Dia; ativo: string; grupo: GrupoCritico | null }[];
 
@@ -72,8 +76,18 @@ export class Estado {
     return { mec: c.mec - u.mec, ele: c.ele - u.ele };
   }
 
+  private doDia(d: Dia) {
+    let c = this.cacheDia.get(d);
+    if (!c) {
+      const ls = this.linhasDoDia(d);
+      c = { ativos: [...new Set(ls.map((l) => l.ativo))].sort(), grupo: ls.find((l) => l.grupo != null)?.grupo ?? null };
+      this.cacheDia.set(d, c);
+    }
+    return c;
+  }
+
   ativosNoDia(d: Dia): string[] {
-    return [...new Set(this.linhasDoDia(d).map((l) => l.ativo))].sort();
+    return this.doDia(d).ativos.slice();
   }
 
   ativosNoTurno(d: Dia, t: Turno): string[] {
@@ -81,7 +95,7 @@ export class Estado {
   }
 
   grupoDoDia(d: Dia): GrupoCritico | null {
-    return this.linhasDoDia(d).find((l) => l.grupo != null)?.grupo ?? null;
+    return this.doDia(d).grupo;
   }
 
   linhasDoAtivo(mes: string, ativo: string): LinhaProgramacao[] {
@@ -89,7 +103,7 @@ export class Estado {
   }
 
   linhasDoAtivoDoMes(mes: string): LinhaProgramacao[] {
-    return [...this.linhas.values()].filter((l) => l.mes === mes);
+    return (this.porMes.get(mes) ?? []).slice();
   }
 
   paradasDoAtivo(mes: string, ativo: string): Dia[] {
@@ -118,6 +132,10 @@ export class Estado {
     this.linhas.set(l.id, l);
     this.porDia.set(l.data, [...this.linhasDoDia(l.data), l]);
     this.porAtivo.set(l.ativo, [...(this.porAtivo.get(l.ativo) ?? []), l]);
+    const s = segunda(l.data);
+    this.porSemana.set(s, [...(this.porSemana.get(s) ?? []), l]);
+    this.porMes.set(l.mes, [...(this.porMes.get(l.mes) ?? []), l]);
+    this.cacheDia.delete(l.data);
   }
 
   /** Junta itens a uma linha existente (estouro ≤ 4 h). */
@@ -148,6 +166,10 @@ export class Estado {
     this.linhas.delete(id);
     this.porDia.set(l.data, this.linhasDoDia(l.data).filter((x) => x.id !== id));
     this.porAtivo.set(l.ativo, (this.porAtivo.get(l.ativo) ?? []).filter((x) => x.id !== id));
+    const s = segunda(l.data);
+    this.porSemana.set(s, (this.porSemana.get(s) ?? []).filter((x) => x.id !== id));
+    this.porMes.set(l.mes, (this.porMes.get(l.mes) ?? []).filter((x) => x.id !== id));
+    this.cacheDia.delete(l.data);
   }
 
   private ehPrensa(n: string): boolean {
@@ -181,22 +203,24 @@ export class Estado {
     // R7
     const doAtivo = (this.porAtivo.get(ativo) ?? []).filter((l) => !ign.has(l.id) && l.data !== d);
     if (doAtivo.some((l) => segunda(l.data) === seg) || this.anterior.some((a) => a.ativo === ativo && a.seg === seg)) out.add("SEMANA_REPETIDA");
-    // R8
-    if (!o.extra) {
-      const ocupacao = [
-        ...[...this.linhas.values()].filter((l) => !ign.has(l.id) && !ehExtra(l) && !(l.ativo === ativo && l.data === d))
-          .map((l) => ({ seg: segunda(l.data), ativo: l.ativo, grupo: l.grupo })),
-        ...this.anterior,
-      ];
-      const conferir = (eh: (x: { ativo: string; grupo: GrupoCritico | null }) => boolean, semana: Codigo, seguida: Codigo) => {
-        for (const x of ocupacao) {
-          if (!eh(x)) continue;
-          if (x.seg === seg) out.add(semana);
-          if (Math.abs(x.seg - seg) === 7 && x.ativo === ativo) out.add(seguida);
-        }
+    // R8 (só para prensas e Pellets; olha a semana e as vizinhas)
+    if (!o.extra && (A.papel === "prensa" || A.grupo === "PELLET")) {
+      const prensa = A.papel === "prensa";
+      const eh = (x: { ativo: string; grupo: GrupoCritico | null }) =>
+        (prensa ? this.ehPrensa(x.ativo) : (this.ativos[x.ativo]?.grupo ?? x.grupo) === "PELLET");
+      const semana: Codigo = prensa ? "PRENSA_SEMANA" : "PELLET_SEMANA", seguida: Codigo = prensa ? "PRENSA_SEGUIDA" : "PELLET_SEGUIDA";
+      const ver = (xs: { seg: Dia; ativo: string; grupo: GrupoCritico | null }) => {
+        if (!eh(xs)) return;
+        if (xs.seg === seg) out.add(semana);
+        if (Math.abs(xs.seg - seg) === 7 && xs.ativo === ativo) out.add(seguida);
       };
-      if (A.papel === "prensa") conferir((x) => this.ehPrensa(x.ativo), "PRENSA_SEMANA", "PRENSA_SEGUIDA");
-      if (A.grupo === "PELLET") conferir((x) => (this.ativos[x.ativo]?.grupo ?? x.grupo) === "PELLET", "PELLET_SEMANA", "PELLET_SEGUIDA");
+      for (const s of [seg - 7, seg, seg + 7]) {
+        for (const l of this.porSemana.get(s) ?? []) {
+          if (ign.has(l.id) || ehExtra(l) || (l.ativo === ativo && l.data === d)) continue;
+          ver({ seg: s, ativo: l.ativo, grupo: l.grupo });
+        }
+      }
+      for (const a of this.anterior) ver(a);
     }
     // R9
     if (turnos.includes(1) && ((A.exclusivoT1 && outrosT1.length) || outrosT1.some((l) => this.ativos[l.ativo]?.exclusivoT1))) {

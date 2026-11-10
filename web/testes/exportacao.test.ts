@@ -2,7 +2,7 @@ import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 
 import { gerarPdfTabela } from "@/lib/exportacao/pdf";
-import { gerarXlsx } from "@/lib/exportacao/xlsx";
+import { gerarXlsx, gerarXlsxAbas } from "@/lib/exportacao/xlsx";
 
 /** Só dados fictícios. */
 const latin1 = (b: Uint8Array) => Array.from(b, (x) => String.fromCharCode(x)).join("");
@@ -57,5 +57,25 @@ describe("Excel (.xlsx)", () => {
     expect(sh).not.toContain("<f>");
     expect(sh).toContain('state="frozen"');
     expect(sh).toContain('<autoFilter ref="A1:C3"/>');
+  });
+});
+
+describe("Excel com várias abas", () => {
+  const x = unzipSync(gerarXlsxAbas([
+    { nome: "Programação", colunas: [{ titulo: "Data" }, { titulo: "Ativo" }], linhas: [["02/11/2026", "PVC 08"]] },
+    { nome: "Saldo HH", colunas: [{ titulo: "Data" }], linhas: [] },
+    { nome: "Programação", colunas: [{ titulo: "X" }], linhas: [[1]] },
+  ]));
+  it("uma planilha por aba, com nomes únicos e filtro só onde há linhas", () => {
+    expect(Object.keys(x).filter((k) => k.startsWith("xl/worksheets/")).sort()).toEqual(["xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml", "xl/worksheets/sheet3.xml"]);
+    const wb = strFromU8(x["xl/workbook.xml"]);
+    expect(wb).toContain('<sheet name="Programação" sheetId="1" r:id="rId1"/>');
+    expect(wb).toContain('<sheet name="Saldo HH" sheetId="2" r:id="rId2"/>');
+    expect(wb).toContain('<sheet name="Programação (2)" sheetId="3" r:id="rId3"/>');
+    expect(wb).toContain('localSheetId="0"');
+    expect(wb).toContain('localSheetId="2"');
+    expect(strFromU8(x["[Content_Types].xml"])).toContain("/xl/worksheets/sheet3.xml");
+    expect(strFromU8(x["xl/_rels/workbook.xml.rels"])).toContain('Target="styles.xml"');
+    expect(strFromU8(x["xl/worksheets/sheet2.xml"])).not.toContain("autoFilter");
   });
 });
