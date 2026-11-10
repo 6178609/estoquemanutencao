@@ -5,7 +5,12 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
 ## Em andamento
 - **Programação de paradas (GAL1 Componentes)** — spec `docs/superpowers/specs/2026-11-10-programacao-paradas-design.md`,
   plano `docs/superpowers/plans/2026-11-10-programacao-paradas.md`.
-  - Parte 1 (Tasks 1–17: leitura, motor de regras, conferências, aba com Programação e Verificação): em implementação.
+  - Parte 1 (leitura, motor R1–R15, 11 conferências, aba com Programação, Verificação e "Fora das classes"): publicada,
+    com a revisão do Opus aplicada.
+  - Ajustes pendentes da parte 1: desempenho do motor (hoje ~5 s com os dados reais; meta < 500 ms antes da parte 3);
+    ocupação da semana anterior (prensa/Pellet/mesma máquina na semana que começou antes de hoje); confirmar com o
+    planejador se EMPILHADEIRA, BANHEIRO, PINHEIRO e FORNO TÚNEL entram na programação de Componentes.
+  - A IP19 nas bases do site é a antiga (out–dez): reenviar a IP19 atual (nov–jan) em Fontes de dados.
   - Partes 2 (calendário, Saldo HH, Campos por dia, Ativos sem HH), 3 (edição, Parâmetros, histórico) e 4 (IW38 backlog,
     IW32 CSV/VBS): a fazer, cada uma revisada pelo Opus e publicada.
 - **Fotos e datasheets dos materiais:** fila de ~48 mil materiais com fabricante+REF. Buscas manuais pelo Firecrawl e pela
