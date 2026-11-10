@@ -43,7 +43,7 @@ export type Marca = "antecipado" | "estouro ≤4h" | "fixada" | "parada extra" |
 export interface LinhaProgramacao {
   id: string;             // `${mes}|${ativo}|${parada}|${turno}`
   data: Dia; turno: Turno; ativo: string; mes: string;
-  parada: 1 | 2; paradasNoMes: number;
+  parada: 1 | 2 | 3; paradasNoMes: number;  // 3 = parada extra sem parada correspondente
   hh: HH; acima: HH;      // acima = HH além da capacidade por saldo ≤ 4 h
   itens: string[];        // chaves dos ItemPlano
   marcas: Marca[];
@@ -54,7 +54,7 @@ export interface SemHh { mes: string; ativo: string; hh: HH; itens: string[]; pr
 export interface Retirado { mes: string; ativo: string; hh: HH; motivo: string }   // ex.: injetora ≤ 0,2 h
 
 export interface Fixacao {
-  id: string; mes: string; ativo: string; parada: 1 | 2;
+  id: string; mes: string; ativo: string; parada: 1 | 2 | 3;  // 3 só em parada extra
   data: Dia; turno: Turno | "1+2"; extra?: boolean; motivo?: string; por?: string; em?: string;
 }
 

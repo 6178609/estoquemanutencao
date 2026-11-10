@@ -46,7 +46,7 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
     const janela = p.semana === 6 ? `${t.sabado.inicio}–${t.sabado.fim}` : l.turno === 1 ? `${t.t1.inicio}–${t.t1.fim}` : `${t.t2.inicio}–${t.t2.fim}`;
     return {
       id: l.id, mes: l.mes, data: dataBr(l.data), dia: NOME_DIA[p.semana], semana: semanaIso(l.data).semana, turno: l.turno, ativo: l.ativo,
-      equipamentos: (A?.equipamentos ?? []).join(", "), hhMec: l.hh.mec, hhEle: l.hh.ele, parada: `${l.parada} de ${l.paradasNoMes}`, janela,
+      equipamentos: (A?.equipamentos ?? []).join(", "), hhMec: l.hh.mec, hhEle: l.hh.ele, parada: l.parada === 3 ? "extra" : `${l.parada} de ${l.paradasNoMes}`, janela,
       marcas: l.marcas, itens: l.itens.length, itensMes: d?.itens.length ?? 0, datasIp19: (d?.datas ?? []).map((x) => dataBr(x).slice(0, 5)).join(", "),
       tipo: l.tipo, grupo: l.grupo ?? "", acimaMec: l.acima.mec, acimaEle: l.acima.ele, campos: l.campos.join(", "), alertas: porAlerta.get(l.id) ?? [],
     };

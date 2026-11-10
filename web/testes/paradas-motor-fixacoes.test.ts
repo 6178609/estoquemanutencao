@@ -47,6 +47,16 @@ describe("motor — fixações", () => {
     expect(r.linhas).toEqual(programar(entrada(dem)).linhas);
   });
 
+  it("parada extra sem parada correspondente: número próprio (3), sem itens", () => {
+    const dem = base();
+    const f = fix("GOLDEN 01", N(20), 2, { parada: 3, extra: true, id: `${M}|GOLDEN 01|3` });
+    const r = programar(entrada(dem, { fixacoes: [f] }));
+    const ls = linhasDe(r, "GOLDEN 01");
+    expect(ls.map((l) => [l.parada, l.paradasNoMes])).toEqual(expect.arrayContaining([[1, 1], [3, 1]]));
+    expect(ls.find((l) => l.parada === 3)!.marcas).toEqual(expect.arrayContaining(["parada extra", "sem itens IP19"]));
+    expect(r.fixacoesOrfas).toEqual([]);
+  });
+
   it("parada extra de prensa na semana de outra prensa", () => {
     const dem = [itens("PRENSA COPE", N(5), "MEC", 5), itens("PRENSA PANSTONE", N(5), "MEC", 5)];
     const r = programar(entrada(dem, { fixacoes: [fix("PRENSA PANSTONE", N(6), 1, { extra: true })] }));

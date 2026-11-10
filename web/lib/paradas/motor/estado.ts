@@ -101,7 +101,7 @@ export class Estado {
     return [...new Set(this.linhasDoAtivo(mes, ativo).map((l) => l.parada))].sort();
   }
 
-  colocar(ativo: string, mes: string, d: Dia, t: Turno, itens: ItemPlano[], parada: 1 | 2, marcas: Marca[], acima?: HH): LinhaProgramacao {
+  colocar(ativo: string, mes: string, d: Dia, t: Turno, itens: ItemPlano[], parada: 1 | 2 | 3, marcas: Marca[], acima?: HH): LinhaProgramacao {
     const a = this.ativos[ativo];
     const l: LinhaProgramacao = {
       id: `${mes}|${ativo}|${parada}|${t}`, data: d, turno: t, ativo, mes, parada, paradasNoMes: 0, hh: hhDe(itens),

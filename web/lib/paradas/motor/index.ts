@@ -103,5 +103,6 @@ export function finalizar(ls: LinhaProgramacao[]): LinhaProgramacao[] {
     n.set(k, (n.get(k) ?? new Set()).add(l.parada));
   }
   return ordenarLinhas(ls.map((l) => ({ ...l, itens: l.itens.slice(), marcas: l.marcas.slice(),
-    paradasNoMes: Math.max(n.get(`${l.mes}|${l.ativo}`)?.size ?? 0, l.parada) })));
+    paradasNoMes: l.marcas.includes("parada extra") ? Math.max(n.get(`${l.mes}|${l.ativo}`)?.size ?? 0, 1)
+      : Math.max(n.get(`${l.mes}|${l.ativo}`)?.size ?? 0, l.parada) })));
 }

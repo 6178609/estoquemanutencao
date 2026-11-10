@@ -37,7 +37,7 @@ export function novaParada(c: Ctx, ativo: string): boolean {
   if (!A || moinhoSf(c, ativo)) return false;
   if (c.est.paradasDoAtivo(c.mes, ativo).filter((d) => !c.est.linhasDoAtivo(c.mes, ativo)
     .some((l) => l.data === d && l.marcas.includes("parada extra"))).length >= c.p.maxParadasMes) return false;
-  if (c.est.numerosDeParada(c.mes, ativo).length >= 2) return false;
+  if (c.est.numerosDeParada(c.mes, ativo).filter((n) => n <= 2).length >= 2) return false;
   const depois = semanaDaPrimeira(c, ativo);
   if (A.juntoCom && segueOutro(c, ativo)) {
     for (const d of c.est.paradasDoAtivo(c.mes, A.juntoCom)) {

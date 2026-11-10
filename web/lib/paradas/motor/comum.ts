@@ -68,7 +68,7 @@ export function livreModo(c: Ctx, d: Dia, modo: ModoTurno) {
  * Coloca os itens no dia pelo modo de turno. No T2+T1 enche o T2 primeiro e o resto vai no T1 (marca "1º+2º turno"
  * quando os dois turnos recebem). Devolve o que não coube.
  */
-export function colocarModo(c: Ctx, ativo: string, d: Dia, modo: ModoTurno, itens: ItemPlano[], parada: 1 | 2, marcas: Marca[],
+export function colocarModo(c: Ctx, ativo: string, d: Dia, modo: ModoTurno, itens: ItemPlano[], parada: 1 | 2 | 3, marcas: Marca[],
   forcarT1 = false, parcial = false): { linhas: LinhaProgramacao[]; fora: ItemPlano[] } {
   if (modo !== "T2+T1") {
     const t = modo === "T1" ? 1 : 2;

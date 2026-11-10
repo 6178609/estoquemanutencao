@@ -33,7 +33,7 @@ function fixacoesDe(cad: Cadastro | null): Fixacao[] {
     const f = v as Record<string, unknown>;
     const data = typeof f.data === "number" ? f.data : typeof f.data === "string" ? diaDeIso(f.data) : null;
     const turno = f.turno === 1 || f.turno === 2 || f.turno === "1+2" ? f.turno : null;
-    const parada = f.parada === 1 || f.parada === 2 ? f.parada : null;
+    const parada = f.parada === 1 || f.parada === 2 || (f.parada === 3 && f.extra) ? f.parada : null;
     if (data == null || turno == null || parada == null || typeof f.mes !== "string" || typeof f.ativo !== "string") continue;
     out.push({ id: k.slice("fixacao:".length), mes: f.mes, ativo: f.ativo, parada, data, turno, ...(f.extra ? { extra: true } : {}) });
   }
