@@ -72,10 +72,10 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
               <Link prefetch={false} href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
-          <Almoxarifado itens={itensAlmox} edita={podeEditar(u)} sugestoes={almox.sugestoes} />
+          <Almoxarifado itens={itensAlmox} edita={podeEditar(u) && !u.demo} sugestoes={almox.sugestoes} />
         </>
       )}
-      {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} /> : (
+      {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} edita={podeEditar(u) && !u.demo} /> : (
         <Aviso>O <b>catálogo de materiais (Sysmat)</b> ainda não está no repositório de dados. Envie a extração em <Link prefetch={false} href="/dados" className="font-medium underline">Configuração › Fontes de dados</Link>.</Aviso>
       ))}
     </Pagina>
