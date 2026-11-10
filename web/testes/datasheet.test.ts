@@ -24,6 +24,10 @@ describe("datasheet do material: escolha pela referência", () => {
     expect(escolherDatasheet([r("ACME VX-1234", "https://www.amazon.com.br/dp/X")], "ACME", "VX-1234")).toBeNull();
     expect(escolherDatasheet([r("ACME VX-1234", "http://acme.com/vx-1234")], "ACME", "VX-1234")).toBeNull();
     expect(escolherDatasheet([r("ACME AB", "https://acme.com/ab")], "ACME", "AB")).toBeNull();
+    // REF curta (menos de 6) exige o fabricante; REF só na busca de outro site (query string) não conta
+    expect(escolherDatasheet([r("Item 6205", "https://loja.com/6205.pdf")], "SKF", "6205")).toBeNull();
+    expect(escolherDatasheet([r("SKF 6205", "https://skf.com/6205.pdf")], "SKF", "6205")).toMatchObject({ pdf: true });
+    expect(escolherDatasheet([r("Busca", "https://outro.com/busca?q=VX-1234")], "ACME", "VX-1234")).toBeNull();
     expect(escolherDatasheet([r("outra peça", "https://acme.com/zz-99")], "ACME", "VX-1234")).toBeNull();
   });
   it("consulta: fabricante, referência e 'datasheet'", () => {

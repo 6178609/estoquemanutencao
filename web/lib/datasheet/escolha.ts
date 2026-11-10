@@ -22,7 +22,10 @@ export function escolherDatasheet(resultados: ResultadoWeb[], fab: string, ref: 
     let u: URL;
     try { u = new URL(x.url); } catch { return []; }
     if (u.protocol !== "https:" || LOJAS.test(u.hostname) || bancoDeImagem(x.url)) return [];
-    if (!refNormalizada(`${x.titulo} ${x.url}`).includes(r)) return [];
+    const texto = refNormalizada(`${x.titulo} ${u.hostname}${u.pathname}`);
+    if (!texto.includes(r)) return [];
+    // referência curta (menos de 6 caracteres) pega peça errada fácil: exige também o fabricante
+    if (r.length < 6 && (!f || !texto.includes(f))) return [];
     return [{ url: u.href, titulo: (x.titulo || u.hostname).trim().slice(0, 200), pdf: /\.pdf$/i.test(u.pathname), host: refNormalizada(u.hostname) }];
   });
   const escolhido = ok.find((x) => x.pdf) ?? ok.find((x) => !!f && x.host.includes(f.slice(0, 12))) ?? ok[0];

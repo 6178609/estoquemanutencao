@@ -25,12 +25,21 @@ export async function GET(req: NextRequest) {
   const m = material(p.get("m"));
   if (!m) return NextResponse.json({ erro: "Material inválido." }, { status: 400 });
   const id = p.get("id");
-  if (!id) return NextResponse.json({ datasheets: (await datasheetsDe(m)).map(({ id, titulo, tipo, url, em, por }) => ({ id, titulo, tipo, url, em, por })) });
+  if (!id) {
+    try {
+      return NextResponse.json({ datasheets: (await datasheetsDe(m)).map(({ id, titulo, tipo, url, em, por }) => ({ id, titulo, tipo, url, em, por })) });
+    } catch (e) {
+      console.error("datasheets do material:", e);
+      return NextResponse.json({ erro: "Não foi possível ler os datasheets agora." }, { status: 500 });
+    }
+  }
   let r: Awaited<ReturnType<typeof lerDatasheet>> = null;
   try {
     r = await lerDatasheet(m, id);
   } catch (e) {
     if (e instanceof FonteErro) return new NextResponse(e.message, { status: 404 });
+    console.error("datasheet do material:", e);
+    return new NextResponse("Não foi possível abrir agora.", { status: 500 });
   }
   if (!r) return new NextResponse("Datasheet não encontrado.", { status: 404 });
   const nome = (r.doc.nome || `datasheet-${m}.pdf`).replace(/[^\w.\- ]/g, "_");

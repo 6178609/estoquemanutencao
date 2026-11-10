@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const conferencia = await conferencia_(1_000, 100_000);
     const limite = limiteDiario();
     // as fotos deixam até 60 s para os datasheets (mesmos provedores, busca web)
-    const fotos = await rodadaFotos({ limiteDia: limite, porRodada: limite, prazoMs: Math.max(0, restante(t0) - 60_000) });
+    const fotos = await rodadaFotos({ limiteDia: limite, porRodada: limite, prazoMs: Math.max(0, restante(t0) - (limiteDatasheets() ? 60_000 : 0)) });
     const datasheets = await rodadaDatasheets({ porRodada: limiteDatasheets(), prazoMs: restante(t0) });
     return NextResponse.json({ ...fotos, conferencia, datasheets });
   } catch (e) {

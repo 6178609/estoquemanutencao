@@ -46,6 +46,7 @@ export function DatasheetMaterial({ material, fabricanteRef, descricao, edita }:
       await carregar();
     } catch (e) {
       setMsg({ erro: true, texto: (e as Error).message });
+      if (arquivo.current) arquivo.current.value = ""; // o mesmo arquivo pode ser escolhido de novo
     } finally {
       setGravando(false);
     }
@@ -94,7 +95,7 @@ export function DatasheetMaterial({ material, fabricanteRef, descricao, edita }:
                 </span>
                 {edita && (
                   <button type="button" onClick={() => remover(d)} disabled={gravando} aria-label={`Remover ${d.titulo}`}
-                    className="grid size-8 shrink-0 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-[var(--selo-critico-texto)]">
+                    className="grid size-11 shrink-0 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-[var(--selo-critico-texto)]">
                     <Trash2 className="size-4" aria-hidden="true" />
                   </button>
                 )}
@@ -111,18 +112,18 @@ export function DatasheetMaterial({ material, fabricanteRef, descricao, edita }:
       {edita && (
         <div className="mt-3 grid gap-2 rounded-xl border border-borda p-3">
           <label htmlFor={`ds-url-${codigo}`} className="text-sm font-semibold">Link do datasheet</label>
-          <div className="flex flex-wrap gap-2">
+          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (/^https?:\/\//i.test(url.trim())) porLink(); }}>
             <input id={`ds-url-${codigo}`} name="datasheet_url" type="url" inputMode="url" autoComplete="off" spellCheck={false}
               value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://fabricante.com/…/datasheet.pdf"
               className="h-10 min-w-0 flex-1 rounded-xl border border-borda bg-superficie px-3 text-sm focus:border-[var(--acao)]" />
-            <button type="button" onClick={porLink} disabled={gravando || !/^https?:\/\//i.test(url.trim())} className={BOTAO_COMPACTO}>
+            <button type="submit" disabled={gravando || !/^https?:\/\//i.test(url.trim())} className={BOTAO_COMPACTO}>
               {gravando ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <ExternalLink className="size-3.5" aria-hidden="true" />} Gravar link
             </button>
-          </div>
+          </form>
           <div>
-            <input ref={arquivo} id={`ds-pdf-${codigo}`} type="file" accept="application/pdf" className="sr-only"
+            <input ref={arquivo} id={`ds-pdf-${codigo}`} type="file" accept="application/pdf" className="peer sr-only"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) porPdf(f); }} />
-            <label htmlFor={`ds-pdf-${codigo}`} className={`${BOTAO_COMPACTO} cursor-pointer`}><Upload className="size-3.5" aria-hidden="true" /> Anexar PDF (até 4 MB)</label>
+            <label htmlFor={`ds-pdf-${codigo}`} className={`${BOTAO_COMPACTO} cursor-pointer peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--foco)]`}><Upload className="size-3.5" aria-hidden="true" /> Anexar PDF (até 4 MB)</label>
           </div>
         </div>
       )}
