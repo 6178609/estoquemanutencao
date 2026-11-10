@@ -1,6 +1,7 @@
 import { chave } from "../dados/texto";
 import { lerArquivo, LeituraErro, paraTexto, sondar } from "./leitura";
 import { recortarPilarMp, recortarRoadmap } from "./indicadoresSim";
+import type { Tabela } from "./leitura";
 import { emPartes } from "./parquet";
 import { NOMES_BASE, type Tipo } from "./tipos";
 import { Xlsx } from "./xlsx";
@@ -55,6 +56,7 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
         t = recortarPilarMp(t);
         if (!t.linhas.length) throw new LeituraErro("a base mensal não tem linhas do pilar MP");
       }
+      if (a.tipo === "catalogo_materiais") t = semCanceladosDuplicados(t);
       if (a.tipo === "roadmap_sim") {
         t = recortarRoadmap(t);
         if (!t.linhas.length) throw new LeituraErro("o roadmap não tem nenhuma máquina");
@@ -66,4 +68,14 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
   } catch (e) {
     return { arquivo, bases: [], erro: e instanceof LeituraErro ? e.message : `falha ao ler: ${(e as Error).message}` };
   }
+}
+
+/** Status do Sysmat que não entram no banco do site (pedido do PCM, 10/11/2026): material cancelado ou duplicado. */
+export const STATUS_EXCLUIDOS = new Set(["CANCELADO", "DUPLICADO"]);
+
+/** Catálogo do Sysmat sem as linhas canceladas ou duplicadas (coluna Status). Sem a coluna, fica como veio. */
+export function semCanceladosDuplicados(t: Tabela): Tabela {
+  const i = t.colunas.map(chave).indexOf("STATUS");
+  if (i < 0) return t;
+  return { colunas: t.colunas, linhas: t.linhas.filter((l) => !STATUS_EXCLUIDOS.has(chave(String(l[i] ?? "")))) };
 }

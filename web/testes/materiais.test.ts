@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { semCanceladosDuplicados } from "@/lib/leitura/processar";
 import { cobertura, fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais } from "@/lib/dados/materiais";
 
 // dados fictícios
@@ -17,12 +18,17 @@ const CRU = [
 describe("catálogo do Sysmat", () => {
   const cat = prepararCatalogo(CRU);
   const por = Object.fromEntries(cat.map((c) => [c.sysmat, c]));
-  it("um por código, a linha aprovada vence", () => {
-    expect(cat).toHaveLength(5);
+  it("um por código, a linha aprovada vence; cancelado e duplicado ficam fora do banco", () => {
+    expect(cat).toHaveLength(4);
     expect(por["10000003"].material).toBe("222");
     expect(por["10000002"]).toBeUndefined();
     expect(por["10000004"].categoria).toBe("ELETRICA");
-    expect(por["10000006"].substituto).toBe("111");
+    expect(por["10000006"]).toBeUndefined();
+  });
+  it("o envio do catálogo descarta as linhas canceladas e duplicadas", () => {
+    const t = semCanceladosDuplicados({ colunas: ["Codigo Sysmat", "Status"], linhas: [["1", "APROVADO"], ["2", "Cancelado"], ["3", "DUPLICADO"], ["4", "BLOQUEADO"]] });
+    expect(t.linhas.map((l) => l[0])).toEqual(["1", "4"]);
+    expect(semCanceladosDuplicados({ colunas: ["X"], linhas: [["a"]] }).linhas).toHaveLength(1);
   });
   it("fabricante e referência", () => {
     expect(por["10000001"].fabricanteRef).toBe("SKF 6205-2Z");
