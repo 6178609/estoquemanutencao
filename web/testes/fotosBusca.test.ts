@@ -291,12 +291,13 @@ describe("planejamento da busca", () => {
     catalogo, refs: {}, estado: {}, agora, ...over,
   });
 
-  it("só busca foto exata dos materiais do almoxarifado com referência; nada por tipo nem do catálogo sem estoque", () => {
+  it("só busca foto exata (com referência); nada por tipo; almoxarifado primeiro", () => {
     const alvos = planejarBusca(base());
     const chaves = alvos.map((a) => a.chave);
     // o 000100 do catálogo é o 100 do estoque; o 300 (sem referência) e os do catálogo fora do estoque não entram
     expect(chaves).toEqual(["m:100", "m:400"]);
-    expect(planejarBusca(base({ estoque: [] }))).toEqual([]);
+    // sem almoxarifado, os do catálogo com referência entram do mesmo jeito (todos os materiais do site)
+    expect(planejarBusca(base({ estoque: [] })).map((a) => a.chave)).toEqual(["m:100", "m:400"]);
     expect(alvos[0].consulta).toBe("SKF 6205-2Z ROLAMENTO RIGIDO ESFERAS");
     expect(chaves.some((c) => c.startsWith("t:"))).toBe(false);
   });
@@ -455,5 +456,20 @@ describe("vários provedores gratuitos em rodízio", () => {
     expect(r.achados).toBe(1);
     const nenhum = await rodadaFotos({ limiteDia: 30, porRodada: 30, provedores: [{ nome: "a", porDia: 0, buscar: a }], dados });
     expect(nenhum.motivo).toBe("cota do provedor de busca");
+  });
+});
+
+describe("busca de fotos em todos os materiais do site", () => {
+  const agora = Date.parse("2026-11-10T12:00:00Z");
+  const it2 = (material: string, status: string, ref: string) => item({ material, status, pdm: "VALVULA", subcategoria: "VALVULA",
+    categoria: "HIDRAULICA", descrCompleta: `FAB: FESTO - REF: ${ref}.`, descricaoCurta: "VALVULA" });
+  it("o catálogo inteiro entra, de qualquer status, depois do almoxarifado: ligados a equipamento, aprovados, demais, cancelados", () => {
+    const catalogo = [it2("0000501", "CANCELADO", "VUVG-1"), it2("502", "BLOQUEADO", "VUVG-2"), it2("503", "APROVADO", "VUVG-3"),
+      it2("504", "BLOQUEADO", "VUVG-4"), it2("505", "APROVADO", "VUVG-5"), item({ material: "506", status: "APROVADO", descricaoCurta: "SEM REF" })];
+    const alvos = planejarBusca({ estoque: [{ material: "505", descricao: "VALVULA" }], catalogo, refs: { "503": { arquivo: "x" } },
+      estado: {}, agora, vinculados: new Set(["504"]) });
+    // 505 do almoxarifado; 504 ligado a equipamento; 503 já tem foto; 502 bloqueado; 501 cancelado por último; 506 sem referência
+    expect(alvos.map((a) => a.chave)).toEqual(["m:505", "m:504", "m:502", "m:501"]);
+    expect(alvos[3].material).toBe("501");
   });
 });
