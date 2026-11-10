@@ -86,6 +86,10 @@ export class Estado {
     return (this.porAtivo.get(ativo) ?? []).filter((l) => l.mes === mes);
   }
 
+  linhasDoAtivoDoMes(mes: string): LinhaProgramacao[] {
+    return [...this.linhas.values()].filter((l) => l.mes === mes);
+  }
+
   paradasDoAtivo(mes: string, ativo: string): Dia[] {
     return [...new Set(this.linhasDoAtivo(mes, ativo).map((l) => l.data))].sort((a, b) => a - b);
   }

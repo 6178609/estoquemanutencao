@@ -69,8 +69,9 @@ export function colocarNaoCritico(c: Ctx, ativo: string, depoisDe: Dia | null = 
       const d = escolher(c, ativo, dias, m);
       if (!d) continue;
       const marcas: Marca[] = fora && d.data < primeira && depoisDe == null ? ["antecipado"] : [];
-      colocarModo(c, ativo, d.data, m.modo, itens, parada, marcas);
-      deixar(c, ativo, []);
+      const r = colocarModo(c, ativo, d.data, m.modo, itens, parada, marcas);
+      deixar(c, ativo, r.fora);
+      anotarSaldo(c, ativo);
       return true;
     }
   }
@@ -80,7 +81,7 @@ export function colocarNaoCritico(c: Ctx, ativo: string, depoisDe: Dia | null = 
     .map((d) => { const l = livreModo(c, d.data, modo); return { d, livre: l.mec + l.ele }; })
     .sort((a, b) => b.livre - a.livre || a.d.data - b.d.data);
   for (const { d } of cands) {
-    const r = colocarModo(c, ativo, d.data, modo, itens, parada, d.data < primeira && depoisDe == null ? ["antecipado"] : []);
+    const r = colocarModo(c, ativo, d.data, modo, itens, parada, d.data < primeira && depoisDe == null ? ["antecipado"] : [], false, true);
     if (!r.linhas.length) continue;
     deixar(c, ativo, r.fora);
     anotarSaldo(c, ativo);

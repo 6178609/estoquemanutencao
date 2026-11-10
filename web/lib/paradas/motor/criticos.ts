@@ -55,7 +55,7 @@ function depois(c: Ctx, ativo: string, d: Dia): Dia {
   return d;
 }
 
-function anexar(c: Ctx, ativo: string, d: Dia, marcas: ("semana da prensa")[]): boolean {
+export function anexar(c: Ctx, ativo: string, d: Dia, marcas: ("semana da prensa")[]): boolean {
   const itens = pendentes(c, ativo);
   if (!itens.length || !c.ativos[ativo]) return false;
   if (c.est.paradasDoAtivo(c.mes, ativo).length >= c.p.maxParadasMes) return false;

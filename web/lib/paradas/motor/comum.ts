@@ -2,7 +2,7 @@ import type { Dia } from "@/lib/wcm/util";
 
 import { segunda, type DiaTrabalho } from "../calendario";
 import type { Ativo, Demanda, ItemPlano, LinhaProgramacao, Marca, Parametros, SemHh } from "../tipos";
-import { encaixarT2T1, hhDe, type Estado, type ModoTurno } from "./estado";
+import { encaixar, encaixarT2T1, hhDe, type Estado, type ModoTurno } from "./estado";
 
 /** Contexto de um mês do motor (o `Estado` e o rodízio dos moinhos atravessam os meses). */
 export interface Ctx {
@@ -69,8 +69,13 @@ export function livreModo(c: Ctx, d: Dia, modo: ModoTurno) {
  * quando os dois turnos recebem). Devolve o que não coube.
  */
 export function colocarModo(c: Ctx, ativo: string, d: Dia, modo: ModoTurno, itens: ItemPlano[], parada: 1 | 2, marcas: Marca[],
-  forcarT1 = false): { linhas: LinhaProgramacao[]; fora: ItemPlano[] } {
-  if (modo !== "T2+T1") return { linhas: [c.est.colocar(ativo, c.mes, d, modo === "T1" ? 1 : 2, itens, parada, marcas)], fora: [] };
+  forcarT1 = false, parcial = false): { linhas: LinhaProgramacao[]; fora: ItemPlano[] } {
+  if (modo !== "T2+T1") {
+    const t = modo === "T1" ? 1 : 2;
+    const r = parcial ? encaixar(itens, c.est.livre(d, t)) : { dentro: itens, fora: [] };
+    if (!r.dentro.length) return { linhas: [], fora: itens };
+    return { linhas: [c.est.colocar(ativo, c.mes, d, t, r.dentro, parada, marcas)], fora: r.fora };
+  }
   const r = encaixarT2T1(itens, c.est.livre(d, 2), c.est.livre(d, 1));
   const t1 = forcarT1 ? [...r.t1, ...r.fora] : r.t1;
   const fora = forcarT1 ? [] : r.fora;

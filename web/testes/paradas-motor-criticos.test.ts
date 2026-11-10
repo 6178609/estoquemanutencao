@@ -61,10 +61,10 @@ describe("motor — retirados e críticos", () => {
     expect(linhasDe(r, "PRENSA COPE").map((l) => [l.data, l.marcas])).toEqual([[N(11), []]]);
   });
 
-  it("prensa maior que o turno: o que couber no 1º candidato; o resto fica pendente", () => {
+  it("prensa maior que o turno: o que couber no 1º candidato; o resto numa 2ª parada", () => {
     const r = programar(entrada([itens("PRENSA COPE", N(5), "MEC", 50, 5)]));
-    expect(linhasDe(r, "PRENSA COPE").map((l) => [l.data, l.hh.mec])).toEqual([[N(4), 35]]);
-    expect(r.semHh.find((s) => s.ativo === "PRENSA COPE")?.hh.mec).toBe(15);
+    expect(linhasDe(r, "PRENSA COPE").map((l) => [l.data, l.hh.mec])).toEqual([[N(4), 35], [N(18), 15]]);
+    expect(r.semHh).toEqual([]);
   });
 
   it("determinístico", () => {

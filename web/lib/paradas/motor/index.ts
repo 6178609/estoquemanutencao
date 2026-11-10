@@ -1,11 +1,12 @@
-import { somarMeses, type Dia } from "@/lib/wcm/util";
+import { somarMeses } from "@/lib/wcm/util";
 
 import { chaveMes, diasDoMes, inicioMes, type DiaTrabalho } from "../calendario";
-import type { EntradaMotor, LinhaProgramacao, Retirado, ResultadoMotor } from "../tipos";
+import type { Demanda, EntradaMotor, LinhaProgramacao, Retirado, ResultadoMotor } from "../tipos";
 import { pendentes, type Ctx } from "./comum";
 import { programarCriticos } from "./criticos";
 import { Estado, hhDe } from "./estado";
 import { programarNaoCriticos, programarSabado } from "./naoCriticos";
+import { motivoSemHh, programarSaldo, reavaliar } from "./saldo";
 
 /**
  * Motor de regras (spec §5): puro e determinístico. Recebe as demandas por ativo e mês e devolve a programação dia ×
@@ -29,6 +30,17 @@ export function ordenarLinhas(ls: LinhaProgramacao[]): LinhaProgramacao[] {
   return ls.slice().sort((a, b) => a.data - b.data || a.turno - b.turno || (a.grupo ? 0 : 1) - (b.grupo ? 0 : 1) || cmp(a.ativo, b.ativo));
 }
 
+/** Contexto de um mês (exportado para os testes dos passos). */
+export function novoCtx(e: EntradaMotor, est: Estado, mes: string, dias: DiaTrabalho[], out: ResultadoMotor, rodizio: { ultimo: number },
+  ativas: Demanda[] = e.demandas): Ctx {
+  const doMes = ativas.filter((d) => d.mes === mes && e.ativos[d.ativo]);
+  return {
+    est, p: e.parametros, ativos: e.ativos, inicio: e.inicio, mes, diasMes: dias.filter((d) => d.mes === mes),
+    demandas: new Map(doMes.map((d) => [d.ativo, d])), pend: new Map(doMes.map((d) => [d.ativo, d.itens.slice()])),
+    ordemPend: [], semHh: out.semHh, avisos: out.avisos, rodizio,
+  };
+}
+
 export function programar(e: EntradaMotor): ResultadoMotor {
   const p = e.parametros;
   const dias = diasDaEntrada(e);
@@ -46,19 +58,17 @@ export function programar(e: EntradaMotor): ResultadoMotor {
   const out: ResultadoMotor = { linhas: [], semHh: [], retirados, fixacoesOrfas: [], avisos: [] };
   const rodizio = { ultimo: -1 };
   for (const mes of mesesDaEntrada(e)) {
-    const doMes = ativas.filter((d) => d.mes === mes && e.ativos[d.ativo]);
-    const c: Ctx = {
-      est, p, ativos: e.ativos, inicio: e.inicio, mes, diasMes: dias.filter((d) => d.mes === mes),
-      demandas: new Map(doMes.map((d) => [d.ativo, d])), pend: new Map(doMes.map((d) => [d.ativo, d.itens.slice()])),
-      ordemPend: [], semHh: out.semHh, avisos: out.avisos, rodizio,
-    };
+    const c = novoCtx(e, est, mes, dias, out, rodizio, ativas);
     programarCriticos(c);
     programarSabado(c);
     programarNaoCriticos(c);
-    for (const [ativo] of c.pend) {
+    const sobra = programarSaldo(c);
+    reavaliar(c, sobra);
+    for (const ativo of sobra) {
       const its = pendentes(c, ativo);
-      const d0 = c.demandas.get(ativo)!;
-      out.semHh.push({ mes, ativo, hh: hhDe(its), itens: its.map((i) => i.chave), primeiraData: d0.primeiraData as Dia, motivo: "pendente" });
+      if (!its.length) continue;
+      out.semHh.push({ mes, ativo, hh: hhDe(its), itens: its.map((i) => i.chave), primeiraData: c.demandas.get(ativo)!.primeiraData,
+        motivo: motivoSemHh(c, ativo) });
     }
   }
   out.linhas = finalizar([...est.linhas.values()]);
