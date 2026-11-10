@@ -1,5 +1,5 @@
 import type { Crua, Equipamento, Operacao, Ordem } from "@/lib/wcm/preparo";
-import type { Dia } from "@/lib/wcm/util";
+import { partes, type Dia } from "@/lib/wcm/util";
 
 import { demandas, montarAtivos } from "./ativos";
 import { diaDeIso, fimMes, mesesDoHorizonte, type DiaTrabalho } from "./calendario";
@@ -7,7 +7,7 @@ import { completarHh } from "./completar";
 import { conferir, type Conferencia } from "./conferencias";
 import { itensDaIp19, type LeituraIp19 } from "./leitura";
 import { diasDaEntrada, programar } from "./motor";
-import { parametrosDe } from "./parametros";
+import { feriadosPadrao, parametrosDe } from "./parametros";
 import { alertas, type Alerta } from "./regras";
 import type { EntradaMotor, Fixacao, HH, OrigemHh, ResultadoMotor } from "./tipos";
 import { resumoPorMes, saldoPorDia, type LinhaSaldo, type ResumoMes } from "./visoes";
@@ -46,6 +46,8 @@ export function montarEntrada(x: {
 }): Montado {
   const { p, avisos } = parametrosDe(x.cad);
   const inicio = (p.inicio ? diaDeIso(p.inicio) : null) ?? x.hoje;
+  // sem feriados no cadastro: os nacionais do ano do início e do seguinte
+  if (!(x.cad?.parametros && "feriados" in x.cad.parametros) || avisos.some((a) => a.includes("feriados"))) p.feriados = feriadosPadrao(partes(inicio).ano);
   const meses = mesesDoHorizonte(inicio, p.meses);
   const fim = fimMes(meses[meses.length - 1]);
   const eqs = new Map((x.eqs ?? []).map((e) => [e.equipamento, e]));

@@ -13,6 +13,11 @@ const FERIADOS_NACIONAIS: [string, string][] = [
   ["11-15", "Proclamação da República"], ["11-20", "Consciência Negra"], ["12-25", "Natal"],
 ];
 
+/** Feriados nacionais fixos do ano e do seguinte (os móveis e os locais o planejador cadastra). */
+export function feriadosPadrao(ano: number): { data: string; nome: string }[] {
+  return [ano, ano + 1].flatMap((a) => FERIADOS_NACIONAIS.map(([md, nome]) => ({ data: `${a}-${md}`, nome })));
+}
+
 const CLASSES_PADRAO: ClasseAtivo[] = [
   { padrao: "\\(PELLET\\s*-?\\s*0?([1-9])\\)", nome: "PELLET $1", tipo: "PELLET", grupo: "PELLET", so1Turno: true },
   { padrao: "^LINHA PELLET\\s*-?\\s*0?([1-9])", nome: "PELLET $1", tipo: "PELLET", grupo: "PELLET", so1Turno: true },
@@ -48,7 +53,7 @@ export const PARAMETROS_PADRAO: Parametros = {
     t2: { pessoasMec: 5, pessoasEle: 1, horasPorPessoa: 3, inicio: "14:00", fim: "17:00" },
     sabado: { pessoasMec: 6, pessoasEle: 2, horasPorPessoa: 6.5, inicio: "05:30", fim: "11:30" },
   },
-  feriados: [2026, 2027].flatMap((a) => FERIADOS_NACIONAIS.map(([md, nome]) => ({ data: `${a}-${md}`, nome }))),
+  feriados: feriadosPadrao(2026), // trocado pelo ano do início em montarEntrada
   inicio: null,
   meses: 3,
   maxAtivosDia: 7,

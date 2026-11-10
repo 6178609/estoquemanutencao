@@ -44,6 +44,14 @@ describe("montagem da programação", () => {
     expect(todos.foraDasClasses).toEqual([]);
   });
 
+  it("feriados padrão do ano do início (os do cadastro mandam)", () => {
+    const m = montarEntrada({ ip19: [], ordens: null, ops: null, eqs: [], campoGeral: () => "", cad: null, hoje: D(2029, 12, 1) });
+    expect(m.entrada.parametros.feriados.map((f) => f.data)).toEqual(expect.arrayContaining(["2029-12-25", "2030-01-01"]));
+    const c = montarEntrada({ ip19: [], ordens: null, ops: null, eqs: [], campoGeral: () => "",
+      cad: { parametros: { feriados: [{ data: "2029-12-24", nome: "Local" }] } }, hoje: D(2029, 12, 1) });
+    expect(c.entrada.parametros.feriados).toEqual([{ data: "2029-12-24", nome: "Local" }]);
+  });
+
   it("fixações e parâmetros do cadastro", () => {
     const cad = { parametros: { inicio: "2026-11-02", meses: 1 },
       "fixacao:2026-11|PVC 08|1": { mes: "2026-11", ativo: "PVC 08", parada: 1, data: "2026-11-20", turno: 2 },

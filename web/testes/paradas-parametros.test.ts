@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { capTurno, PARAMETROS_PADRAO, parametrosDe } from "@/lib/paradas/parametros";
+import { capTurno, feriadosPadrao, PARAMETROS_PADRAO, parametrosDe } from "@/lib/paradas/parametros";
 
 describe("parâmetros da programação de paradas", () => {
   it("capacidade do turno = pessoas × horas por pessoa", () => {
@@ -39,6 +39,13 @@ describe("parâmetros da programação de paradas", () => {
     expect(d.p.turnos.t1).toEqual(PARAMETROS_PADRAO.turnos.t1);
     expect(d.p.inicio).toBeNull();
     expect(d.avisos).toHaveLength(2);
+  });
+
+  it("feriados nacionais do ano e do seguinte", () => {
+    const f = feriadosPadrao(2030);
+    expect(f).toHaveLength(18);
+    expect(f[0]).toEqual({ data: "2030-01-01", nome: "Confraternização Universal" });
+    expect(f.some((x) => x.data === "2031-11-20")).toBe(true);
   });
 
   it("sinônimos de tipo", () => {
