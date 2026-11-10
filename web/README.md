@@ -61,9 +61,17 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
 | `SUPABASE_URL` | endereço do projeto Supabase dos cadastros |
 | `SUPABASE_SECRET_KEY` | chave **secreta** do Supabase (Project Settings › API Keys › Secret keys), marcada como *Sensitive* |
-| `BUSCA_IMAGENS_PROVEDOR` | provedor da busca automática de fotos: `brave`, `serper`, `serpapi` ou `firecrawl` (sem ele, a busca fica desligada) |
-| `BUSCA_IMAGENS_CHAVE` | chave de API desse provedor, marcada como *Sensitive* |
-| `BUSCA_IMAGENS_POR_DIA` | buscas por dia (padrão 30; máximo 200) |
+| `BUSCA_IMAGENS_CHAVE_GOOGLE` + `BUSCA_IMAGENS_GOOGLE_CX` | Google Programmable Search (imagens; 100 buscas/dia grátis): chave da API e id do buscador. **Só para chave já existente**: o Google fechou a API para clientes novos e encerra em 01/01/2027 |
+| `BUSCA_IMAGENS_CHAVE_BRAVE` | Brave Search API (plano grátis, ~2.000/mês) |
+| `BUSCA_IMAGENS_CHAVE_SERPER` | Serper (2.500 buscas grátis no cadastro) |
+| `BUSCA_IMAGENS_CHAVE_FIRECRAWL` | Firecrawl (500 créditos grátis no cadastro) |
+| `BUSCA_IMAGENS_CHAVE_SERPAPI` | SerpApi (100 buscas/mês grátis) |
+| `BUSCA_IMAGENS_PROVEDOR` + `BUSCA_IMAGENS_CHAVE` | forma antiga (um provedor só); continua valendo |
+| `BUSCA_IMAGENS_POR_DIA` | teto de buscas por dia (máx. 200; sem ela, a soma das cotas dos provedores configurados — com só o Brave, 60) |
+| `BUSCA_IMAGENS_POR_DIA_<PROVEDOR>` | cota diária de um provedor (padrão: google 100, brave 60, serper 80, firecrawl 15, serpapi 3) |
+
+Todas as chaves marcadas como *Sensitive*. A busca usa **todos** os provedores configurados em rodízio: cada material
+passa pelo próximo provedor quando o anterior não traz a foto exata (com a REF) ou está sem cota.
 
 Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
 cada push no `main` publica em produção (https://pcmemacao.vercel.app — endereço gratuito da Vercel; os domínios .com só funcionam com DNS configurado) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para

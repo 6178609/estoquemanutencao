@@ -74,8 +74,9 @@
 
 ## Fotos automáticas
 - Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET`; o botão
-  "Buscar agora" em Fontes de dados chama o `POST` (editores, 10 buscas). Provedor e chave só nas variáveis da Vercel
-  (`BUSCA_IMAGENS_PROVEDOR`, `BUSCA_IMAGENS_CHAVE`, `BUSCA_IMAGENS_POR_DIA`; ver `web/README.md`). Lógica em
+  "Buscar agora" em Fontes de dados chama o `POST` (editores, 10 buscas). **Todos os provedores gratuitos em rodízio**
+  (Brave, Serper, Firecrawl, SerpApi; Google Programmable Search só com chave antiga, até 01/2027), cada um na sua cota diária; chaves só nas variáveis da
+  Vercel (`BUSCA_IMAGENS_CHAVE_<PROVEDOR>`, `BUSCA_IMAGENS_GOOGLE_CX`, `BUSCA_IMAGENS_POR_DIA[_<PROVEDOR>]`; ver `web/README.md`). Lógica em
   `lib/fotos/` (provedores, escolha, rodada) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json` e
   `fotos_busca_estado.json`.
 - **Só o almoxarifado (MB52):** a busca de fotos é só para os materiais do almoxarifado; o catálogo do Sysmat não é buscado

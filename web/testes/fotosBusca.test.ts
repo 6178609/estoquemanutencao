@@ -29,7 +29,7 @@ import { _limparCacheFotos, conferirFotoExterna, fotoDoCadastro, respostaFotoExt
 import { chaveSugestao, imagemDaPagina } from "@/lib/dados/fotosSugestao";
 import { deduzirPdm, pdmEfetivo, pdmsConhecidos } from "@/lib/dados/pdmDeducao";
 import { bancoDeImagem, consultaFotoExata, escolherFotoExata, imagemAceitavel, refNormalizada } from "@/lib/fotos/escolha";
-import { normalizarBrave, normalizarFirecrawl, normalizarSerpapi, normalizarSerper, buscarImagens, CotaErro, BuscaErro } from "@/lib/fotos/buscaImagem";
+import { configuracoesBusca, normalizarBrave, normalizarFirecrawl, normalizarGoogle, normalizarSerpapi, normalizarSerper, buscarImagens, ChaveErro, CotaErro, BuscaErro } from "@/lib/fotos/buscaImagem";
 import { planejarBusca, rodadaFotos, limiteDiario, type DadosBusca } from "@/lib/fotos/rodadaFotos";
 import { ARQUIVO_REFERENCIA } from "@/lib/dados/fotosReferencia";
 import { lerCadastro } from "@/lib/dados/cadastros";
@@ -393,5 +393,67 @@ describe("desempenho (catálogo e páginas grandes)", () => {
     const t = performance.now();
     expect(imagemDaPagina("<img ".repeat(400_000), "https://exemplo.com.br/p")).toBeNull();
     expect(performance.now() - t).toBeLessThan(1_000);
+  });
+});
+
+describe("vários provedores gratuitos em rodízio", () => {
+  it("lê as chaves de cada provedor (e o par antigo), na ordem do rodízio, com a cota gratuita de cada um", () => {
+    const env = { BUSCA_IMAGENS_CHAVE_BRAVE: "b", BUSCA_IMAGENS_CHAVE_GOOGLE: "g", BUSCA_IMAGENS_GOOGLE_CX: "cx1",
+      BUSCA_IMAGENS_PROVEDOR: "serper", BUSCA_IMAGENS_CHAVE: "s", BUSCA_IMAGENS_POR_DIA_BRAVE: "10" };
+    expect(configuracoesBusca(env).map((c) => [c.provedor, c.porDia])).toEqual([["google", 100], ["brave", 10], ["serper", 80]]);
+    // Google sem o id do buscador não entra
+    expect(configuracoesBusca({ BUSCA_IMAGENS_CHAVE_GOOGLE: "g" })).toEqual([]);
+    // sem BUSCA_IMAGENS_POR_DIA, o limite do dia é a soma das cotas (máx. 200)
+    expect(limiteDiario(env)).toBe(190);
+    expect(limiteDiario({ ...env, BUSCA_IMAGENS_POR_DIA: "50" })).toBe(50);
+  });
+
+  it("normaliza o Google Programmable Search", () => {
+    expect(normalizarGoogle({ items: [{ title: "SKF 6205-2Z", link: "https://x.com/a.jpg", image: { contextLink: "https://x.com/p" } }, { title: "sem" }] }))
+      .toEqual([{ imagem: "https://x.com/a.jpg", pagina: "https://x.com/p", titulo: "SKF 6205-2Z" }]);
+  });
+
+  const cat = [item({ material: "900222", pdm: "ROLAMENTO RIGIDO ESFERAS", subcategoria: "ROLAMENTO", categoria: "MECANICA",
+    descrCompleta: "FAB: SKF - REF: 6205-2Z.", descricaoCurta: "ROLAMENTO" })];
+  const dados = async () => ({ estoque: [{ material: "900222", descricao: "ROLAMENTO" }], catalogo: cat, refs: {}, estado: {}, agora: Date.now() });
+  const achado = [{ imagem: "https://loja.exata.com.br/6205.jpg", pagina: "https://loja.exata.com.br/p/6205-2Z", titulo: "SKF 6205-2Z" }];
+
+  it("o próximo provedor entra quando o anterior não traz a foto exata ou está sem cota", async () => {
+    const a = vi.fn(async () => [{ imagem: "https://x.com/generica.jpg", pagina: null, titulo: "rolamento qualquer" }]);
+    const b = vi.fn(async () => { throw new CotaErro("cota"); });
+    const c = vi.fn(async () => achado);
+    const r = await rodadaFotos({ limiteDia: 30, porRodada: 30, dados, provedores: [
+      { nome: "a", porDia: 5, buscar: a }, { nome: "b", porDia: 5, buscar: b }, { nome: "c", porDia: 5, buscar: c }] });
+    expect([a.mock.calls.length, b.mock.calls.length, c.mock.calls.length]).toEqual([1, 1, 1]);
+    expect(r.achados).toBe(1);
+  });
+
+  it("todos com erro comum: o material não é gravado e volta amanhã; chave recusada tira o provedor da rodada", async () => {
+    const a = vi.fn(async () => { throw new BuscaErro("x"); });
+    const b = vi.fn(async () => { throw new ChaveErro("chave"); });
+    const r = await rodadaFotos({ limiteDia: 30, porRodada: 30, dados, provedores: [{ nome: "a", porDia: 5, buscar: a }, { nome: "b", porDia: 5, buscar: b }] });
+    expect(r.erros).toBe(2);
+    expect(r.semResultado + r.achados).toBe(0);
+  });
+
+  it("orçamento acabando no meio do rodízio não marca o material como sem foto", async () => {
+    const a = vi.fn(async () => [{ imagem: "https://x.com/g.jpg", pagina: null, titulo: "outro" }]);
+    const b = vi.fn(async () => achado);
+    const r = await rodadaFotos({ limiteDia: 1, porRodada: 1, dados, provedores: [{ nome: "a", porDia: 5, buscar: a }, { nome: "b", porDia: 5, buscar: b }] });
+    expect(b).not.toHaveBeenCalled();
+    expect(r.semResultado).toBe(0);
+    expect(r.motivo).toBe("orçamento da rodada");
+  });
+
+  it("provedor sem cota no dia é pulado; todos sem cota param a rodada", async () => {
+    const a = vi.fn(async () => achado);
+    const b = vi.fn(async () => achado);
+    const r = await rodadaFotos({ limiteDia: 30, porRodada: 30, provedores: [{ nome: "a", porDia: 0, buscar: a }, { nome: "b", porDia: 5, buscar: b }],
+      dados: async () => ({ ...(await dados()), estado: {} }) });
+    expect(a).not.toHaveBeenCalled();
+    expect(b).toHaveBeenCalledTimes(1);
+    expect(r.achados).toBe(1);
+    const nenhum = await rodadaFotos({ limiteDia: 30, porRodada: 30, provedores: [{ nome: "a", porDia: 0, buscar: a }], dados });
+    expect(nenhum.motivo).toBe("cota do provedor de busca");
   });
 });
