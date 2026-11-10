@@ -6,6 +6,7 @@ import { pendentes, type Ctx } from "./comum";
 import { programarCriticos } from "./criticos";
 import { Estado, hhDe } from "./estado";
 import { programarNaoCriticos, programarSabado } from "./naoCriticos";
+import { preencher } from "./preenchimento";
 import { motivoSemHh, programarSaldo, reavaliar } from "./saldo";
 
 /**
@@ -63,6 +64,7 @@ export function programar(e: EntradaMotor): ResultadoMotor {
     programarSabado(c);
     programarNaoCriticos(c);
     const sobra = programarSaldo(c);
+    preencher(c);
     reavaliar(c, sobra);
     for (const ativo of sobra) {
       const its = pendentes(c, ativo);

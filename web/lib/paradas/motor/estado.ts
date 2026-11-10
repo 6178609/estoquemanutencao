@@ -128,6 +128,18 @@ export class Estado {
     if (marca && !l.marcas.includes(marca)) l.marcas.push(marca);
   }
 
+  /** Muda a linha de dia/turno (mesmos itens e HH). */
+  mover(id: string, d: Dia, t: Turno, marca?: Marca): LinhaProgramacao | null {
+    const l = this.linhas.get(id);
+    if (!l) return null;
+    this.remover(id);
+    const novo: LinhaProgramacao = { ...l, id: `${l.mes}|${l.ativo}|${l.parada}|${t}`, data: d, turno: t,
+      marcas: marca && !l.marcas.includes(marca) ? [...l.marcas, marca] : [...l.marcas], itens: [...l.itens] };
+    if (this.linhas.has(novo.id)) this.remover(novo.id);
+    this.inserir(novo);
+    return novo;
+  }
+
   remover(id: string): void {
     const l = this.linhas.get(id);
     if (!l) return;
