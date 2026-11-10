@@ -23,7 +23,7 @@ const CLASSES_PADRAO: ClasseAtivo[] = [
   { padrao: "^PRENSA COPE", nome: "PRENSA COPE", tipo: "PRENSA", grupo: "PRENSA/MOINHO SF", papel: "prensa", so1Turno: true },
   { padrao: "^PRENSA PAN ?STONE", nome: "PRENSA PANSTONE", tipo: "PRENSA", grupo: "PRENSA/MOINHO SF", papel: "prensa", so1Turno: true },
   // o grupo só vale para os moinhos do rodízio (parâmetro rodizioMoinhos); os outros ficam sem grupo
-  { padrao: "^MOINHO LAMINADOR SF\\s*0?(\\d+)", nome: "MOINHO $1", tipo: "MOINHO", grupo: "PRENSA/MOINHO SF", papel: "moinho", so1Turno: true },
+  { padrao: "^MOINHO LAMIN(?:ADOR)?\\.?\\s*SF\\s*0?(\\d+)", nome: "MOINHO $1", tipo: "MOINHO", grupo: "PRENSA/MOINHO SF", papel: "moinho", so1Turno: true },
   { padrao: "^INJETORA PVC.*?0*(\\d+)$", nome: "PVC $1", tipo: "PVC" },
   { padrao: "^INJETORA 0?(\\d+) .*GOLDEN EAGLE", nome: "GOLDEN $1", tipo: "GOLDEN" },
   { padrao: "^INJETORA TIEN KANG\\s*0?(\\d+)", nome: "TIEN KANG $1", tipo: "TIEN KANG" },

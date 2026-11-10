@@ -14,11 +14,13 @@ describe("classes de ativo", () => {
   it("nome, tipo e grupo pela denominação", () => {
     expect(classificar("INJETORA EXP 21 (10 EST) TESTE", P)).toMatchObject({ id: "INJETORA 21", tipo: "INJETORA", grupo: "INJ EXP", so1Turno: true });
     expect(classificar("INJETORA PVC (GOLDEN EAGLE) 008", P)).toMatchObject({ id: "PVC 08", tipo: "PVC", grupo: null });
-    expect(classificar("INJETORA 04 UGB1 GOLDEN EAGLE", P).id).toBe("GOLDEN 04");
+    expect(classificar("INJETORA 04 XYZ9 GOLDEN EAGLE", P).id).toBe("GOLDEN 04");
     expect(classificar("PAN STONE 3 - TESTE", P)).toMatchObject({ id: "PANSTONE 03", preferenciaT1: true });
     expect(classificar("PRENSA A VÁCUO 001", P)).toMatchObject({ id: "PRENSA A VÁCUO", papel: "prensa", grupo: "PRENSA/MOINHO SF" });
     expect(classificar("MOINHO LAMINADOR SF 05 TESTE", P)).toMatchObject({ id: "MOINHO 05", grupo: "PRENSA/MOINHO SF", papel: "moinho" });
     expect(classificar("MOINHO LAMINADOR SF 04 TESTE", P)).toMatchObject({ id: "MOINHO 04", grupo: null, papel: "moinho" });
+    expect(classificar("MOINHO LAMIN SF 02 TESTE", P)).toMatchObject({ id: "MOINHO 02", grupo: "PRENSA/MOINHO SF", papel: "moinho" });
+    expect(classificar("MOINHO LAMIN. SF 7 TESTE", P)).toMatchObject({ id: "MOINHO 07", papel: "moinho" });
     expect(classificar("CALANDRA DE BORRACHA 001", P).soSabado).toBe(true);
     expect(classificar("DRY BLEND 01 TESTE", P)).toMatchObject({ exclusivoT1: true, grupo: "DRY BLEND" });
     const x = classificar("MAQUINA XYZ DE TESTE MUITO LONGA COM NOME GRANDE", P);
