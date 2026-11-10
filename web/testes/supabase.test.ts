@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { gravarCadastroLote, lerCadastro, versaoCadastro } from "@/lib/dados/cadastros";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
-import { _definirSupabase, MARCADOR_MIGRACAO, SupabaseSemAcesso, type ClienteSupabase } from "@/lib/dados/supabase";
+import { _definirSupabase, MARCADOR_MIGRACAO, SupabaseForaDoAr, SupabaseSemAcesso, type ClienteSupabase } from "@/lib/dados/supabase";
 
 /** Cadastros no Supabase: banco e repositório de dados falsos na memória (dados fictícios). */
 const json = (j: unknown) => new TextEncoder().encode(JSON.stringify(j));
@@ -117,6 +117,22 @@ describe("cadastros no Supabase", () => {
     expect(await lerCadastro("chave_sb.json")).toEqual({ a: { v: 1 } });
     await gravarCadastroLote("chave_sb.json", { b: { v: 2 } }, "ana");
     expect(gravados).toContain("app/chave_sb.json"); // gravou no repositório, como antes
+  });
+
+  it("banco fora do ar (projeto pausado) antes da cópia: segue no repositório, sem erro", async () => {
+    const { f } = repositorio({ "app/usuarios.json": { ana: { nome: "Ana" } }, "app/pausado_sb.json": { a: { v: 1 } } });
+    const fora = () => { throw new SupabaseForaDoAr("O banco de dados (Supabase) não respondeu: fetch failed"); };
+    _definirFonte(f);
+    _definirSupabase({ versoes: async () => fora(), ler: async () => fora(), gravar: async () => fora(), importar: async () => fora() });
+    expect(await lerCadastro("pausado_sb.json")).toEqual({ a: { v: 1 } });
+  });
+
+  it("banco fora do ar depois da cópia: dá erro", async () => {
+    const { f } = repositorio({ "app/usuarios.json": {}, "app/__migrado_supabase.json": {} });
+    const fora = () => { throw new SupabaseForaDoAr("não respondeu"); };
+    _definirFonte(f);
+    _definirSupabase({ versoes: async () => fora(), ler: async () => fora(), gravar: async () => fora(), importar: async () => fora() });
+    await expect(lerCadastro("depois_pausa.json")).rejects.toThrow(/não respondeu/);
   });
 
   it("chave recusada depois da cópia: dá erro (nunca volta aos cadastros parados do repositório)", async () => {

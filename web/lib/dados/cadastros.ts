@@ -4,7 +4,7 @@ import { after } from "next/server";
 
 import { fonte, FonteErro, type Fonte } from "./fonte";
 import { lerJsonDemo, gravarJsonDemo } from "./demo";
-import { MARCADOR_MIGRACAO, supabase, SupabaseSemAcesso, type ClienteSupabase } from "./supabase";
+import { MARCADOR_MIGRACAO, supabase, SupabaseForaDoAr, SupabaseSemAcesso, type ClienteSupabase } from "./supabase";
 
 /**
  * Cadastros do app — mínimos de estoque, usuários, equipamentos, Gestão de HH… Uma alteração feita aqui vale para
@@ -197,7 +197,8 @@ class ArmazemSupabase implements Armazem {
 }
 
 /**
- * O Supabase com rede de segurança: se ele recusar a chave (configuração errada) ANTES da cópia inicial, os cadastros
+ * O Supabase com rede de segurança: se ele recusar a chave (configuração errada) ou estiver fora do ar (ex.: projeto
+ * gratuito pausado por inatividade) ANTES da cópia inicial, os cadastros
  * seguem no repositório como antes — nada foi gravado no banco ainda, então não há divergência — e o Supabase é
  * tentado de novo a cada 5 min. Depois da cópia (aviso `app/__migrado_supabase.json` no repositório) não há volta:
  * o erro aparece, para nunca ler/gravar cadastros parados.
@@ -210,7 +211,7 @@ class ArmazemSeguro implements Armazem {
     try {
       return await op(this.sb);
     } catch (e) {
-      if (!(e instanceof SupabaseSemAcesso) || (await this.f.versoes()).has(AVISO_MIGRADO)) throw e;
+      if (!(e instanceof SupabaseSemAcesso || e instanceof SupabaseForaDoAr) || (await this.f.versoes()).has(AVISO_MIGRADO)) throw e;
       console.error(`${e.message} Cadastros seguem no repositório de dados até corrigir.`);
       this.semAcessoAte = Date.now() + 5 * 60_000;
       return op(this.arq);
