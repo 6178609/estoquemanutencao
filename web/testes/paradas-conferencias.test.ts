@@ -6,7 +6,7 @@ import { alertas } from "@/lib/paradas/regras";
 import type { EntradaMotor, HH, ResultadoMotor } from "@/lib/paradas/tipos";
 import { resumoPorMes, saldoPorDia } from "@/lib/paradas/visoes";
 
-import { entrada, itens, N } from "./paradas-fixtures";
+import { D, entrada, itens, N } from "./paradas-fixtures";
 
 // uma semana fictícia cheia: um crítico por dia no 1º turno, não críticos no 2º, CALANDRA no sábado
 const NOMES: [string, number][] = [["DRY BLEND", 8], ["PELLET 01", 4], ["PRENSA COPE", 5], ["MOINHO 02", 3], ["INJETORA 10", 3],
@@ -57,6 +57,14 @@ describe("as 11 conferências", () => {
     const c8 = tudo(pouco).find((c) => c.id === "C8")!;
     expect(c8.resultado).toBe("VERIFICAR");
     expect(c8.detalhe).toContain("02/11");
+  });
+
+  it("C8 só nos meses com carga", () => {
+    const doisMeses = entrada([itens("PVC 08", N(3), "MEC", 2)], { fim: D(2026, 12, 31) });
+    const c8 = tudo(doisMeses).find((c) => c.id === "C8")!;
+    expect(c8.detalhe).toContain("02/11");
+    expect(c8.detalhe).not.toContain("01/12");
+    expect(c8.detalhe).toContain("dez/26");
   });
 
   it("backlog: C10 e C11", () => {

@@ -86,11 +86,14 @@ export function conferir(x: {
     .map((m) => m.mes);
   add("C7", "Resumo dos calendários = Saldo HH", "Calendário · Saldo HH", !c7.length, c7.length ? `Meses diferentes: ${c7.join(", ")}` : undefined);
 
-  // C8
-  const c8 = saldo.filter((l) => l.data >= e.inicio && ((l.condicao === "util" && (!l.t1.ativos.length || !l.t2.ativos.length))
+  // C8 (só nos meses com carga na IP19)
+  const comCarga = new Set(resumo.filter((m) => m.carga.mec + m.carga.ele > 0).map((m) => m.mes));
+  const pulados = [...new Set(saldo.map((l) => mesDe(l.data)))].filter((m) => !comCarga.has(m)).sort();
+  const c8 = saldo.filter((l) => l.data >= e.inicio && comCarga.has(mesDe(l.data)) && ((l.condicao === "util" && (!l.t1.ativos.length || !l.t2.ativos.length))
     || (l.condicao === "sabado" && !l.t1.ativos.length))).map((l) => ddmm(l.data));
+  const txtPulados = pulados.length ? `Meses sem carga na IP19 (não conferidos): ${pulados.map(mesCurto).join(", ")}.` : "";
   add("C8", "Nenhum turno vazio (dia útil com T1 e T2; sábado útil com T1)", "Calendário · Saldo HH", !c8.length,
-    c8.length ? `Dias com turno vazio: ${lista(c8)}` : undefined);
+    [c8.length ? `Dias com turno vazio: ${lista(c8)}.` : "", txtPulados].filter(Boolean).join(" ") || undefined);
 
   // C9
   const n = new Map<string, number>();
@@ -117,6 +120,9 @@ export function conferir(x: {
     `Pendente ${hhTxt(rb.pendente)} · soma ${hhTxt(soma)}`);
   return out;
 }
+
+const NOME_MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const mesCurto = (m: string) => `${NOME_MES[Number(m.slice(5, 7)) - 1]}/${m.slice(2, 4)}`;
 
 function mesDe(d: Dia): string {
   const x = new Date(d * 86_400_000);
