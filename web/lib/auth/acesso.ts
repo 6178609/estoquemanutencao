@@ -45,6 +45,9 @@ export interface Usuario {
   perfil?: string;
   abas?: unknown;
   ativo?: boolean;
+  /** aprova pedidos de cadastro de material como Almoxarifado / PCM (marcado em Usuários) */
+  aprova_almox?: boolean;
+  aprova_pcm?: boolean;
 }
 
 export function idPagina(pagina: string): string {

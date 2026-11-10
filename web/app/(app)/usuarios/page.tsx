@@ -41,6 +41,7 @@ export default async function Usuarios(props: { searchParams: Promise<{ primeiro
     abas: Array.isArray(v.abas) ? (v.abas as unknown[]).map(String) : null, trocarSenha: !!v.trocar_senha,
     ultimoAcesso: quando(v.ultimo_acesso),
     unicoAdmin: admins.includes(login) && admins.length === 1,
+    aprovaAlmox: v.aprova_almox === true, aprovaPcm: v.aprova_pcm === true,
   }));
   // pedidos de acesso: sem a senha (hash) — só o que o administrador precisa para decidir
   const [peds, lista] = await Promise.all([solicitacoes(), equipe().catch(() => null)]);

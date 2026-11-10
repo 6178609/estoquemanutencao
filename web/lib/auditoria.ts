@@ -39,6 +39,7 @@ export const ACOES: Record<string, string> = {
   mro_desfazer: "Desfez a alocação automática (MRO)",
   comentario_roadmap: "Alterou comentário do Roadmap SIM",
   meus_dados: "Baixou os próprios dados (LGPD)",
+  cadastro_material: "Pedido de cadastro de material",
 };
 
 export interface Evento {

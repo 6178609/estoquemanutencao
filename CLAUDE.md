@@ -40,6 +40,8 @@
 - Terceiro e Manutentor (`FUNCOES_SO_ESTOQUE`) não podem ser administradores, não gravam na biblioteca técnica
   (`podeEditarSuporte`) nem na Gestão de MRO e não têm bloco de cartão. O Início leva ao Painel, ou ao Estoque se a pessoa
   não vê o Painel.
+- **Cadastro de material:** aprovadores marcados em Usuários (Almoxarifado / PCM); Terceiro nunca aprova; só aprova quem vê a
+  aba (regras em `web/lib/cadastroMaterial/`).
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

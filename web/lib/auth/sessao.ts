@@ -37,7 +37,9 @@ const tentativas = new Map<string, { falhas: number; ate: number }>();
 // demonstração: na memória do processo (globalThis: as rotas de API e as páginas podem ter cópias separadas do módulo)
 const globalDemo = globalThis as unknown as { __cmSessoesDemo?: Map<string, number> };
 const sessoesDemo = (globalDemo.__cmSessoesDemo ??= new Map<string, number>()); // hash → validade (ms)
-const USUARIO_DEMO: UsuarioSessao = { login: "demo", nome: "Visitante", funcao: "analista", perfil: "editor", demo: true };
+// na demonstração o visitante aprova as duas etapas do cadastro de material (para ver o fluxo inteiro)
+const USUARIO_DEMO: UsuarioSessao = { login: "demo", nome: "Visitante", funcao: "analista", perfil: "editor", demo: true,
+  aprova_almox: true, aprova_pcm: true };
 
 async function usuarios(fresco = false): Promise<Record<string, Registro>> {
   const todos = await lerCadastro(ARQ, { fresco });
@@ -49,6 +51,8 @@ function publico(login: string, u: Registro): UsuarioSessao {
     login, nome: (u.nome as string) || login, funcao: u.funcao as string | undefined,
     perfil: u.perfil as string | undefined, abas: u.abas, ativo: u.ativo !== false, trocarSenha: !!u.trocar_senha,
     atualizarDados: precisaAtualizarDados(u.dados_confirmados_em),
+    ...(u.funcao !== "terceiro" && u.aprova_almox === true ? { aprova_almox: true } : {}),
+    ...(u.funcao !== "terceiro" && u.aprova_pcm === true ? { aprova_pcm: true } : {}),
   };
 }
 

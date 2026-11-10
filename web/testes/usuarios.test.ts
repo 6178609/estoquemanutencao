@@ -92,6 +92,25 @@ describe("tela Usuários", () => {
     expect((await usuarios())["3333333"].email).toBeUndefined();
   });
 
+  it("marca aprovadores e terceiro nunca aprova", async () => {
+    await criarUsuario(eu.login, { nome: "Bia", login: "4444444", funcao: "analista", perfil: "editor", senha: SENHA });
+    const e = { novoLogin: "4444444", nome: "Bia", funcao: "analista", perfil: "editor", ativo: true, novaSenha: "", abas: null };
+    expect((await editarUsuario(eu, "4444444", { ...e, aprovaAlmox: true, aprovaPcm: true })).erro).toBe("");
+    expect((await usuarios())["4444444"]).toMatchObject({ aprova_almox: true, aprova_pcm: true });
+    // sem informar: mantém o que estava
+    expect((await editarUsuario(eu, "4444444", e)).erro).toBe("");
+    expect((await usuarios())["4444444"]).toMatchObject({ aprova_almox: true, aprova_pcm: true });
+    // falso apaga o campo
+    expect((await editarUsuario(eu, "4444444", { ...e, aprovaAlmox: false, aprovaPcm: true })).erro).toBe("");
+    expect((await usuarios())["4444444"].aprova_almox).toBeUndefined();
+    expect((await usuarios())["4444444"].aprova_pcm).toBe(true);
+    // Terceiro: nunca aprova, mesmo marcando (e perde o que tinha)
+    expect((await editarUsuario(eu, "4444444", { ...e, funcao: "terceiro", perfil: "leitor", aprovaAlmox: true, aprovaPcm: true })).erro).toBe("");
+    const t = (await usuarios())["4444444"];
+    expect(t.aprova_almox).toBeUndefined();
+    expect(t.aprova_pcm).toBeUndefined();
+  });
+
   it("não tira de si mesmo o acesso às abas", async () => {
     const r = await editarUsuario(eu, "6178609", { novoLogin: "6178609", nome: "Ana", funcao: "lider", perfil: "admin",
       ativo: true, novaSenha: "", abas: ["ordens"] });

@@ -20,6 +20,8 @@ type Registro = Record<string, unknown> & {
   email?: string;
   /** última confirmação dos dados cadastrais pela própria pessoa (atualização mensal obrigatória) */
   dados_confirmados_em?: string;
+  /** aprova pedidos de cadastro de material como Almoxarifado / PCM (ausente = não aprova; Terceiro nunca) */
+  aprova_almox?: boolean; aprova_pcm?: boolean;
   sessoes?: { h?: string; ate?: string }[]; ultimo_acesso?: string;
 };
 
@@ -105,6 +107,8 @@ interface Edicao {
   /** undefined = mantém o atual; "" = apaga */
   email?: string;
   abas: string[] | null; // null = padrão da função
+  /** aprovador de cadastro de material: undefined = mantém o atual; false apaga; Terceiro nunca aprova */
+  aprovaAlmox?: boolean; aprovaPcm?: boolean;
 }
 
 export async function editarUsuario(eu: Usuario, alvo: string, e: Edicao): Promise<{ erro: string; login: string }> {
@@ -127,10 +131,15 @@ export async function editarUsuario(eu: Usuario, alvo: string, e: Edicao): Promi
   const base = semMeta(d);
   delete base.abas;
   if (e.email !== undefined) delete base.email;
+  const terceiro = (e.funcao in FUNCOES ? e.funcao : d.funcao) === "terceiro";
+  if (terceiro || e.aprovaAlmox !== undefined) delete base.aprova_almox;
+  if (terceiro || e.aprovaPcm !== undefined) delete base.aprova_pcm;
   const dados: Registro = {
     ...base, ...(e.abas ? { abas: e.abas } : {}),
     nome: e.nome.trim() || d.nome || "",
     ...(e.email?.trim() ? { email: e.email.trim().toLowerCase() } : {}),
+    ...(!terceiro && e.aprovaAlmox ? { aprova_almox: true } : {}),
+    ...(!terceiro && e.aprovaPcm ? { aprova_pcm: true } : {}),
     ...(e.funcao in FUNCOES ? { funcao: e.funcao } : {}),
     perfil: unicoAdmin ? d.perfil : e.perfil,
     ativo: unicoAdmin || alvo === eu.login ? true : e.ativo,
