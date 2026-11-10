@@ -6,6 +6,7 @@ import { pendentes, type Ctx } from "./comum";
 import { programarCriticos } from "./criticos";
 import { Estado, hhDe } from "./estado";
 import { programarNaoCriticos, programarSabado } from "./naoCriticos";
+import { aplicarFixacoes } from "./fixacoes";
 import { preencher } from "./preenchimento";
 import { motivoSemHh, programarSaldo, reavaliar } from "./saldo";
 
@@ -43,6 +44,18 @@ export function novoCtx(e: EntradaMotor, est: Estado, mes: string, dias: DiaTrab
 }
 
 export function programar(e: EntradaMotor): ResultadoMotor {
+  if (!e.fixacoes?.length) return nucleo(e, null);
+  // passada A (sem fixações): descobre os itens de cada parada; passada B: fixações primeiro, o resto em volta
+  const a = nucleo({ ...e, fixacoes: [] }, null);
+  const itensDaParada = new Map<string, string[]>();
+  for (const l of a.linhas) {
+    const k = `${l.mes}|${l.ativo}|${l.parada}`;
+    itensDaParada.set(k, [...(itensDaParada.get(k) ?? []), ...l.itens]);
+  }
+  return nucleo(e, itensDaParada);
+}
+
+function nucleo(e: EntradaMotor, itensDaParada: Map<string, string[]> | null): ResultadoMotor {
   const p = e.parametros;
   const dias = diasDaEntrada(e);
   const retirados: Retirado[] = [];
@@ -60,6 +73,7 @@ export function programar(e: EntradaMotor): ResultadoMotor {
   const rodizio = { ultimo: -1 };
   for (const mes of mesesDaEntrada(e)) {
     const c = novoCtx(e, est, mes, dias, out, rodizio, ativas);
+    if (itensDaParada) aplicarFixacoes(c, e.fixacoes ?? [], itensDaParada, out.fixacoesOrfas);
     programarCriticos(c);
     programarSabado(c);
     programarNaoCriticos(c);
@@ -72,6 +86,10 @@ export function programar(e: EntradaMotor): ResultadoMotor {
       out.semHh.push({ mes, ativo, hh: hhDe(its), itens: its.map((i) => i.chave), primeiraData: c.demandas.get(ativo)!.primeiraData,
         motivo: motivoSemHh(c, ativo) });
     }
+  }
+  if (itensDaParada) {
+    const meses = new Set(mesesDaEntrada(e));
+    for (const f of e.fixacoes ?? []) if (!meses.has(f.mes)) out.fixacoesOrfas.push(f);
   }
   out.linhas = finalizar([...est.linhas.values()]);
   return out;
