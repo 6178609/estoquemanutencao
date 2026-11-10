@@ -20,6 +20,14 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   10/11: 160 materiais da lista curada buscados (71 páginas novas, 604 no total); ~520 restantes da lista curada.
   Créditos diários do Firecrawl esgotados — renovam em 11/11 ~14:51 UTC. Páginas de busca (/busca, ?q=) já são recusadas.
 
+- **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta
+  publicar): pedido com foto, sequência Almoxarifado → chegada do material (foto) → PCM e vínculo ao equipamento ao validar.
+  Adiado para depois:
+  - datalist com todas as tags dos equipamentos (carregar sob demanda);
+  - mês UTC × São Paulo nos filtros e no resumo;
+  - aviso por e-mail aos aprovadores (depende do SMTP na Vercel);
+  - Usuários: marcar aprovador também ao criar usuário e ao aprovar pedido de acesso.
+
 ## Depende do usuário (Vercel → Settings) — passo a passo em docs/liberacoes.md
 - **Deploy bloqueado (10/11, "Account is blocked")**: o merge do PR #196 não publicou; o site segue no ar com o #195.
   Conferir em vercel.com → conta → Usage/Billing o motivo (limite do plano gratuito) e liberar; depois redeploy do main.

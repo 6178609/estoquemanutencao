@@ -50,10 +50,10 @@ export async function lerPedidos(fresco = false): Promise<Pedido[]> {
   return pedidosDe(await lerCadastro(ARQ_PEDIDOS, { fresco }));
 }
 
-/** Equipamentos que podem receber o pedido: tag → nome (cadastro do site + IH08 em uso, como a aba Equipamentos lista). */
 /** Equipamentos em uso no IH08 (sem a base ou se ela falhar: lista vazia). */
 const ih08Ativos = () => bases().then((b) => (b.equipamentos.dados ?? []).filter((e) => e.equipamento && !e.inativo)).catch(() => []);
 
+/** Equipamentos que podem receber o pedido: tag → nome (cadastro do site + IH08 em uso, como a aba Equipamentos lista). */
 export async function tagsEquipamentos(): Promise<Map<string, string>> {
   const [cad, ih08] = await Promise.all([lerCadastro(ARQ_EQUIPAMENTOS), ih08Ativos()]);
   const m = new Map<string, string>();
@@ -198,7 +198,8 @@ async function vincular(tag: string, nome: string, sap: string, por: string): Pr
       achou = true;
       return comPecasDaRegra(item, nome || noIh08?.denominacao || "", [sap]) ?? undefined;
     } }, por);
-  } catch {
+  } catch (e) {
+    console.error("cadastro de material: vínculo ao equipamento:", e);
     return "Não consegui vincular o material ao equipamento agora: vincule à mão.";
   }
   return achou ? "" : "Equipamento não encontrado no cadastro: vincule à mão.";
@@ -235,7 +236,7 @@ export async function agir(p: Papel, id: string, acao: Acao, motivo: string, fot
 }
 
 /** A foto do pedido ou da chegada (quem pode ver é conferido na rota). */
-export async function lerFoto(id: string, qual: "pedido" | "chegada"): Promise<{ bytes: Uint8Array; tipo: string; nome: string } | null> {
+export async function lerFoto(id: string, qual: "pedido" | "chegada"): Promise<{ bytes: Uint8Array; tipo: string; nome: string; arquivo: string } | null> {
   if (!idOk(id)) return null;
   const p = pedidoDe(id, (await lerCadastro(ARQ_PEDIDOS, { fresco: true }))[id]);
   const f = qual === "pedido" ? p?.foto : qual === "chegada" ? p?.fotoChegada : null;
@@ -244,5 +245,5 @@ export async function lerFoto(id: string, qual: "pedido" | "chegada"): Promise<{
   const c = caminho(id, f.arquivo);
   const bytes = fo ? (await fo.ler(c))?.bytes : demo.get(c);
   const tipo = bytes && tipoDocumento(bytes);
-  return bytes && tipo && TIPOS_FOTO.includes(tipo) ? { bytes, tipo, nome: f.nome } : null;
+  return bytes && tipo && TIPOS_FOTO.includes(tipo) ? { bytes, tipo, nome: f.nome, arquivo: f.arquivo } : null;
 }

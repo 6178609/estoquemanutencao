@@ -74,7 +74,8 @@ export function validarEntrada(e: EntradaPedido, tags: Set<string>): { erro: str
   if (!tag || !tags.has(tag)) return { erro: "Escolha o equipamento da lista." };
   const observacao = String(e.observacao ?? "").trim();
   if (observacao.length > 500) return { erro: "Observação: até 500 caracteres." };
-  return { campos: { descricao, sap, tag, observacao } };
+  // sem zeros à esquerda: a mesma chave do catálogo e da aba Equipamentos
+  return { campos: { descricao, sap: sap.replace(/^0+/, "") || "0", tag, observacao } };
 }
 
 // ----------------------------------------------------------------------------

@@ -68,6 +68,16 @@ describe("cadastro de material: regras", () => {
     expect("campos" in R.validarEntrada(entrada({ observacao: "x".repeat(500) }), TAGS)).toBe(true);
   });
 
+  it("SAP sem zeros à esquerda (mesma chave do catálogo)", () => {
+    const sapDe = (sap: string) => { const r = R.validarEntrada(entrada({ sap }), TAGS); return "campos" in r ? r.campos.sap : r.erro; };
+    expect(sapDe("000123456")).toBe("123456");
+    expect(sapDe("00000")).toBe("0");
+    expect(sapDe("1020304")).toBe("1020304");
+    // a contagem de 5 a 12 dígitos vale para o que foi digitado
+    expect(sapDe("000000001234")).toBe("1234");
+    expect("erro" in R.validarEntrada(entrada({ sap: "0001234567890" }), TAGS)).toBe(true);
+  });
+
   it("edição só do dono e antes da aprovação", () => {
     expect(R.podeEditar(COMUM, { situacao: R.AG_ALMOX, criadoPor: "dono1" })).toBe(true);
     expect(R.podeEditar({ ...COMUM, login: "DONO1" }, { situacao: R.AG_ALMOX, criadoPor: "dono1" })).toBe(true);

@@ -50,16 +50,19 @@ export async function GET(req: NextRequest) {
   return new NextResponse(Buffer.from(r.bytes), { headers: {
     "Content-Type": r.tipo,
     "Content-Disposition": `inline; filename="${r.nome.replace(/[^\w.\- ]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(r.nome)}`,
-    "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+    // a URL leva o id do arquivo (v=) e cada foto nova é um arquivo novo, nunca sobrescrito; v= diferente não guarda
+    "Cache-Control": p.get("v") === r.arquivo ? "private, max-age=86400, immutable" : "private, no-store", "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
   } });
 }
+
+/** Ações que podem enviar foto: só elas passam pelo limite de envios. */
+const COM_FOTO = ["lancar", "editar", "chegou"];
 
 /** Ações da aba (formulário multipart): lançar, editar, excluir e as etapas do Almoxarifado e do PCM. */
 export async function POST(req: NextRequest) {
   const u = await autorizar(ABA);
   if (!u) return NextResponse.json({ erro: "Sem acesso à aba Cadastro de material." }, { status: 403 });
-  if (u.demo !== true && !podeEnviar(`cadastro_material:${u.login}`)) return NextResponse.json({ erro: "Muitas alterações em pouco tempo. Espere alguns minutos." }, { status: 429 });
   let form: FormData;
   try {
     form = await req.formData();
@@ -67,6 +70,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: `Pedido inválido (foto maior que ${MB} MB?).` }, { status: 400 });
   }
   const s = (k: string) => String(form.get(k) ?? "");
+  // limite só nas ações que enviam foto (aprovar, recusar, validar e excluir não gravam arquivo)
+  if (COM_FOTO.includes(s("acao")) && u.demo !== true && !podeEnviar(`cadastro_material:${u.login}`)) {
+    return NextResponse.json({ erro: "Muitas alterações em pouco tempo. Espere alguns minutos." }, { status: 429 });
+  }
   const papel = cad.papelDe(u, true); // autorizar já conferiu a aba
   const por = u.nome || u.login;
   const arq = form.get("foto");
