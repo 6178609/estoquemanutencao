@@ -132,6 +132,20 @@ export function ordenarPara(p: Papel, ps: Pedido[]): Pedido[] {
   return [...ps].sort((a, b) => peso(a.situacao) - peso(b.situacao) || b.criadoEm.localeCompare(a.criadoEm));
 }
 
+const semAcento = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Filtros da tela e da planilha: situação (só as do site; outra é ignorada), mês do lançamento ("AAAA-MM"; outro
+ * formato é ignorado) e busca na descrição, no SAP e no equipamento (tag ou nome), sem diferenciar acento e maiúscula.
+ */
+export function filtrarPedidos(ps: Pedido[], f: { situacao?: string; mes?: string; q?: string }): Pedido[] {
+  const sit = SITUACOES.includes(f.situacao as Situacao) ? f.situacao : "";
+  const mes = /^\d{4}-\d{2}$/.test(f.mes ?? "") ? f.mes! : "";
+  const q = semAcento(String(f.q ?? "").trim());
+  return ps.filter((p) => (!sit || p.situacao === sit) && (!mes || p.criadoEm.startsWith(mes))
+    && (!q || semAcento(`${p.descricao}\n${p.sap}\n${p.equipamento.tag}\n${p.equipamento.nome}`).includes(q)));
+}
+
 /** Quando o pedido foi validado (último "validar"; sem ele, a data do lançamento). */
 const validadoEm = (p: Pedido) => p.historico.filter((e) => e.acao === "validar").at(-1)?.em ?? p.criadoEm;
 

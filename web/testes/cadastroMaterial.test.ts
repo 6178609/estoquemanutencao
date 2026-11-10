@@ -109,6 +109,24 @@ describe("cadastro de material: regras", () => {
     expect(R.ordenarPara({ login: "x", almox: true, pcm: true }, ps).map((p) => p.id)).toEqual(["p2", "p4", "p3", "p1", "p5"]);
   });
 
+  it("filtro por situação, mês do lançamento e busca (descrição, SAP ou equipamento, sem acento)", () => {
+    const ps = [
+      ped({ id: "f1", descricao: "Rolamento de esferas", sap: "111111", equipamento: { tag: "EQ-001", nome: "Bomba de água" }, criadoEm: "2026-11-03T10:00:00Z" }),
+      ped({ id: "f2", descricao: "Correia dentada", sap: "222222", equipamento: { tag: "EQ-002", nome: "Ventilação" }, situacao: R.AG_PCM, criadoEm: "2026-10-03T10:00:00Z" }),
+    ];
+    const ids = (f: Parameters<typeof R.filtrarPedidos>[1]) => R.filtrarPedidos(ps, f).map((p) => p.id);
+    expect(ids({})).toEqual(["f1", "f2"]);
+    expect(ids({ situacao: R.AG_PCM })).toEqual(["f2"]);
+    expect(ids({ situacao: "Qualquer coisa" })).toEqual(["f1", "f2"]);
+    expect(ids({ mes: "2026-11" })).toEqual(["f1"]);
+    expect(ids({ mes: "11/2026" })).toEqual(["f1", "f2"]);
+    expect(ids({ q: "correia" })).toEqual(["f2"]);
+    expect(ids({ q: "222" })).toEqual(["f2"]);
+    expect(ids({ q: "eq-001" })).toEqual(["f1"]);
+    expect(ids({ q: "agua" })).toEqual(["f1"]);
+    expect(ids({ q: "ventilacao", mes: "2026-11" })).toEqual([]);
+  });
+
   it("planilha com ; e BOM, sem fórmula", () => {
     const csv = R.csvPedidos([ped({ descricao: "=CMD()" })]);
     expect(csv.startsWith("﻿")).toBe(true);
@@ -263,5 +281,28 @@ describe("cadastro de material: gravação (demonstração, na memória)", async
     await expect(D.excluirPedido(DONO, id2, "x")).rejects.toThrow(/Só quem lançou/);
     await expect(D.editarPedido(DONO, id2, ent(), null, "x")).rejects.toThrow(/Só quem lançou/);
     expect(D._fotosGuardadas().some((c) => c.includes(`/${id2}/`))).toBe(true);
+  });
+});
+
+describe("cadastro de material: demonstração", async () => {
+  const { afterAll, beforeAll } = await import("vitest");
+  const { _definirFonte } = await import("@/lib/dados/fonte");
+  const { _definirSupabase } = await import("@/lib/dados/supabase");
+  const D = await import("@/lib/cadastroMaterial/dados");
+  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
+  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+
+  it("traz pedidos fictícios aguardando o almoxarifado, aguardando o PCM e concluído, com fotos legíveis", async () => {
+    // (só os da demonstração: os testes acima também gravam pedidos)
+    const ps = (await D.lerPedidos(true)).filter((p) => p.id.startsWith("demo0"));
+    expect(ps).toHaveLength(3);
+    const sit = new Set<string>(ps.map((p) => p.situacao));
+    for (const s of [R.AG_ALMOX, R.AG_PCM, R.CONCLUIDO]) expect(sit.has(s)).toBe(true);
+    const pcm = ps.find((p) => p.situacao === R.AG_PCM)!;
+    expect((await D.lerFoto(pcm.id, "pedido"))?.tipo).toBe("image/png");
+    expect((await D.lerFoto(pcm.id, "chegada"))?.tipo).toBe("image/png");
+    // o equipamento existe na lista da demonstração
+    const tags = await D.tagsEquipamentos();
+    expect(ps.every((p) => tags.has(p.equipamento.tag))).toBe(true);
   });
 });

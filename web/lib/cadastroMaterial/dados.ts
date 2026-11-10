@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import { registrar } from "../auditoria";
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
+import { fotosPedidosDemo } from "../dados/demo";
 import { LIMITE_DOCUMENTO, tipoDocumento } from "../dados/documentos";
 import { comPecasDaRegra } from "../dados/regrasVinculo";
 import { fonte, FonteErro } from "../dados/fonte";
@@ -26,7 +27,10 @@ const TIPOS_FOTO = ["image/jpeg", "image/png", "image/webp"];
 const MUDOU = "O pedido já mudou de situação; atualize a página.";
 const SO_DONO = "Só quem lançou edita ou exclui, e só enquanto aguarda o almoxarifado.";
 const ACOES: readonly Acao[] = ["aprovar", "recusar", "chegou", "validar", "recusar_chegada"];
-const demo = new Map<string, Uint8Array>();
+// demonstração: na memória do processo (globalThis, como os cadastros da demonstração: a rota e a página podem ter
+// cópias separadas deste módulo), já com as fotos dos pedidos fictícios
+const globalDemo = globalThis as unknown as { __cmFotosPedidosDemo?: Map<string, Uint8Array> };
+const demo = (globalDemo.__cmFotosPedidosDemo ??= new Map(fotosPedidosDemo()));
 const novoId = () => randomBytes(9).toString("hex");
 const agora = () => new Date().toISOString();
 const idOk = (s: unknown): s is string => typeof s === "string" && /^[a-z0-9]{6,32}$/.test(s);

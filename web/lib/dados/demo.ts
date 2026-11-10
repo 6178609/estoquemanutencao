@@ -2,6 +2,7 @@
  * Modo demonstração: dados FICTÍCIOS gerados aqui, usados quando o site não tem fonte de dados configurada
  * (ex.: o primeiro deploy na Vercel antes de colocar o token). Nada aqui é dado da empresa.
  */
+import { AG_ALMOX, AG_PCM, ARQ_PEDIDOS, CONCLUIDO } from "../cadastroMaterial/regras";
 import { chaveMes } from "../wcm/orcamento";
 import { hoje, inicioDoMes, somarMeses } from "../wcm/util";
 import type { ItemCatalogo, ItemEstoque } from "./materiais";
@@ -86,11 +87,48 @@ function orcamentoDemo(h: number): Record<string, Record<string, unknown>> {
   return out;
 }
 
+// Cadastro de material: 3 pedidos fictícios (aguardando o almoxarifado, aguardando o PCM e concluído) e as fotos deles,
+// todas a mesma imagem PNG fictícia de 1×1 ponto
+const PNG_DEMO = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const PASTA_PEDIDOS = "app/documentos/pedidos_material";
+const PEDIDOS_DEMO = [
+  { id: "demo0pedido0almox", sap: "900007", descricao: "Rolamento rígido de esferas (demonstração)", fotos: ["demo0foto0almox"] },
+  { id: "demo0pedido0pcm", sap: "900014", descricao: "Correia em V (demonstração)", fotos: ["demo0foto0pcm", "demo0chegada0pcm"] },
+  { id: "demo0pedido0concluido", sap: "900021", descricao: "Retentor de óleo (demonstração)", fotos: ["demo0foto0conc", "demo0chegada0conc"] },
+];
+
+/** As fotos dos pedidos da demonstração (caminho → bytes), lidas por lib/cadastroMaterial/dados.ts. */
+export function fotosPedidosDemo(): [string, Uint8Array][] {
+  const png = Uint8Array.from(Buffer.from(PNG_DEMO, "base64"));
+  return PEDIDOS_DEMO.flatMap((p) => p.fotos.map((f) => [`${PASTA_PEDIDOS}/${p.id}/${f}`, png.slice()] as [string, Uint8Array]));
+}
+
+function pedidosDemo(): Record<string, Record<string, unknown>> {
+  const h = Date.now(), em = (horas: number) => new Date(h - horas * 3_600_000).toISOString();
+  const foto = (arquivo: string) => ({ nome: `${arquivo}.png`, tipo: "image/png", tamanho: 70, arquivo });
+  const equipamento = { tag: "PRENSA-01", nome: "Prensa hidráulica 1" };
+  const base = (i: number) => ({ descricao: PEDIDOS_DEMO[i].descricao, sap: PEDIDOS_DEMO[i].sap, equipamento,
+    observacao: "", foto: foto(PEDIDOS_DEMO[i].fotos[0]), fotoChegada: PEDIDOS_DEMO[i].fotos[1] ? foto(PEDIDOS_DEMO[i].fotos[1]) : null });
+  const [a, b, c] = PEDIDOS_DEMO;
+  return {
+    [a.id]: { ...base(0), situacao: AG_ALMOX, criadoPor: "demo", criadoEm: em(2),
+      historico: [{ em: em(2), por: "Visitante", acao: "lancar" }] },
+    [b.id]: { ...base(1), situacao: AG_PCM, criadoPor: "manutentor.ficticio", criadoEm: em(30),
+      historico: [{ em: em(30), por: "Manutentor Fictício", acao: "lancar" }, { em: em(26), por: "Almoxarife Fictício", acao: "aprovar" },
+        { em: em(5), por: "Almoxarife Fictício", acao: "chegou" }] },
+    // validado há 1 hora: entra nos "Concluídos no mês"
+    [c.id]: { ...base(2), situacao: CONCLUIDO, criadoPor: "manutentor.ficticio", criadoEm: em(72),
+      historico: [{ em: em(72), por: "Manutentor Fictício", acao: "lancar" }, { em: em(70), por: "Almoxarife Fictício", acao: "aprovar" },
+        { em: em(24), por: "Almoxarife Fictício", acao: "chegou" }, { em: em(1), por: "PCM Fictício", acao: "validar" }] },
+  };
+}
+
 const globalDemo = globalThis as unknown as { __cmCadastrosDemo?: Map<string, Record<string, Record<string, unknown>>> };
 const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<string, Record<string, unknown>>>([
   ["cadastro_materiais.json", {}],
   ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] } }],
   ["metas_wcm.json", orcamentoDemo(hoje())],
+  [ARQ_PEDIDOS, pedidosDemo()],
   // uma sugestão de foto de exemplo (o endereço não existe: a tela mostra que não carregou)
   ["sugestoes_fotos.json", { "500000": { sugestoes: [{ url: "https://exemplo.invalid/foto-sugerida.jpg",
     pagina: "https://exemplo.invalid/produto", titulo: "Exemplo de sugestão (demonstração)" }], buscado_em: "2026-01-01T00:00:00+00:00" } }],

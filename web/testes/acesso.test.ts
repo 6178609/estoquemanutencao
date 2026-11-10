@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { acessoTotal, ehAdmin, podeEditar, podeEditarSuporte, podeVer } from "@/lib/auth/acesso";
+import { ABAS_BASICAS, acessoTotal, ehAdmin, podeEditar, podeEditarSuporte, podeVer } from "@/lib/auth/acesso";
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { GRUPOS, TODAS } from "@/lib/navegacao";
 
@@ -16,6 +16,24 @@ describe("aba Programação de paradas", () => {
     const a = g.abas.find((x) => x.id === "programacao_paradas");
     expect(a).toMatchObject({ titulo: "Programação de paradas", icone: "CalendarCog", rota: "/programacao_paradas" });
     expect(g.abas.findIndex((x) => x.id === "programacao_paradas")).toBe(g.abas.findIndex((x) => x.id === "gestao_hh") + 1);
+  });
+});
+
+describe("aba Cadastro de material", () => {
+  it("no padrão de Líder e Analista; fora das abas básicas (Manutentor e Terceiro só se marcada)", () => {
+    expect(TODAS).toContain("cadastro_material");
+    expect(ABAS_BASICAS.has("cadastro_material")).toBe(false);
+    expect(podeVer({ login: "l", funcao: "lider" }, "cadastro_material")).toBe(true);
+    expect(podeVer({ login: "a", funcao: "analista" }, "cadastro_material")).toBe(true);
+    expect(podeVer({ login: "m", funcao: "manutentor" }, "cadastro_material")).toBe(false);
+    expect(podeVer({ login: "t", funcao: "terceiro" }, "cadastro_material")).toBe(false);
+    expect(podeVer({ login: "m", funcao: "manutentor", abas: ["cadastro_material"] }, "cadastro_material")).toBe(true);
+  });
+  it("no grupo Custos e suprimentos, logo após Requisições, com rota e ícone", () => {
+    const g = GRUPOS.find((x) => x.titulo === "Custos e suprimentos")!;
+    const a = g.abas.find((x) => x.id === "cadastro_material");
+    expect(a).toMatchObject({ titulo: "Cadastro de material", icone: "PackagePlus", rota: "/cadastro_material" });
+    expect(g.abas.findIndex((x) => x.id === "cadastro_material")).toBe(g.abas.findIndex((x) => x.id === "requisicoes") + 1);
   });
 });
 
