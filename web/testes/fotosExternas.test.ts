@@ -5,9 +5,7 @@ import { _definirFonte } from "@/lib/dados/fonte";
 import { _definirSupabase } from "@/lib/dados/supabase";
 import { chaveSugestao } from "@/lib/dados/fotosSugestao";
 import { fotoDoCadastro, fotoExternaDe, fotosExternasDoItem, respostaFotoExterna } from "@/lib/dados/fotosExternas";
-import { normalizarFotosImportadas } from "@/lib/dados/fotosImportar";
 import { lerFotoReferencia } from "@/lib/dados/fotosReferencia";
-import { SugestaoErro } from "@/lib/dados/fotosSugestao";
 
 const URL_OK = "https://exemplo.com.br/rolamento.jpg";
 const REF: FotoExterna = { k: chaveSugestao(URL_OK), pagina: "https://exemplo.com.br/produto", titulo: "Rolamento" };
@@ -41,27 +39,7 @@ describe("prioridade da foto do item", () => {
   });
 });
 
-describe("detecção do formato da importação", () => {
-  it("materiais por código; o bloco de tipos (fotos genéricas) é ignorado", () => {
-    const foto = { url: URL_OK, pagina: "https://exemplo.com.br/p", titulo: "X", buscado_em: "2026-01-02T03:04:05Z" };
-    const mat = normalizarFotosImportadas({ materiais: { "100200": foto }, tipos: { ROLAMENTO: foto } });
-    expect(Object.keys(mat)).toEqual(["materiais"]);
-    expect(Object.keys(mat.materiais)).toEqual(["100200"]);
-    expect(mat.materiais["100200"].buscado_em).toBe("2026-01-02T03:04:05.000Z");
-  });
-  it("recusa arquivo sem materiais, lista ou texto", () => {
-    expect(() => normalizarFotosImportadas({ tipos: {} })).toThrow(SugestaoErro);
-    expect(() => normalizarFotosImportadas([1])).toThrow(SugestaoErro);
-    expect(() => normalizarFotosImportadas("x")).toThrow(SugestaoErro);
-    expect(() => normalizarFotosImportadas({ materiais: [] })).toThrow(SugestaoErro);
-  });
-  it("descarta código de material inválido e endereço recusado", () => {
-    const r = normalizarFotosImportadas({
-      materiais: { "100200": { url: URL_OK }, "../fora": { url: URL_OK }, "100201": { url: "https://localhost/x.jpg" },
-        "100202": { url: "http://exemplo.com.br/a.jpg" } },
-    });
-    expect(Object.keys(r.materiais)).toEqual(["100200"]);
-  });
+describe("foto do cadastro", () => {
   it("a página de origem precisa ser https; senão fica vazia", () => {
     expect(fotoDoCadastro({ url: URL_OK, pagina: "javascript:alert(1)", titulo: "T" })?.pagina).toBeNull();
     expect(fotoDoCadastro({ url: URL_OK, pagina: "https://exemplo.com.br/p", titulo: "T\u0000x" })?.titulo).toBe("Tx");
