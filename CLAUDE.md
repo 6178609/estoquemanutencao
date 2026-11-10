@@ -79,8 +79,9 @@
   Vercel (`BUSCA_IMAGENS_CHAVE_<PROVEDOR>`, `BUSCA_IMAGENS_GOOGLE_CX`, `BUSCA_IMAGENS_POR_DIA[_<PROVEDOR>]`; ver `web/README.md`). Lógica em
   `lib/fotos/` (provedores, escolha, rodada) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json` e
   `fotos_busca_estado.json`.
-- **Só o almoxarifado (MB52):** a busca de fotos é só para os materiais do almoxarifado; o catálogo do Sysmat não é buscado
-  (só empresta a descrição com FAB/REF).
+- **Todos os materiais do site (pedido do PCM, 10/11/2026):** a busca cobre o catálogo inteiro do Sysmat, de qualquer local e
+  status, além do almoxarifado, numa fila por prioridade: almoxarifado (MB52) → ligados a equipamentos (MRO) → aprovados →
+  bloqueados e demais → cancelados e duplicados (`planejarBusca`). Só entra quem tem fabricante e REF.
 - **Só foto real do item:** própria ou do fabricante, cujo título/página traz a referência (REF) do material. Foto genérica
   por tipo, subcategoria ou categoria (ilustrativa) não é usada: mostrava peça diferente da descrição. Sem foto exata, o
   item fica sem foto.

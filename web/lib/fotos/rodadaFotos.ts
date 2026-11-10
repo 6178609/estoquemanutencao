@@ -12,8 +12,9 @@ import { consultaFotoExata, escolherFotoExata } from "./escolha";
 
 /**
  * Rotina de busca automática de fotos, só a foto exata do material (pela referência do fabricante; foto genérica do tipo
- * não serve), só dos materiais do almoxarifado (MB52) com referência e sem foto do fabricante; o catálogo do Sysmat só
- * empresta a descrição com FAB/REF. Cada tentativa fica no cadastro `fotos_busca_estado.json`
+ * não serve), de TODOS os materiais do site com fabricante e referência e sem foto, de qualquer local e status no Sysmat,
+ * numa fila por prioridade: almoxarifado (MB52) → ligados a equipamentos (MRO) → aprovados → bloqueados e demais →
+ * cancelados e duplicados. Cada tentativa fica no cadastro `fotos_busca_estado.json`
  * (não repete por 60 dias); o orçamento do dia é contado nesse mesmo cadastro, no total e por provedor. Cada material
  * passa pelos provedores configurados em rodízio (buscaImagem.ts) até um deles trazer a foto exata.
  */
@@ -39,6 +40,8 @@ export interface DadosBusca {
   refs: Cadastro;
   estado: Cadastro;
   agora: number;
+  /** materiais ligados a algum equipamento na Gestão de MRO (sem zeros à esquerda): vêm logo depois do almoxarifado */
+  vinculados?: Set<string>;
 }
 
 /** Uma busca a fazer: a chave do estado, a consulta e o que procurar. */
@@ -81,6 +84,26 @@ export function planejarBusca(d: DadosBusca): Alvo[] {
     const pdm = pdmEfetivo(c.pdm, e.descricao, pdms);
     incluir({ chave: `m:${e.material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material: e.material, fab: par.fab, ref: par.ref, pdm });
   }
+  // (b) o resto do catálogo do Sysmat, de qualquer status: ligados a equipamento → aprovados → demais → cancelados/duplicados
+  const peso = (c: ItemCatalogo) => {
+    if (d.vinculados?.has(semZeros(c.material.trim()))) return 0;
+    const st = c.status.trim().toUpperCase();
+    return st === "APROVADO" ? 1 : st === "CANCELADO" || st === "DUPLICADO" ? 3 : 2;
+  };
+  const resto: { c: ItemCatalogo; p: number; i: number }[] = [];
+  d.catalogo.forEach((c, i) => {
+    const m = semZeros(c.material.trim());
+    if (!m || vistos.has(`m:${m}`) || !sem(d.refs, m) || !sem(d.refs, c.material.trim())) return;
+    resto.push({ c, p: peso(c), i });
+  });
+  resto.sort((a, b) => a.p - b.p || a.i - b.i);
+  for (const { c } of resto) {
+    const m = semZeros(c.material.trim());
+    const par = fabricantesERefs(c.descrCompleta).find((p) => p.fab && p.ref);
+    if (!par || !ok(`m:${m}`)) continue;
+    const pdm = pdmEfetivo(c.pdm, c.descricaoCurta, pdms);
+    incluir({ chave: `m:${m}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material: m, fab: par.fab, ref: par.ref, pdm });
+  }
 
   return out;
 }
@@ -105,9 +128,14 @@ const vazio = (motivo: string, ligada: boolean): ResumoRodada => ({
 
 /** Lê o que a rotina precisa (estoque, catálogo e os cadastros de foto). */
 export async function carregarDados(): Promise<DadosBusca> {
-  const [est, cat, refs, estado] = await Promise.all([
-    estoque(), catalogo(), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_ESTADO),
+  const [est, cat, refs, estado, equips] = await Promise.all([
+    estoque(), catalogo(), lerCadastro(ARQUIVO_REFERENCIA), lerCadastro(ARQUIVO_ESTADO), lerCadastro("cadastro_equipamentos.json"),
   ]);
+  const vinculados = new Set<string>();
+  for (const e of Object.values(equips)) {
+    const ms = (e as { materiais?: unknown } | null)?.materiais;
+    if (Array.isArray(ms)) for (const m of ms) vinculados.add(semZeros(String(m).trim()));
+  }
   const vistos = new Set<string>();
   const mb52: MaterialEstoque[] = [];
   for (const e of est.dados ?? []) {
@@ -115,7 +143,7 @@ export async function carregarDados(): Promise<DadosBusca> {
     vistos.add(e.material);
     mb52.push({ material: e.material, descricao: e.descricao });
   }
-  return { estoque: mb52, catalogo: cat.dados ?? [], refs, estado, agora: Date.now() };
+  return { estoque: mb52, catalogo: cat.dados ?? [], refs, estado, agora: Date.now(), vinculados };
 }
 
 /**
