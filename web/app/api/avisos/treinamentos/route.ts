@@ -9,10 +9,15 @@ import { enviarAvisoTreinamentos, type ResultadoEnvio } from "@/lib/avisos/trein
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Endereço do site para o link do e-mail: o domínio de produção da Vercel, ou o da própria requisição. */
+/**
+ * Endereço do site para o link do e-mail: URL_SITE (variável da Vercel, se definida) ou o endereço gratuito da Vercel que
+ * funciona sem DNS próprio. O "domínio de produção" automático da Vercel não serve: pode ser um domínio .com sem DNS.
+ */
+const URL_PADRAO = "https://pcmemacao.vercel.app";
 function site(req: NextRequest): string {
-  const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  return prod ? `https://${prod}` : req.nextUrl.origin;
+  const fixo = process.env.URL_SITE?.trim().replace(/\/+$/, "");
+  if (fixo) return fixo;
+  return process.env.VERCEL ? URL_PADRAO : req.nextUrl.origin;
 }
 
 const resposta = (r: ResultadoEnvio) => NextResponse.json(r, { status: r.ok ? 200 : 409 });
