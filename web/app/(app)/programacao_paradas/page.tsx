@@ -4,6 +4,7 @@ import { AbasVisao, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho, Cartao } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { NOME_DIA } from "@/lib/paradas/calendario";
+import { calendarioDoMes } from "@/lib/paradas/calendarioVisao";
 import { programacaoParadas } from "@/lib/paradas/dados";
 import { semanaIso } from "@/lib/wcm/planos";
 import { barra, contexto } from "@/lib/wcm/contexto";
@@ -12,11 +13,12 @@ import { dataBr, partes } from "@/lib/wcm/util";
 import { param } from "../execucao/_ui/memo";
 import { TabelaProgramacao, type LinhaTela } from "./TabelaProgramacao";
 import { Verificacao } from "./Verificacao";
+import { Calendario } from "./Calendario";
 
 export const metadata: Metadata = { title: "Programação de paradas" };
 export const dynamic = "force-dynamic";
 
-const VISOES = ["Programação", "Verificação"];
+const VISOES = ["Programação", "Calendário", "Verificação"];
 const ORIGEM: Record<string, string> = {
   "ip19": "com HH na própria IP19", "iw38op-ordem": "completadas pelas operações da ordem (IW38OP)",
   "iw38op-plano": "completadas pela ordem do mesmo plano e equipamento", "ip19-mesmo-plano": "completadas por outra chamada do mesmo plano",
@@ -61,8 +63,9 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
       <Secao titulo="Programação" destaque={`${n(calculo.r.linhas.length)} linhas · ${n(Object.keys(e.ativos).length)} ativos`}
         sub={`De ${dataBr(e.inicio)} a ${dataBr(e.fim)}. Linha em vermelho = regra quebrada (a regra aparece na coluna Alerta).`}>
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
-        {visao === "Verificação"
-          ? <Verificacao resumo={calculo.resumo} conferencias={calculo.conferencias} />
+        {visao === "Verificação" ? <Verificacao resumo={calculo.resumo} conferencias={calculo.conferencias} />
+          : visao === "Calendário" ? <Calendario meses={calculo.resumo.map((r) => calendarioDoMes({ mes: r.mes, r: calculo.r, dias: calculo.dias,
+            ativos: e.ativos, saldo: calculo.saldo, resumo: calculo.resumo, alertas: calculo.alertas, p: e.parametros }))} />
           : <TabelaProgramacao linhas={linhas} meses={meses} />}
       </Secao>
       {montado.foraDasClasses.length > 0 && (
