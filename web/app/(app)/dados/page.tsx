@@ -9,7 +9,6 @@ import { fonte, modo } from "@/lib/dados/fonte";
 import { dataHora, idade, inteiro } from "@/lib/formato";
 import { DESTINO, NOMES_BASE, TIPOS, TIPOS_SEM_ENVIO, type Tipo } from "@/lib/leitura/tipos";
 import { Envio } from "./Envio";
-import { ImportarFotos } from "./ImportarFotos";
 import { FotosAutomaticas } from "./FotosAutomaticas";
 import { resumoFotosAutomaticas } from "@/lib/fotos/rodadaFotos";
 
@@ -51,7 +50,6 @@ export default async function FontesDeDados() {
 
       <FotosAutomaticas resumo={fotos} pode={podeEditar(u)} />
 
-      {podeEditar(u) && <ImportarFotos />}
 
       {podeEditar(u) ? <Envio demo={modo() === "demo"} />
         : <p className="text-[14px] text-texto-3">Só editores e administradores enviam bases. Peça a um deles para atualizar.</p>}
