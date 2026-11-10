@@ -38,8 +38,9 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
   const porAlerta = new Map<string, string[]>();
   for (const a of calculo.alertas) porAlerta.set(a.linhaId, [...(porAlerta.get(a.linhaId) ?? []), a.texto]);
   const t = e.parametros.turnos;
+  const demanda = new Map(e.demandas.map((x) => [`${x.mes}|${x.ativo}`, x]));
   const linhas: LinhaTela[] = calculo.r.linhas.map((l) => {
-    const d = e.demandas.find((x) => x.mes === l.mes && x.ativo === l.ativo);
+    const d = demanda.get(`${l.mes}|${l.ativo}`);
     const A = e.ativos[l.ativo];
     const p = partes(l.data);
     const janela = p.semana === 6 ? `${t.sabado.inicio}–${t.sabado.fim}` : l.turno === 1 ? `${t.t1.inicio}–${t.t1.fim}` : `${t.t2.inicio}–${t.t2.fim}`;
@@ -101,6 +102,7 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
             {descartes.length > 0 && <> ; ficaram de fora: {descartes.map(([m, q]) => `${n(q)} ${m}`).join(", ")}</>}.
             {montado.leitura.semCentro > 0 && <> {n(montado.leitura.semCentro)} sem centro de trabalho (assumidas como mecânica).</>}
           </p>
+          <p>A programação é refeita a cada dia a partir de hoje ({dataBr(e.inicio)}): não enxerga as paradas anteriores (por exemplo, a prensa ou a Pellet da semana passada).</p>
           <p>Chamadas: {Object.entries(montado.completadas).filter(([, q]) => q > 0).map(([o, q]) => `${n(q)} ${ORIGEM[o] ?? o}`).join(" · ") || "nenhuma"}.</p>
           {calculo.r.retirados.length > 0 && <p>{n(calculo.r.retirados.length)} ativo(s) com HH irrelevante no mês ficaram fora da programação (só inspeção rápida).</p>}
           {calculo.r.semHh.length > 0 && <p>{n(calculo.r.semHh.length)} ativo(s) com HH que não coube (Ativos sem HH).</p>}

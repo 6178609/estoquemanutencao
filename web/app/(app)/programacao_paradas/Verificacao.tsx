@@ -13,15 +13,16 @@ export function Verificacao({ resumo, conferencias }: { resumo: ResumoMes[]; con
     <div className="space-y-6">
       <div className="overflow-x-auto rounded-cartao border border-borda bg-superficie">
         <table className="w-full min-w-[760px] text-left text-[12.5px]">
+          <caption className="sr-only">Capacidade e programado por mês</caption>
           <thead className="border-b border-borda bg-superficie-2 text-[11.5px] text-texto-3">
             <tr>
-              <th className="px-3 py-2 font-medium">Mês</th>
-              <th className="px-3 py-2 text-right font-medium">Capacidade MEC / ELE</th>
-              <th className="px-3 py-2 text-right font-medium">Programado MEC / ELE</th>
-              <th className="px-3 py-2 text-right font-medium">Uso MEC / ELE</th>
-              <th className="px-3 py-2 text-right font-medium">Carga IP19 MEC / ELE</th>
-              <th className="px-3 py-2 text-right font-medium">Sem HH MEC / ELE</th>
-              <th className="px-3 py-2 text-right font-medium">Saldo p/ backlog MEC / ELE</th>
+              <th scope="col" className="px-3 py-2 font-medium">Mês</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Capacidade MEC / ELE</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Programado MEC / ELE</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Uso MEC / ELE</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Carga IP19 MEC / ELE</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Sem HH MEC / ELE</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Saldo p/ backlog MEC / ELE</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-borda tabular-nums">

@@ -36,11 +36,12 @@ export function TabelaProgramacao({ linhas, meses }: { linhas: LinhaTela[]; mese
       </div>
       <div className="max-h-[70vh] overflow-auto rounded-cartao border border-borda bg-superficie">
         <table className="w-full min-w-[1500px] text-left text-[12.5px]">
+          <caption className="sr-only">Programação de paradas: um ativo por dia e turno</caption>
           <thead className="sticky top-0 z-10 border-b border-borda bg-superficie-2 text-[11.5px] text-texto-3">
             <tr>
               {["Data", "Dia", "Sem.", "Turno", "Ativo", "Equipamentos", "Mês IP19", "HH MEC", "HH ELE", "HH total", "Parada", "Janela", "Situação",
                 "Itens", "Datas IP19 no mês", "Tipo", "Grupo crítico", "Acima MEC/ELE", "Campo(s)", "Alerta"].map((c) => (
-                <th key={c} className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>
+                <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>
               ))}
             </tr>
           </thead>
