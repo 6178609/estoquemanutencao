@@ -18,6 +18,8 @@ export const MARCADOR_MIGRACAO = "__migracao";
 
 /** O Supabase recusou a chave (401/403): configuração errada, ex.: a chave publicável no lugar da secreta. */
 export class SupabaseSemAcesso extends FonteErro {}
+/** O Supabase não respondeu (fora do ar, projeto pausado por inatividade, rede). */
+export class SupabaseForaDoAr extends FonteErro {}
 
 export interface Documento { conteudo: unknown; versao: string }
 
@@ -73,7 +75,7 @@ class Rest implements ClienteSupabase {
       ultimo = new Error(`Supabase respondeu ${r.status}`);
       if (i + 1 < tentativas) await new Promise((ok) => setTimeout(ok, 400 * (i + 1)));
     }
-    throw new FonteErro(`O banco de dados (Supabase) não respondeu: ${ultimo instanceof Error ? ultimo.message : String(ultimo)}`);
+    throw new SupabaseForaDoAr(`O banco de dados (Supabase) não respondeu: ${ultimo instanceof Error ? ultimo.message : String(ultimo)}`);
   }
 
   async versoes(rapido = false): Promise<Map<string, string>> {
