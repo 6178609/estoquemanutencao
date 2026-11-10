@@ -1,3 +1,4 @@
+import { FileSpreadsheet } from "lucide-react";
 import type { Metadata } from "next";
 
 import { AbasVisao, PaginaWcm, Secao, SemDados } from "@/components/PaginaWcm";
@@ -5,7 +6,7 @@ import { Cabecalho, Cartao } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { NOME_DIA } from "@/lib/paradas/calendario";
 import { calendarioDoMes } from "@/lib/paradas/calendarioVisao";
-import { camposPorDia } from "@/lib/paradas/visoes";
+import { ativosSemHh, camposPorDia } from "@/lib/paradas/visoes";
 import { programacaoParadas } from "@/lib/paradas/dados";
 import { semanaIso } from "@/lib/wcm/planos";
 import { barra, contexto } from "@/lib/wcm/contexto";
@@ -14,6 +15,7 @@ import { dataBr, partes } from "@/lib/wcm/util";
 import { param } from "../execucao/_ui/memo";
 import { TabelaProgramacao, type LinhaTela } from "./TabelaProgramacao";
 import { Verificacao } from "./Verificacao";
+import { AtivosSemHh } from "./AtivosSemHh";
 import { Calendario } from "./Calendario";
 import { CamposPorDia } from "./CamposPorDia";
 import { SaldoHh } from "./SaldoHh";
@@ -21,7 +23,7 @@ import { SaldoHh } from "./SaldoHh";
 export const metadata: Metadata = { title: "Programação de paradas" };
 export const dynamic = "force-dynamic";
 
-const VISOES = ["Programação", "Calendário", "Saldo HH", "Campos por dia", "Verificação"];
+const VISOES = ["Programação", "Calendário", "Saldo HH", "Campos por dia", "Ativos sem HH", "Verificação"];
 const ORIGEM: Record<string, string> = {
   "ip19": "com HH na própria IP19", "iw38op-ordem": "completadas pelas operações da ordem (IW38OP)",
   "iw38op-plano": "completadas pela ordem do mesmo plano e equipamento", "ip19-mesmo-plano": "completadas por outra chamada do mesmo plano",
@@ -63,10 +65,15 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
   return (
     <PaginaWcm barra={barra(c)} periodo={false} dimensoes={false}>
       {cab}
-      <Secao titulo="Programação" destaque={`${n(calculo.r.linhas.length)} linhas · ${n(Object.keys(e.ativos).length)} ativos`}
+      <Secao titulo="Programação" acoes={<a href="/api/programacao_paradas" download
+          className="nao-imprimir inline-flex h-9 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 text-[13px] transition hover:bg-superficie-2">
+          <FileSpreadsheet className="size-3.5" aria-hidden /> Baixar Excel</a>} destaque={`${n(calculo.r.linhas.length)} linhas · ${n(Object.keys(e.ativos).length)} ativos`}
         sub={`De ${dataBr(e.inicio)} a ${dataBr(e.fim)}. Linha em vermelho = regra quebrada (a regra aparece na coluna Alerta).`}>
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {visao === "Verificação" ? <Verificacao resumo={calculo.resumo} conferencias={calculo.conferencias} />
+          : visao === "Ativos sem HH" ? <AtivosSemHh semHh={ativosSemHh(calculo.r, e.ativos)} retirados={calculo.r.retirados}
+            chamadas={e.demandas.flatMap((d) => d.itens.filter((i) => i.origemHh === "sem-hh").map((i) => ({ plano: i.plano, item: i.item,
+              data: i.dataIp19, ativo: i.ativo, equipamento: i.equipamento, texto: i.texto })))} />
           : visao === "Saldo HH" ? <SaldoHh saldo={calculo.saldo} resumo={calculo.resumo} />
           : visao === "Campos por dia" ? <CamposPorDia dias={camposPorDia(calculo.r, calculo.dias, e.ativos, e.parametros)} meses={calculo.resumo.map((r) => r.mes)} />
           : visao === "Calendário" ? <Calendario meses={calculo.resumo.map((r) => calendarioDoMes({ mes: r.mes, r: calculo.r, dias: calculo.dias,
