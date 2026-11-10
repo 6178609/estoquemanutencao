@@ -93,8 +93,9 @@ export function colocarNaoCritico(c: Ctx, ativo: string, depoisDe: Dia | null = 
 
 /** Ativos do passo 4, por (1ª data, HH decrescente, nome). */
 function ordemPasso4(c: Ctx, lista: string[]): string[] {
+  const hh = new Map(lista.map((a) => [a, hhTotal(pendentes(c, a))]));
   return lista.slice().sort((a, b) => (c.demandas.get(a)?.primeiraData ?? 0) - (c.demandas.get(b)?.primeiraData ?? 0)
-    || hhTotal(pendentes(c, b)) - hhTotal(pendentes(c, a)) || (a < b ? -1 : a > b ? 1 : 0));
+    || hh.get(b)! - hh.get(a)! || (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /** O ativo segue com outro (MOINHO 04 com o BANBURY) e o outro tem demanda no mês. */
