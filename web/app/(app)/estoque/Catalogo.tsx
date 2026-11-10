@@ -11,6 +11,7 @@ import { Selo } from "@/components/ui";
 import { fotoDoItem } from "@/lib/fotoMaterial";
 import type { ItemCatalogoTela } from "@/lib/dados/catalogoBusca";
 import { inteiro, numero } from "@/lib/formato";
+import { DatasheetMaterial } from "./DatasheetMaterial";
 import { FotoDetalhe, MiniaturaFoto, MOLDURA_FOTO } from "./FotoItem";
 
 type Onde = "todos" | "almox" | "fora";
@@ -53,7 +54,7 @@ function Linha({ c, aoAbrir }: { c: ItemCatalogoTela; aoAbrir: () => void }) {
   );
 }
 
-export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
+export function Catalogo({ resumo, edita = false }: { resumo: ResumoCatalogo; edita?: boolean }) {
   const [busca, setBusca] = useState("");
   const q = useDeferredValue(busca.trim());
   const [status, setStatus] = useState<string[]>([]);
@@ -168,6 +169,8 @@ export function Catalogo({ resumo }: { resumo: ResumoCatalogo }) {
               <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><BookOpen className="size-4" /> Ficha técnica (Descr Completa)</h3>
               <FichaTecnica texto={aberto.descrCompleta} />
             </section>
+            {aberto.material && <DatasheetMaterial key={aberto.material} material={aberto.material} fabricanteRef={aberto.fabricanteRef}
+              descricao={aberto.descricaoCurta} edita={edita} />}
             <section className="grid gap-2 text-sm">
               {[["Categoria", [aberto.categoria, aberto.subcategoria].filter(Boolean).join(" › ")], ["PDM", aberto.pdm],
                 ["Fabricante / referência", aberto.fabricanteRef], ["NCM", aberto.ncm], ["Unidade", aberto.um],

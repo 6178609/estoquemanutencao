@@ -82,6 +82,10 @@
 - **Todos os materiais do site (pedido do PCM, 10/11/2026):** a busca cobre o catálogo inteiro do Sysmat, de qualquer local e
   status, além do almoxarifado, numa fila por prioridade: almoxarifado (MB52) → ligados a equipamentos (MRO) → aprovados →
   bloqueados e demais (`planejarBusca`). Só entra quem tem fabricante e REF.
+- **Datasheet do material (aba Estoque):** seção no detalhamento (Almoxarifado e Catálogo) com os links/PDFs da biblioteca
+  `datasheets_materiais.json` (coleção MATERIAL em `lib/dados/documentos.ts`, PDFs em `app/documentos/materiais/`), o botão
+  "Procurar datasheet" e, para editor, link ou PDF. Busca automática na mesma rotina das fotos (`lib/datasheet/`), mesma fila
+  e provedores (busca web), só aceita resultado com a REF no título/endereço, fora de loja; até `DATASHEETS_POR_DIA` (40).
 - **Sem cancelados e duplicados no banco (pedido do PCM, 10/11/2026):** o envio do catálogo do Sysmat descarta as linhas
   CANCELADO e DUPLICADO (`semCanceladosDuplicados` em `lib/leitura/processar.ts`) e a leitura também as ignora
   (`prepararCatalogo`); vínculos e fotos desses códigos foram removidos dos cadastros.

@@ -196,3 +196,62 @@ export async function buscarImagensEm(cfg: ConfiguracaoBusca, consulta: string):
       }));
   }
 }
+
+// ---------------------------------------------------------------------------- busca web (páginas: datasheets)
+
+/** Resultado de busca web: título e endereço da página (ou do PDF). */
+export interface PaginaBusca { titulo: string; url: string }
+
+const paginas = (arr: unknown, t: string, u: string): PaginaBusca[] => lista(arr).flatMap((i) => {
+  const o = i as Record<string, unknown>;
+  const url = texto(o?.[u]);
+  return url ? [{ titulo: texto(o[t]) ?? "", url }] : [];
+});
+
+export const normalizarWebGoogle = (j: unknown) => paginas((j as { items?: unknown })?.items, "title", "link");
+export const normalizarWebBrave = (j: unknown) => paginas((j as { web?: { results?: unknown } })?.web?.results, "title", "url");
+export const normalizarWebSerper = (j: unknown) => paginas((j as { organic?: unknown })?.organic, "title", "link");
+export const normalizarWebSerpapi = (j: unknown) => paginas((j as { organic_results?: unknown })?.organic_results, "title", "link");
+export const normalizarWebFirecrawl = (j: unknown) => paginas((j as { data?: { web?: unknown } })?.data?.web, "title", "url");
+
+/** Páginas para a consulta num provedor (mesmas regras de prazo, cota e chave da busca de imagens). */
+export async function buscarWebEm(cfg: ConfiguracaoBusca, consulta: string): Promise<PaginaBusca[]> {
+  const { provedor, chave } = cfg;
+  const json = "application/json";
+  switch (provedor) {
+    case "google": {
+      const u = new URL("https://www.googleapis.com/customsearch/v1");
+      u.searchParams.set("key", chave);
+      u.searchParams.set("cx", cfg.cx ?? "");
+      u.searchParams.set("q", consulta);
+      u.searchParams.set("num", String(QUANTIDADE));
+      return normalizarWebGoogle(await pedir(u.href, { headers: { Accept: json } }, true));
+    }
+    case "brave": {
+      const espera = ultimoBrave + 1_100 - Date.now();
+      if (espera > 0) await new Promise((ok) => setTimeout(ok, espera));
+      ultimoBrave = Date.now();
+      const u = new URL("https://api.search.brave.com/res/v1/web/search");
+      u.searchParams.set("q", consulta);
+      u.searchParams.set("count", String(QUANTIDADE));
+      return normalizarWebBrave(await pedir(u.href, { headers: { "X-Subscription-Token": chave, Accept: json } }));
+    }
+    case "serper":
+      return normalizarWebSerper(await pedir("https://google.serper.dev/search", {
+        method: "POST", headers: { "X-API-KEY": chave, "Content-Type": json, Accept: json },
+        body: JSON.stringify({ q: consulta, num: QUANTIDADE }),
+      }));
+    case "serpapi": {
+      const u = new URL("https://serpapi.com/search.json");
+      u.searchParams.set("engine", "google");
+      u.searchParams.set("q", consulta);
+      u.searchParams.set("api_key", chave);
+      return normalizarWebSerpapi(await pedir(u.href, { headers: { Accept: json } }));
+    }
+    case "firecrawl":
+      return normalizarWebFirecrawl(await pedir("https://api.firecrawl.dev/v2/search", {
+        method: "POST", headers: { Authorization: `Bearer ${chave}`, "Content-Type": json, Accept: json },
+        body: JSON.stringify({ query: consulta, sources: ["web"], limit: QUANTIDADE }),
+      }));
+  }
+}

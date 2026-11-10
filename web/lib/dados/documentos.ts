@@ -39,6 +39,9 @@ import {
  */
 export const ARQ_DOCUMENTOS = "documentos_equipamentos.json";
 const ARQ_DOCUMENTOS_TECNICOS = "documentos_tecnicos.json";
+/** Datasheets dos materiais (aba Estoque): link do fabricante (busca automática ou editor) ou PDF enviado. */
+export const ARQ_DATASHEETS = "datasheets_materiais.json";
+const PASTA_MATERIAIS = "app/documentos/materiais";
 export { LIMITE_DOCUMENTO } from "../limitesManual";
 import { LIMITE_DOCUMENTO } from "../limitesManual";
 const PASTA = "app/documentos/equipamentos";
@@ -131,6 +134,18 @@ const TECNICO: Colecao = {
   de: "da área",
   chaveInvalida: "Área inválida.",
   erroRemover: "Área ou documento inválido.",
+};
+
+/** Código do material como chave (sem zeros à esquerda, como nas fotos). */
+export const chaveMaterial = (m: string) => String(m ?? "").trim().replace(/^0+(?=\d)/, "");
+const MATERIAL: Colecao = {
+  arquivo: ARQ_DATASHEETS,
+  pastaDe: (m) => `${PASTA_MATERIAIS}/${m}`,
+  chaveValida: (m) => /^\d{1,18}$/.test(m),
+  dono: "Este material",
+  de: "do material",
+  chaveInvalida: "Material inválido.",
+  erroRemover: "Material ou datasheet inválido.",
 };
 
 const caminhoDe = (c: Colecao, chave: string, id: string) => `${c.pastaDe(chave)}/${id}`;
@@ -545,4 +560,29 @@ export async function removerDocumentoTecnico(area: Area, id: string, por: strin
 
 export async function lerDocumentoTecnico(area: Area, id: string): Promise<{ doc: Documento; bytes: Uint8Array; tipo: TipoDocumento } | null> {
   return lerDaColecao(TECNICO, area, id);
+}
+
+// ---------------------------------------------------------------------------- datasheets dos materiais
+
+export type DatasheetMaterial = Documento;
+
+/** Datasheets de um material (o mais recente primeiro). Código inválido: lista vazia. */
+export async function datasheetsDe(material: string): Promise<DatasheetMaterial[]> {
+  return (await documentosDeColecao(MATERIAL, chaveMaterial(material))).sort(maisRecente);
+}
+
+export async function gravarDatasheet(material: string, d: { titulo: string; nome: string; bytes: Uint8Array }, por: string): Promise<DatasheetMaterial> {
+  return gravarNaColecao(MATERIAL, chaveMaterial(material), d, por);
+}
+
+export async function gravarLinkDatasheet(material: string, d: { titulo: string; url: string }, por: string): Promise<DatasheetMaterial> {
+  return gravarLinkNa(MATERIAL, chaveMaterial(material), d, por);
+}
+
+export async function removerDatasheet(material: string, id: string, por: string): Promise<void> {
+  return removerDaColecao(MATERIAL, chaveMaterial(material), id, por);
+}
+
+export async function lerDatasheet(material: string, id: string): Promise<{ doc: Documento; bytes: Uint8Array; tipo: TipoDocumento } | null> {
+  return lerDaColecao(MATERIAL, chaveMaterial(material), id);
 }

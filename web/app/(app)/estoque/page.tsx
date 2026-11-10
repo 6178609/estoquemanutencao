@@ -75,7 +75,7 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
           <Almoxarifado itens={itensAlmox} edita={podeEditar(u)} sugestoes={almox.sugestoes} />
         </>
       )}
-      {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} /> : (
+      {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} edita={podeEditar(u) && !u.demo} /> : (
         <Aviso>O <b>catálogo de materiais (Sysmat)</b> ainda não está no repositório de dados. Envie a extração em <Link prefetch={false} href="/dados" className="font-medium underline">Configuração › Fontes de dados</Link>.</Aviso>
       ))}
     </Pagina>

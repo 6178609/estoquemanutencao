@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { autorizar } from "@/lib/auth/sessao";
 import { conferirFotos } from "@/lib/fotos/conferencia";
 import { limiteDiario, ORCAMENTO_MANUAL, rodadaFotos } from "@/lib/fotos/rodadaFotos";
+import { limiteDatasheets, rodadaDatasheets } from "@/lib/datasheet/rodada";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -33,7 +34,10 @@ export async function GET(req: NextRequest) {
     const t0 = Date.now();
     const conferencia = await conferencia_(1_000, 100_000);
     const limite = limiteDiario();
-    return NextResponse.json({ ...(await rodadaFotos({ limiteDia: limite, porRodada: limite, prazoMs: restante(t0) })), conferencia });
+    // as fotos deixam até 60 s para os datasheets (mesmos provedores, busca web)
+    const fotos = await rodadaFotos({ limiteDia: limite, porRodada: limite, prazoMs: Math.max(0, restante(t0) - 60_000) });
+    const datasheets = await rodadaDatasheets({ porRodada: limiteDatasheets(), prazoMs: restante(t0) });
+    return NextResponse.json({ ...fotos, conferencia, datasheets });
   } catch (e) {
     console.error("busca automática de fotos:", e);
     return NextResponse.json({ erro: "Falhou a busca de fotos." }, { status: 500 });
@@ -50,8 +54,10 @@ export async function POST(req: NextRequest) {
     const t0 = Date.now();
     const conferencia = await conferencia_(200, 40_000);
     const limite = limiteDiario();
-    return NextResponse.json({ ...(await rodadaFotos({ limiteDia: limite, porRodada: Math.min(ORCAMENTO_MANUAL, limite),
-      prazoMs: restante(t0) })), conferencia });
+    const fotos = await rodadaFotos({ limiteDia: limite, porRodada: Math.min(ORCAMENTO_MANUAL, limite),
+      prazoMs: Math.max(0, restante(t0) - 30_000) });
+    const datasheets = await rodadaDatasheets({ porRodada: 5, prazoMs: restante(t0) });
+    return NextResponse.json({ ...fotos, conferencia, datasheets });
   } catch (e) {
     console.error("busca de fotos (manual):", e);
     return NextResponse.json({ erro: "Falhou a busca de fotos; tente de novo." }, { status: 500 });

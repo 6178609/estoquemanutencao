@@ -8,6 +8,7 @@ import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, use
 import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
+import { DatasheetMaterial } from "./DatasheetMaterial";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
 import { MAX_FOTOS, type FotoDoItem, fotoDoItem, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMaterial";
@@ -663,6 +664,7 @@ function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFo
         <h3 className="mb-3 font-display font-bold">Ficha técnica (Descr Completa)</h3>
         <FichaTecnica texto={it.descrCompleta} />
       </section>
+      <DatasheetMaterial key={it.material} material={it.material} fabricanteRef={it.fabricanteRef} descricao={it.descricao} edita={edita} />
       <section className="grid gap-2 text-sm">
         {[["Categoria", [it.categoria, it.subcategoria].filter(Boolean).join(" › ")], ["Fabricante / referência", it.fabricanteRef],
           ["NCM", it.ncm], ["Status no Sysmat", it.status], ["Substituído por", it.substituto], ["Usado em", it.usadoEm]]
