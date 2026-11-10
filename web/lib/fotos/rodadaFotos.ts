@@ -7,14 +7,15 @@ import { fotosDoCadastro } from "../fotoMaterial";
 import { fotosExternasDoItem } from "../dados/fotosExternas";
 import { ARQUIVO_REFERENCIA } from "../dados/fotosReferencia";
 import { pdmEfetivo, pdmsConhecidos } from "../dados/pdmDeducao";
-import { buscarImagens, configuracaoBusca, CotaErro, type ImagemBusca } from "./buscaImagem";
+import { buscarImagensEm, ChaveErro, configuracoesBusca, CotaErro, type ImagemBusca } from "./buscaImagem";
 import { consultaFotoExata, escolherFotoExata } from "./escolha";
 
 /**
  * Rotina de busca automática de fotos, só a foto exata do material (pela referência do fabricante; foto genérica do tipo
  * não serve), só dos materiais do almoxarifado (MB52) com referência e sem foto do fabricante; o catálogo do Sysmat só
  * empresta a descrição com FAB/REF. Cada tentativa fica no cadastro `fotos_busca_estado.json`
- * (não repete por 60 dias); o orçamento do dia é contado nesse mesmo cadastro.
+ * (não repete por 60 dias); o orçamento do dia é contado nesse mesmo cadastro, no total e por provedor. Cada material
+ * passa pelos provedores configurados em rodízio (buscaImagem.ts) até um deles trazer a foto exata.
  */
 
 export const ARQUIVO_ESTADO = "fotos_busca_estado.json";
@@ -117,14 +118,22 @@ export async function carregarDados(): Promise<DadosBusca> {
   return { estoque: mb52, catalogo: cat.dados ?? [], refs, estado, agora: Date.now() };
 }
 
-/** Orçamento do dia (por padrão 30; máx. 200), da variável BUSCA_IMAGENS_POR_DIA. */
+/**
+ * Orçamento do dia (máx. 200), da variável BUSCA_IMAGENS_POR_DIA; sem ela, a soma das cotas gratuitas dos provedores
+ * configurados (ou 30, sem nenhum).
+ */
 export function limiteDiario(env: Partial<NodeJS.ProcessEnv> = process.env): number {
+  const somaCotas = configuracoesBusca(env).reduce((s, c) => s + c.porDia, 0);
+  const padrao = somaCotas ? Math.min(LIMITE_DIA_MAX, somaCotas) : LIMITE_DIA_PADRAO;
   const bruto = env.BUSCA_IMAGENS_POR_DIA?.trim();
-  if (!bruto) return LIMITE_DIA_PADRAO;
+  if (!bruto) return padrao;
   const n = Number(bruto);
-  if (!Number.isFinite(n)) return LIMITE_DIA_PADRAO;
+  if (!Number.isFinite(n)) return padrao;
   return Math.max(0, Math.min(LIMITE_DIA_MAX, Math.floor(n)));
 }
+
+/** Um provedor na rodada: nome, cota do dia e a busca. */
+export interface ProvedorRodada { nome: string; porDia: number; buscar: (consulta: string) => Promise<ImagemBusca[]> }
 
 export interface OpcoesRodada {
   /** Orçamento do dia inteiro (buscas já feitas hoje, na rotina ou no botão, contam). */
@@ -132,9 +141,10 @@ export interface OpcoesRodada {
   /** Quantas buscas esta rodada pode fazer (o botão usa 10). */
   porRodada: number;
   prazoMs?: number;
-  /** Só para os testes: outra leitura dos dados e outra busca. */
+  /** Só para os testes: outra leitura dos dados e outra busca (um provedor só) ou outros provedores. */
   dados?: () => Promise<DadosBusca>;
   buscar?: (consulta: string) => Promise<ImagemBusca[]>;
+  provedores?: ProvedorRodada[];
 }
 
 /**
@@ -142,7 +152,10 @@ export interface OpcoesRodada {
  * estado das tentativas. Nunca registra URLs nem dados no log: só contagens.
  */
 export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
-  if (!configuracaoBusca()) {
+  const provs: ProvedorRodada[] = o.provedores ?? (o.buscar
+    ? [{ nome: "teste", porDia: Number.POSITIVE_INFINITY, buscar: o.buscar }]
+    : configuracoesBusca().map((c) => ({ nome: c.provedor, porDia: c.porDia, buscar: (q: string) => buscarImagensEm(c, q) })));
+  if (!provs.length) {
     console.info("busca de fotos desligada");
     return vazio("busca de fotos desligada", false);
   }
@@ -152,31 +165,60 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
   try {
     const d = await (o.dados ?? carregarDados)();
     const hoje = dataDe(d.agora);
-    const dia = d.estado[CHAVE_DIA] as { dia?: unknown; usadas?: unknown } | undefined;
-    const usadasHoje = dia?.dia === hoje && typeof dia.usadas === "number" ? dia.usadas : 0;
+    const dia = d.estado[CHAVE_DIA] as { dia?: unknown; usadas?: unknown; por?: unknown } | undefined;
+    const doDia = dia?.dia === hoje;
+    const usadasHoje = doDia && typeof dia.usadas === "number" ? dia.usadas : 0;
+    // buscas já feitas hoje em cada provedor (a cota gratuita é de cada um)
+    const porProv = new Map<string, number>(doDia && dia.por && typeof dia.por === "object"
+      ? Object.entries(dia.por as Record<string, unknown>).map(([k, v]) => [k, typeof v === "number" ? v : 0]) : []);
+    const usadasAgora = new Map<string, number>();
+    const esgotados = new Set<string>();
+    const livre = (p: ProvedorRodada) => !esgotados.has(p.nome) && (porProv.get(p.nome) ?? 0) + (usadasAgora.get(p.nome) ?? 0) < p.porDia;
     const teto = Math.min(o.porRodada, Math.max(0, o.limiteDia - usadasHoje));
     const alvos = planejarBusca(d);
     const prazo = o.prazoMs ?? PRAZO_RODADA_MS;
-    const buscar = o.buscar ?? buscarImagens;
     const achouRef: Cadastro = {}, novos: Cadastro = {};
     const em = new Date(d.agora).toISOString();
     let chamadas = 0, achados = 0, semResultado = 0, erros = 0, motivo = "fim da fila";
     if (teto <= 0) motivo = "orçamento do dia esgotado";
-    for (const alvo of alvos) {
+    fila: for (const alvo of alvos) {
       if (teto <= 0) break;
       if (chamadas >= teto) { motivo = "orçamento da rodada"; break; }
       if (Date.now() - inicio > prazo) { motivo = "tempo da rodada"; break; }
-      let lista: ImagemBusca[];
-      chamadas++;
-      try {
-        lista = await buscar(alvo.consulta);
-      } catch (e) {
-        if (e instanceof CotaErro) { motivo = "cota do provedor de busca"; break; }
-        erros++; // falha comum: não grava a tentativa, tenta de novo amanhã
+      if (!provs.some(livre)) { motivo = "cota do provedor de busca"; break; }
+      let respondeu = false, cortado = false, achei: ReturnType<typeof escolherFotoExata> = null, quem = "";
+      // rodízio: o próximo provedor só entra se o anterior não trouxe a foto exata
+      for (const p of provs) {
+        if (!livre(p)) continue;
+        // orçamento ou prazo no meio do rodízio: o material não fica como "sem foto" (volta na próxima rodada)
+        if (chamadas >= teto) { cortado = true; break; }
+        if (Date.now() - inicio > prazo) { cortado = true; break; }
+        chamadas++;
+        usadasAgora.set(p.nome, (usadasAgora.get(p.nome) ?? 0) + 1);
+        let lista: ImagemBusca[];
+        try {
+          lista = await p.buscar(alvo.consulta);
+        } catch (e) {
+          if (e instanceof CotaErro) {
+            // sem cota hoje: fica gravado como cheio no dia (o botão não gasta outra chamada nele)
+            esgotados.add(p.nome);
+            if (Number.isFinite(p.porDia)) usadasAgora.set(p.nome, Math.max(usadasAgora.get(p.nome) ?? 0, p.porDia - (porProv.get(p.nome) ?? 0)));
+            continue;
+          }
+          if (e instanceof ChaveErro) { esgotados.add(p.nome); erros++; continue; }
+          erros++; // falha comum: tenta o próximo; sem resposta de nenhum, tenta de novo amanhã
+          continue;
+        }
+        respondeu = true;
+        achei = escolherFotoExata(lista, alvo.fab, alvo.ref);
+        if (achei) { quem = p.nome; break; }
+      }
+      if (cortado && !achei) { motivo = chamadas >= teto ? "orçamento da rodada" : "tempo da rodada"; break fila; }
+      if (!respondeu) {
+        if (!provs.some(livre)) { motivo = "cota do provedor de busca"; break fila; }
         continue;
       }
-      const achei = escolherFotoExata(lista, alvo.fab, alvo.ref);
-      novos[alvo.chave] = { data: em, resultado: achei ? "achou" : "sem" };
+      novos[alvo.chave] = { data: em, resultado: achei ? "achou" : "sem", ...(quem && { provedor: quem }) };
       if (!achei) { semResultado++; continue; }
       achados++;
       achouRef[alvo.material] = { url: achei.imagem, pagina: achei.pagina, titulo: achei.titulo, buscado_em: em };
@@ -191,9 +233,12 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
       ...novos,
       [CHAVE_ULTIMA]: { em, buscados: chamadas, achados, sem_resultado: semResultado, erros, motivo, orcamento: teto },
       // soma sobre o valor gravado na hora (outra rodada pode ter gravado no meio)
-      [CHAVE_DIA]: (atual: Record<string, unknown> | undefined) => ({
-        dia: hoje, usadas: (atual?.dia === hoje && typeof atual.usadas === "number" ? atual.usadas : 0) + chamadas,
-      }),
+      [CHAVE_DIA]: (atual: Record<string, unknown> | undefined) => {
+        const mesmo = atual?.dia === hoje;
+        const por: Record<string, number> = mesmo && atual?.por && typeof atual.por === "object" ? { ...(atual.por as Record<string, number>) } : {};
+        for (const [k, n] of usadasAgora) por[k] = (typeof por[k] === "number" ? por[k] : 0) + n;
+        return { dia: hoje, usadas: (mesmo && typeof atual?.usadas === "number" ? atual.usadas : 0) + chamadas, por };
+      },
     }, "busca automática", false);
     resumoGuardado = null; // a cobertura mudou
     console.info(`busca de fotos: ${chamadas} buscas, ${achados} achados, ${semResultado} sem resultado, ${erros} erros (${motivo})`);
@@ -234,7 +279,7 @@ export async function resumoFotosAutomaticas(): Promise<ResumoFotos> {
 }
 
 async function calcularResumoFotos(): Promise<ResumoFotos> {
-  const cfg = configuracaoBusca();
+  const cfgs = configuracoesBusca();
   const d = await carregarDados();
   const cadMat = await lerCadastro("cadastro_materiais.json");
   const base = (material: string) => ({
@@ -246,8 +291,8 @@ async function calcularResumoFotos(): Promise<ResumoFotos> {
   const ultima = d.estado[CHAVE_ULTIMA] as { em?: unknown; buscados?: unknown; achados?: unknown; motivo?: unknown } | undefined;
   const dia = d.estado[CHAVE_DIA] as { dia?: unknown; usadas?: unknown } | undefined;
   return {
-    ligada: !!cfg,
-    provedor: cfg?.provedor ?? null,
+    ligada: cfgs.length > 0,
+    provedor: cfgs.length ? cfgs.map((c) => c.provedor).join(", ") : null,
     ultima: ultima && typeof ultima.em === "string" ? { em: ultima.em, buscados: Number(ultima.buscados) || 0,
       achados: Number(ultima.achados) || 0, motivo: String(ultima.motivo ?? "") } : null,
     almoxarifado: cobertura(almox),
