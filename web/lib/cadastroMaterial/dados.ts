@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { registrar } from "../auditoria";
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { LIMITE_DOCUMENTO, tipoDocumento } from "../dados/documentos";
+import { comPecasDaRegra } from "../dados/regrasVinculo";
 import { fonte, FonteErro } from "../dados/fonte";
 import { bases } from "../wcm/dados";
 import {
@@ -46,18 +47,17 @@ export async function lerPedidos(fresco = false): Promise<Pedido[]> {
 }
 
 /** Equipamentos que podem receber o pedido: tag → nome (cadastro do site + IH08 em uso, como a aba Equipamentos lista). */
+/** Equipamentos em uso no IH08 (sem a base ou se ela falhar: lista vazia). */
+const ih08Ativos = () => bases().then((b) => (b.equipamentos.dados ?? []).filter((e) => e.equipamento && !e.inativo)).catch(() => []);
+
 export async function tagsEquipamentos(): Promise<Map<string, string>> {
-  const [cad, ih08] = await Promise.all([
-    lerCadastro(ARQ_EQUIPAMENTOS),
-    bases().then((b) => b.equipamentos.dados ?? []).catch(() => []),
-  ]);
+  const [cad, ih08] = await Promise.all([lerCadastro(ARQ_EQUIPAMENTOS), ih08Ativos()]);
   const m = new Map<string, string>();
   for (const [tag, v] of Object.entries(cad)) {
     if (!tag || !v || typeof v !== "object" || Array.isArray(v)) continue;
     m.set(tag, String((v as Record<string, unknown>).nome ?? "").trim());
   }
   for (const e of ih08) {
-    if (!e.equipamento || e.inativo) continue;
     if (!m.get(e.equipamento)) m.set(e.equipamento, e.denominacao || "");
   }
   return m;
@@ -104,7 +104,8 @@ async function apagarFoto(pedido: string, arquivo: string | undefined) {
   const f = fonte();
   if (!f) { demo.delete(c); return; }
   const v = (await f.versoes(true).catch(() => null))?.get(c);
-  if (v) await f.apagar(c, v, "Remove foto de pedido de cadastro de material").catch(() => false);
+  const ok = v ? await f.apagar(c, v, "Remove foto de pedido de cadastro de material").catch(() => false) : false;
+  if (!ok) console.warn(`Cadastro de material: não consegui apagar a foto ${c}.`);
 }
 
 async function camposValidos(e: EntradaPedido) {
@@ -179,16 +180,19 @@ export async function excluirPedido(p: Papel, id: string, por: string): Promise<
 // ----------------------------------------------------------------------------
 // Etapas (Almoxarifado e PCM)
 // ----------------------------------------------------------------------------
-/** Acrescenta o SAP em `materiais` do equipamento (sem duplicar); aviso se o equipamento saiu do cadastro. */
-async function vincular(tag: string, sap: string, por: string): Promise<string> {
+/**
+ * Acrescenta o SAP em `materiais` do equipamento (sem duplicar). Equipamento só no IH08 (em uso) ganha um item novo no
+ * cadastro, como nas regras de vínculo (comPecasDaRegra); fora das duas fontes, aviso para vincular à mão.
+ */
+async function vincular(tag: string, nome: string, sap: string, por: string): Promise<string> {
+  const noIh08 = (await ih08Ativos()).find((e) => e.equipamento === tag);
   let achou = false;
   try {
     await gravarCadastroLote(ARQ_EQUIPAMENTOS, { [tag]: (atual) => {
-      if (!atual || typeof atual !== "object") return undefined;
+      const item = atual && typeof atual === "object" && !Array.isArray(atual) ? atual : undefined;
+      if (!item && !noIh08) return undefined;
       achou = true;
-      const mats = Array.isArray(atual.materiais) ? [...new Set(atual.materiais.map(String))] : [];
-      if (mats.includes(sap)) return undefined;
-      return { ...atual, materiais: [...mats, sap] };
+      return comPecasDaRegra(item, nome || noIh08?.denominacao || "", [sap]) ?? undefined;
     } }, por);
   } catch {
     return "Não consegui vincular o material ao equipamento agora: vincule à mão.";
@@ -221,15 +225,15 @@ export async function agir(p: Papel, id: string, acao: Acao, motivo: string, fot
     throw err;
   }
   if (antiga) await apagarFoto(id, antiga);
-  const aviso = acao === "validar" ? await vincular(lido.equipamento.tag, lido.sap, por) : "";
-  void registrar(por, "cadastro_material", id, { acao });
+  const aviso = acao === "validar" ? await vincular(lido.equipamento.tag, lido.equipamento.nome, lido.sap, por) : "";
+  void registrar(por, "cadastro_material", id, acao === "validar" ? { acao, sap: lido.sap, tag: lido.equipamento.tag } : { acao });
   return aviso ? { aviso } : {};
 }
 
 /** A foto do pedido ou da chegada (quem pode ver é conferido na rota). */
 export async function lerFoto(id: string, qual: "pedido" | "chegada"): Promise<{ bytes: Uint8Array; tipo: string; nome: string } | null> {
   if (!idOk(id)) return null;
-  const p = pedidoDe(id, (await lerCadastro(ARQ_PEDIDOS))[id]);
+  const p = pedidoDe(id, (await lerCadastro(ARQ_PEDIDOS, { fresco: true }))[id]);
   const f = qual === "pedido" ? p?.foto : qual === "chegada" ? p?.fotoChegada : null;
   if (!f) return null;
   const fo = fonte();

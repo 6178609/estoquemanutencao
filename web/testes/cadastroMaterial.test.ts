@@ -228,6 +228,19 @@ describe("cadastro de material: gravação (demonstração, na memória)", async
     expect((await lerCadastro("cadastro_equipamentos.json", { fresco: true }))["EQ-TESTE2"]).toBeUndefined();
   });
 
+  it("equipamento só no IH08 (demonstração fictícia) ganha item no cadastro com o SAP", async () => {
+    const { bases } = await import("@/lib/wcm/dados");
+    const cad = await lerCadastro("cadastro_equipamentos.json", { fresco: true });
+    const eq = (await bases()).equipamentos.dados!.find((e) => !e.inativo && !(e.equipamento in cad))!;
+    expect(eq).toBeTruthy();
+    const id = await D.lancarPedido(DONO, ent({ sap: "9999906", tag: eq.equipamento }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
+    await D.agir(ALM, id, "aprovar", "", null, "A");
+    await D.agir(ALM, id, "chegou", "", { nome: "c.jpg", bytes: JPG(4) }, "A");
+    expect(await D.agir(PC, id, "validar", "", null, "P")).toEqual({});
+    const item = (await lerCadastro("cadastro_equipamentos.json", { fresco: true }))[eq.equipamento];
+    expect(item).toMatchObject({ nome: eq.denominacao, materiais: ["9999906"] });
+  });
+
   it("excluir só o dono, antes da aprovação, e apaga as fotos", async () => {
     const id = await D.lancarPedido(DONO, ent({ sap: "9999904" }), { nome: "f.jpg", bytes: JPG() }, "Dono Teste");
     // editar troca a foto num arquivo novo e apaga a antiga
