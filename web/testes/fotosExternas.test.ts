@@ -20,12 +20,12 @@ describe("prioridade da foto do item", () => {
     expect(fotoDoItem({ ...base, foto: null, fotoRef: REF })?.origem).toBe("referencia");
     expect(fotoDoItem({ ...base, foto: null, fotoRef: null })).toBeNull();
   });
-  it("foto de produto equivalente (item sem referência) tem origem e rótulo próprios", () => {
+  it("foto de produto equivalente (genérica) fica marcada no cadastro e não é mostrada", () => {
     const f = fotoDoCadastro({ url: URL_OK, pagina: null, titulo: "Abraçadeira 150x3,6", equivalente: true })!;
     expect(f.equivalente).toBe(true);
     const ext = fotoExternaDe(f);
     expect(ext.eq).toBe(true);
-    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: ext })?.origem).toBe("equivalente");
+    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: ext })).toBeNull();
     expect(fotoDoItem({ material: "100200", foto: null, fotoRef: REF })?.origem).toBe("referencia");
     expect(fotoExternaDe(fotoDoCadastro({ url: URL_OK, equivalente: "sim" })!).eq).toBeUndefined();
   });
