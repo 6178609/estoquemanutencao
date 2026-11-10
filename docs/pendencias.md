@@ -17,8 +17,12 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
     IW32 CSV/VBS): a fazer, cada uma revisada pelo Opus e publicada.
 - **Fotos e datasheets dos materiais:** fila de ~48 mil materiais com fabricante+REF. Buscas manuais pelo Firecrawl e pela
   busca web quando houver crédito/limite; a rotina automática só roda com as chaves na Vercel (abaixo).
+  10/11: 160 materiais da lista curada buscados (71 páginas novas, 604 no total); ~520 restantes da lista curada.
+  Créditos diários do Firecrawl esgotados — renovam em 11/11 ~14:51 UTC. Páginas de busca (/busca, ?q=) já são recusadas.
 
 ## Depende do usuário (Vercel → Settings)
+- **Deploy bloqueado (10/11, "Account is blocked")**: o merge do PR #196 não publicou; o site segue no ar com o #195.
+  Conferir em vercel.com → conta → Usage/Billing o motivo (limite do plano gratuito) e liberar; depois redeploy do main.
 - Chaves gratuitas: `BUSCA_IMAGENS_CHAVE_BRAVE`, `_SERPER`, `_FIRECRAWL`, `_SERPAPI` (Sensitive) e `CRON_SECRET`; Redeploy.
 - SMTP para o aviso de treinamentos: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE`.
 - Domínios: ligar `estoquemanutencao.vercel.app` a Production (hoje redireciona para domínio sem DNS) e remover os `.com`.
