@@ -26,10 +26,10 @@ describe("motor — retirados e críticos", () => {
     expect(linhasDe(r, "MOINHO 04").map((l) => [l.data, l.turno])).toEqual([[N(9), 1]]);
   });
 
-  it("sem Banbury no mês, o MOINHO 04 não entra no passo 2", () => {
+  it("sem Banbury no mês, o MOINHO 04 é um ativo comum (só 1º turno)", () => {
     const r = programar(entrada([itens("MOINHO 04", N(20), "MEC", 2)]));
-    expect(linhasDe(r, "MOINHO 04")).toEqual([]);
-    expect(r.semHh.map((s) => s.ativo)).toEqual(["MOINHO 04"]);
+    expect(linhasDe(r, "MOINHO 04").map((l) => [l.data, l.turno])).toEqual([[N(17), 1]]);
+    expect(r.semHh).toEqual([]);
   });
 
   it("prensas nas quartas, uma por semana, cada uma com o moinho SF da vez", () => {

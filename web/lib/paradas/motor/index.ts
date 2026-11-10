@@ -5,6 +5,7 @@ import type { EntradaMotor, LinhaProgramacao, Retirado, ResultadoMotor } from ".
 import { pendentes, type Ctx } from "./comum";
 import { programarCriticos } from "./criticos";
 import { Estado, hhDe } from "./estado";
+import { programarNaoCriticos, programarSabado } from "./naoCriticos";
 
 /**
  * Motor de regras (spec §5): puro e determinístico. Recebe as demandas por ativo e mês e devolve a programação dia ×
@@ -52,6 +53,8 @@ export function programar(e: EntradaMotor): ResultadoMotor {
       ordemPend: [], semHh: out.semHh, avisos: out.avisos, rodizio,
     };
     programarCriticos(c);
+    programarSabado(c);
+    programarNaoCriticos(c);
     for (const [ativo] of c.pend) {
       const its = pendentes(c, ativo);
       const d0 = c.demandas.get(ativo)!;
