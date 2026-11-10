@@ -28,8 +28,8 @@ export async function programacaoParadas(): Promise<ProgramacaoParadas | null> {
   const demo = !fonte();
   const [cadLido, campo] = await Promise.all([lerCadastro(ARQ_PARADAS), campoDoEquipamento({ b })]);
   const cad = cadLido as Record<string, Record<string, unknown>>;
-  // demonstração: os dados fictícios não têm GAL1 nem Componentes — todas as localizações e centros
-  const cadUsado = demo ? { ...cad, parametros: { ...(cad.parametros ?? {}), localizacoes: [], centrosEliminados: [] } } : cad;
+  // demonstração: os dados fictícios não têm GAL1, Componentes nem as máquinas das classes — tudo entra
+  const cadUsado = demo ? { ...cad, parametros: { ...(cad.parametros ?? {}), localizacoes: [], centrosEliminados: [], soClasses: false } } : cad;
   const atualizado = { ip19: b.cruas.ip19.atualizado, iw38: b.ordens.atualizado, ih08: b.equipamentos.atualizado, iw38op: b.operacoes.atualizado };
   const assin = [b.cruas.ip19, b.ordens, b.operacoes, b.equipamentos].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}`).join("|");
   const chave = `paradas|${assin}|${hashTexto(JSON.stringify(cadUsado))}|${b.hoje}|${demo}`;

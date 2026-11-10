@@ -3,6 +3,7 @@ import { COLUNAS_IP19, dataDe, EXCLUIR_IP19 } from "@/lib/wcm/planos";
 import type { Crua, Equipamento } from "@/lib/wcm/preparo";
 
 import { chaveMes } from "./calendario";
+import { PARAMETROS_PADRAO } from "./parametros";
 import type { Disciplina, ItemPlano, Parametros } from "./tipos";
 
 /**
@@ -10,12 +11,11 @@ import type { Disciplina, ItemPlano, Parametros } from "./tipos";
  * pelo centro de trabalho e o HH pela unidade do trabalho.
  */
 
-export function disciplinaDoCentro(centro: string): Disciplina | null | "vazio" {
+export function disciplinaDoCentro(centro: string, componentes: string[] = PARAMETROS_PADRAO.centrosComponentes): Disciplina | null | "vazio" {
   const c = (centro ?? "").trim().toUpperCase();
   if (!c) return "vazio";
-  if (/^ELE_/.test(c)) return "ELE";
-  if (/^MEC_|^COMPONEN$|^UTILIDAD$/.test(c)) return "MEC";
-  return null;
+  if (!componentes.some((x) => x.toUpperCase() === c)) return null;
+  return /^ELE_/.test(c) ? "ELE" : "MEC";
 }
 
 export interface LeituraIp19 { itens: ItemPlano[]; descartes: Record<string, number>; semCentro: number }
@@ -61,7 +61,7 @@ export function itensDaIp19(cru: Crua[], p: Parametros, eqs: Map<string, Equipam
     if (grupos.size && !grupos.has(t(l, "grupoPlanejamento").toUpperCase())) { fora("outro grupo de planejamento"); continue; }
     const centro = t(l, "centroTrabalho").toUpperCase();
     if (eliminados.has(centro)) { fora("centro eliminado"); continue; }
-    let disc = disciplinaDoCentro(centro);
+    let disc = disciplinaDoCentro(centro, p.centrosComponentes);
     if (disc === null && opcoes.qualquerCentro) disc = "MEC"; // demonstração: qualquer centro conta como mecânica
     if (disc === null) { fora("fora de Componentes"); continue; }
     const mes = chaveMes(dataIp19);

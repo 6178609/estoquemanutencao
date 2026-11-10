@@ -41,6 +41,7 @@ const CLASSES_PADRAO: ClasseAtivo[] = [
 export const PARAMETROS_PADRAO: Parametros = {
   versao: 1,
   localizacoes: ["GAL1"], gruposPlanejamento: [], centrosEliminados: ["ELMC_MTZ", "OPER_MTZ"],
+  centrosComponentes: ["MEC_COMP", "ELE_COMP", "COMPONEN", "UTILIDAD"], soClasses: true,
   unidadePadraoIp19: "MIN",
   turnos: {
     t1: { pessoasMec: 6, pessoasEle: 2, horasPorPessoa: 6.5, inicio: "05:30", fim: "14:00" },
@@ -107,7 +108,9 @@ function turnoDe(v: unknown, padrao: CapTurno): CapTurno | null {
 /** Valida um campo; devolve o valor aceito ou `undefined` (inválido). */
 function validar(campo: keyof Parametros, v: unknown): unknown {
   switch (campo) {
-    case "localizacoes": case "gruposPlanejamento": case "centrosEliminados": case "rodizioMoinhos":
+    case "soClasses":
+      return typeof v === "boolean" ? v : undefined;
+    case "localizacoes": case "gruposPlanejamento": case "centrosEliminados": case "rodizioMoinhos": case "centrosComponentes":
     case "tiposPrimeiroT2": case "tiposPreferenciaT1": case "tiposSabadoPreenchimento":
       return textos(v) ? v.map((x) => x.trim().toUpperCase()).filter(Boolean) : undefined;
     case "ordemCriticos":

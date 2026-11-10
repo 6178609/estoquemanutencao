@@ -52,6 +52,7 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
   });
   const meses = [...new Set([...calculo.resumo.map((r) => r.mes), ...linhas.map((l) => l.mes)])].sort();
   const n = (x: number) => x.toLocaleString("pt-BR");
+  const h1 = (x: number) => x.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
   const descartes = Object.entries(montado.leitura.descartes).filter(([, q]) => q > 0);
   return (
     <PaginaWcm barra={barra(c)} periodo={false} dimensoes={false}>
@@ -63,6 +64,32 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
           ? <Verificacao resumo={calculo.resumo} conferencias={calculo.conferencias} />
           : <TabelaProgramacao linhas={linhas} meses={meses} />}
       </Secao>
+      {montado.foraDasClasses.length > 0 && (
+        <Secao titulo="Fora das classes" destaque={`${n(montado.foraDasClasses.length)} ativo(s)`}
+          sub="Equipamentos com chamada na IP19 cuja denominação não casa com nenhuma classe dos Parâmetros: não entram no calendário (o HH aparece aqui para conferir).">
+          <div className="overflow-x-auto rounded-cartao border border-borda bg-superficie">
+            <table className="w-full min-w-[720px] text-left text-[12.5px]">
+              <caption className="sr-only">Ativos fora das classes, com o HH da IP19</caption>
+              <thead className="border-b border-borda bg-superficie-2 text-[11.5px] text-texto-3">
+                <tr>{["Ativo", "Denominação", "Campo(s)", "Equipamentos", "HH MEC", "HH ELE", "Itens"].map((x) => <th key={x} scope="col" className="px-3 py-2 font-medium">{x}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-borda tabular-nums">
+                {montado.foraDasClasses.map((a) => (
+                  <tr key={a.ativo}>
+                    <td className="px-3 py-1.5 font-medium">{a.ativo}</td>
+                    <td className="px-3 py-1.5">{a.denominacao}</td>
+                    <td className="px-3 py-1.5">{a.campos.join(", ")}</td>
+                    <td className="max-w-[220px] truncate px-3 py-1.5 text-texto-3" title={a.equipamentos.join(", ")}>{a.equipamentos.join(", ")}</td>
+                    <td className="px-3 py-1.5 text-right">{h1(a.hh.mec)}</td>
+                    <td className="px-3 py-1.5 text-right">{h1(a.hh.ele)}</td>
+                    <td className="px-3 py-1.5 text-right">{a.itens}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Secao>
+      )}
       <Secao titulo="De onde vêm" destaque="os números">
         <Cartao className="space-y-3 p-5 text-[13px] text-texto-2">
           <p>

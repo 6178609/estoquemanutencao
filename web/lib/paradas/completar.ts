@@ -85,7 +85,7 @@ export function completarHh(itens: ItemPlano[], ordens: OrdemMin[], ops: OpMin[]
     for (const f of fontes) {
       const centro = f.centro.trim().toUpperCase();
       if (eliminados.has(centro)) continue;
-      const disc = disciplinaDoCentro(centro);
+      const disc = disciplinaDoCentro(centro, p.centrosComponentes);
       if (disc === null) continue; // fora de Componentes
       const { centroAssumido: _, ...resto } = c;
       void _;

@@ -9,7 +9,7 @@ import { itensDaIp19, type LeituraIp19 } from "./leitura";
 import { diasDaEntrada, programar } from "./motor";
 import { parametrosDe } from "./parametros";
 import { alertas, type Alerta } from "./regras";
-import type { EntradaMotor, Fixacao, OrigemHh, ResultadoMotor } from "./tipos";
+import type { EntradaMotor, Fixacao, HH, OrigemHh, ResultadoMotor } from "./tipos";
 import { resumoPorMes, saldoPorDia, type LinhaSaldo, type ResumoMes } from "./visoes";
 
 /**
@@ -19,7 +19,12 @@ import { resumoPorMes, saldoPorDia, type LinhaSaldo, type ResumoMes } from "./vi
 
 type Cadastro = Record<string, Record<string, unknown>>;
 
-export interface Montado { entrada: EntradaMotor; leitura: LeituraIp19; completadas: Record<OrigemHh, number>; avisos: string[] }
+export interface ForaDasClasses { ativo: string; denominacao: string; campos: string[]; equipamentos: string[]; hh: HH; itens: number }
+export interface Montado {
+  entrada: EntradaMotor; leitura: LeituraIp19; completadas: Record<OrigemHh, number>; avisos: string[];
+  /** ativos sem classe (com `soClasses`): ficam fora do calendário, só listados */
+  foraDasClasses: ForaDasClasses[];
+}
 
 function fixacoesDe(cad: Cadastro | null): Fixacao[] {
   const out: Fixacao[] = [];
@@ -47,11 +52,26 @@ export function montarEntrada(x: {
   const leitura = itensDaIp19(x.ip19 ?? [], p, eqs, new Set(meses), { qualquerCentro: x.demo });
   const { itens, completadas } = completarHh(leitura.itens, x.ordens ?? [], x.ops ?? [], p);
   const m = montarAtivos(itens, eqs, x.campoGeral, p);
-  const entrada: EntradaMotor = { demandas: demandas(m.itens), ativos: m.ativos, parametros: p, inicio, fim, fixacoes: fixacoesDe(x.cad),
+  let dem = demandas(m.itens);
+  const foraDasClasses: ForaDasClasses[] = [];
+  if (p.soClasses) {
+    const fora = new Map<string, ForaDasClasses>();
+    for (const d of dem) {
+      const a = m.ativos[d.ativo];
+      if (!a?.semClasse) continue;
+      const x = fora.get(d.ativo) ?? { ativo: d.ativo, denominacao: a.denominacao, campos: a.campos, equipamentos: a.equipamentos, hh: { mec: 0, ele: 0 }, itens: 0 };
+      x.hh = { mec: x.hh.mec + d.hh.mec, ele: x.hh.ele + d.hh.ele };
+      x.itens += d.itens.length;
+      fora.set(d.ativo, x);
+    }
+    dem = dem.filter((d) => !m.ativos[d.ativo]?.semClasse);
+    foraDasClasses.push(...[...fora.values()].sort((a, b) => (a.ativo < b.ativo ? -1 : 1)));
+  }
+  const entrada: EntradaMotor = { demandas: dem, ativos: m.ativos, parametros: p, inicio, fim, fixacoes: fixacoesDe(x.cad),
     ocupacaoAnterior: [] };
   const todos = [...avisos, ...m.avisos];
   if (completadas["sem-hh"]) todos.push(`${completadas["sem-hh"]} chamada(s) da IP19 sem operação e sem ordem/plano anterior para completar o HH.`);
-  return { entrada, leitura, completadas, avisos: todos };
+  return { entrada, leitura, completadas, avisos: todos, foraDasClasses };
 }
 
 export interface Calculo {

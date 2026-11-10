@@ -74,6 +74,10 @@ export interface CapTurno { pessoasMec: number; pessoasEle: number; horasPorPess
 export interface Parametros {
   versao: 1;
   localizacoes: string[]; gruposPlanejamento: string[]; centrosEliminados: string[];
+  /** centros de trabalho de Componentes (ELE_… = elétrica; os outros = mecânica) */
+  centrosComponentes: string[];
+  /** só ativos de alguma classe entram no calendário (os outros vão para "Fora das classes") */
+  soClasses: boolean;
   unidadePadraoIp19: "MIN" | "H";
   turnos: { t1: CapTurno; t2: CapTurno; sabado: CapTurno };
   feriados: { data: string /* AAAA-MM-DD */; nome: string }[];

@@ -33,6 +33,17 @@ describe("montagem da programação", () => {
     expect(c.r.linhas.map((l) => l.ativo).sort()).toEqual(["GOLDEN 01", "PVC 08"]);
   });
 
+  it("ativo sem classe fica no quadro Fora das classes", () => {
+    const eqs = [eq("EQ-1", "GAL1", "C-100", "INJETORA PVC TESTE 008"), eq("EQ-9", "GAL1", "C-900", "MAQUINA XYZ TESTE")];
+    const ip19 = [linha({}), linha({ "Plano de manutenção": "900", Equipamento: "EQ-9" })];
+    const m = montarEntrada({ ip19, ordens: null, ops: null, eqs, campoGeral: () => "", cad: null, hoje: D(2026, 11, 10) });
+    expect(m.entrada.demandas.map((d) => d.ativo)).toEqual(["PVC 08"]);
+    expect(m.foraDasClasses).toEqual([expect.objectContaining({ ativo: "MAQUINA XYZ TESTE", campos: ["C-900"], hh: { mec: 1, ele: 0 }, itens: 1 })]);
+    const todos = montarEntrada({ ip19, ordens: null, ops: null, eqs, campoGeral: () => "", cad: { parametros: { soClasses: false } }, hoje: D(2026, 11, 10) });
+    expect(todos.entrada.demandas.map((d) => d.ativo)).toEqual(["MAQUINA XYZ TESTE", "PVC 08"]);
+    expect(todos.foraDasClasses).toEqual([]);
+  });
+
   it("fixações e parâmetros do cadastro", () => {
     const cad = { parametros: { inicio: "2026-11-02", meses: 1 },
       "fixacao:2026-11|PVC 08|1": { mes: "2026-11", ativo: "PVC 08", parada: 1, data: "2026-11-20", turno: 2 },

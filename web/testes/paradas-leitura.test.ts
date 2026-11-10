@@ -21,8 +21,12 @@ function linha(x: Record<string, unknown> = {}): Record<string, unknown> {
 
 describe("leitura da IP19", () => {
   it("disciplina pelo centro de trabalho", () => {
-    for (const c of ["ELE_COMP", "ELE_MONT", "ELE_GPA"]) expect(disciplinaDoCentro(c)).toBe("ELE");
-    for (const c of ["MEC_COMP", "MEC_GPA", "COMPONEN", "UTILIDAD"]) expect(disciplinaDoCentro(c)).toBe("MEC");
+    expect(disciplinaDoCentro("ELE_COMP")).toBe("ELE");
+    for (const c of ["MEC_COMP", "COMPONEN", "UTILIDAD"]) expect(disciplinaDoCentro(c)).toBe("MEC");
+    // só os centros de Componentes do parâmetro
+    for (const c of ["ELE_MONT", "ELE_GPA", "MEC_GPA"]) expect(disciplinaDoCentro(c)).toBeNull();
+    expect(disciplinaDoCentro("ELE_GPA", ["ELE_GPA"])).toBe("ELE");
+    expect(disciplinaDoCentro("MEC_GPA", ["MEC_GPA"])).toBe("MEC");
     expect(disciplinaDoCentro("")).toBe("vazio");
     expect(disciplinaDoCentro("PRED_CIV")).toBeNull();
   });
