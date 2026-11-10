@@ -121,6 +121,8 @@ export function prepararCatalogo(cru: Linha[]): ItemCatalogo[] {
     if (VAZIOS.has(it.categoria)) it.categoria = "";
     if (VAZIOS.has(it.subcategoria)) it.subcategoria = "";
     it.status = it.status.toUpperCase().trim();
+    // cancelado e duplicado não fazem parte do banco do site (o envio já os descarta; aqui vale para bases antigas)
+    if (it.status === "CANCELADO" || it.status === "DUPLICADO") continue;
     it.fabricanteRef = fabricanteRef(it.descrCompleta);
     if (it.material || it.sysmat) todos.push(it);
   }

@@ -81,7 +81,10 @@
   `fotos_busca_estado.json`.
 - **Todos os materiais do site (pedido do PCM, 10/11/2026):** a busca cobre o catálogo inteiro do Sysmat, de qualquer local e
   status, além do almoxarifado, numa fila por prioridade: almoxarifado (MB52) → ligados a equipamentos (MRO) → aprovados →
-  bloqueados e demais → cancelados e duplicados (`planejarBusca`). Só entra quem tem fabricante e REF.
+  bloqueados e demais (`planejarBusca`). Só entra quem tem fabricante e REF.
+- **Sem cancelados e duplicados no banco (pedido do PCM, 10/11/2026):** o envio do catálogo do Sysmat descarta as linhas
+  CANCELADO e DUPLICADO (`semCanceladosDuplicados` em `lib/leitura/processar.ts`) e a leitura também as ignora
+  (`prepararCatalogo`); vínculos e fotos desses códigos foram removidos dos cadastros.
 - **Só foto real do item:** própria ou do fabricante, cujo título/página traz a referência (REF) do material. Foto genérica
   por tipo, subcategoria ou categoria (ilustrativa) não é usada: mostrava peça diferente da descrição. Sem foto exata, o
   item fica sem foto.
