@@ -49,6 +49,8 @@ function publico(login: string, u: Registro): UsuarioSessao {
     login, nome: (u.nome as string) || login, funcao: u.funcao as string | undefined,
     perfil: u.perfil as string | undefined, abas: u.abas, ativo: u.ativo !== false, trocarSenha: !!u.trocar_senha,
     atualizarDados: precisaAtualizarDados(u.dados_confirmados_em),
+    ...(u.funcao !== "terceiro" && u.aprova_almox === true ? { aprova_almox: true } : {}),
+    ...(u.funcao !== "terceiro" && u.aprova_pcm === true ? { aprova_pcm: true } : {}),
   };
 }
 

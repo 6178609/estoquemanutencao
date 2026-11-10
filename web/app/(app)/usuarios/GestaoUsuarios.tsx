@@ -12,6 +12,8 @@ import { acaoAprovar, acaoCriarUsuario, acaoEditarUsuario, acaoExcluirUsuario, a
 export interface Pessoa {
   login: string; nome: string; funcao: string; perfil: string; ativo: boolean; abas: string[] | null; email: string;
   trocarSenha: boolean; ultimoAcesso: string; unicoAdmin: boolean;
+  /** aprova pedidos de cadastro de material como Almoxarifado / PCM */
+  aprovaAlmox: boolean; aprovaPcm: boolean;
 }
 
 export interface PedidoAcesso {
@@ -197,20 +199,25 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
   const d = pessoas.find((p) => p.login === alvo) || pessoas[0];
   const [escolher, setEscolher] = useState(!!d?.abas);
   useEffect(() => setEscolher(!!d?.abas), [d?.login, d?.abas]);
+  // função escolhida no formulário (desabilita os aprovadores para Terceiro); vale só para o formulário aberto (mesma chave)
+  const [funcaoEscolhida, setFuncaoEscolhida] = useState<{ chave: string; valor: string } | null>(null);
   if (!d) return <p className="text-[14px] text-texto-3">Nenhum usuário.</p>;
   const proprio = d.login === eu;
+  const chaveForm = `${d.login}|${estado.ok}`;
+  const funcao = funcaoEscolhida?.chave === chaveForm ? funcaoEscolhida.valor : d.funcao;
 
   return (
     <div className="space-y-5">
       <Seletor rotulo="Usuário" className="max-w-md" value={d.login} onChange={(e) => setAlvo(e.target.value)}
         opcoes={Object.fromEntries(pessoas.map((p) => [p.login, `${p.login} · ${p.nome}`]))} />
-      <form action={enviar} key={`${d.login}|${estado.ok}`} className="space-y-4">
+      <form action={enviar} key={chaveForm} className="space-y-4">
         <input type="hidden" name="alvo" value={d.login} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Campo rotulo="Número Pessoal (NP)" name="novo_login" defaultValue={d.login} required autoComplete="off" spellCheck={false}
             dica="Mudar aqui troca o login (a senha continua a mesma)." />
           <Campo rotulo="Nome" name="nome" defaultValue={d.nome} />
-          <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" defaultValue={d.funcao in FUNCOES ? d.funcao : ""} />
+          <Seletor rotulo="Função" name="funcao" opcoes={FUNCOES} vazio="Escolha a função" defaultValue={d.funcao in FUNCOES ? d.funcao : ""}
+            onChange={(e) => setFuncaoEscolhida({ chave: chaveForm, valor: e.target.value })} />
           <Seletor rotulo="Perfil" name="perfil" opcoes={PERFIS} defaultValue={d.perfil in PERFIS ? d.perfil : "leitor"} disabled={d.unicoAdmin} />
         </div>
         {d.unicoAdmin && <input type="hidden" name="perfil" value={d.perfil} />}
@@ -225,6 +232,18 @@ function EditarUsuario({ pessoas, eu, abas }: { pessoas: Pessoa[]; eu: string; a
           <Campo rotulo="Redefinir senha (opcional)" name="nova_senha" type="password" autoComplete="new-password"
             dica="Só se a pessoa esqueceu a senha. Ela terá de trocar no próximo acesso." />
         </div>
+        <fieldset disabled={funcao === "terceiro"} className="space-y-2 text-[14px] text-texto-2 disabled:opacity-60">
+          <legend className="mb-1.5 text-[13px] font-semibold text-texto">Aprova pedidos de cadastro de material como:</legend>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="aprova_almox" defaultChecked={d.aprovaAlmox} className="size-4 accent-marca-600" /> Almoxarifado
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="aprova_pcm" defaultChecked={d.aprovaPcm} className="size-4 accent-marca-600" /> PCM
+            </label>
+          </div>
+          {funcao === "terceiro" && <span className="block text-[12px] text-texto-3">Terceiro não aprova pedidos de cadastro de material.</span>}
+        </fieldset>
         <EscolhaAbas abas={abas} marcadas={d.abas} padrao={abasPadrao({ login: d.login, funcao: d.funcao, perfil: d.perfil })} escolher={escolher} setEscolher={setEscolher} />
         {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
         {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}

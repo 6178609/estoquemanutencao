@@ -43,12 +43,13 @@ export async function acaoEditarUsuario(_: EstadoUsuario, f: FormData): Promise<
   const r = await editarUsuario(eu, alvo, {
     novoLogin: campo(f, "novo_login"), nome: campo(f, "nome"), funcao: funcao in FUNCOES ? funcao : "",
     perfil: campo(f, "perfil"), ativo: f.get("ativo") === "on", novaSenha: campo(f, "nova_senha"), email: campo(f, "email"),
-    abas,
+    abas, aprovaAlmox: f.get("aprova_almox") === "on", aprovaPcm: f.get("aprova_pcm") === "on",
   });
   if (r.erro) return { erro: r.erro, ok: "", alvo };
   // o que ficou valendo (nunca a senha: só se foi redefinida)
   registrar(eu.login, "usuario_editado", r.login, { login_anterior: r.login !== alvo ? alvo : undefined, funcao, perfil: campo(f, "perfil"),
-    ativo: f.get("ativo") === "on", abas: abas ?? "pela função", acesso_redefinido: !!campo(f, "nova_senha") });
+    ativo: f.get("ativo") === "on", abas: abas ?? "pela função",
+    aprova_almox: f.get("aprova_almox") === "on", aprova_pcm: f.get("aprova_pcm") === "on", acesso_redefinido: !!campo(f, "nova_senha") });
   revalidatePath("/", "layout");
   return { erro: "", ok: r.login !== alvo ? `Usuário agora entra com o NP ${r.login}.` : "Usuário atualizado.", alvo: r.login };
 }
