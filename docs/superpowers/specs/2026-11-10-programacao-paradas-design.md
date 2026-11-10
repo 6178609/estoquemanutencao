@@ -147,7 +147,9 @@ HH 0 ou não têm centro (`completarHh`):
 
 - A5. Moinho que não está no rodízio e está em `p.juntos` (`{ ativo: "MOINHO 04", com: "BANBURY" }`) para no dia do
   Banbury (regra R12).
-- A6. Ativo com nome repetido de campos diferentes → sufixo " (2)" e aviso (não junta dois ativos por engano).
+- A6. Dois campos classificados pela **mesma classe** (mesmo nome de calendário) = **um ativo só**, com os campos
+  juntados e aviso. O sufixo " (2)" (com aviso) fica só para o nome repetido que veio da denominação, sem classe
+  (não junta dois ativos por engano).
 
 ### 2.7 Demanda do mês
 

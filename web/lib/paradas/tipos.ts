@@ -30,6 +30,8 @@ export interface Ativo {
   tipo: string; grupo: GrupoCritico | null; papel?: "prensa" | "moinho";
   so1Turno: boolean; soSabado: boolean; exclusivoT1: boolean; preferenciaT1: boolean;
   juntoCom?: string;      // "BANBURY" para o MOINHO 04
+  /** nenhuma classe casou com a denominação (com `soClasses`, fica fora do calendário) */
+  semClasse?: boolean;
 }
 
 export interface Demanda { mes: string; ativo: string; itens: ItemPlano[]; hh: HH; primeiraData: Dia; datas: Dia[] }

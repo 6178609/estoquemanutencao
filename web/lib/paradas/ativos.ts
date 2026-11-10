@@ -122,16 +122,27 @@ export function montarAtivos(itens: ItemPlano[], eqs: Map<string, Equipamento>, 
     const mae = maquinaMae(equipamentos, g.agrupado ? [] : cs);
     const denominacao = denom(mae);
     const c = classificar(denominacao, p);
+    const classificado = g.agrupado != null || classeDe(denominacao, p) != null;
     let id = g.agrupado ?? (c.id || cs[0]);
-    if (ativos[id]) {
+    const ja = ativos[id];
+    if (ja && classificado && !ja.semClasse) {
+      // a mesma classe (o mesmo nome do calendário) em outro campo: é o mesmo ativo
+      avisos.push(`Campos de ordenação ${[...ja.campos, ...cs].join(", ")} viraram um ativo só ("${id}").`);
+      ja.campos = ordenar([...ja.campos, ...cs]);
+      ja.equipamentos = ordenar([...ja.equipamentos, ...equipamentos]);
+      idDoGrupo.set(k, id);
+      continue;
+    }
+    if (ja) {
       let n = 2;
       while (ativos[`${id} (${n})`]) n++;
       const novo = `${id} (${n})`;
-      avisos.push(`Ativo "${id}" aparece em mais de um campo de ordenação (${[...ativos[id].campos, ...cs].join(", ")}); o outro virou "${novo}".`);
+      avisos.push(`Ativo "${id}" aparece em mais de um campo de ordenação (${[...ja.campos, ...cs].join(", ")}); o outro virou "${novo}".`);
       id = novo;
     }
     const junto = p.juntos.find((j) => j.ativo === id);
-    ativos[id] = { ...c, id, campos: cs, equipamentos, denominacao, ...(junto ? { juntoCom: junto.com } : {}) };
+    ativos[id] = { ...c, id, campos: cs, equipamentos, denominacao, ...(junto ? { juntoCom: junto.com } : {}),
+      ...(classificado ? {} : { semClasse: true }) };
     idDoGrupo.set(k, id);
   }
   return { itens: itens.map((i, n) => ({ ...i, campo: campos[n], ativo: idDoGrupo.get(chaveItem[n])! })), ativos, avisos };

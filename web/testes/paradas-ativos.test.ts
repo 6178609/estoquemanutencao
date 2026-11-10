@@ -87,13 +87,16 @@ describe("montar ativos", () => {
     expect(r.itens.map((i) => i.campo)).toEqual(["C-900", "C-500", "EQ-3"]);
   });
 
-  it("junto com o Banbury e nome repetido", () => {
+  it("junto com o Banbury; mesma classe junta, sem classe vira (2)", () => {
     const eqs = new Map<string, Equipamento>([["EQ-1", eq("EQ-1", "GAL1", "C-1", "MOINHO LAMINADOR SF 04 TESTE")],
-      ["EQ-2", eq("EQ-2", "GAL1", "C-2", "MICRONIZADOR 03 A")], ["EQ-3", eq("EQ-3", "GAL1", "C-3", "MICRONIZADOR 03 B")]]);
-    const r = montarAtivos([sem("EQ-1"), sem("EQ-2"), sem("EQ-3")], eqs, () => "", P);
+      ["EQ-2", eq("EQ-2", "GAL1", "C-2", "MICRONIZADOR 03 A")], ["EQ-3", eq("EQ-3", "GAL1", "C-3", "MICRONIZADOR 03 B")],
+      ["EQ-4", eq("EQ-4", "GAL1", "C-4", "MAQUINA X")], ["EQ-5", eq("EQ-5", "GAL1", "C-5", "MAQUINA X")]]);
+    const r = montarAtivos(["EQ-1", "EQ-2", "EQ-3", "EQ-4", "EQ-5"].map(sem), eqs, () => "", P);
     expect(r.ativos["MOINHO 04"].juntoCom).toBe("BANBURY");
-    expect(Object.keys(r.ativos).sort()).toEqual(["MICRONIZADOR 03", "MICRONIZADOR 03 (2)", "MOINHO 04"]);
-    expect(r.avisos).toHaveLength(1);
+    expect(Object.keys(r.ativos).sort()).toEqual(["MAQUINA X", "MAQUINA X (2)", "MICRONIZADOR 03", "MOINHO 04"]);
+    expect(r.ativos["MICRONIZADOR 03"]).toMatchObject({ campos: ["C-2", "C-3"], equipamentos: ["EQ-2", "EQ-3"] });
+    expect(r.itens.map((i) => i.ativo)).toEqual(["MOINHO 04", "MICRONIZADOR 03", "MICRONIZADOR 03", "MAQUINA X", "MAQUINA X (2)"]);
+    expect(r.avisos).toHaveLength(2);
   });
 });
 
