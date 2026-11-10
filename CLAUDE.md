@@ -20,6 +20,11 @@
   pendente) — e isso é dito ao usuário. Trabalho grande vai em partes publicáveis, sem acumular. Dados encontrados por
   agentes (ex.: fotos dos materiais) também são gravados no repositório de dados assim que validados.
 
+- **Retomada após limite (padrão definitivo):** toda vez que um limite libera (uso da sessão, cota de agentes, créditos de
+  provedor como o Firecrawl), a primeira coisa é rodar a verificação de pendências: ler `docs/pendencias.md`, conferir
+  ramo/commits não publicados, agentes interrompidos, PRs abertos e o último deploy, e seguir com o que estiver parado.
+  `docs/pendencias.md` é atualizado ao fim de cada entrega (sem dados da empresa).
+
 ## Segurança (inegociável — o repositório é público)
 - Nunca gravar em arquivo, commit ou log: senhas, usuário do SAP, tokens (GitHub, Vercel) ou chaves.
 - Nunca commitar dados da empresa: exports do SAP (xlsx/xls/htm/csv/parquet/json de dados), pasta `dados/`,

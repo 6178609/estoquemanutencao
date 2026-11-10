@@ -4,6 +4,21 @@ import { acessoTotal, ehAdmin, podeEditar, podeEditarSuporte, podeVer } from "@/
 import { confere, normalizarLogin, validarLogin } from "@/lib/auth/senha";
 import { GRUPOS, TODAS } from "@/lib/navegacao";
 
+describe("aba Programação de paradas", () => {
+  it("liberada a Líder e Analista pelo padrão da função; Manutentor só se marcada", () => {
+    expect(podeVer({ login: "l", funcao: "lider" }, "programacao_paradas")).toBe(true);
+    expect(podeVer({ login: "a", funcao: "analista" }, "programacao_paradas")).toBe(true);
+    expect(podeVer({ login: "m", funcao: "manutentor" }, "programacao_paradas")).toBe(false);
+    expect(podeVer({ login: "m", funcao: "manutentor", abas: ["programacao_paradas"] }, "programacao_paradas")).toBe(true);
+  });
+  it("no grupo Planejamento, com rota e ícone", () => {
+    const g = GRUPOS.find((x) => x.titulo === "Planejamento")!;
+    const a = g.abas.find((x) => x.id === "programacao_paradas");
+    expect(a).toMatchObject({ titulo: "Programação de paradas", icone: "CalendarCog", rota: "/programacao_paradas" });
+    expect(g.abas.findIndex((x) => x.id === "programacao_paradas")).toBe(g.abas.findIndex((x) => x.id === "gestao_hh") + 1);
+  });
+});
+
 describe("acesso por função", () => {
   it("líder e analista veem tudo", () => {
     for (const funcao of ["lider", "analista"]) {

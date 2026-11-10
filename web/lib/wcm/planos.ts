@@ -43,7 +43,7 @@ export interface ChamadaClassificada extends Chamada {
 // ----------------------------------------------------------------------------
 // Leitura da IP19
 // ----------------------------------------------------------------------------
-const COLUNAS: Record<string, string[]> = {
+export const COLUNAS_IP19: Record<string, string[]> = {
   plano: ["^PLANO( DE)? MANUT", "^PLANO MANUT", "^PLANO$", "PLANO DE MANUTENCAO"],
   item: ["^ITEM( DE)? MANUT", "^ITEM MANUT", "^ITEM$"],
   texto: ["TEXTO.*PLANO", "DENOMINACAO.*PLANO", "TEXTO.*ITEM", "TEXTO BREVE", "^TEXTO", "DESCRICAO"],
@@ -65,15 +65,16 @@ const COLUNAS: Record<string, string[]> = {
     "PROGRAMACAO"],
   ordem: ["^ORDEM$", "^ORDEM", "ORDEM"],
 };
-const EXCLUIR: Record<string, string> = {
+export const EXCLUIR_IP19: Record<string, string> = {
   ordem: "TIPO|STATUS", texto: "OBJETO|EQUIP|LOC|OPERACAO", dataConclusao: "PLAN|CHAMADA",
   tipoProgramacao: "USUARIO|SISTEMA|ROTEIRO|ATIVIDAD", item: "GRUPO",
 };
+const COLUNAS = COLUNAS_IP19, EXCLUIR = EXCLUIR_IP19;
 // unidade desconhecida conta como hora (na IP19; no IW38OP é minuto)
 const HORAS_POR: Record<string, number> = { MIN: 1 / 60, H: 1, HR: 1, STD: 1 };
 
 /** Data de célula: texto (dd/mm/aaaa, ISO), Date ou número serial do Excel. */
-function dataDe(v: unknown): Dia | null {
+export function dataDe(v: unknown): Dia | null {
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : dia(v.getUTCFullYear(), v.getUTCMonth() + 1, v.getUTCDate());
   if (typeof v === "number") return v > 20000 && v < 80000 ? Math.floor(v) - 25569 : null; // serial do Excel
   return paraData(v);
