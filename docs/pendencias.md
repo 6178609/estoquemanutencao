@@ -7,8 +7,10 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   plano `docs/superpowers/plans/2026-11-10-programacao-paradas.md`.
   - Parte 1 (leitura, motor R1–R15, 11 conferências, aba com Programação, Verificação e "Fora das classes"): publicada,
     com a revisão do Opus aplicada.
+  - Parte 2 (calendário do mês com impressão, Saldo HH, Campos por dia, Ativos sem HH, Excel) + motor ~10x mais rápido:
+    pronta no ramo, AGUARDANDO a revisão do Opus (interrompida pelo limite) antes de publicar.
   - Ajustes pendentes da parte 1: desempenho do motor (hoje ~5 s com os dados reais; meta < 500 ms antes da parte 3);
-    ocupação da semana anterior (prensa/Pellet/mesma máquina na semana que começou antes de hoje); confirmar com o
+    (desempenho resolvido na parte 2) ocupação da semana anterior (prensa/Pellet/mesma máquina na semana que começou antes de hoje); confirmar com o
     planejador se EMPILHADEIRA, BANHEIRO, PINHEIRO e FORNO TÚNEL entram na programação de Componentes.
   - A IP19 nas bases do site é a antiga (out–dez): reenviar a IP19 atual (nov–jan) em Fontes de dados.
   - Partes 2 (calendário, Saldo HH, Campos por dia, Ativos sem HH), 3 (edição, Parâmetros, histórico) e 4 (IW38 backlog,
