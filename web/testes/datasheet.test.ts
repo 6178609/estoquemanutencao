@@ -35,6 +35,22 @@ describe("datasheet do material: escolha pela referência", () => {
   });
 });
 
+describe("página de resultado de busca não serve", () => {
+  it("recusa /busca, /search e ?q= com a REF, aceita a página do produto", async () => {
+    const { paginaDeBusca, escolherFotoExata } = await import("@/lib/fotos/escolha");
+    expect(paginaDeBusca("https://loja.exemplo.com.br/buscar/rolamento-uc-208")).toBe(true);
+    expect(paginaDeBusca("https://www.exemplo.com/search?q=6205")).toBe(true);
+    expect(paginaDeBusca("https://www.exemplo.com/catalog/?s=6205-2RS")).toBe(true);
+    expect(paginaDeBusca("https://www.exemplo.com/produtos/6205-2rs")).toBe(false);
+    expect(paginaDeBusca("https://www.exemplo.com/research/bearings")).toBe(false);
+    expect(escolherDatasheet([{ titulo: "Resultados", url: "https://www.fab.com/busca?q=XB5AVB3" }], "FAB", "XB5AVB3")).toBeNull();
+    expect(escolherDatasheet([{ titulo: "XB5AVB3", url: "https://www.fab.com/pt/produto/XB5AVB3" }], "FAB", "XB5AVB3")?.url).toContain("/produto/");
+    // foto: a REF só no endereço da busca não conta; a página de busca fica vazia
+    expect(escolherFotoExata([{ imagem: "https://img.exemplo.com/a.jpg", pagina: "https://loja.exemplo.com/buscar/xb5avb3", titulo: "Lâmpada" }], "FAB", "XB5AVB3")).toBeNull();
+    expect(escolherFotoExata([{ imagem: "https://img.exemplo.com/a.jpg", pagina: "https://loja.exemplo.com/search?q=xb5avb3", titulo: "FAB XB5AVB3" }], "FAB", "XB5AVB3")?.pagina).toBeNull();
+  });
+});
+
 describe("busca web dos provedores (páginas)", () => {
   const um = { titulo: "T", url: "https://x.com/p" };
   it("lê a resposta de cada provedor", () => {

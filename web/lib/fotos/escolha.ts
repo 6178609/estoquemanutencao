@@ -25,8 +25,19 @@ export function bancoDeImagem(url: string): boolean {
   return BANCOS.some((b) => host.includes(b));
 }
 
-/** A página só se for um endereço válido (senão vai vazia, sem recusar a imagem). */
-const paginaSegura = (p: string | null): string | null => (p && !urlSugestaoErro(p) ? p : null);
+/**
+ * Página de resultado de busca de um site (/busca, /search, ?q=…): a REF aparece no endereço só porque foi pesquisada, não
+ * porque a página é do item. Não serve como página do produto nem como prova da referência.
+ */
+export function paginaDeBusca(url: string): boolean {
+  let u: URL;
+  try { u = new URL(url); } catch { return false; }
+  if (/(^|\/)(busca|buscar|pesquisa|pesquisar|procura|procurar|search|searchresults?|catalogsearch|resultados?|results?)(\/|\.|$)/i.test(u.pathname)) return true;
+  return ["q", "query", "search", "busca", "s", "k", "term", "keyword", "keywords", "termo", "pesquisa"].some((k) => !!u.searchParams.get(k));
+}
+
+/** A página só se for um endereço válido e não for página de busca (senão vai vazia, sem recusar a imagem). */
+const paginaSegura = (p: string | null): string | null => (p && !urlSugestaoErro(p) && !paginaDeBusca(p) ? p : null);
 
 /** Referência comparável: maiúsculas, sem acento, espaços, pontos, hífens, barras e sublinhados. */
 export const refNormalizada = (s: string): string => normalizarBusca(s).replace(/[\s.\-/_]/g, "");

@@ -1,8 +1,8 @@
-import { bancoDeImagem, refNormalizada } from "../fotos/escolha";
+import { bancoDeImagem, paginaDeBusca, refNormalizada } from "../fotos/escolha";
 
 /**
  * Escolha do datasheet do material entre os resultados de uma busca web, pela mesma regra das fotos: a referência (REF)
- * do Sysmat tem de estar no título ou no endereço. Loja, marketplace e banco de imagens não servem. Preferência: PDF
+ * do Sysmat tem de estar no título ou no endereço. Loja, marketplace, banco de imagens e página de resultado de busca não servem. Preferência: PDF
  * com a REF, depois o site do fabricante (o nome dele no endereço), depois o primeiro que passou. Função pura.
  */
 export interface ResultadoWeb { titulo: string; url: string }
@@ -21,7 +21,7 @@ export function escolherDatasheet(resultados: ResultadoWeb[], fab: string, ref: 
   const ok = resultados.flatMap((x) => {
     let u: URL;
     try { u = new URL(x.url); } catch { return []; }
-    if (u.protocol !== "https:" || LOJAS.test(u.hostname) || bancoDeImagem(x.url)) return [];
+    if (u.protocol !== "https:" || LOJAS.test(u.hostname) || bancoDeImagem(x.url) || paginaDeBusca(x.url)) return [];
     const texto = refNormalizada(`${x.titulo} ${u.hostname}${u.pathname}`);
     if (!texto.includes(r)) return [];
     // referência curta (menos de 6 caracteres) pega peça errada fácil: exige também o fabricante
