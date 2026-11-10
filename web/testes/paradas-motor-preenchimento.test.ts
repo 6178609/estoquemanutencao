@@ -53,6 +53,17 @@ describe("motor — nenhum turno vazio", () => {
     expect(est.ativosNoTurno(N(3), 2)).toEqual(["GOLDEN 01"]);
   });
 
+  it("não leva a 2ª parada para antes da 1ª", () => {
+    const { c, est } = cenario(N(3), N(3));
+    est.colocar("GOLDEN 01", M, N(10), 2, [item("GOLDEN 01", M, N(10), "MEC", 1)], 1, []);
+    est.colocar("GOLDEN 01", M, N(19), 2, [item("GOLDEN 01", M, N(19), "MEC", 1)], 2, []);
+    est.colocar("PVC 08", M, N(19), 2, [item("PVC 08", M, N(19), "MEC", 1)], 1, []);
+    est.colocar("TIEN KANG 06", M, N(19), 2, [item("TIEN KANG 06", M, N(19), "MEC", 3)], 1, []);
+    preencher(c);
+    expect(est.ativosNoTurno(N(3), 2)).not.toContain("GOLDEN 01");
+    expect(est.ativosNoTurno(N(3), 1)).not.toContain("GOLDEN 01");
+  });
+
   it("sem candidato o turno fica vazio", () => {
     const { c, est } = cenario(N(3), N(3));
     expect(() => preencher(c)).not.toThrow();

@@ -9,7 +9,7 @@ import type { Ativo, EntradaMotor, GrupoCritico, HH, ItemPlano, LinhaProgramacao
 
 export const CODIGOS = ["CALENDARIO", "SO_T1", "SABADO", "DOIS_CRITICOS", "MOINHO_SEM_PRENSA", "MESMO_TIPO", "SEMANA_REPETIDA",
   "PRENSA_SEMANA", "PRENSA_SEGUIDA", "PELLET_SEMANA", "PELLET_SEGUIDA", "DRY_BLEND_SOZINHA", "MAX_DIA", "T1_CHEIO", "JUNTO_FORA",
-  "CAPACIDADE", "PARADAS_MES", "SEGUNDA_MESMA_SEMANA", "FORA_DO_MES"] as const;
+  "CAPACIDADE", "PARADAS_MES", "SEGUNDA_MESMA_SEMANA", "SEGUNDA_ANTES", "FORA_DO_MES"] as const;
 export type Codigo = (typeof CODIGOS)[number];
 export type ModoTurno = "T1" | "T2" | "T2+T1";
 
@@ -18,6 +18,8 @@ export const turnosDo = (m: ModoTurno): Turno[] => (m === "T1" ? [1] : m === "T2
 
 export interface OpcoesFalhas {
   ignorarCapacidade?: boolean; extra?: boolean; segundaParada?: boolean; hh?: HH;
+  /** número da parada sendo conferida (a 2ª nunca antes da 1ª) */
+  parada?: number;
   /** linhas que não contam (a própria linha sendo movida ou conferida) */
   ignorar?: Set<string>;
 }
@@ -218,6 +220,10 @@ export class Estado {
     const paradas = [...new Set(doAtivo.filter((l) => l.mes === mes && !ehExtra(l)).map((l) => l.data))];
     if (!o.extra && paradas.length >= this.p.maxParadasMes) out.add("PARADAS_MES");
     if (paradas.some((x) => segunda(x) === seg)) out.add("SEGUNDA_MESMA_SEMANA");
+    if (o.parada === 1 || o.parada === 2) {
+      const outras = doAtivo.filter((l) => l.mes === mes && !ehExtra(l) && l.parada !== o.parada);
+      if (outras.some((l) => (o.parada === 2 ? l.parada === 1 && l.data > d : l.parada === 2 && l.data < d))) out.add("SEGUNDA_ANTES");
+    }
     // R15
     if (chaveMes(d) !== mes) out.add("FORA_DO_MES");
     return CODIGOS.filter((c) => out.has(c));

@@ -26,7 +26,7 @@ export function preencher(c: Ctx): void {
         // a preferência pelo 1º turno junto do crítico não é desfeita
         if (A.preferenciaT1 && l.turno === 1 && est.grupoDoDia(l.data) != null) continue;
         if (est.ativosNoTurno(l.data, l.turno).length < 2) continue;
-        if (est.falhas(l.ativo, c.mes, d.data, t === 1 ? "T1" : "T2", { hh: l.hh, ignorar: new Set([l.id]) }).length) continue;
+        if (est.falhas(l.ativo, c.mes, d.data, t === 1 ? "T1" : "T2", { hh: l.hh, ignorar: new Set([l.id]), parada: l.parada }).length) continue;
         cands.push(l);
       }
       if (!cands.length) continue;

@@ -102,7 +102,7 @@ export default async function ProgramacaoParadas(props: { searchParams: Promise<
             {descartes.length > 0 && <> ; ficaram de fora: {descartes.map(([m, q]) => `${n(q)} ${m}`).join(", ")}</>}.
             {montado.leitura.semCentro > 0 && <> {n(montado.leitura.semCentro)} sem centro de trabalho (assumidas como mecânica).</>}
           </p>
-          <p>A programação é refeita a cada dia a partir de hoje ({dataBr(e.inicio)}): não enxerga as paradas anteriores (por exemplo, a prensa ou a Pellet da semana passada).</p>
+          <p>A programação é refeita a cada dia a partir do início ({dataBr(e.inicio)}, hoje se os Parâmetros não fixarem outra data): não enxerga as paradas anteriores (por exemplo, a prensa ou a Pellet da semana passada).</p>
           <p>Chamadas: {Object.entries(montado.completadas).filter(([, q]) => q > 0).map(([o, q]) => `${n(q)} ${ORIGEM[o] ?? o}`).join(" · ") || "nenhuma"}.</p>
           {calculo.r.retirados.length > 0 && <p>{n(calculo.r.retirados.length)} ativo(s) com HH irrelevante no mês ficaram fora da programação (só inspeção rápida).</p>}
           {calculo.r.semHh.length > 0 && <p>{n(calculo.r.semHh.length)} ativo(s) com HH que não coube (Ativos sem HH).</p>}

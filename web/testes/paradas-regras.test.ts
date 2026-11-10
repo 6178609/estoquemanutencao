@@ -49,6 +49,11 @@ describe("alertas de regra", () => {
     expect(cods([linha("PRENSA COPE", N(4), 1), linha("PRENSA PANSTONE", N(6), 1, 1, { marcas: ["parada extra"] })])).toEqual([]);
   });
 
+  it("2ª parada antes da 1ª", () => {
+    expect(cods([linha("GOLDEN 01", N(17), 2), linha("GOLDEN 01", N(3), 2, 1, { parada: 2, id: `${M}|GOLDEN 01|2|2` })]))
+      .toEqual(["GOLDEN 01:SEGUNDA_ANTES", "GOLDEN 01:SEGUNDA_ANTES"]);
+  });
+
   it("máximo de ativos no dia: alerta em todas as linhas do dia", () => {
     const nomes = ["PVC 08", "GOLDEN 01", "TIEN KANG 06", "PANSTONE 01", "MICRONIZADOR 01", "CALANDRA", "STABIL 01", "INJETORA 21"];
     const ls = nomes.map((n, i) => linha(n, N(12), i % 2 ? 1 : 2, 0.5));

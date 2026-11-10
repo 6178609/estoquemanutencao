@@ -30,6 +30,7 @@ export const TEXTO_ALERTA: Record<Codigo, string> = {
   CAPACIDADE: "Acima da capacidade do turno",
   PARADAS_MES: "Mais paradas no mês do que o máximo dos Parâmetros",
   SEGUNDA_MESMA_SEMANA: "2ª parada na mesma semana da 1ª",
+  SEGUNDA_ANTES: "2ª parada antes da 1ª",
   FORA_DO_MES: "Parada fora do mês da IP19",
 };
 
@@ -53,7 +54,7 @@ export function alertas(linhas: LinhaProgramacao[], e: EntradaMotor): Alerta[] {
   };
   for (const l of linhas) {
     const cods = est.falhas(l.ativo, l.mes, l.data, l.turno === 1 ? "T1" : "T2",
-      { ignorar: new Set([l.id]), extra: l.marcas.includes("parada extra") });
+      { ignorar: new Set([l.id]), extra: l.marcas.includes("parada extra"), parada: l.parada });
     for (const c of cods) add(l.id, c);
     if (!turnoOk(l.data, l.turno)) add(l.id, "CAPACIDADE");
   }
