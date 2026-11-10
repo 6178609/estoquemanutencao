@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { diasDoMes } from "@/lib/paradas/calendario";
 import type { LinhaProgramacao, ResultadoMotor } from "@/lib/paradas/tipos";
-import { ativosSemHh, camposPorDia, resumoPorMes, saldoPorDia } from "@/lib/paradas/visoes";
+import { ativosSemHh, camposPorDia, listaDeCampos, resumoPorMes, saldoPorDia } from "@/lib/paradas/visoes";
 
 import { ativos, D, demanda, item, N, P0 } from "./paradas-fixtures";
 
@@ -49,6 +49,12 @@ describe("visões", () => {
     const c = camposPorDia(res([linha("PELLET 02", N(3), 1, 4, 0), linha("PVC 08", N(3), 2, 2, 0), linha("GOLDEN 01", N(10), 2, 1, 0)]), DIAS, AT, P);
     expect(c.map((x) => x.data)).toEqual([N(3), N(10)]);
     expect(c[0]).toMatchObject({ dia: "TER", maquinas: 2, t1: ["PELLET 02 · C-201, C-202"], t2: ["PVC 08 · C-PVC 08"], lista: "C-201; C-202; C-PVC 08" });
+  });
+
+  it("lista de campos do mês para colar no SAP (sem repetir)", () => {
+    const c = camposPorDia(res([linha("PELLET 02", N(3), 1, 4, 0), linha("PVC 08", N(3), 2, 2, 0), linha("PVC 08", N(10), 2, 1, 0)]), DIAS, AT, P);
+    expect(listaDeCampos(c)).toBe("C-201; C-202; C-PVC 08");
+    expect(listaDeCampos([])).toBe("");
   });
 
   it("ativos sem HH por mês e ativo", () => {
