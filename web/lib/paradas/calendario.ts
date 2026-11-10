@@ -84,3 +84,16 @@ export function capacidadeDoMes(dias: DiaTrabalho[]): HH {
   }
   return r;
 }
+
+/** Segunda-feira da semana ISO do dia. */
+export function segunda(d: Dia): Dia {
+  return d - ((partes(d).semana + 6) % 7);
+}
+
+/** Segunda-feira da semana "AAAA-Wss" (null se inválida). */
+export function segundaDaChave(s: string): Dia | null {
+  const m = /^(\d{4})-W(\d{2})$/.exec(s ?? "");
+  if (!m) return null;
+  const jan4 = dia(Number(m[1]), 1, 4)!;
+  return segunda(jan4) + (Number(m[2]) - 1) * 7;
+}
