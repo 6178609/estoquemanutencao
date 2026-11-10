@@ -47,6 +47,28 @@ describe("montar ativos", () => {
     expect(r.ativos["PELLET 02"]).toMatchObject({ campos: ["C-201", "C-202"], grupo: "PELLET" });
   });
 
+  it("máquina-mãe do IH08 pelo campo, mesmo sem item na IP19", () => {
+    const eqs = new Map<string, Equipamento>([["M1", eq("M1", "GAL1", "M1", "DRY BLEND 01 TESTE")], ["EQ-2", eq("EQ-2", "GAL1", "M1", "EXTRUSORA DBL 001")],
+      ["EQ-3", eq("EQ-3", "GAL1", "C-300", "BANBURY TESTE")], ["EQ-4", eq("EQ-4", "GAL1", "C-300", "MONTA CARGA 01")]]);
+    const r = montarAtivos([sem("EQ-2"), sem("EQ-4")], eqs, () => "", P);
+    expect(Object.keys(r.ativos).sort()).toEqual(["BANBURY", "DRY BLEND"]);
+    expect(r.ativos["DRY BLEND"].denominacao).toBe("DRY BLEND 01 TESTE");
+  });
+
+  it("máquina-mãe: prefere a classe com grupo crítico", () => {
+    const eqs = new Map<string, Equipamento>([["EQ-1", eq("EQ-1", "GAL1", "C-100", "MICRONIZADOR 01 TESTE")],
+      ["EQ-2", eq("EQ-2", "GAL1", "C-100", "DRY BLEND 01 TESTE")]]);
+    expect(Object.keys(montarAtivos([sem("EQ-1"), sem("EQ-2")], eqs, () => "", P).ativos)).toEqual(["DRY BLEND"]);
+  });
+
+  it("Pellet: o misturador com \"(PELLET 01)\" entra na linha", () => {
+    const eqs = new Map<string, Equipamento>([["EQ-1", eq("EQ-1", "GAL1", "C-1", "MISTURADOR 01 (PELLET 01)")],
+      ["EQ-2", eq("EQ-2", "GAL1", "C-2", "MOINHO GK 02 (PELLET 01)")]]);
+    const r = montarAtivos([sem("EQ-2"), sem("EQ-1")], eqs, () => "", P);
+    expect(Object.keys(r.ativos)).toEqual(["PELLET 01"]);
+    expect(r.ativos["PELLET 01"]).toMatchObject({ grupo: "PELLET", so1Turno: true, equipamentos: ["EQ-1", "EQ-2"] });
+  });
+
   it("campo: do equipamento, do superior, o geral ou o próprio código", () => {
     const eqs = new Map<string, Equipamento>([["EQ-1", eq("EQ-1", "GAL1", "", "COMPONENTE A", "EQ-9")],
       ["EQ-9", eq("EQ-9", "GAL1", "C-900", "MICRONIZADOR 01 TESTE")], ["EQ-2", eq("EQ-2", "GAL1", "", "COMPONENTE B")]]);

@@ -72,6 +72,23 @@ export function montarAtivos(itens: ItemPlano[], eqs: Map<string, Equipamento>, 
     return null;
   };
 
+  // IH08 por campo de ordenação (a máquina-mãe pode não ter item na IP19)
+  const porCampo = new Map<string, string[]>();
+  for (const e of eqs.values()) {
+    const c = (e.campo ?? "").trim().toUpperCase();
+    if (c) porCampo.set(c, [...(porCampo.get(c) ?? []), e.equipamento]);
+  }
+  /**
+   * Máquina-mãe: o equipamento do IH08 cujo código é o campo; senão (entre os do grupo e os do IH08 com o mesmo campo)
+   * o que cai numa classe com grupo crítico, depois o que cai numa classe; só no fim o primeiro.
+   */
+  const maquinaMae = (doGrupo: string[], cs: string[]): string => {
+    for (const c of cs) if (eqs.has(c)) return c;
+    const cands = [...new Set([...doGrupo, ...cs.flatMap((c) => porCampo.get(c) ?? []).sort()])];
+    const cl = (e: string) => classeDe(eqs.get(e)?.denominacao ?? "", p)?.classe;
+    return cands.find((e) => cl(e)?.grupo) ?? cands.find((e) => cl(e)) ?? doGrupo[0];
+  };
+
   // grupo de cada item: agrupamento por parâmetro ou o campo de ordenação
   const grupos = new Map<string, { campos: Set<string>; eqs: Set<string>; agrupado: string | null }>();
   const chaveItem: string[] = [];
@@ -95,9 +112,7 @@ export function montarAtivos(itens: ItemPlano[], eqs: Map<string, Equipamento>, 
     const g = grupos.get(k)!;
     const equipamentos = ordenar(g.eqs), cs = ordenar(g.campos);
     const denom = (e: string) => eqs.get(e)?.denominacao ?? "";
-    // máquina-mãe: o equipamento cujo código é o campo; senão o primeiro que cai numa classe; senão o primeiro
-    const mae = equipamentos.find((e) => cs.includes(e.toUpperCase())) ?? equipamentos.find((e) => classeDe(denom(e), p))
-      ?? equipamentos[0];
+    const mae = maquinaMae(equipamentos, g.agrupado ? [] : cs);
     const denominacao = denom(mae);
     const c = classificar(denominacao, p);
     let id = g.agrupado ?? (c.id || cs[0]);
