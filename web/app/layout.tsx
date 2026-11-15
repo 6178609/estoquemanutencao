@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import "./globals.css";
 
@@ -23,6 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh font-sans">
         <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-superficie focus:px-4 focus:py-2 focus:text-texto focus:shadow-flutuante">Pular para o conteúdo</a>
         {children}
+        {/* desempenho real das páginas (Vercel Speed Insights): só na Vercel, onde o script existe */}
+        {process.env.VERCEL === "1" && <SpeedInsights />}
       </body>
     </html>
   );
