@@ -17,7 +17,9 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
     IW32 CSV/VBS): a fazer, cada uma revisada pelo Opus e publicada.
 - **Fotos e datasheets dos materiais (só almoxarifado desde 16/11):** 3.946 materiais no MB52; 601 com foto do fabricante
   (286 com a imagem já baixada, o resto com página a conferir) + fotos próprias; 1.725 com fabricante+REF ainda sem foto,
-  1.476 na fila (os demais foram tentados há menos de 60 dias). A rotina automática só roda com as chaves na Vercel (abaixo);
+  1.476 na fila (os demais foram tentados há menos de 60 dias).
+  16/11: tarefa agendada nesta sessão ("Busca diária de fotos do almoxarifado", 15h13 de Brasília) busca ~160/dia pelo
+  Firecrawl até a fila zerar. 1º lote: 160 buscados, 47 fotos novas (648 no almoxarifado); ~1.313 na fila. A rotina automática só roda com as chaves na Vercel (abaixo);
   sem elas, buscas manuais pelo Firecrawl quando houver crédito.
 
 - **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta
