@@ -86,9 +86,9 @@
   Vercel (`BUSCA_IMAGENS_CHAVE_<PROVEDOR>`, `BUSCA_IMAGENS_GOOGLE_CX`, `BUSCA_IMAGENS_POR_DIA[_<PROVEDOR>]`; ver `web/README.md`). Lógica em
   `lib/fotos/` (provedores, escolha, rodada) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json` e
   `fotos_busca_estado.json`.
-- **Todos os materiais do site (pedido do PCM, 10/11/2026):** a busca cobre o catálogo inteiro do Sysmat, de qualquer local e
-  status, além do almoxarifado, numa fila por prioridade: almoxarifado (MB52) → ligados a equipamentos (MRO) → aprovados →
-  bloqueados e demais (`planejarBusca`). Só entra quem tem fabricante e REF.
+- **Só o almoxarifado (pedido do PCM, 16/11/2026):** a busca automática de fotos e de datasheets cobre só os materiais do
+  almoxarifado (MB52) com fabricante e REF no Sysmat (`planejarBusca`); o resto do catálogo não entra na fila. Fotos já
+  gravadas de materiais fora do almoxarifado continuam aparecendo.
 - **Datasheet do material (aba Estoque):** seção no detalhamento (Almoxarifado e Catálogo) com os links/PDFs da biblioteca
   `datasheets_materiais.json` (coleção MATERIAL em `lib/dados/documentos.ts`, PDFs em `app/documentos/materiais/`), o botão
   "Procurar datasheet" e, para editor, link ou PDF. Busca automática na mesma rotina das fotos (`lib/datasheet/`), mesma fila

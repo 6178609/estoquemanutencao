@@ -53,11 +53,11 @@ export function FotosAutomaticas({ resumo, pode }: { resumo: ResumoFotos; pode: 
         <div>
           <h2 className="font-display text-[16px] font-medium">Fotos automáticas</h2>
           <p className="mt-1 text-[13px] text-texto-3">
-            Todo dia, de madrugada, o site procura a foto do fabricante pela referência dos materiais sem foto. Só entra
+            Todo dia, de madrugada, o site procura a foto do fabricante pela referência dos materiais do almoxarifado (MB52) sem foto. Só entra
             foto cujo título ou página traz a referência do item; foto genérica do tipo de material não é usada.{" "}
             {resumo.ligada
               ? <>Busca ligada ({resumo.provedor}).</>
-              : <>Busca desligada: configure <code>BUSCA_IMAGENS_PROVEDOR</code> e <code>BUSCA_IMAGENS_CHAVE</code> nas variáveis da Vercel.</>}
+              : <>Busca desligada: configure as chaves <code>BUSCA_IMAGENS_CHAVE_BRAVE</code>, <code>_SERPER</code>, <code>_FIRECRAWL</code> ou <code>_SERPAPI</code> nas variáveis da Vercel.</>}
           </p>
         </div>
         {pode && (

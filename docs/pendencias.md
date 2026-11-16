@@ -15,10 +15,10 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   - A IP19 nas bases do site é a antiga (out–dez): reenviar a IP19 atual (nov–jan) em Fontes de dados.
   - Partes 2 (calendário, Saldo HH, Campos por dia, Ativos sem HH), 3 (edição, Parâmetros, histórico) e 4 (IW38 backlog,
     IW32 CSV/VBS): a fazer, cada uma revisada pelo Opus e publicada.
-- **Fotos e datasheets dos materiais:** fila de ~48 mil materiais com fabricante+REF. Buscas manuais pelo Firecrawl e pela
-  busca web quando houver crédito/limite; a rotina automática só roda com as chaves na Vercel (abaixo).
-  10/11: 160 materiais da lista curada buscados (71 páginas novas, 604 no total); ~520 restantes da lista curada.
-  Créditos diários do Firecrawl esgotados — renovam em 11/11 ~14:51 UTC. Páginas de busca (/busca, ?q=) já são recusadas.
+- **Fotos e datasheets dos materiais (só almoxarifado desde 16/11):** 3.946 materiais no MB52; 601 com foto do fabricante
+  (286 com a imagem já baixada, o resto com página a conferir) + fotos próprias; 1.725 com fabricante+REF ainda sem foto,
+  1.476 na fila (os demais foram tentados há menos de 60 dias). A rotina automática só roda com as chaves na Vercel (abaixo);
+  sem elas, buscas manuais pelo Firecrawl quando houver crédito.
 
 - **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta
   publicar): pedido com foto, sequência Almoxarifado → chegada do material (foto) → PCM e vínculo ao equipamento ao validar.
