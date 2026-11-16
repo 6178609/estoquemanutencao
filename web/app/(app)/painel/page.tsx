@@ -33,6 +33,7 @@ const TENDENCIA: { id: string; barras: boolean; cor: Cor }[] = [
 ];
 const CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emergencial", "no_prazo", "idade_backlog", "hh",
   "pct_hh_plano", "custo", "pct_custo_corr"];
+const SEM_META_OU_DADOS = "Sem meta ou sem dados";
 const VISOES = ["Todos os indicadores", "Scorecard por área", "Scorecard por setor", "Scorecard por centro", "Evolução mensal", "Pontos de atenção"];
 
 export default async function Painel(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -51,7 +52,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
   const porGrupo = ind.GRUPOS.map((g) => {
     const ks = ind.KPIS.filter((k) => k.grupo === g);
     const n = (f: ind.Farol) => ks.filter((k) => cores[k.id] === f).length;
-    return { rotulo: g, valor: ks.length, partes: (["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => ({ nome: ind.NOME_FAROL[f], valor: n(f), cor: COR_FAROL[f] })) };
+    return { rotulo: g, valor: ks.length, partes: (["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => ({ nome: f === "neutro" ? SEM_META_OU_DADOS : ind.NOME_FAROL[f], valor: n(f), cor: COR_FAROL[f] })) };
   });
   const dist = (k: ind.Kpi) => Math.abs((atual[k.id] ?? 0) - (ind.meta(k, metas) ?? 0)) / Math.max(Math.abs(ind.meta(k, metas) ?? 1), 1e-9);
   const piores = [...ind.KPIS.filter((k) => cores[k.id] === "vermelho").sort((a, b) => dist(b) - dist(a)), ...ind.KPIS.filter((k) => cores[k.id] === "amarelo")];
@@ -79,8 +80,8 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Grafico titulo="Saúde por grupo do pilar" subtitulo="Indicadores na meta, em atenção e fora — por grupo"
-          legenda={<div className="flex flex-wrap gap-3">{(["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => <SeloFarol key={f} farol={f} />)}</div>}
-          tabela={{ colunas: ["Grupo", "Na meta", "Atenção", "Fora", "Sem meta"], linhas: porGrupo.map((g) => [g.rotulo, ...g.partes.map((p) => p.valor)]) }}>
+          legenda={<div className="flex flex-wrap gap-3">{(["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => <SeloFarol key={f} farol={f} rotulo={f === "neutro" ? SEM_META_OU_DADOS : undefined} />)}</div>}
+          tabela={{ colunas: ["Grupo", "Na meta", "Atenção", "Fora", SEM_META_OU_DADOS], linhas: porGrupo.map((g) => [g.rotulo, ...g.partes.map((p) => p.valor)]) }}>
           <Barras itens={porGrupo} larguraRotulo={190} formato="ind" />
         </Grafico>
         <div className="rounded-cartao border border-borda bg-superficie p-5">

@@ -466,6 +466,15 @@ export function mensal(d: Dados, ini: Dia, fim: Dia): { mes: Dia; valores: Resul
 // ----------------------------------------------------------------------------
 export type Farol = "verde" | "amarelo" | "vermelho" | "neutro";
 export const NOME_FAROL: Record<Farol, string> = { verde: "Na meta", amarelo: "Atenção", vermelho: "Fora da meta", neutro: "Sem meta" };
+export const SEM_DADOS = "Sem dados";
+
+/**
+ * Rótulo do farol de um valor: sem valor é "Sem dados" (mesmo com a meta cadastrada, que continua à mostra);
+ * "Sem meta" só quando há valor e falta a meta.
+ */
+export function nomeFarol(f: Farol, valor: number | null | undefined): string {
+  return f === "neutro" && (valor == null || Number.isNaN(valor)) ? SEM_DADOS : NOME_FAROL[f];
+}
 
 export function meta(kpi: Kpi, metas: Cadastro | null | undefined): number | null {
   const m = metas?.[kpi.id];

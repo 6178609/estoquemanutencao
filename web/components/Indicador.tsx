@@ -9,12 +9,14 @@ import { Sparkline, type Cor } from "./graficos";
 export const COR_FAROL: Record<ind.Farol, Cor> = { verde: "st-bom", amarelo: "st-atencao", vermelho: "st-critico", neutro: "neutro" };
 const ICONE_FAROL = { verde: CircleCheck, amarelo: AlertTriangle, vermelho: CircleX, neutro: CircleDashed };
 
-export function SeloFarol({ farol, compacto }: { farol: ind.Farol; compacto?: boolean }) {
+/** `rotulo` troca o nome padrão do farol (ex.: "Sem dados" quando falta o valor — ver ind.nomeFarol). */
+export function SeloFarol({ farol, compacto, rotulo }: { farol: ind.Farol; compacto?: boolean; rotulo?: string }) {
   const I = ICONE_FAROL[farol];
+  const nome = rotulo ?? ind.NOME_FAROL[farol];
   return (
-    <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-texto-2" title={ind.NOME_FAROL[farol]}>
+    <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-texto-2" title={nome}>
       <I className="size-3.5" aria-hidden="true" style={{ color: `var(--${COR_FAROL[farol] === "neutro" ? "texto-4" : COR_FAROL[farol]})` }} strokeWidth={2} />
-      {compacto ? <span className="sr-only">{ind.NOME_FAROL[farol]}</span> : ind.NOME_FAROL[farol]}
+      {compacto ? <span className="sr-only">{nome}</span> : nome}
     </span>
   );
 }
@@ -45,7 +47,7 @@ export function CartaoKpi({ kpi, valor, anterior, metas, serie, link = true }: {
       <div>
         <div className="flex items-start justify-between gap-2">
           <div className="text-[13px] font-medium leading-snug text-texto-2" title={kpi.formula}>{kpi.nome}</div>
-          <SeloFarol farol={f} compacto />
+          <SeloFarol farol={f} rotulo={ind.nomeFarol(f, valor)} compacto />
         </div>
         <div className="num mt-2 font-display text-[28px] font-medium leading-none tracking-[-0.02em]">{ind.formatar(kpi, valor)}</div>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-texto-3">

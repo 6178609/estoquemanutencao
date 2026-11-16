@@ -77,7 +77,8 @@ export async function IndicadoresSap({ mes, rotulo, deck }: { mes: string; rotul
           detalhe="real do SAP contra a meta da planilha" tom={!mpComp.length ? undefined : mpOk === mpComp.length ? "bom" : "critico"} />
         <Numero rotulo="Fora da meta" valor={String(linhas.filter((l) => l.farol === "vermelho").length)} detalhe="mais de 10% pior que a meta"
           tom={linhas.some((l) => l.farol === "vermelho") ? "critico" : "bom"} />
-        <Numero rotulo="Sem meta" valor={String(linhas.filter((l) => l.farol === "neutro").length)} detalhe="cadastre em Metas e parâmetros" />
+        <Numero rotulo="Sem meta" valor={String(linhas.filter((l) => l.meta == null).length)}
+          detalhe={`cadastre em Metas e parâmetros · ${linhas.filter((l) => l.real == null).length} sem dados no mês`} />
       </GradeNumeros>
 
       <section className="overflow-hidden rounded-cartao border border-borda bg-superficie">
@@ -132,8 +133,8 @@ export async function IndicadoresSap({ mes, rotulo, deck }: { mes: string; rotul
                       <td className={clsx(TD, "text-texto-3")} title={l.tipo === "A" ? "Quanto maior, melhor" : "Quanto menor, melhor"}>{l.tipo}</td>
                       <td className={clsx(TD, "text-texto-3")}>{l.meta == null ? "—" : `${l.tipo === "A" ? "≥" : "≤"} ${ind.formatar(l.kpi, l.meta)}`}</td>
                       <td className={clsx(TD, "border-l border-borda text-texto-2")}>{ind.formatar(l.kpi, l.anterior)}</td>
-                      <td className={clsx(TD, "bg-superficie-2")}><span className="inline-flex items-center gap-1.5 font-semibold"><SeloFarol farol={l.farol} compacto />{ind.formatar(l.kpi, l.real)}</span></td>
-                      <td className={clsx(TD, "border-l border-borda")}><span className="inline-flex items-center gap-1.5"><SeloFarol farol={l.farolYtd} compacto />{ind.formatar(l.kpi, l.ytd)}</span></td>
+                      <td className={clsx(TD, "bg-superficie-2")}><span className="inline-flex items-center gap-1.5 font-semibold"><SeloFarol farol={l.farol} rotulo={ind.nomeFarol(l.farol, l.real)} compacto />{ind.formatar(l.kpi, l.real)}</span></td>
+                      <td className={clsx(TD, "border-l border-borda")}><span className="inline-flex items-center gap-1.5"><SeloFarol farol={l.farolYtd} rotulo={ind.nomeFarol(l.farolYtd, l.ytd)} compacto />{ind.formatar(l.kpi, l.ytd)}</span></td>
                       <td className="px-2 py-2 text-right"><Link prefetch={false} href={l.kpi.pagina} className="text-texto-3 hover:text-texto" aria-label={`Abrir ${l.kpi.nome}`}><ArrowRight className="size-4" /></Link></td>
                     </tr>
                   ))}
