@@ -239,6 +239,17 @@ export function Envio({ demo }: { demo: boolean }) {
                     {b.situacao === "enviando" && <span className="flex items-center gap-1.5 text-texto-3"><LoaderCircle className="size-3.5 animate-spin" /> enviando {pctFmt.format(b.progresso || 0)}</span>}
                     {b.situacao === "enviado" && <span className="flex items-center gap-1 text-marca-600 dark:text-marca-300"><CheckCircle2 className="size-3.5" /> gravada</span>}
                     {b.erro && <span className="text-perigo-500">{b.erro}</span>}
+                    {!semEnvio && b.avisos?.length > 0 && (
+                      <ul className="basis-full space-y-0.5 text-[12.5px] text-texto-2" aria-label={`Avisos da base ${b.nome}`}>
+                        {b.avisos.map((a) => (
+                          <li key={a} className="flex items-start gap-1.5 break-words">
+                            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-alp-laranja" aria-hidden="true" />
+                            <span className="min-w-0">{a}</span>
+                          </li>
+                        ))}
+                        <li className="pl-5 text-[12px] text-texto-3">A base pode ser enviada assim mesmo; para completar, reexporte com essas colunas.</li>
+                      </ul>
+                    )}
                   </div>
                 );
               })}
