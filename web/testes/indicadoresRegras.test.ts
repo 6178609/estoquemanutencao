@@ -4,7 +4,7 @@ import * as ind from "@/lib/wcm/indicadores";
 import { abcDasNotas, completarAbc, cruzarBases, dataDosDados } from "@/lib/wcm/cruzamento";
 import { lerFiltros, textoDadosAte } from "@/lib/wcm/filtros";
 import {
-  marcarQuebras, prepararIw38, quebrasDasOrdens, regraQuebra, TEXTO_REGRA_QUEBRA, tiposPorOrdem, type Confirmacao, type Equipamento, type Nota, type Operacao,
+  marcarQuebras, MIN_NOTAS_Y1, prepararIw38, quebrasDasOrdens, regraQuebra, TEXTO_REGRA_QUEBRA, tiposPorOrdem, type Confirmacao, type Equipamento, type Nota, type Operacao,
 } from "@/lib/wcm/preparo";
 import { dia } from "@/lib/wcm/util";
 
@@ -86,10 +86,20 @@ describe("regra de quebra", () => {
     .map((l) => ({ ...l, "Status usuário": "CAN" })), HOJE).ordens;
   const tipos = tiposPorOrdem([...ordens, ...cancelada], [], []);
 
-  it("com alguma Y1 na IW28 vale a regra da planta (Y1 → YM11)", () => {
+  it("com Y1 suficientes na IW28 vale a regra da planta (Y1 → YM11); poucas Y1 avulsas não derrubam a regra YM11", () => {
     const notas = [nota("1", "Y1", "10", "E1", dia(2026, 10, 2)!), nota("2", "Y2", "13", "E3", dia(2026, 10, 6)!)];
-    expect(regraQuebra(notas)).toBe("y1");
-    expect(marcarQuebras(notas, tipos).map((n) => n.quebra)).toEqual([true, false]);
+    expect(regraQuebra(notas)).toBe("ym11"); // uma Y1 só: abaixo do mínimo
+    const muitas = [...notas, ...Array.from({ length: MIN_NOTAS_Y1 - 1 }, (_, i) => nota(`9${i}`, "Y1", "", `E${i + 20}`, dia(2026, 10, 3)!))];
+    expect(regraQuebra(muitas)).toBe("y1");
+    expect(marcarQuebras(notas, tipos, "y1").map((n) => n.quebra)).toEqual([true, false]);
+  });
+
+  it("várias ordens YM11 do mesmo equipamento no mesmo dia contam como uma quebra", () => {
+    const mesmoDia = [{ ...ordens[0], ordem: "21" }, { ...ordens[0], ordem: "22" }];
+    const x = cruzarBases({ ordens: mesmoDia, notas: [], oper: [], conf: [], equipamentos: null, calendario: HOJE });
+    expect(x.quebrasOrdem).toHaveLength(2);
+    const d = dadosBase({ ordens: mesmoDia, notas: x.notas, quebrasOrdem: x.quebrasOrdem, regraQuebra: x.regraQuebra, hoje: HOJE });
+    expect(ind.quebras(d)).toHaveLength(1);
   });
 
   it("sem nenhuma Y1, toda ordem YM11 é quebra (a nota da ordem YM11 conta uma vez só)", () => {

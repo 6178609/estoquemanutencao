@@ -52,7 +52,7 @@ export default async function GerenciadorHh(props: { searchParams: Promise<Recor
       <Secao titulo="Disponibilidade" destaque={descrever(ini, fim)}
         sub="O período vem da barra do topo (os filtros de área, setor, centro e tipo de ordem não valem aqui: use os da equipe abaixo).">
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
-        {visao === "Equipe (cadastro)" ? <EquipeCadastro membros={membros} edita={podeEditar(u)} doCadastro={doCadastro} /> : <GestaoHh visao={visao} pessoas={linhas} ausencias={hh.ausencias(cad).map((a) => ({ ...a }))} hoje={c.b.hoje} ini={ini} fim={fim}
+        {visao === "Equipe (cadastro)" ? <EquipeCadastro membros={membros} edita={podeEditar(u)} doCadastro={doCadastro} /> : <GestaoHh visao={visao} pessoas={linhas} ausencias={hh.ausencias(cad).map((a) => ({ ...a }))} hoje={c.b.calendario} ini={ini} fim={fim}
           edita={podeEditar(u)} horasSemana={horasSemana} tipos={hh.TIPOS_AUSENCIA} />}
       </Secao>
     </PaginaWcm>

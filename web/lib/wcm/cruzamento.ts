@@ -70,6 +70,11 @@ export function cruzarBases(x: { ordens: Ordem[] | null; notas: Nota[] | null; o
   const notas = notasCruas ? marcarQuebras(notasCruas, tipos, regra) : null;
   const equipamentos = x.equipamentos ? completarAbc(x.equipamentos, notas) : null;
   const abc = new Map<string, string>([...abcDasNotas(notas), ...(x.equipamentos ?? []).filter((e) => e.codigoAbc).map((e) => [e.equipamento, e.codigoAbc] as const)]);
-  const quebrasOrdem = regra === "ym11" ? quebrasDasOrdens(ordens ?? [], x.oper ?? [], x.conf ?? [], notas, abc, hoje) : [];
+  const porEquip = new Map((x.equipamentos ?? []).map((e) => [e.equipamento, e] as const));
+  // quebras vindas do IW38OP/IW47 não trazem área nem localização: completa pelo IH08 (senão somem no filtro de área)
+  const quebrasOrdem = (regra === "ym11" ? quebrasDasOrdens(ordens ?? [], x.oper ?? [], x.conf ?? [], notas, abc, hoje) : []).map((q) => {
+    const e = porEquip.get(q.equipamento);
+    return e && (!q.local || !q.localizacao) ? { ...q, local: q.local || e.local, localizacao: q.localizacao || e.localizacao } : q;
+  });
   return { hoje, regraQuebra: regra, ordens, notas, equipamentos, quebrasOrdem };
 }

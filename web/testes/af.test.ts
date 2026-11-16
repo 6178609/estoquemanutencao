@@ -188,7 +188,7 @@ describe("Gerenciador de AF", () => {
     const nota = (n: string, tipoNota: string, ordem: string, codigoAbc: string, equipChave: string): Nota =>
       ({ ...base, nota: n, tipoNota, ordem, codigoAbc, data: dia(2026, 6, 2), equipChave });
     const notas = marcarQuebras([nota("1", "Y1", "9", "A", "E1"), nota("2", "Y1", "8", "B", "E2"), nota("3", "Y2", "7", "A", "E3")],
-      new Map());
+      new Map(), "y1");
     const { a, c } = preparar();
     expect(af.indicadores(a, c, dia(2026, 6, 1)!, dia(2026, 6, 30)!, HOJE, notas).quebras_a_iw28).toBe(1);
     expect(af.acoesDaAf(c, "32000001").map((x) => x.numeroAcao)).toEqual(["1", "2"]);

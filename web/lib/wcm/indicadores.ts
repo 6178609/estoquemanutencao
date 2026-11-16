@@ -155,12 +155,28 @@ export function quebras(d: Dados): Quebra[] {
   const fonte = [...(d.notas ?? []).filter((n) => n.quebra), ...(d.quebrasOrdem ?? [])];
   if (!fonte.length) return [];
   const rep = horasReparoPorOrdem(d.oper, d.confTodos ?? d.conf);
+  // quebra vinda da ordem YM11 (sem nota): só horas apontadas (IW47); o planejado do IW38OP não é reparo real
+  const repReal = horasReparoPorOrdem(null, d.confTodos ?? d.conf);
   const criticos = new Set(Object.entries(d.cadEq).filter(([, v]) => v?.criticidade === "Alta").map(([c]) => c));
-  const q = fonte.filter((n) => n.data != null).map((n) => {
-    const pelaOrdem = n.ordem !== "" ? rep.get(n.ordem) ?? null : null;
+  const todas = fonte.filter((n) => n.data != null).map((n) => {
+    const pelaOrdem = n.ordem !== "" ? (n.nota === "" ? repReal : rep).get(n.ordem) ?? null : null;
     return { ...n, horasReparo: n.horasParado > 0 ? n.horasParado : pelaOrdem, classeA: n.codigoAbc === "A" || criticos.has(n.equipChave),
       diasDesdeAnterior: null as number | null, reincidente: false };
   }).sort((a, b) => a.data! - b.data!);
+  // várias ordens/notas do mesmo equipamento no mesmo dia = um evento (uma quebra; as horas de reparo somam)
+  const q: typeof todas = [];
+  const doDia = new Map<string, (typeof todas)[number]>();
+  for (const x of todas) {
+    const k = x.equipChave ? `${x.equipChave}|${x.data}` : "";
+    const ja = k ? doDia.get(k) : undefined;
+    if (ja) {
+      if (x.horasReparo != null) ja.horasReparo = (ja.horasReparo ?? 0) + x.horasReparo;
+      ja.classeA ||= x.classeA;
+      continue;
+    }
+    if (k) doDia.set(k, x);
+    q.push(x);
+  }
   const ultima = new Map<string, Dia>();
   for (const x of q) {
     const ant = ultima.get(x.equipChave);

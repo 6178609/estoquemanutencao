@@ -42,7 +42,7 @@ export async function itensDeHoje(): Promise<{ itens: ItemAviso[]; hoje: number;
   const porNp = new Map(pes.map((p) => [p.np, { nome: p.nome, cargo: p.cargo, turma: p.turma }]));
   const treinos = hh.ausencias(c.cad.hh).filter((a) => porNp.has(a.np) && a.tipo === tr.TREINAMENTO);
   // base com erro ou equipe vazia não pode virar "nada vencendo" (fecharia a semana sem avisar ninguém)
-  return { itens: itensAviso(tr.reciclagens(treinos, c.b.hoje), porNp), hoje: c.b.hoje, semEquipe: !!c.b.equipe.erro || !pes.length };
+  return { itens: itensAviso(tr.reciclagens(treinos, c.b.calendario), porNp), hoje: c.b.calendario, semEquipe: !!c.b.equipe.erro || !pes.length };
 }
 
 export async function ultimoEnvio(): Promise<RegistroEnvio | null> {

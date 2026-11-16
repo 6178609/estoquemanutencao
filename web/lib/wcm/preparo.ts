@@ -280,8 +280,16 @@ export const TEXTO_REGRA_QUEBRA: Record<RegraQuebra, string> = {
   ym11: "Quebras pelas ordens YM11 (a IW28 não traz notas Y1)",
 };
 
+/**
+ * Mínimo de notas Y1 na IW28 para valer a regra "y1": uma ou outra Y1 avulsa (ou uma IW28 parcial) não derruba o
+ * histórico inteiro de quebras; abaixo disso as quebras vêm das ordens YM11.
+ */
+export const MIN_NOTAS_Y1 = 20;
+
 export function regraQuebra(notas: Pick<Nota, "tipoNota">[] | null | undefined): RegraQuebra {
-  return (notas ?? []).some((n) => n.tipoNota.trim().toUpperCase() === TIPO_NOTA_QUEBRA) ? "y1" : "ym11";
+  let y1 = 0;
+  for (const n of notas ?? []) if (n.tipoNota.trim().toUpperCase() === TIPO_NOTA_QUEBRA && ++y1 >= MIN_NOTAS_Y1) return "y1";
+  return "ym11";
 }
 
 /**

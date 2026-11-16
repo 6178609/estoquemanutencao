@@ -32,10 +32,10 @@ export async function programacaoParadas(): Promise<ProgramacaoParadas | null> {
   const cadUsado = demo ? { ...cad, parametros: { ...(cad.parametros ?? {}), localizacoes: [], centrosEliminados: [], soClasses: false } } : cad;
   const atualizado = { ip19: b.cruas.ip19.atualizado, iw38: b.ordens.atualizado, ih08: b.equipamentos.atualizado, iw38op: b.operacoes.atualizado };
   const assin = [b.cruas.ip19, b.ordens, b.operacoes, b.equipamentos].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}`).join("|");
-  const chave = `paradas|${assin}|${hashTexto(JSON.stringify(cadUsado))}|${b.hoje}|${demo}`;
+  const chave = `paradas|${assin}|${hashTexto(JSON.stringify(cadUsado))}|${b.calendario}|${demo}`;
   return guardar(chave, () => {
     const montado = montarEntrada({ ip19, ordens: b.ordens.dados, ops: b.operacoes.dados, eqs: b.equipamentos.dados, campoGeral: (e) => campo(e),
-      cad: cadUsado, hoje: b.hoje, demo });
+      cad: cadUsado, hoje: b.calendario, demo });
     return { montado, calculo: calcular(montado.entrada), demo, atualizado };
   });
 }

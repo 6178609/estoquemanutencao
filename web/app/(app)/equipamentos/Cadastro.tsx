@@ -39,7 +39,7 @@ export async function Cadastro({ c, params, cadastra }: { c: Contexto; params: P
     const sap = eq || nomeO ? { nome: eq?.denominacao || nomeO, abc: eq?.codigoAbc ?? "", desativado: !!eq?.desativado } : null;
     const info = tag && tag in cad ? infoCad(c, tag) : null;
     const ini = formInicial(tag, info, sap);
-    formulario = <FormEquipamento key={form} inicial={ini} editando={info ? tag : null} anoMax={partes(c.b.hoje).ano} voltar={voltar}
+    formulario = <FormEquipamento key={form} inicial={ini} editando={info ? tag : null} anoMax={partes(c.b.calendario).ano} voltar={voltar}
       vinculados={ini.materiais.map((m) => situacaoPeca(m, est, c.cad.materiais))} />;
   }
 

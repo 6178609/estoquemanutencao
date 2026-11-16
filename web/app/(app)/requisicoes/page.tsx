@@ -42,7 +42,7 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
   const padraoPessoas = solicitantesDe(metas);
   const pessoas = pessoasAtivas(params, padraoPessoas);
   const todas = soManutencao(daBase, pessoas) ?? [];
-  const f = lerFiltro(params, b.hoje);
+  const f = lerFiltro(params, b.calendario);
   const { filtradas, fora } = filtrar(todas, f);
   const { lista, ord, desc } = ordenarReq(filtradas, params);
   const { itens, pagina, paginas } = paginar(lista, params.pag);
@@ -54,7 +54,7 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
     for (const r of todas) { const v = f(r); if (v) m.set(v, (m.get(v) ?? 0) + 1); }
     return [...m.keys()].sort((a, b) => a.localeCompare(b, "pt-BR")).map((v) => ({ valor: v, n: m.get(v) }));
   };
-  const periodoTxt = f.ini == null && f.fim == null ? "todo o histórico" : descrever(f.ini ?? f.fim!, f.fim ?? b.hoje);
+  const periodoTxt = f.ini == null && f.fim == null ? "todo o histórico" : descrever(f.ini ?? f.fim!, f.fim ?? b.calendario);
 
   // gráficos
   const somaPor = (xs: Requisicao[], k: (r: Requisicao) => string) => {
@@ -120,7 +120,7 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
 
         <TabelaDados colunas={COLUNAS} linhas={itens.map(linha)} params={params} ord={ord} desc={desc} pagina={pagina} paginas={paginas}
           total={lista.length} rotulo="requisições" vazio="Nenhuma requisição no filtro." />
-        <p className="text-[12px] text-texto-3">Pendentes primeiro, maior valor primeiro · dias aguardando contados até hoje ({dataBr(b.hoje)}).</p>
+        <p className="text-[12px] text-texto-3">Pendentes primeiro, maior valor primeiro · dias aguardando contados até hoje ({dataBr(b.calendario)}).</p>
       </Secao>
     </Moldura>
   );

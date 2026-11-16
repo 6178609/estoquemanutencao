@@ -64,7 +64,7 @@ export default async function TreinamentosFerias(props: { searchParams: Promise<
     subtitulo="Férias e treinamentos de cada pessoa da equipe, lançados aqui ou na Gestão de HH (o mesmo cadastro): tiram horas da capacidade, aparecem na programação semanal e controlam as reciclagens." />;
   const edita = podeEditar(u);
   const cad = c.cad.hh;
-  const hoje = c.b.hoje;
+  const hoje = c.b.calendario;
   const horasSemana = ind.horasSemanaDe(c.cad.metas);
   const equipe = c.b.equipe.dados ?? [];
   const pes = hh.pessoas(equipe, cad, horasSemana);

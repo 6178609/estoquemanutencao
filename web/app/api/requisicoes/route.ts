@@ -18,6 +18,6 @@ export async function GET(req: NextRequest) {
   const [b, metas] = await Promise.all([bases(), lerCadastro(ARQ_METAS)]);
   // mesmo recorte da página: só as pessoas da manutenção (padrão salvo) ou as do endereço (pes; pes=todas = fábrica inteira)
   const reqs = soManutencao(b.requisicoes.dados ?? [], pessoasAtivas(p, solicitantesDe(metas))) ?? [];
-  const { filtradas } = filtrar(reqs, lerFiltro(p, b.hoje));
+  const { filtradas } = filtrar(reqs, lerFiltro(p, b.calendario));
   return respostaCsv(`requisicoes_${hojeArquivo()}`, COLUNAS, ordenarReq(filtradas, p).lista.map(linha));
 }

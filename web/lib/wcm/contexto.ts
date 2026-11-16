@@ -95,8 +95,8 @@ export async function contexto(params: Record<string, string | string[] | undefi
     const origem = b.cruas.ip19.dados?.length ? planos.prepararIp19(b.cruas.ip19.dados) : b.ordens.dados ? planos.deIw38(b.ordens.dados) : null;
     return origem?.length ? planos.classificar(origem, b.ordens.dados, b.hoje) : null;
   });
-  const afs = guardado(`af|${sig}`, () => (b.cruas.af.dados ? af.prepararAfs(b.cruas.af.dados, b.hoje) : null));
-  const acoesAf = guardado(`ac|${sig}`, () => (b.cruas.acoesAf.dados ? af.prepararAcoes(b.cruas.acoesAf.dados, b.hoje, afs) : null));
+  const afs = guardado(`af|${sig}`, () => (b.cruas.af.dados ? af.prepararAfs(b.cruas.af.dados, b.calendario) : null));
+  const acoesAf = guardado(`ac|${sig}`, () => (b.cruas.acoesAf.dados ? af.prepararAcoes(b.cruas.acoesAf.dados, b.calendario, afs) : null));
   // marcar todas as opções = não filtrar
   const opcoes = opcoesDe(b, f, tipos);
   const tudo = (sel: string[], ops: { valor: string }[]) => (ops.length > 1 && ops.every((o) => sel.includes(o.valor)) ? [] : sel);

@@ -28,7 +28,7 @@ export async function salvarEquipamento(form: Partial<FormCadastro>, editando: s
   const u = await quemEdita();
   if (!u) return { erro: "Seu acesso não permite alterar o cadastro de equipamentos (só editor ou administrador)." };
   const b = await bases();
-  const v = validarCadastro(form, partes(b.hoje).ano);
+  const v = validarCadastro(form, partes(b.calendario).ano);
   if ("erro" in v) return v;
   const cad = await lerCadastro(ARQ);
   const ed = editando && editando in cad ? editando : null;

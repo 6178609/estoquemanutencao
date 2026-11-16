@@ -83,7 +83,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
         {visao === "Equipe e pessoas" ? <Equipe c={c} d={d} ex={ex} jan={jan} />
           : visao === "Distribuição das horas" ? <Distribuicao d={d} ex={ex} />
           : visao === "Apontamentos (IW47)" ? <Apontamentos c={c} d={d} campoEq={campoEq} />
-            : <Backlog d={d} atual={atual} metas={metas} campoEq={campoEq} />}
+            : <Backlog d={d} atual={atual} metas={metas} campoEq={campoEq} calendario={c.b.calendario} />}
       </Secao>
     </PaginaWcm>
   );
@@ -266,7 +266,7 @@ const COL_SC: Coluna[] = [
   { rotulo: "Semanas", formato: "sem" }, { rotulo: "Ordens", formato: "inteiro" },
 ];
 
-function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Resultado; metas: Record<string, Record<string, unknown>>;
+function Backlog({ d, atual, metas, campoEq, calendario }: { d: ind.Dados; atual: ind.Resultado; metas: Record<string, Record<string, unknown>>; calendario: number;
   campoEq: (codigo: string | null | undefined) => string }) {
   const bk = ind.backlog(d);
   const [cap, origem] = ind.capacidadeSemanal(d, d.centros.length ? d.centros : null);
@@ -305,7 +305,7 @@ function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Result
   }).sort((a, b) => b.h - a.h);
   const comSem = sc.filter((x) => x.semanas != null).sort((a, b) => b.semanas! - a.semanas!).slice(0, 14);
   const idade = idadeBacklog(bk);
-  const carga = d.oper ? cargaFutura(d.oper, d.hoje) : null;
+  const carga = d.oper ? cargaFutura(d.oper, calendario) : null;
   const lista = [...bk].sort((a, b) => b.idade - a.idade).slice(0, 3000);
   return (
     <div className="space-y-4">
