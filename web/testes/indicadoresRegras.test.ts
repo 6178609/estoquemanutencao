@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import * as ind from "@/lib/wcm/indicadores";
-import { prepararIw38 } from "@/lib/wcm/preparo";
+import { cruzarBases } from "@/lib/wcm/cruzamento";
+import {
+  marcarQuebras, prepararIw38, quebrasDasOrdens, regraQuebra, TEXTO_REGRA_QUEBRA, tiposPorOrdem, type Confirmacao, type Nota, type Operacao,
+} from "@/lib/wcm/preparo";
 import { dia } from "@/lib/wcm/util";
 
 /** Regras dos indicadores (só dados fictícios). */
@@ -55,4 +58,75 @@ describe("backlog sem as encerradas sem confirmação", () => {
   });
   it("idade média do backlog sem as encerradas", () =>
     expect(ind.calcular(d, dia(2026, 10, 1)!, dia(2026, 10, 31)!).idade_backlog).toBe((19 + 10) / 2));
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// quebras: Y1 → YM11, ou toda ordem YM11 quando a IW28 não traz Y1
+// ---------------------------------------------------------------------------------------------------------------
+const NOTA_BASE: Nota = {
+  nota: "", ordem: "", tipoNota: "", descricao: "", equipamento: "", objeto: "", local: "", centroTrabalho: "", localizacao: "",
+  notificador: "", criadoPor: "", codigoAbc: "", plano: "", inicioAvaria: null, fimAvaria: null, dataNota: null, comParada: false,
+  horasParado: 0, comOrdem: false, data: null, dias: null, equipChave: "", setor: "", tipoOrdem: "", quebra: false,
+};
+const nota = (n: string, tipoNota: string, ordem: string, eq: string, data: number, abc = ""): Nota =>
+  ({ ...NOTA_BASE, nota: n, tipoNota, ordem, equipamento: eq, equipChave: eq, data, dataNota: data, comOrdem: ordem !== "", codigoAbc: abc });
+
+describe("regra de quebra", () => {
+  const HOJE = dia(2026, 10, 20)!;
+  const COLS = ["Ordem", "Status do sistema", "Data-base do início", "Tipo de ordem", "Equipamento", "Data de entrada", "Localização"];
+  const ordens = prepararIw38([
+    ["10", "LIB", "02/10/2026", "YM11", "E1", "02/10/2026", "A1"],
+    ["11", "ENTE CONF", "12/10/2026", "YM11", "E1", "12/10/2026", "A1"],   // reincidente (10 dias)
+    ["12", "ENTE CONF", "05/10/2026", "YM12", "E2", "05/10/2026", "A1"],   // corretiva programada: não é quebra
+    ["13", "LIB", "06/10/2026", "YM11", "E3", "06/10/2026", "A2"],         // tem nota (Y2): a nota é a quebra
+    ["14", "LIB", "07/10/2026", "YM11", "E4", "07/10/2026", "A1"],
+  ].map((l) => Object.fromEntries(COLS.map((c, i) => [c, l[i]]))), HOJE).ordens;
+  const cancelada = prepararIw38([Object.fromEntries(COLS.map((c, i) => [c, ["15", "LIB", "08/10/2026", "YM11", "E5", "08/10/2026", "A1"][i]]))]
+    .map((l) => ({ ...l, "Status usuário": "CAN" })), HOJE).ordens;
+  const tipos = tiposPorOrdem([...ordens, ...cancelada], [], []);
+
+  it("com alguma Y1 na IW28 vale a regra da planta (Y1 → YM11)", () => {
+    const notas = [nota("1", "Y1", "10", "E1", dia(2026, 10, 2)!), nota("2", "Y2", "13", "E3", dia(2026, 10, 6)!)];
+    expect(regraQuebra(notas)).toBe("y1");
+    expect(marcarQuebras(notas, tipos).map((n) => n.quebra)).toEqual([true, false]);
+  });
+
+  it("sem nenhuma Y1, toda ordem YM11 é quebra (a nota da ordem YM11 conta uma vez só)", () => {
+    const notas = [nota("2", "Y2", "13", "E3", dia(2026, 10, 6)!), nota("3", "Y2", "", "E9", dia(2026, 10, 6)!)];
+    expect(regraQuebra(notas)).toBe("ym11");
+    expect(regraQuebra(null)).toBe("ym11");
+    const x = cruzarBases({ ordens: [...ordens, ...cancelada], notas, oper: [], conf: [], equipamentos: null, calendario: HOJE });
+    expect(x.regraQuebra).toBe("ym11");
+    expect(x.notas!.map((n) => n.quebra)).toEqual([true, false]);
+    expect(x.quebrasOrdem.map((q) => q.ordem).sort()).toEqual(["10", "11", "14"]); // sem a 12 (YM12), 13 (tem nota) e 15 (cancelada)
+    const d = dadosBase({ ordens, notas: x.notas, quebrasOrdem: x.quebrasOrdem, regraQuebra: x.regraQuebra, hoje: HOJE });
+    const q = ind.quebras(d);
+    expect(q.map((y) => y.ordem)).toEqual(["10", "13", "14", "11"]);
+    expect(q.find((y) => y.ordem === "11")!.reincidente).toBe(true);
+    const r = ind.calcular(d, dia(2026, 10, 1)!, dia(2026, 10, 20)!);
+    expect(r.quebras).toBe(4);
+    expect(r.reincidencia).toBe(25);
+    expect(r.mtbf).toBeCloseTo((20 * 3) / 4);
+  });
+
+  it("ordem YM11 só no IW38OP ou na IW47 também entra, com a data da operação ou da 1ª confirmação", () => {
+    const oper = [{ ordem: "20", tipo: "YM11", equipamento: "E7", objeto: "", local: "", centroTrabalho: "MEC", textoOperacao: "Troca",
+      inicio: dia(2026, 10, 9)!, cancelada: false }, { ordem: "20", tipo: "YM11", equipamento: "E7", objeto: "", local: "", centroTrabalho: "MEC",
+      textoOperacao: "Teste", inicio: dia(2026, 10, 8)!, cancelada: true }] as unknown as Operacao[];
+    const conf = [{ ordem: "21", tipo: "YM11", equipamento: "E8", centroTrabalho: "ELE", texto: "Reparo", data: dia(2026, 10, 11)!, np: "1", horas: 2 },
+      { ordem: "21", tipo: "YM11", equipamento: "E8", centroTrabalho: "ELE", texto: "Reparo", data: dia(2026, 10, 10)!, np: "1", horas: 1 }] as unknown as Confirmacao[];
+    const q = quebrasDasOrdens([], oper, conf, [], new Map([["E8", "A"]]), HOJE);
+    expect(q.map((x) => [x.ordem, x.data, x.codigoAbc, x.quebra])).toEqual([["20", dia(2026, 10, 8), "", true], ["21", dia(2026, 10, 10), "A", true]]);
+  });
+
+  it("com filtro de tipo sem YM11 os indicadores de quebra não se aplicam; IW28 ausente não impede a regra YM11", () => {
+    const x = cruzarBases({ ordens, notas: null, oper: [], conf: [], equipamentos: null, calendario: HOJE });
+    const d = dadosBase({ ordens, quebrasOrdem: x.quebrasOrdem, regraQuebra: x.regraQuebra, hoje: HOJE });
+    expect(ind.calcular(d, dia(2026, 10, 1)!, dia(2026, 10, 20)!).quebras).toBe(4);
+    expect(ind.calcular({ ...d, tiposFiltro: ["YM12"], memo: new Map() }, dia(2026, 10, 1)!, dia(2026, 10, 20)!).quebras).toBeNull();
+  });
+
+  it("textos da regra para as telas", () => {
+    expect(TEXTO_REGRA_QUEBRA.ym11).toBe("Quebras pelas ordens YM11 (a IW28 não traz notas Y1)");
+  });
 });

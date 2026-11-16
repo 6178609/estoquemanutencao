@@ -137,7 +137,7 @@ async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel:
           dica="Média de dias entre uma ordem de backlog (sem plano) e a seguinte (aproxima o MTBF)." />
         <Numero rotulo="Pendentes hoje" valor={inteiroBr(hist.filter((o) => PENDENTES.has(o.situacao)).length)} detalhe={`${inteiroBr(hist.filter((o) => o.atrasada).length)} atrasadas`} />
         <Numero rotulo="Quebras no período" valor={inteiroBr(qPer.length)} detalhe={`${inteiroBr(qEq.length)} em todas as datas`}
-          dica="Notas Y1 da IW28 convertidas em ordem YM11 neste equipamento." tom={qPer.length ? "atencao" : undefined} />
+          dica={c.b.regraQuebra === "ym11" ? "Ordens YM11 neste equipamento (a IW28 não traz notas Y1)." : "Notas Y1 da IW28 convertidas em ordem YM11 neste equipamento."} tom={qPer.length ? "atencao" : undefined} />
         <Numero rotulo="MTBF no período" valor={qPer.length ? `${inteiroBr(Math.round(diasPer / qPer.length))} dias` : "—"} dica="Dias do período ÷ quebras do equipamento no período." />
         <Numero rotulo="MTTR no período" valor={rep.length ? `${n1.format(rep.reduce((a, b) => a + b, 0) / rep.length)} h` : "—"} dica={ind.POR_ID.mttr.formula} />
         <Numero rotulo="Reincidências (≤ 30 dias)" valor={inteiroBr(qPer.filter((q) => q.reincidente).length)} dica="Quebras a até 30 dias da anterior no mesmo equipamento." />
@@ -159,7 +159,7 @@ async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel:
           </Cartao>
           {c.b.notas.dados && (
             <Cartao titulo="Notas do equipamento (IW28)"
-              sub={`${inteiroBr(notas.length)} notas · ${inteiroBr(notas.filter((n) => n.quebra).length)} quebra(s) (Y1 → YM11) · ${inteiroBr(notas.filter((n) => !n.comOrdem).length)} sem ordem`}>
+              sub={`${inteiroBr(notas.length)} notas · ${inteiroBr(notas.filter((n) => n.quebra).length)} quebra(s) (${c.b.regraQuebra === "ym11" ? "ordem YM11" : "Y1 → YM11"}) · ${inteiroBr(notas.filter((n) => !n.comOrdem).length)} sem ordem`}>
               {notas.length > 0 && (
                 <TabelaT alta colunas={[{ rotulo: "Nota" }, { rotulo: "Data" }, { rotulo: "Tipo de nota" }, { rotulo: "Descrição", larga: true }, { rotulo: "Quebra" }, { rotulo: "Parada" },
                   { rotulo: "Ordem" }, { rotulo: "Tipo da ordem" }, { rotulo: "Notificador" }]}

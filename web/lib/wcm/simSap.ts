@@ -15,7 +15,7 @@ const KPIS_MP: { kpi: string; tipo: TipoKpi; unidade: "%" | "h" | "un"; de: ((r:
     de: (r) => (r.disponibilidade == null ? null : 100 - r.disponibilidade) },
   { kpi: "MTTR", tipo: "B", unidade: "h", fonte: "MTTR das quebras", de: (r) => r.mttr ?? null },
   { kpi: "MTBF", tipo: "A", unidade: "h", fonte: "MTBF em horas (dias × 24)", de: (r) => (r.mtbf == null ? null : r.mtbf * 24) },
-  { kpi: "Número de quebras totais", tipo: "B", unidade: "un", fonte: "notas Y1 convertidas em YM11", de: (r) => r.quebras ?? null },
+  { kpi: "Número de quebras totais", tipo: "B", unidade: "un", fonte: "notas Y1 convertidas em YM11 (sem Y1 na IW28: ordens YM11)", de: (r) => r.quebras ?? null },
   { kpi: "Número de quebras MP", tipo: "B", unidade: "un", fonte: "não há no SAP: só a planilha", de: null },
   { kpi: "Plano de Manutenção", tipo: "A", unidade: "%", fonte: "aderência ao plano (IP19 × IW38)", de: (r) => r.aderencia ?? null },
 ];

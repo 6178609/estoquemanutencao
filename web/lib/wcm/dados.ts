@@ -8,10 +8,11 @@ import { lerCadastro, versaoCadastro } from "../dados/cadastros";
 import { fonte } from "../dados/fonte";
 import { DESTINO } from "../leitura/tipos";
 import { basesDemo } from "./demo";
+import { cruzarBases } from "./cruzamento";
 import {
-  marcarQuebras, prepararConfirmacoes, prepararEquipamentos, prepararEquipe, prepararIw38, prepararNotas, prepararOperacoes,
-  prepararRequisicoes, tiposPorOrdem, type Confirmacao, type Crua, type Equipamento, type Nota, type Operacao, type Ordem,
-  type Pessoa, type Requisicao,
+  prepararConfirmacoes, prepararEquipamentos, prepararEquipe, prepararIw38, prepararNotas, prepararOperacoes,
+  prepararRequisicoes, type Confirmacao, type Crua, type Equipamento, type Nota, type Operacao, type Ordem,
+  type Pessoa, type RegraQuebra, type Requisicao,
 } from "./preparo";
 import * as hh from "./hh";
 import { hashTexto, hoje } from "./util";
@@ -29,7 +30,14 @@ export interface Bases {
   equipe: Base<Pessoa[]>;
   requisicoes: Base<Requisicao[]>;
   cruas: { ip19: Base<Crua[]>; af: Base<Crua[]>; acoesAf: Base<Crua[]> }; // preparadas pelos módulos próprios
+  /** "hoje" dos indicadores: a data dos dados (último dia coberto pelas ordens/apontamentos), nunca depois do calendário */
   hoje: number;
+  /** o dia do calendário (fuso da fábrica) */
+  calendario: number;
+  /** regra de quebra em vigor (y1: notas Y1 → YM11; ym11: a IW28 não traz Y1 e toda ordem YM11 é quebra) */
+  regraQuebra: RegraQuebra;
+  /** regra "ym11": as ordens YM11 sem nota, como registros de quebra (filtradas junto com as notas) */
+  quebrasOrdem: Nota[];
 }
 
 const ident = (l: Crua[]) => l;
@@ -68,7 +76,7 @@ async function basesDosExports(): Promise<Bases> {
   };
   // export novo e já há bases de hoje (e ninguém acabou de enviar): responde com as anteriores e monta as novas depois
   // da resposta (stale-while-revalidate) — baixar e preparar ocupa a CPU por alguns segundos
-  if (pronto && pronto.valor.hoje === h && !envio) {
+  if (pronto && pronto.valor.calendario === h && !envio) {
     try {
       after(() => montar().then(() => undefined, (e) => console.warn(`[dados] montagem das bases falhou: ${(e as Error).message}`)));
       return pronto.valor;
@@ -175,13 +183,13 @@ async function montarBases(h: number, assin: string | null): Promise<Bases> {
     gb.__cmBasesWcm.assin = semErro ? assin : null;
     return gb.__cmBasesWcm.valor;
   }
-  // quebra = Y1 convertida em YM11: o tipo da ordem vem das três bases que têm ordem
+  // data dos dados, quebras (Y1 → YM11, ou só YM11 sem Y1 na IW28) e ABC das notas onde o IH08 não traz
   const t0 = Date.now();
-  const tipos = tiposPorOrdem(iw38.dados || [], oper.dados || [], conf.dados || []);
-  const notas = { ...iw28, dados: iw28.dados ? marcarQuebras(iw28.dados, tipos) : null };
+  const x = cruzarBases({ ordens: iw38.dados, notas: iw28.dados, oper: oper.dados, conf: conf.dados, equipamentos: ih08.dados, calendario: h });
   anotarTempo("_cruzamento_quebras", { kb: 0, linhas: iw28.dados?.length ?? 0, baixar_ms: 0, ler_ms: 0, preparar_ms: Date.now() - t0, em: new Date().toISOString() });
-  const valor: Bases = { ordens: iw38, notas, operacoes: oper, confirmacoes: conf, equipamentos: ih08, equipe, requisicoes: req,
-    cruas: { ip19, af, acoesAf }, hoje: h };
+  const valor: Bases = { ordens: { ...iw38, dados: x.ordens }, notas: { ...iw28, dados: x.notas }, operacoes: oper, confirmacoes: conf,
+    equipamentos: { ...ih08, dados: x.equipamentos }, equipe, requisicoes: req, cruas: { ip19, af, acoesAf }, hoje: x.hoje, calendario: h,
+    regraQuebra: x.regraQuebra, quebrasOrdem: x.quebrasOrdem };
   gb.__cmBasesWcm = { chave, valor, assin: semErro ? assin : null };
   return valor;
 }

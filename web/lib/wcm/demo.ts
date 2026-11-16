@@ -1,7 +1,8 @@
 import type { Base } from "../dados/bases";
+import { cruzarBases } from "./cruzamento";
 import {
-  marcarQuebras, prepararConfirmacoes, prepararEquipamentos, prepararEquipe, prepararIw38, prepararNotas, prepararOperacoes,
-  prepararRequisicoes, tiposPorOrdem, type Crua,
+  prepararConfirmacoes, prepararEquipamentos, prepararEquipe, prepararIw38, prepararNotas, prepararOperacoes,
+  prepararRequisicoes, type Crua,
 } from "./preparo";
 import { dataBr, type Dia } from "./util";
 
@@ -200,11 +201,12 @@ function montarDemo(hoje: Dia) {
   if (memo.dia !== hoje) { memo.valor = gerar(hoje); memo.dia = hoje; }
   const g = memo.valor!;
   const ordens = prepararIw38(g.iw38, hoje).ordens, oper = prepararOperacoes(g.iw38op), conf = prepararConfirmacoes(g.iw47);
-  const notas = marcarQuebras(prepararNotas(g.iw28, hoje), tiposPorOrdem(ordens, oper, conf));
+  const x = cruzarBases({ ordens, notas: prepararNotas(g.iw28, hoje), oper, conf, equipamentos: prepararEquipamentos(g.ih08), calendario: hoje });
   return {
-    ordens: base(ordens, hoje), notas: base(notas, hoje), operacoes: base(oper, hoje), confirmacoes: base(conf, hoje),
-    equipamentos: base(prepararEquipamentos(g.ih08), hoje), equipe: base(prepararEquipe(g.equipeCrua), hoje),
+    ordens: base(x.ordens!, hoje), notas: base(x.notas!, hoje), operacoes: base(oper, hoje), confirmacoes: base(conf, hoje),
+    equipamentos: base(x.equipamentos!, hoje), equipe: base(prepararEquipe(g.equipeCrua), hoje),
     requisicoes: base(prepararRequisicoes(g.req, hoje), hoje),
-    cruas: { ip19: base(g.ip19, hoje), af: base(g.af, hoje), acoesAf: base(g.acoes, hoje) }, hoje,
+    cruas: { ip19: base(g.ip19, hoje), af: base(g.af, hoje), acoesAf: base(g.acoes, hoje) }, hoje: x.hoje, calendario: hoje,
+    regraQuebra: x.regraQuebra, quebrasOrdem: x.quebrasOrdem,
   };
 }

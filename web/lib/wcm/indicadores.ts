@@ -3,14 +3,15 @@ import * as af from "./af";
 import * as hh from "./hh";
 import * as planos from "./planos";
 import * as preditiva from "./preditiva";
-import { ENCERRADA_SEM_CONF, PENDENTES, type Confirmacao, type Nota, type Operacao, type Ordem, type Pessoa, type Requisicao } from "./preparo";
+import { ENCERRADA_SEM_CONF, PENDENTES, type Confirmacao, type Nota, type Operacao, type Ordem, type Pessoa, type RegraQuebra,
+  type Requisicao } from "./preparo";
 import { inicioDoMes, partes, somarMeses, type Dia } from "./util";
 
 /**
  * Indicadores WCM do pilar Manutenção Profissional. Cada indicador tem
  * fórmula, sentido (maior ou menor é melhor), meta padrão (editável em Metas) e farol.
  *
- * - Quebra = nota Y1 da IW28 convertida em ordem YM11.
+ * - Quebra = nota Y1 da IW28 convertida em ordem YM11; se a IW28 não traz nenhuma Y1, toda ordem YM11 (IW38, IW38OP, IW47).
  * - Horas de reparo de uma ordem = HH reais (IW47) ÷ pessoas que apontaram; sem IW47, Σ(trabalho ÷ pessoas) no IW38OP;
  *   quando a nota traz a duração da parada, ela vale no lugar.
  * - Data de conclusão de uma ordem = maior fim real das operações concluídas.
@@ -31,7 +32,7 @@ const k = (id: string, nome: string, unidade: Unidade, sentido: 1 | -1, meta: nu
   formula: string, op: { mensal?: boolean; foto?: boolean } = {}): Kpi => ({ id, nome, unidade, sentido, meta, grupo, pagina, formula, ...op });
 
 export const KPIS: Kpi[] = [
-  k("quebras", "Quebras", "un", -1, null, CONFIABILIDADE, "/confiabilidade", "Notas Y1 da IW28 convertidas em ordem YM11 no período (regra de quebra da planta).", { mensal: true }),
+  k("quebras", "Quebras", "un", -1, null, CONFIABILIDADE, "/confiabilidade", "Notas Y1 da IW28 convertidas em ordem YM11 no período (regra de quebra da planta). Se a IW28 carregada não traz nenhuma nota Y1, contam as ordens YM11 (IW38, IW38OP, IW47) pela data-base de início.", { mensal: true }),
   k("mtbf", "MTBF", "dias", 1, 60, CONFIABILIDADE, "/confiabilidade", "Tempo médio entre falhas: dias do período × equipamentos que quebraram ÷ quebras."),
   k("mttr", "MTTR", "h", -1, 4, CONFIABILIDADE, "/confiabilidade", "Tempo médio de reparo por quebra: duração da parada na nota; sem ela, horas reais da ordem da quebra na IW47 ÷ pessoas que apontaram; sem IW47, Σ(trabalho ÷ pessoas) das operações no IW38OP.", { mensal: true }),
   k("disponibilidade", "Disponibilidade", "%", 1, 98, CONFIABILIDADE, "/confiabilidade", "Disponibilidade inerente dos equipamentos que quebraram: MTBF ÷ (MTBF + MTTR), com o MTBF em horas (dias × 24) e o MTTR das quebras do período."),
@@ -82,6 +83,10 @@ export interface TipoOrdem { descricao: string; classe: string }
 export interface Dados {
   ordens: Ordem[];                       // IW38 já filtrado por área/centro/tipo (todas as datas)
   notas: Nota[] | null;                  // IW28 filtrado por área/centro
+  /** regra "ym11" (IW28 sem nenhuma Y1): ordens YM11 sem nota, como registros de quebra, filtradas por área/centro */
+  quebrasOrdem?: Nota[] | null;
+  /** regra de quebra em vigor (sem informar: "y1") */
+  regraQuebra?: RegraQuebra;
   oper: Operacao[] | null;               // IW38OP das ordens filtradas
   chamadas: planos.ChamadaClassificada[] | null;
   estoque: ItemEstoque[] | null;
@@ -145,12 +150,13 @@ export function fimRealPorOrdem(oper: Operacao[] | null): Map<string, Dia> {
 
 export interface Quebra extends Nota { horasReparo: number | null; classeA: boolean; diasDesdeAnterior: number | null; reincidente: boolean }
 
-/** Uma linha por quebra, com classe A, horas de reparo e reincidência (≤ 30 dias da anterior no mesmo equipamento). */
+/** Uma linha por quebra (notas de quebra + ordens YM11 sem nota na regra "ym11"), com classe A, horas de reparo e reincidência (≤ 30 dias da anterior no mesmo equipamento). */
 export function quebras(d: Dados): Quebra[] {
-  if (!d.notas?.length) return [];
+  const fonte = [...(d.notas ?? []).filter((n) => n.quebra), ...(d.quebrasOrdem ?? [])];
+  if (!fonte.length) return [];
   const rep = horasReparoPorOrdem(d.oper, d.confTodos ?? d.conf);
   const criticos = new Set(Object.entries(d.cadEq).filter(([, v]) => v?.criticidade === "Alta").map(([c]) => c));
-  const q = d.notas.filter((n) => n.quebra && n.data != null).map((n) => {
+  const q = fonte.filter((n) => n.data != null).map((n) => {
     const pelaOrdem = n.ordem !== "" ? rep.get(n.ordem) ?? null : null;
     return { ...n, horasReparo: n.horasParado > 0 ? n.horasParado : pelaOrdem, classeA: n.codigoAbc === "A" || criticos.has(n.equipChave),
       diasDesdeAnterior: null as number | null, reincidente: false };
@@ -268,11 +274,13 @@ export function capacidadeSemanal(d: Dados, centros: string[] | null = null): [n
 // Cálculo
 // ----------------------------------------------------------------------------
 export const TIPO_QUEBRA = "YM11";
-const FONTE: Record<string, "iw38" | "notas" | "hh"> = {
+type Fonte = "iw38" | "notas" | "hh" | "quebras";
+const FONTE: Record<string, Fonte> = {
   ...Object.fromEntries(["pct_plano", "pct_emergencial", "no_prazo", "custo", "pct_custo_corr", "custo_medio", "custo_total", "custo_hora", "pct_corretiva",
     "cumprimento_prev"].map((x) => [x, "iw38" as const])),
-  ...Object.fromEntries(["quebras", "mtbf", "mttr", "disponibilidade", "reincidencia", "quebras_a", "notas_7d", "semeq_detectadas",
-    "semeq_com_ordem", "semeq_tratadas", "semeq_dias"].map((x) => [x, "notas" as const])),
+  // quebras: cobertura da IW28 na regra "y1"; da IW38 na regra "ym11" (as quebras vêm das ordens)
+  ...Object.fromEntries(["quebras", "mtbf", "mttr", "disponibilidade", "reincidencia", "quebras_a"].map((x) => [x, "quebras" as const])),
+  ...Object.fromEntries(["notas_7d", "semeq_detectadas", "semeq_com_ordem", "semeq_tratadas", "semeq_dias"].map((x) => [x, "notas" as const])),
   ...Object.fromEntries(["hh", "utilizacao", "pct_hh_plano", "hh_emergencial"].map((x) => [x, "hh" as const])),
 };
 
@@ -286,20 +294,21 @@ function janela(datas: (Dia | null)[]): [Dia, Dia] | null {
 }
 
 /** Fração do período [ini, fim] coberta por cada base. */
-function cobertura(d: Dados, ini: Dia, fim: Dia): Record<"iw38" | "notas" | "hh", number> {
+function cobertura(d: Dados, ini: Dia, fim: Dia): Record<Fonte, number> {
   const dias = Math.max(fim - ini + 1, 1);
   const jan = {
     iw38: memo(d, "jan_iw38", (x) => janela(validas(x.ordens).map((o) => o.data))),
     notas: memo(d, "jan_notas", (x) => (x.notas ? janela(x.notas.map((n) => n.data)) : null)),
     hh: memo(d, "jan_hh", (x) => janela(memo(x, "hh_exec", hhExecutadas).map((e) => e.fimReal))),
   };
-  const out = { iw38: 0, notas: 0, hh: 0 };
+  const out = { iw38: 0, notas: 0, hh: 0, quebras: 0 };
   for (const kk of ["iw38", "notas", "hh"] as const) {
     const j = jan[kk];
     if (!j) continue;
     const a = Math.max(ini, j[0]), b = Math.min(fim, j[1]);
     out[kk] = b >= a ? Math.max(0, (b - a + 1) / dias) : 0;
   }
+  out.quebras = d.regraQuebra === "ym11" ? out.iw38 : out.notas;
   return out;
 }
 
@@ -316,7 +325,7 @@ export function calcular(d: Dados, ini: Dia, fim: Dia): Resultado {
   const dias = fimEf - ini + 1;
 
   // confiabilidade (quebra é ordem YM11: com filtro de tipo sem YM11 os indicadores de quebra não se aplicam)
-  const temNotas = d.notas != null && (!d.tiposFiltro.length || d.tiposFiltro.includes(TIPO_QUEBRA));
+  const temNotas = (d.notas != null || d.regraQuebra === "ym11") && (!d.tiposFiltro.length || d.tiposFiltro.includes(TIPO_QUEBRA));
   const q = temNotas ? memo(d, "quebras", quebras).filter((x) => entre(x.data, ini, fimEf)) : [];
   r.quebras = temNotas ? q.length : null;
   const comEq = q.filter((x) => x.equipChave !== "");
@@ -390,7 +399,7 @@ export function calcular(d: Dados, ini: Dia, fim: Dia): Resultado {
   } else r.req_dias = null;
 
   // base que não cobre o período: valor vazio (não zero)
-  const cob = dias > 0 ? cobertura(d, ini, fimEf) : { iw38: 0, notas: 0, hh: 0 };
+  const cob = dias > 0 ? cobertura(d, ini, fimEf) : { iw38: 0, notas: 0, hh: 0, quebras: 0 };
   for (const [kk, fonte] of Object.entries(FONTE)) if (!cob[fonte]) r[kk] = null;
   // custo por hora: com a IW47 cobrindo só parte do período, o divisor sai parcial e o valor, inflado
   if (cob.hh < 0.99) r.custo_hora = null;

@@ -48,6 +48,7 @@ export default async function Notas(props: { searchParams: Promise<Params> }) {
   const semOrdem = filtradas.filter((n) => !n.comOrdem);
   const quebras = filtradas.filter((n) => n.quebra).length;
   const classeA = filtradas.filter((n) => n.codigoAbc === "A").length;
+  const regra = c.b.regraQuebra === "ym11" ? "Quebra = nota cuja ordem é YM11 (a IW28 não traz notas Y1)" : "Quebra = nota Y1 convertida em ordem YM11 (regra da planta)";
 
   return (
     <PaginaWcm barra={barra(c)}>
@@ -55,7 +56,7 @@ export default async function Notas(props: { searchParams: Promise<Params> }) {
         subtitulo="Pedidos e falhas registrados pela fábrica: o que ainda não virou ordem, o que parou máquina e onde se repete." />
 
       {temOrdens && (
-        <Secao titulo="Indicadores" destaque="do recorte" sub="Quebra = nota Y1 convertida em ordem YM11 (regra da planta). Passe o mouse no nome para ver a fórmula.">
+        <Secao titulo="Indicadores" destaque="do recorte" sub={`${regra}. Passe o mouse no nome para ver a fórmula.`}>
           <GradeKpis kpis={KPIS.map((id) => ind.POR_ID[id])} atual={atual as ind.Resultado} anterior={anterior as ind.Resultado}
             metas={c.cad.metas} serie={serie as { mes: number; valores: ind.Resultado }[]} link={false} />
         </Secao>
@@ -67,14 +68,14 @@ export default async function Notas(props: { searchParams: Promise<Params> }) {
           { tipo: "multi", chave: "tipo_nota", rotulo: "Tipo de nota", opcoes: [...tipos.keys()].sort().map((v) => ({ valor: v, n: tipos.get(v) })) },
           { tipo: "multi", chave: "abc", rotulo: "Criticidade ABC", opcoes: ["A", "B", "C"].filter((a) => abcs.has(a)).map((v) => ({ valor: v, n: abcs.get(v) })) },
           { tipo: "alternar", chave: "sem", rotulo: "Só sem ordem", dica: "Notas que ainda não viraram ordem de manutenção" },
-          { tipo: "alternar", chave: "par", rotulo: "Só quebras", dica: "Quebra = nota Y1 convertida em ordem YM11 (regra da planta)" },
+          { tipo: "alternar", chave: "par", rotulo: "Só quebras", dica: regra },
         ]} />
 
         <Numeros itens={[
           { rotulo: "Notas", valor: inteiro(filtradas.length), detalhe: descrever(c.f.ini, c.f.fim) },
           { rotulo: "Sem ordem", valor: inteiro(semOrdem.length), detalhe: `${pct(semOrdem.length, filtradas.length)} das notas`, dica: "Ainda não viraram ordem: é a fila de pedidos da fábrica." },
           { rotulo: "Sem ordem há mais de 7 dias", valor: inteiro(semOrdem.filter((n) => (n.dias ?? 0) > 7).length), alerta: semOrdem.some((n) => (n.dias ?? 0) > 7) },
-          { rotulo: "Quebras", valor: inteiro(quebras), detalhe: `${pct(quebras, filtradas.length)} das notas`, dica: "Notas Y1 convertidas em ordem YM11 (regra da planta)." },
+          { rotulo: "Quebras", valor: inteiro(quebras), detalhe: `${pct(quebras, filtradas.length)} das notas`, dica: `${regra}.` },
           { rotulo: "Em equipamento classe A", valor: inteiro(classeA), detalhe: `${pct(classeA, filtradas.length)} das notas`, dica: "Código ABC = A no IW28" },
         ]} />
 

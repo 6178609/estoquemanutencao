@@ -9,6 +9,7 @@ import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
+import { TEXTO_REGRA_QUEBRA } from "@/lib/wcm/preparo";
 import { barra, contexto, dados, porDimensao, resultados, serieMensal } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -60,7 +61,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
   return (
     <PaginaWcm barra={barra(c)}>
       <Cabecalho titulo="Painel Geral," destaque="o pilar Manutenção Profissional num olhar."
-        sobre="Visão geral" subtitulo={`Variações contra ${descrever(aIni, aFim)} (período anterior de mesma duração). Passe o mouse no nome de cada indicador para ver a fórmula.`} />
+        sobre="Visão geral" subtitulo={`Variações contra ${descrever(aIni, aFim)} (período anterior de mesma duração). Passe o mouse no nome de cada indicador para ver a fórmula.${c.b.regraQuebra === "ym11" ? ` ${TEXTO_REGRA_QUEBRA.ym11}.` : ""}`} />
 
       {atual.cobertura_hh != null && atual.cobertura_hh < 90 && (
         <Aviso>Só <b>{Math.round(atual.cobertura_hh)}%</b> das horas apontadas (IW47) são de ordens que estão no IW38 carregado — as corretivas
@@ -208,7 +209,7 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
   const pend = (c.b.requisicoes.dados ?? []).filter((r) => r.pendente).sort((a, b) => (b.diasAguardando ?? 0) - (a.diasAguardando ?? 0));
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · laranja = reincidentes (≤ 30 dias)"
+      <Grafico titulo="Equipamentos com mais quebras" subtitulo={`Bad actors do período · laranja = reincidentes (≤ 30 dias) · ${TEXTO_REGRA_QUEBRA[c.b.regraQuebra]}`}
         legenda={<span className="text-[12px] text-texto-3" />}
         tabela={{ colunas: ["Campo de ordenação", "Equipamento", "Quebras", "Reincidentes"],
           linhas: bad.map(([k, v]) => [campoEq(k) || "—", `${v.nome} (${k})`, v.quebras, v.reinc]) }}>

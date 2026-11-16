@@ -7,6 +7,7 @@ import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
+import { TEXTO_REGRA_QUEBRA } from "@/lib/wcm/preparo";
 import { barra, contexto, dados, resultados, serieMensal } from "@/lib/wcm/contexto";
 import * as ind from "@/lib/wcm/indicadores";
 import { dataBr } from "@/lib/wcm/util";
@@ -42,8 +43,8 @@ export default async function Confiabilidade(props: { searchParams: Promise<Reco
   if (params.visao === VISAO_TIPOS) return <Tipos params={params} visoes={VISOES} />;
   const c = await contexto(params);
   const titulo = <Cabecalho titulo="Confiabilidade," destaque="quebras, MTBF e MTTR." sobre="Manutenção Profissional"
-    subtitulo="Análise de falhas: onde quebra, quanto tempo leva para reparar e o que se repete. Quebra = nota Y1 da IW28 convertida em ordem YM11." />;
-  if (!c.b.notas.dados) return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW28 (notas)" /></PaginaWcm>;
+    subtitulo={`Análise de falhas: onde quebra, quanto tempo leva para reparar e o que se repete. ${TEXTO_REGRA_QUEBRA[c.b.regraQuebra]}.`} />;
+  if (!c.b.notas.dados && c.b.regraQuebra === "y1") return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW28 (notas)" /></PaginaWcm>;
   if (!c.b.ordens.dados) return <PaginaWcm barra={barra(c)}>{titulo}<SemDados base="IW38 (ordens)" /></PaginaWcm>;
 
   const [[atual, anterior], serie, d, campoEq] = await Promise.all([resultados(c), serieMensal(c), dados(c), campoDoEquipamento(c)]);
@@ -68,7 +69,7 @@ export default async function Confiabilidade(props: { searchParams: Promise<Reco
       <PaginaWcm barra={barra(c)}>
         {cabeca}
         <p className="rounded-cartao border border-borda bg-superficie-2 px-5 py-4 text-[14px] text-texto-2">
-          Nenhuma quebra (nota Y1 convertida em ordem YM11) no recorte. Amplie o período ou tire filtros.
+          Nenhuma quebra ({c.b.regraQuebra === "ym11" ? "ordem YM11" : "nota Y1 convertida em ordem YM11"}) no recorte. Amplie o período ou tire filtros.
         </p>
       </PaginaWcm>
     );

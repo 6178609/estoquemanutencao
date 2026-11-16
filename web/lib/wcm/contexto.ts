@@ -45,7 +45,7 @@ function guardado<T>(chave: string, fn: () => T): T {
 
 /** Assinatura das bases (muda quando qualquer export muda) — entra na chave dos caches. */
 const assinatura = (b: Bases) => [b.ordens, b.notas, b.operacoes, b.confirmacoes, b.equipamentos, b.equipe, b.requisicoes,
-  b.cruas.ip19, b.cruas.af, b.cruas.acoesAf].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${b.hoje}`;
+  b.cruas.ip19, b.cruas.af, b.cruas.acoesAf].map((x) => `${x.atualizado}:${x.dados?.length ?? -1}:${x.erro ?? ""}`).join("|") + `|${b.hoje}|${b.calendario}`;
 
 function todosCentros(b: Bases): string[] {
   const s = new Set<string>();
@@ -138,7 +138,10 @@ export async function dados(c: Contexto, recorte?: { areas?: string[]; centros?:
     const ordens = o.filter((x) => (!areas.length || areas.includes(x.localizacao)) && (!centros.length || centros.includes(x.centroTrabalho))
       && (!tiposF.length || tiposF.includes(x.tipo)));
     const conj = new Set(ordens.map((x) => x.ordem));
-    const notas = c.b.notas.dados?.filter((n) => (!areas.length || areas.includes(n.localizacao)) && (!centros.length || centros.includes(n.centroTrabalho))) ?? null;
+    const doRecorte = (n: { localizacao: string; centroTrabalho: string }) =>
+      (!areas.length || areas.includes(n.localizacao)) && (!centros.length || centros.includes(n.centroTrabalho));
+    const notas = c.b.notas.dados?.filter(doRecorte) ?? null;
+    const quebrasOrdem = c.b.quebrasOrdem.filter(doRecorte);
     const confTodos = filtrarConf(c, c.b.confirmacoes.dados, areas, centros, tiposF);
     const equipe = c.b.equipe.dados;
     const daEquipe = equipe?.length ? new Set(equipe.map((p) => p.np)) : null;
@@ -154,7 +157,7 @@ export async function dados(c: Contexto, recorte?: { areas?: string[]; centros?:
       }
     }
     return {
-      ordens, notas, oper: c.b.operacoes.dados?.filter((x) => conj.has(x.ordem)) ?? null, chamadas: ch, estoque: est.dados,
+      ordens, notas, quebrasOrdem, regraQuebra: c.b.regraQuebra, oper: c.b.operacoes.dados?.filter((x) => conj.has(x.ordem)) ?? null, chamadas: ch, estoque: est.dados,
       requisicoes: c.b.requisicoes.dados, cadEq: c.cad.equipamentos, cadMat: c.cad.materiais, capacidade: ind.capacidadeDe(c.cad.metas),
       conf, confTodos, equipe: equipe && centros.length ? equipe.filter((p) => centros.includes(p.centroTrabalho)) : equipe,
       tipos: c.tipos, horasSemana: ind.horasSemanaDe(c.cad.metas), disponibilidade: c.cad.hh,
