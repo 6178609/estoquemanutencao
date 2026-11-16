@@ -63,7 +63,7 @@ export const KPIS: Kpi[] = [
   k("pct_hh_plano", "HH em manutenção planejada", "%", 1, 70, MAO_DE_OBRA, "/mao_de_obra", "HH apontadas em ordens com número de plano ÷ HH apontadas em ordens que estão no IW38.", { mensal: true }),
   k("hh_emergencial", "HH em corretiva emergencial", "%", -1, 10, MAO_DE_OBRA, "/mao_de_obra", "HH apontadas em ordens de tipo classificado como Emergencial (ex.: YM11) ÷ HH apontadas em ordens que estão no IW38. Fica sem valor se o IW38 carregado não tem nenhum tipo emergencial.", { mensal: true }),
   k("custo", "Custo médio mensal", "R$", -1, null, CUSTOS, "/custos", "Custo real das ordens do período (IW38) ÷ meses do período. A meta é o orçamento mensal.", { mensal: true }),
-  k("pct_custo_corr", "Custo do backlog", "%", -1, 20, CUSTOS, "/custos", "Custo real das ordens sem plano ÷ custo real total.", { mensal: true }),
+  k("pct_custo_corr", "Custo de ordens sem plano", "%", -1, 20, CUSTOS, "/custos", "Custo real das ordens sem plano ÷ custo real total.", { mensal: true }),
   k("custo_total", "Custo total", "R$", -1, null, CUSTOS, "/custos", "Custo real das ordens do período (IW38), sem as canceladas. Uma meta aqui vale para o período filtrado inteiro (para a meta mensal, use o Custo médio mensal).", { mensal: true }),
   k("custo_hora", "Custo por hora", "R$", -1, null, CUSTOS, "/custos", "Custo real das ordens do período ÷ HH apontadas no período (IW47; sem IW47, operações concluídas do IW38OP). Fica sem valor se os apontamentos não cobrem o período inteiro.", { mensal: true }),
   k("pct_corretiva", "% corretiva", "%", -1, 30, CUSTOS, "/custos", "Custo real das ordens de classe Corretiva ou Emergencial (tipos de ordem em Metas) ÷ custo real total do período.", { mensal: true }),

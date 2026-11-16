@@ -14,8 +14,6 @@ import { Nota, Numeros } from "../../confiabilidade/_comum/Numeros";
  */
 export function Orcamento({ linhas, totais, semData, semTipo, editor, pessoas }: ResultadoOrcamento & { editor?: ReactNode; pessoas?: number }) {
   const temReq = linhas.some((l) => l.requisicoes != null);
-  const ordensTotal = linhas.reduce((s, l) => s + l.ordens, 0);
-  const reqTotal = linhas.reduce((s, l) => s + (l.requisicoes ?? 0), 0);
   const nulBrl = (v: number | null) => (v == null ? "—" : brlCurto(v));
   const nulBr = (v: number | null) => (v == null ? "—" : brl(v));
   const saldoNeg = totais.saldo != null && totais.saldo < 0;
@@ -51,8 +49,8 @@ export function Orcamento({ linhas, totais, semData, semTipo, editor, pessoas }:
     <div className="space-y-5">
       <Numeros itens={[
         { rotulo: "Disponível", valor: nulBrl(totais.disponivel), detalhe: "soma dos meses com valor cadastrado", dica: "Valor disponível mensal lançado no cadastro (rodapé)" },
-        { rotulo: "Gasto", valor: brlCurto(totais.gasto), detalhe: `ordens ${brlCurto(ordensTotal)}${temReq ? ` · requisições aprovadas ${brlCurto(reqTotal)}` : ""}`,
-          dica: "Ordens (IW38) mais requisições aprovadas, somadas em todos os meses da tabela" },
+        { rotulo: "Gasto", valor: brlCurto(totais.gasto), detalhe: `ordens ${brlCurto(totais.ordens)}${temReq ? ` · requisições aprovadas ${brlCurto(totais.requisicoes ?? 0)}` : ""}`,
+          dica: "Ordens (IW38) mais requisições aprovadas, nos meses até o atual (os meses em previsão ficam fora)" },
         { rotulo: "Saldo", valor: nulBrl(totais.saldo), cor: saldoNeg ? "var(--st-critico)" : undefined,
           detalhe: saldoNeg ? "gasto acima do disponível" : "disponível menos gasto, meses com valor", dica: "Disponível − ordens − requisições aprovadas" },
         { rotulo: "A entrar", valor: temReq ? nulBrl(totais.aEntrar) : "—", detalhe: "aguardando aprovação · só as que entram nos meses da tabela", dica: "Requisições pendentes de aprovação, no mês em que entram" },

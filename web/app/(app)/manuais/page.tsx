@@ -7,17 +7,15 @@ import { BOTAO_COMPACTO, Cabecalho, Pagina, Selo } from "@/components/ui";
 import { podeEditar, podeVer, veInteira } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { todosDocumentosEquipamentos } from "@/lib/dados/documentos";
-import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
-import { DESATIVADO } from "@/lib/wcm/ativos";
 import { contexto } from "@/lib/wcm/contexto";
 import { ACERVO } from "@/lib/suporte/acervo";
 import {
-  equipamentosSemManual, filtrarManuais, paginar, resumoManuais, type EquipamentoManual, type TipoManual,
+  equipamentosSemManual, filtrarManuais, paginar, resumoManuais, type TipoManual,
 } from "@/lib/manuais/lista";
 
 import { GradeNumeros, inteiroBr, Numero, Paginacao, TabelaT, type LinhaT } from "../equipamentos/_ui/Blocos";
 import type { Params } from "../equipamentos/_ui/url";
-import { inventarioAtivos } from "../equipamentos/dados";
+import { equipamentosDosManuais } from "./dados";
 import { RemoverManual } from "./RemoverManual";
 import { VincularManual } from "./VincularManual";
 
@@ -44,11 +42,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
   const vincular = um(params, "vincular").trim();
 
   const c = await contexto({});
-  const [inv, vinculos, campoEq] = await Promise.all([inventarioAtivos(c), todosDocumentosEquipamentos(), campoDoEquipamento(c)]);
-  const todos: EquipamentoManual[] = inv.map((x) => ({ codigo: x.codigo, nome: x.equipamento || "", campo: campoEq(x.codigo) || "", area: x.area || "" }));
-  const ativosIH08 = inv.filter((x) => x.situacao !== DESATIVADO && x.origem !== "Site").map((x) => ({ codigo: x.codigo, area: x.area || "" }));
-  const codigosAtivos = new Set(ativosIH08.map((a) => a.codigo));
-  const ativosTela = todos.filter((x) => codigosAtivos.has(x.codigo));
+  const [{ todos, ativosIH08, ativosTela }, vinculos] = await Promise.all([equipamentosDosManuais(c), todosDocumentosEquipamentos()]);
   const porCodigo = new Map(todos.map((x) => [x.codigo, x]));
   const resumo = resumoManuais(ativosIH08, vinculos);
   const manuais = vinculos.filter((v) => !v.doc.origem).length;
@@ -117,7 +111,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
             <h2 id="vincular-titulo" className="font-display text-[20px] font-medium">Vincular manual</h2>
             <p className="mt-1 text-[13px] text-texto-3">Escolha um ou mais equipamentos. Um arquivo é guardado uma vez e fica ligado a todos.</p>
           </div>
-          <VincularManual equipamentos={ativosTela} acervo={acervo} inicial={vincular ? [vincular] : []} />
+          <VincularManual acervo={acervo} inicial={vincular ? [vincular] : []} />
         </section>
       ) : (
         <p className="rounded-cartao border border-dashed border-borda px-5 py-6 text-center text-[13.5px] text-texto-3">
@@ -128,20 +122,20 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
       {/* 3. lista geral */}
       <section aria-labelledby="lista" className="space-y-4">
         <h2 id="lista" className="scroll-mt-24 font-display text-[20px] font-medium">Todos os manuais <span className="text-texto-3">({inteiroBr(filtrados.length)})</span></h2>
-        <form method="get" className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" role="search">
-          <label className="block">
+        <form method="get" className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" role="search">
+          <label className="block min-w-0">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Buscar</span>
             <input name="q" type="search" defaultValue={q} placeholder="Equipamento, campo ou título…" autoComplete="off"
               className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[15px] placeholder:text-texto-3" />
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Tipo</span>
             <select name="tipo" defaultValue={tipo} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
               <option value="">Todos</option>
               {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Área</span>
             <select name="area" defaultValue={area} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
               <option value="">Todas</option>
@@ -208,7 +202,7 @@ export default async function Manuais(props: { searchParams: Promise<Params> }) 
           <input type="hidden" name="q" value={q} />
           <input type="hidden" name="tipo" value={tipo} />
           <input type="hidden" name="area" value={area} />
-          <label className="block min-w-[200px]">
+          <label className="block min-w-0 max-w-full sm:min-w-[200px]">
             <span className="mb-1.5 block text-[13px] font-semibold text-texto">Área</span>
             <select name="sem" defaultValue={sem} className="h-11 w-full rounded-xl border border-borda-forte bg-superficie px-3 text-[14px] text-texto">
               <option value="">Todas</option>

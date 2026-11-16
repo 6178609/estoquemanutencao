@@ -135,8 +135,8 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, dadosAte, periodo = tr
               <input type="date" name="data-final" autoComplete="off" value={fim} min={ini} onChange={(e) => e.target.value && aplicar({ fim: e.target.value })}
                 aria-label="Data final" className="w-[6.9rem] min-w-0 bg-transparent sm:w-auto" />
             </div>
-            <button onClick={() => setMenuPeriodo(!menuPeriodo)} aria-expanded={menuPeriodo} aria-controls={menuAtalhosId} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
-              Atalhos <ChevronDown className="size-3.5" />
+            <button onClick={() => setMenuPeriodo(!menuPeriodo)} aria-expanded={menuPeriodo} aria-controls={menuAtalhosId} title="Atalhos de período: mês atual, últimos meses, ano…" className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda bg-superficie px-2.5 text-[13px] text-texto-2 hover:border-borda-forte">
+              Período <ChevronDown className="size-3.5" />
             </button>
             {menuPeriodo && (
               <div id={menuAtalhosId} className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-borda bg-superficie p-1.5 shadow-flutuante" onMouseLeave={() => setMenuPeriodo(false)} onKeyDown={(e) => { if (e.key === "Escape") setMenuPeriodo(false); }}>

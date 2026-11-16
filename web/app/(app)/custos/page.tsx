@@ -44,7 +44,7 @@ const mesParam = (a: number, m: number) => `${a}-${String(m).padStart(2, "0")}`;
 
 const COL_EQ: Coluna[] = [
   { rotulo: "Campo de ordenação" }, { rotulo: "Código", formato: "codigo" }, { rotulo: "Equipamento", largo: true }, { rotulo: "Custo", formato: "R$" },
-  { rotulo: "Ordens", formato: "inteiro" }, { rotulo: "Backlog", formato: "inteiro", dica: "Ordens sem plano de manutenção" },
+  { rotulo: "Ordens", formato: "inteiro" }, { rotulo: "Sem plano", formato: "inteiro", dica: "Ordens sem plano de manutenção" },
   { rotulo: "Custo médio por ordem", formato: "R$" }, { rotulo: "% acumulado", formato: "%" },
 ];
 const COL_ORD: Coluna[] = [
@@ -232,7 +232,7 @@ export default async function Custos(props: { searchParams: Promise<Record<strin
             <Numeros colunas={5} itens={[
               { rotulo: "Custo total", valor: brlCurto(r.total), detalhe: brl(r.total) },
               { rotulo: "Com plano", valor: brlCurto(r.comPlano), detalhe: `${pct(r.comPlano, r.total)} do total`, dica: "Ordens com número de plano de manutenção" },
-              { rotulo: "Backlog", valor: brlCurto(r.backlog), detalhe: `${pct(r.backlog, r.total)} do total`, dica: "Ordens sem plano de manutenção" },
+              { rotulo: "Sem plano", valor: brlCurto(r.backlog), detalhe: `${pct(r.backlog, r.total)} do total`, dica: "Ordens sem plano de manutenção" },
               emerg ? { rotulo: "Emergencial", valor: brlCurto(r.emergencial), detalhe: `${pct(r.emergencial, r.total)} do total`, dica: "Ordens de tipo classificado como Emergencial (ex.: YM11)" }
                 : { rotulo: "Emergencial", valor: "—", detalhe: "IW38 sem tipo emergencial", dica: "O IW38 carregado não tem ordens de tipo emergencial (ex.: YM11). Exporte com todos os tipos." },
               { rotulo: "Ordens com custo", valor: n0.format(r.comCusto), detalhe: `de ${n0.format(r.ordens)} ordens` },

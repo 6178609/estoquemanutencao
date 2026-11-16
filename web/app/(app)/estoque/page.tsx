@@ -46,8 +46,8 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
   ];
   // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material; só a base de ordens, em paralelo
   const [almox, campoEq] = aba === "almox" ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases()]) : [null, null];
-  // a aba mostra só o que tem saldo: material zerado (ou negativo) no MB52 fica de fora
-  const itensAlmox = almox && campoEq ? comCampo(almox.itens.filter((i) => i.estoque > 0), campoEq) : [];
+  // todos os itens do MB52; a lista abre no que tem saldo e a pílula "Zerados" mostra as faltas (saldo zero ou negativo)
+  const itensAlmox = almox && campoEq ? comCampo(almox.itens, campoEq) : [];
   const resumo = aba === "cadastrado" ? await resumoCatalogo() : null;
   const base = almox?.estoque;
 

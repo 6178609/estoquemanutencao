@@ -226,7 +226,7 @@ export function filtrarAnalise(t: LinhaAnalise[], f: FiltroAnalise, campoEq: Cam
 
 const COLUNAS_ANALISE: [keyof LinhaAnalise, string][] = [
   ["codigo", "Código"], ["nome", "Nome"], ["criticidade", "Criticidade"], ["abc", "ABC"], ["categoria", "Categoria"],
-  ["local", "Local"], ["centro", "Centro"], ["ordens", "Ordens no período"], ["backlog", "Backlog"], ["custo", "Custo no período (R$)"],
+  ["local", "Local"], ["centro", "Centro"], ["ordens", "Ordens no período"], ["backlog", "Sem plano"], ["custo", "Custo no período (R$)"],
   ["pendentes", "Pendentes"], ["notas", "Notas"], ["notasSemOrdem", "Notas sem ordem"], ["quebras", "Quebras"],
   ["ultima", "Última ordem"], ["pecas", "Peças"], ["pecasEmFalta", "Peças em falta"],
 ];

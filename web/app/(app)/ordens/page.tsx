@@ -128,8 +128,8 @@ function Graficos({ c, xs }: { c: Contexto; xs: OrdemEnriquecida[] }) {
           <Partes partes={prazo} />
         </Grafico>
         <Grafico className="min-w-0" titulo="Natureza do trabalho" subtitulo="Com número de plano × backlog (sem plano)"
-          tabela={{ colunas: ["Natureza", "Ordens", "Custo real"], linhas: [true, false].map((p) => [p ? "Plano de manutenção" : "Backlog", conta((o) => o.comPlano === p), brl(xs.filter((o) => o.comPlano === p).reduce((s, o) => s + o.custoReal, 0))]) }}>
-          <Partes partes={[{ nome: "Plano de manutenção", valor: conta((o) => o.comPlano), cor: "serie-1" }, { nome: "Backlog", valor: conta((o) => !o.comPlano), cor: "serie-2" }]} />
+          tabela={{ colunas: ["Natureza", "Ordens", "Custo real"], linhas: [true, false].map((p) => [p ? "Plano de manutenção" : "Sem plano", conta((o) => o.comPlano === p), brl(xs.filter((o) => o.comPlano === p).reduce((s, o) => s + o.custoReal, 0))]) }}>
+          <Partes partes={[{ nome: "Plano de manutenção", valor: conta((o) => o.comPlano), cor: "serie-1" }, { nome: "Sem plano", valor: conta((o) => !o.comPlano), cor: "serie-2" }]} />
           <div className="mt-4 border-t border-borda pt-3 text-[12px] text-texto-3">
             Custo real por classe WCM:{" "}
             {[...custoClasse.entries()].sort((a, b) => b[1] - a[1]).map(([k, v], i) => (

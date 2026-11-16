@@ -16,7 +16,7 @@ import { FotoDetalhe, MiniaturaFoto } from "./FotoItem";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
-type Situacao = "todos" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "sem_foto";
+type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "sem_foto";
 type Ordem = "situacao" | "descricao" | "estoque" | "valor";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
@@ -174,8 +174,10 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
     return r;
   }, [itens, textoBusca, buscaAdiada, cadastros, categorias, depositos]);
 
+  // a lista padrão ("Com saldo") e as demais pílulas ficam no que tem saldo; "Zerados" mostra as faltas (saldo zero ou negativo)
+  const comSaldo = useMemo(() => recorte.filter((i) => i.estoque > 0), [recorte]);
   const visiveis = useMemo(() => {
-    const r = recorte.filter((i) => situacao === "vinculado" ? !!i.usadoEm
+    const r = situacao === "Zerado" ? recorte.filter((i) => i.estoque <= 0) : comSaldo.filter((i) => situacao === "vinculado" ? !!i.usadoEm
       : situacao === "com_foto" ? temFoto(i)
       : situacao === "sem_foto" ? !temFoto(i)
       : situacao === "todos" || i.situacao === situacao);
@@ -187,7 +189,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       valor: (a, b) => b.valor - a.valor,
     };
     return r.sort(cmp[ordem]);
-  }, [recorte, situacao, ordem]);
+  }, [recorte, comSaldo, situacao, ordem]);
 
   const listaRef = useRef<HTMLDivElement>(null);
   const [margem, setMargem] = useState(0);
@@ -200,15 +202,17 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
   }, []);
   const virt = useWindowVirtualizer({ count: visiveis.length, estimateSize: () => 150, overscan: 6, scrollMargin: margem });
 
-  const n = (s: string) => recorte.filter((i) => i.situacao === s).length;
+  const n = (s: string) => comSaldo.filter((i) => i.situacao === s).length;
   const pilulas = [
-    { valor: "todos" as const, rotulo: "Todos", n: recorte.length },
+    { valor: "todos" as const, rotulo: "Com saldo", n: comSaldo.length },
+    // a falta: material do MB52 com saldo zero (ou negativo); fora da lista padrão
+    { valor: "Zerado" as const, rotulo: "Zerados", n: recorte.length - comSaldo.length },
     { valor: "Abaixo do mínimo" as const, rotulo: "Abaixo do mínimo", n: n("Abaixo do mínimo") },
     { valor: "OK" as const, rotulo: "OK", n: n("OK") },
-    { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: recorte.filter((i) => i.usadoEm).length },
-    { valor: "com_foto" as const, rotulo: "Com foto", n: recorte.filter(temFoto).length },
+    { valor: "vinculado" as const, rotulo: "Peça de equipamento", n: comSaldo.filter((i) => i.usadoEm).length },
+    { valor: "com_foto" as const, rotulo: "Com foto", n: comSaldo.filter(temFoto).length },
     // para a equipe fotografar no almoxarifado o que a internet não resolveu
-    { valor: "sem_foto" as const, rotulo: "Sem foto", n: recorte.filter((i) => !temFoto(i)).length },
+    { valor: "sem_foto" as const, rotulo: "Sem foto", n: comSaldo.filter((i) => !temFoto(i)).length },
   ];
   const filtros = (
     <div className="flex flex-wrap gap-2">
@@ -269,7 +273,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
         {ordenar("ordem-celular")}
       </div>
 
-      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is) — todos numa rolagem só, sem limite. Toque num item para ver a visão geral, a ficha técnica e a foto (qualquer pessoa pode incluir ou trocar as fotos){edita ? " e ajustar o mínimo" : ""}.</p>
+      <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is){situacao === "Zerado" ? " sem saldo (zerados)" : situacao === "todos" ? " com saldo" : ""} — todos numa rolagem só, sem limite. Toque num item para ver a visão geral, a ficha técnica e a foto (qualquer pessoa pode incluir ou trocar as fotos){edita ? " e ajustar o mínimo" : ""}.</p>
 
       <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {visiveis.length === 0 ? (

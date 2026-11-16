@@ -42,7 +42,7 @@ export async function Analise({ c, params, cadastra }: { c: Contexto; params: Pa
   const periodo = descrever(c.f.ini, c.f.fim);
   const cols = [
     { rotulo: ROTULO_CAMPO }, { rotulo: "Código" }, { rotulo: "Nome", larga: true }, { rotulo: "Criticidade" }, { rotulo: "ABC" }, { rotulo: "Categoria" }, { rotulo: "Local" },
-    { rotulo: "Centro" }, { rotulo: "Ordens no período", dir: true }, { rotulo: "Backlog", dir: true, dica: "Ordens sem plano de manutenção no período" },
+    { rotulo: "Centro" }, { rotulo: "Ordens no período", dir: true }, { rotulo: "Sem plano", dir: true, dica: "Ordens sem plano de manutenção no período" },
     { rotulo: "Custo no período", dir: true }, { rotulo: "Pendentes", dir: true, dica: "Ordens abertas, liberadas ou encerradas sem confirmação (todas as datas)" },
     ...(temNotas ? [{ rotulo: "Notas", dir: true }, { rotulo: "Notas sem ordem", dir: true }, { rotulo: "Quebras", dir: true }] : []),
     { rotulo: "Última ordem" }, { rotulo: "Peças", dir: true }, { rotulo: "Peças em falta", dir: true, dica: "Peças vinculadas sem estoque ou abaixo do mínimo" },
@@ -132,7 +132,7 @@ async function Ficha({ c, sel, nome, campo, est, cadastra }: { c: Contexto; sel:
       <GradeNumeros colunas={5}>
         <Numero rotulo="Ordens (todas as datas)" valor={inteiroBr(hist.length)} />
         <Numero rotulo="Custo total" valor={brl(custoTotal)} dica="Custo real de todas as ordens do equipamento no IW38." />
-        <Numero rotulo="Backlog" valor={inteiroBr(corr.length)} detalhe={`${inteiroBr(hist.filter((o) => o.comPlano).length)} de plano de manutenção`} dica="Ordens sem plano de manutenção (todas as datas)." />
+        <Numero rotulo="Sem plano" valor={inteiroBr(corr.length)} detalhe={`${inteiroBr(hist.filter((o) => o.comPlano).length)} de plano de manutenção`} dica="Ordens sem plano de manutenção (todas as datas)." />
         <Numero rotulo="Intervalo médio do backlog" valor={intervalo != null ? `${inteiroBr(Math.round(intervalo))} dias` : "—"}
           dica="Média de dias entre uma ordem de backlog (sem plano) e a seguinte (aproxima o MTBF)." />
         <Numero rotulo="Pendentes hoje" valor={inteiroBr(hist.filter((o) => PENDENTES.has(o.situacao)).length)} detalhe={`${inteiroBr(hist.filter((o) => o.atrasada).length)} atrasadas`} />

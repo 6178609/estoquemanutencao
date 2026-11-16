@@ -55,8 +55,10 @@ function gerar(hoje: Dia) {
     for (let k = 0; k < porDia; k++) {
       const e = g.um(equipamentos);
       const r = g.r();
-      const tipo = r < 0.52 ? "YM01" : r < 0.62 ? "YM03" : r < 0.78 ? "YM11" : r < 0.92 ? "YM12" : "YM13";
-      const comPlano = tipo === "YM01" || tipo === "YM03";
+      // classificação da planta: YM13/14/15/17/18/19 vêm de plano; YM11 emergencial, YM12 corretiva planejada, YM16 melhoria, YM20 ferramentaria
+      const tipo = r < 0.28 ? "YM13" : r < 0.40 ? "YM15" : r < 0.45 ? "YM14" : r < 0.49 ? "YM18" : r < 0.51 ? "YM17" : r < 0.54 ? "YM19"
+        : r < 0.72 ? "YM11" : r < 0.88 ? "YM12" : r < 0.95 ? "YM16" : "YM20";
+      const comPlano = ["YM13", "YM14", "YM15", "YM17", "YM18", "YM19"].includes(tipo);
       const ordem = String(++numOrdem);
       const fimBase = d + (comPlano ? g.int(0, 3) : g.int(1, 10));
       const passado = d < hoje - 3;
@@ -111,11 +113,11 @@ function gerar(hoje: Dia) {
       const texto = `SEMEQ-${tec}-${String(g.int(1, 9999)).padStart(4, "0")} ${achado}`;
       if (comOrdem) {
         const tratada = d < hoje - 20 && g.r() < 0.7;
-        iw38.push({ Ordem: ordem, "Tipo de ordem": "YM03", Prioridade: "2", "Texto breve": texto, Equipamento: e.codigo,
+        iw38.push({ Ordem: ordem, "Tipo de ordem": "YM14", Prioridade: "2", "Texto breve": texto, Equipamento: e.codigo,
           "Denominação do objeto técnico": e.nome, "Centro trab.responsável": e.centro, "Localização": e.area, Centro: "F26",
           "Plano de manutenção": "", "Status do sistema": tratada ? "LIB CONF ENTE" : "LIB", "Data-base do início": dataBr(d + 2),
           "Data-base do fim": dataBr(d + 15), "Data de entrada": dataBr(d), "Custos tot.reais": tratada ? "850,00" : "0" });
-        iw38op.push({ Ordem: ordem, "Operação": "0010", "Tipo de ordem": "YM03", "Centro de trabalho": e.centro, Equipamento: e.codigo,
+        iw38op.push({ Ordem: ordem, "Operação": "0010", "Tipo de ordem": "YM14", "Centro de trabalho": e.centro, Equipamento: e.codigo,
           "Txt.breve operação": achado, Trabalho: "3", "Unidade do trabalho": "H", "Número": "1", "Status do sistema": tratada ? "CONF" : "LIB",
           "1ª data de início": dataBr(d + 2), "Data do fim real": tratada ? dataBr(d + g.int(4, 25)) : "" });
       }
@@ -140,7 +142,7 @@ function gerar(hoje: Dia) {
       ip19.push({ "Plano de manutenção": String(80_000 + p), "Item de manutenção": "1", "Texto do plano": `Preventiva ${e.nome}`,
         "Grupo listas tarefas": String(90_000 + p), "Numerador de grupos": "1",
         Equipamento: e.codigo, "Denominação do objeto": e.nome, "Centro de trabalho": e.centro, Ciclo: `${ciclo} DIA`,
-        "Tipo de ordem": "YM01", Trabalho: String(2 + (p % 4)), "Unidade do trabalho": "H", "Data planejada": dataBr(d),
+        "Tipo de ordem": "YM15", Trabalho: String(2 + (p % 4)), "Unidade do trabalho": "H", "Data planejada": dataBr(d),
         "Data de chamada": dataBr(d - 7), "Data de conclusão": tp === "Concluído" ? dataBr(d + (p % 3)) : "", "Tipo de programação": tp, Ordem: "" });
     }
   }
