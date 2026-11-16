@@ -135,8 +135,12 @@ const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<s
   // foto do fabricante de um item: endereço que não existe (a tela cai no ícone)
   ["fotos_referencia.json", { "900000": { url: "https://exemplo.invalid/referencia.jpg", pagina: "https://exemplo.invalid/produto",
     titulo: "Foto de referência (demonstração)", buscado_em: "2026-01-01T00:00:00+00:00" } }],
-  ["tipos_ordem.json", { YM01: { descricao: "Preventiva" }, YM03: { descricao: "Preditiva / inspeção" },
-    YM11: { descricao: "Corretiva Emergencial" }, YM12: { descricao: "Corretiva programada" }, YM13: { descricao: "Melhoria" } }],
+  // classificação real da planta; a classe sai da descrição (classeTipo): YM11 Emergencial, YM12 Corretiva, YM13/14/17/19
+  // Preditiva / inspeção, YM15 Preventiva, YM16 Melhoria, YM18 Lubrificação, YM20 Outros
+  ["tipos_ordem.json", { YM11: { descricao: "Corretiva emergencial" }, YM12: { descricao: "Corretiva planejada" },
+    YM13: { descricao: "Inspeção técnica" }, YM14: { descricao: "Preditiva" }, YM15: { descricao: "Preventiva técnica" },
+    YM16: { descricao: "Melhoria" }, YM17: { descricao: "Calibração" }, YM18: { descricao: "Lubrificação" },
+    YM19: { descricao: "Inspeção geral" }, YM20: { descricao: "Ferramentaria" } }],
 ]));
 
 export function lerJsonDemo(nome: string) {
