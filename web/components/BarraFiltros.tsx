@@ -77,8 +77,10 @@ function Multi({ nome, chave, opcoes, selecionados, aoMudar }: {
  * Barra única de filtros, acima de tudo o que ela recorta (todas as abas usam a mesma). Mudou um filtro: o endereço
  * muda, o cookie guarda a escolha para as outras abas e a página recalcula mantendo o desenho anterior esmaecido.
  */
-export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimensoes = true }: {
+export function BarraFiltros({ ini, fim, opcoes, recorte, dadosAte, periodo = true, dimensoes = true }: {
   ini: string; fim: string; opcoes: OpcoesFiltro; recorte: string; periodo?: boolean; dimensoes?: boolean;
+  /** "Dados até dd/mm/aaaa" quando as bases param antes de hoje (os indicadores contam até essa data) */
+  dadosAte?: string;
 }) {
   const router = useRouter();
   const rota = usePathname();
@@ -160,7 +162,10 @@ export function BarraFiltros({ ini, fim, opcoes, recorte, periodo = true, dimens
             <FilterX className="size-4" /> Limpar
           </button>
         )}
-        <span className="ml-auto text-[12.5px] text-texto-3">{recorte}</span>
+        <span className="ml-auto text-[12.5px] text-texto-3">
+          {dadosAte && <span className="font-medium text-texto-2" title="Último dia coberto pelas bases de ordens e apontamentos: atrasos e o período contam até essa data.">{dadosAte} · </span>}
+          {recorte}
+        </span>
       </div>
     </div>
   );

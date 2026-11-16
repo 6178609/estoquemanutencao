@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import * as ind from "@/lib/wcm/indicadores";
-import { cruzarBases } from "@/lib/wcm/cruzamento";
+import { cruzarBases, dataDosDados } from "@/lib/wcm/cruzamento";
+import { lerFiltros, textoDadosAte } from "@/lib/wcm/filtros";
 import {
   marcarQuebras, prepararIw38, quebrasDasOrdens, regraQuebra, TEXTO_REGRA_QUEBRA, tiposPorOrdem, type Confirmacao, type Nota, type Operacao,
 } from "@/lib/wcm/preparo";
@@ -128,5 +129,45 @@ describe("regra de quebra", () => {
 
   it("textos da regra para as telas", () => {
     expect(TEXTO_REGRA_QUEBRA.ym11).toBe("Quebras pelas ordens YM11 (a IW28 não traz notas Y1)");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// data dos dados: o "hoje" dos indicadores
+// ---------------------------------------------------------------------------------------------------------------
+describe("data dos dados", () => {
+  const CAL = dia(2026, 11, 16)!;
+  const COLS = ["Ordem", "Status do sistema", "Data-base do início", "Data-base do fim", "Tipo de ordem", "Data de entrada"];
+  const ordens = prepararIw38([
+    ["1", "LIB", "10/11/2026", "13/11/2026", "YM15", "10/11/2026"], // vence depois da data dos dados: não está atrasada
+    ["2", "LIB", "01/11/2026", "05/11/2026", "YM15", "11/11/2026"], // vencida antes: atrasada
+    ["3", "ABER", "20/12/2026", "21/12/2026", "YM15", "12/11/2026"], // planejada no futuro (data-base não conta)
+  ].map((l) => Object.fromEntries(COLS.map((c, i) => [c, l[i]]))), CAL).ordens;
+
+  it("última data de entrada / apontamento / fim real, nunca depois do calendário", () => {
+    expect(dataDosDados(ordens, [], [], CAL)).toBe(dia(2026, 11, 12));
+    const conf = [{ data: dia(2026, 11, 13)! }] as unknown as Confirmacao[];
+    expect(dataDosDados(ordens, [], conf, CAL)).toBe(dia(2026, 11, 13));
+    const oper = [{ fimReal: dia(2026, 11, 14)! }] as unknown as Operacao[];
+    expect(dataDosDados(ordens, oper, conf, CAL)).toBe(dia(2026, 11, 14));
+    expect(dataDosDados(ordens, [], [{ data: dia(2026, 11, 30)! }] as unknown as Confirmacao[], CAL)).toBe(CAL);
+    expect(dataDosDados(null, null, null, CAL)).toBe(CAL);
+  });
+
+  it("atraso e dias contam até a data dos dados", () => {
+    expect(ordens.find((o) => o.ordem === "1")!.atrasada).toBe(true); // pelo calendário (16/11)
+    const x = cruzarBases({ ordens, notas: [nota("9", "Y2", "", "E1", dia(2026, 11, 2)!)], oper: [], conf: [], equipamentos: null, calendario: CAL });
+    expect(x.hoje).toBe(dia(2026, 11, 12));
+    expect(x.ordens!.map((o) => [o.ordem, o.atrasada, o.diasEmAberto])).toEqual([["1", false, 2], ["2", true, 1], ["3", false, 0]]);
+    expect(x.notas![0].dias).toBe(10);
+  });
+
+  it("período padrão termina na data dos dados e a barra avisa", () => {
+    const hojeDados = dia(2026, 11, 12)!;
+    const f = lerFiltros({}, null, hojeDados);
+    expect([f.ini, f.fim]).toEqual([dia(2026, 11, 1), hojeDados]);
+    expect(lerFiltros({}, encodeURIComponent(JSON.stringify({ atalho: "Últimos 3 meses" })), hojeDados).fim).toBe(hojeDados);
+    expect(textoDadosAte(hojeDados, CAL)).toBe("Dados até 12/11/2026");
+    expect(textoDadosAte(CAL, CAL)).toBeUndefined();
   });
 });

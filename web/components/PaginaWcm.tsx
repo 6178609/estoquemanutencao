@@ -5,7 +5,7 @@ import { BarraFiltros, type OpcoesFiltro } from "./BarraFiltros";
 
 /** Moldura das abas WCM: a barra de filtros (uma só, acima de tudo) e o conteúdo. */
 export function PaginaWcm({ barra, children, periodo = true, dimensoes = true }: {
-  barra: { ini: string; fim: string; opcoes: OpcoesFiltro; recorte: string }; children: React.ReactNode; periodo?: boolean; dimensoes?: boolean;
+  barra: { ini: string; fim: string; opcoes: OpcoesFiltro; recorte: string; dadosAte?: string }; children: React.ReactNode; periodo?: boolean; dimensoes?: boolean;
 }) {
   return (
     <div className="mx-auto w-full max-w-[1320px] px-4 sm:px-8">

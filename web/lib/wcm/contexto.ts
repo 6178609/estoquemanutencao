@@ -6,7 +6,7 @@ import { estoque as lerEstoque } from "../dados/bases";
 import { lerCadastro } from "../dados/cadastros";
 import * as af from "./af";
 import { bases as lerBases, type Bases } from "./dados";
-import { COOKIE_FILTROS, descrever, filtrado, lerFiltros, paraIso, type Filtros } from "./filtros";
+import { COOKIE_FILTROS, descrever, filtrado, lerFiltros, paraIso, textoDadosAte, type Filtros } from "./filtros";
 import * as hh from "./hh";
 import * as ind from "./indicadores";
 import * as planos from "./planos";
@@ -114,7 +114,8 @@ export async function contexto(params: Record<string, string | string[] | undefi
 }
 
 /** Parâmetros da barra de filtros para a página. */
-export const barra = (c: Contexto) => ({ ini: paraIso(c.f.ini), fim: paraIso(c.f.fim), opcoes: c.opcoes, recorte: c.recorte });
+export const barra = (c: Contexto) => ({ ini: paraIso(c.f.ini), fim: paraIso(c.f.fim), opcoes: c.opcoes, recorte: c.recorte,
+  dadosAte: textoDadosAte(c.b.hoje, c.b.calendario) });
 
 // ----------------------------------------------------------------------------
 // Dados filtrados
