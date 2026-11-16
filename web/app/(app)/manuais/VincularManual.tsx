@@ -30,6 +30,7 @@ export function VincularManual({ acervo, inicial }: { acervo: AcervoTela[]; inic
   const router = useRouter();
   const arquivo = useRef<HTMLInputElement>(null);
   const [busca, setBusca] = useState(inicial[0] ?? "");
+  const [tentativa, setTentativa] = useState(0); // "Tentar de novo" depois de uma falha refaz a busca do mesmo termo
   const [resultado, setResultado] = useState<{ termo: string; itens: EquipamentoManual[]; total: number; erro?: boolean } | null>(null);
   const [marcados, setMarcados] = useState<string[]>(inicial);
   const [modo, setModo] = useState<"arquivo" | "link">("arquivo");
@@ -69,9 +70,14 @@ export function VincularManual({ acervo, inicial }: { acervo: AcervoTela[]; inic
         .catch((e) => { if ((e as Error).name !== "AbortError") setResultado({ termo, itens: [], total: 0, erro: true }); });
     }, ESPERA_BUSCA);
     return () => { clearTimeout(t); ctrl.abort(); };
-  }, [termo]);
+  }, [termo, tentativa]);
   const atual = termo && resultado?.termo === termo ? resultado : null;
   const achados = atual?.itens ?? [];
+  const msgBusca = !termo ? "Digite o código, o campo, o nome ou a área para buscar."
+    : !atual ? "Buscando…"
+    : atual.erro ? "Não foi possível buscar agora."
+    : !achados.length ? "Nenhum equipamento com esta busca." : "";
+  const tentarDeNovo = () => { setResultado(null); setTentativa((n) => n + 1); };
   // o índice no acervo vai junto com o item (a lista não procura a posição de cada um)
   const itensAcervo = useMemo(() => acervo.map((a, i) => ({ ...a, i })).filter((a) =>
     casaBusca(normalizarBusca([a.titulo, a.fonte, a.area].join(" ")), buscaAcervo)), [acervo, buscaAcervo]);
@@ -92,7 +98,12 @@ export function VincularManual({ acervo, inicial }: { acervo: AcervoTela[]; inic
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formulario = e.currentTarget;
-    if (!marcados.length) { setErroEquip(true); listaRef.current?.focus(); return; }
+    if (!marcados.length) {
+      setErroEquip(true);
+      // a lista some quando a busca não tem achados: o foco vai para a busca
+      (achados.length ? listaRef.current : buscaRef.current?.querySelector("input"))?.focus();
+      return;
+    }
     const eqs = marcados;
     const tituloManual = titulo;
     let n: number;
@@ -150,7 +161,7 @@ export function VincularManual({ acervo, inicial }: { acervo: AcervoTela[]; inic
             <button type="button" onClick={() => setMarcados([])} className="min-h-11 rounded-lg px-2 font-medium text-acao underline-offset-2 hover:underline">Limpar</button>
           </div>
         )}
-        <ul ref={listaRef} tabIndex={-1} className="max-h-72 divide-y divide-borda overflow-y-auto rounded-xl border border-borda bg-superficie-2" aria-label="Equipamentos encontrados">
+        <ul ref={listaRef} tabIndex={-1} hidden={!achados.length} className="max-h-72 divide-y divide-borda overflow-y-auto rounded-xl border border-borda bg-superficie-2" aria-label="Equipamentos encontrados">
           {achados.slice(0, MOSTRAR).map((e) => {
             const marcado = marcados.includes(e.codigo);
             const cheio = !marcado && marcados.length >= MAX_LOTE;
@@ -167,11 +178,16 @@ export function VincularManual({ acervo, inicial }: { acervo: AcervoTela[]; inic
               </li>
             );
           })}
-          {!termo && <li className="px-3 py-4 text-center text-[13px] text-texto-3">Digite o código, o campo, o nome ou a área para buscar.</li>}
-          {termo && !atual && <li className="flex items-center justify-center gap-2 px-3 py-4 text-[13px] text-texto-3"><LoaderCircle className="size-4 animate-spin" aria-hidden /> Buscando…</li>}
-          {atual?.erro && <li className="px-3 py-4 text-center text-[13px] text-[var(--selo-critico-texto)]">Não foi possível buscar agora. Tente de novo.</li>}
-          {atual && !atual.erro && !achados.length && <li className="px-3 py-4 text-center text-[13px] text-texto-3">Nenhum equipamento com esta busca.</li>}
         </ul>
+        {/* mensagens da busca: região viva sempre presente, para o leitor de tela anunciar cada mudança */}
+        <div role="status" aria-live="polite"
+          className={msgBusca ? "flex flex-wrap items-center justify-center gap-2 rounded-xl border border-borda bg-superficie-2 px-3 py-4 text-center text-[13px] text-texto-3" : "sr-only"}>
+          {termo && !atual && <LoaderCircle className="size-4 animate-spin" aria-hidden />}
+          <span className={atual?.erro ? "text-[var(--selo-critico-texto)]" : undefined}>{msgBusca}</span>
+          {atual?.erro && (
+            <button type="button" onClick={tentarDeNovo} className="min-h-11 rounded-lg px-2 font-medium text-acao underline-offset-2 hover:underline">Tentar de novo</button>
+          )}
+        </div>
         {erroEquip && <p role="alert" className="text-[12.5px] font-medium text-[var(--selo-critico-texto)]">Escolha pelo menos um equipamento.</p>}
         {atual && atual.total > achados.length && <p className="text-[12px] text-texto-3">Mostrando {inteiro(achados.length)} de {inteiro(atual.total)}. Refine a busca para ver os outros.</p>}
       </fieldset>
