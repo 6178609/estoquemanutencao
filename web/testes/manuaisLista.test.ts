@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { equipamentosSemManual, filtrarManuais, paginar, resumoManuais } from "@/lib/manuais/lista";
+import { buscarEquipamentos, equipamentosSemManual, filtrarManuais, paginar, resumoManuais } from "@/lib/manuais/lista";
 
 // tudo fictício
 const ativos = [
@@ -57,5 +57,23 @@ describe("lista de manuais: paginação de 50", () => {
     expect(paginar(itens, 9).pag).toBe(3);
     expect(paginar(itens, 0).pag).toBe(1);
     expect(paginar([], 2)).toMatchObject({ pag: 1, paginas: 1, total: 0, itens: [] });
+  });
+});
+
+describe("buscarEquipamentos (escolha sob demanda do Vincular manual)", () => {
+  const eqs = Array.from({ length: 80 }, (_, i) => ({ codigo: `9000${String(i).padStart(2, "0")}`, nome: i % 2 ? "BOMBA FICTICIA" : "PRENSA FICTICIA", campo: `CAMPO-${i}`, area: "AREA X" }));
+
+  it("sem termo não devolve nada (a lista fica vazia até a busca)", () => {
+    expect(buscarEquipamentos(eqs, "")).toEqual({ itens: [], total: 0 });
+    expect(buscarEquipamentos(eqs, "   ")).toEqual({ itens: [], total: 0 });
+  });
+
+  it("filtra por código, nome, campo ou área e limita os itens, com o total", () => {
+    const r = buscarEquipamentos(eqs, "bomba", 10);
+    expect(r.total).toBe(40);
+    expect(r.itens).toHaveLength(10);
+    expect(r.itens.every((e) => e.nome === "BOMBA FICTICIA")).toBe(true);
+    expect(buscarEquipamentos(eqs, "900007").itens.map((e) => e.codigo)).toEqual(["900007"]);
+    expect(buscarEquipamentos(eqs, "zzz-sem-nada").total).toBe(0);
   });
 });

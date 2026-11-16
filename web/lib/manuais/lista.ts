@@ -50,3 +50,14 @@ export function filtrarManuais<V extends VinculoManual>(vinculos: V[], f: Filtro
 }
 
 export { paginar } from "@/lib/paginacao";
+
+/**
+ * Busca da escolha de equipamentos (Vincular manual): só com termo; devolve até `limite` achados e o total. Sem termo,
+ * nada (a lista fica vazia até a busca — a página não leva os milhares de equipamentos ao navegador).
+ */
+export function buscarEquipamentos(ativos: EquipamentoManual[], q: string, limite = 60): { itens: EquipamentoManual[]; total: number } {
+  const termo = q.trim().slice(0, 120);
+  if (!termo) return { itens: [], total: 0 };
+  const achados = ativos.filter((e) => casaBusca(normalizarBusca([e.codigo, e.campo, e.nome, e.area].join(" ")), termo));
+  return { itens: achados.slice(0, limite), total: achados.length };
+}
