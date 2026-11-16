@@ -49,10 +49,12 @@ test("estoque: sem foto genérica do tipo; as pílulas de sugestão e de ilustra
   await expect(page.getByText("Nenhum material com esses filtros.")).toHaveCount(0);
   await expect(grupo.getByRole("button", { name: /^Foto sugerida/ })).toHaveCount(0);
   await expect(grupo.getByRole("button", { name: /^Foto ilustrativa/ })).toHaveCount(0);
-  // material zerado não aparece na aba (a demonstração tem itens com saldo zero)
-  await expect(grupo.getByRole("button", { name: /^Zerados/ })).toHaveCount(0);
-  await expect(page.getByText("Zerado", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Foto ilustrativa", { exact: true })).toHaveCount(0);
+  // a lista padrão ("Com saldo") não traz material zerado; a pílula "Zerados" mostra as faltas (a demonstração tem itens com saldo zero)
+  await grupo.getByRole("button", { name: /^Com saldo · \d/ }).click();
+  await expect(page.getByText("Zerado", { exact: true })).toHaveCount(0);
+  await grupo.getByRole("button", { name: /^Zerados · [1-9]/ }).click();
+  await expect(page.getByText("Zerado", { exact: true }).first()).toBeVisible();
   expect(erros).toEqual([]);
 });
 
