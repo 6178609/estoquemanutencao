@@ -24,6 +24,14 @@ describe("avisos de colunas importantes no envio", () => {
     expect(avisosDeColunas("ih08", tab(["Equipamento", "Denominação", "Código ABC", "Equipamento superior", "Centro custo"]))).toEqual([]);
   });
 
+  it("usa os mesmos padrões da leitura: só \"Centro custo\" exato ou \"Centro de custo\" contam", () => {
+    const base = ["Equipamento", "Denominação", "Código ABC", "Equipamento superior"];
+    expect(avisosDeColunas("ih08", tab([...base, "Centro de custo"]))).toEqual([]);
+    expect(avisosDeColunas("ih08", tab([...base, "Centro custo resp."]))[0]).toMatch(/Centro de custo/);
+    // o depósito não pode ser a denominação do depósito (a leitura exclui DENOMINACAO|DESCR)
+    expect(avisosDeColunas("mb52", tab(["Material", "Valor", "Denominação depósito"]))[0]).toMatch(/Depósito/);
+  });
+
   it("IW38 sem prioridade e IW47 sem unidade", () => {
     expect(avisosDeColunas("iw38", tab(["Ordem", "Tipo de ordem", "Status do sistema"]))[0]).toMatch(/Prioridade/);
     expect(avisosDeColunas("iw38", tab(["Ordem", "Tipo de ordem", "Prioridade"]))).toEqual([]);
@@ -36,6 +44,7 @@ describe("avisos de colunas importantes no envio", () => {
     const semY1 = avisosDeColunas("iw28", tab(["Nota", "Tipo de nota"], [["100", "Y2"], ["101", "Y3"]]));
     expect(semY1).toHaveLength(1);
     expect(semY1[0]).toMatch(/Nenhuma nota Y1/);
+    expect(semY1[0]).toMatch(/se houve quebras no período, reexporte a IW28 com todos os tipos de nota/);
     expect(avisosDeColunas("iw28", tab(["Nota", "Tipo de nota"], [["100", "Y2"], ["101", " y1 "]]))).toEqual([]);
   });
 
