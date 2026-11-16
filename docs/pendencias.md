@@ -19,7 +19,10 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   (286 com a imagem já baixada, o resto com página a conferir) + fotos próprias; 1.725 com fabricante+REF ainda sem foto,
   1.476 na fila (os demais foram tentados há menos de 60 dias).
   16/11: tarefa agendada nesta sessão ("Busca diária de fotos do almoxarifado", 15h13 de Brasília) busca ~160/dia pelo
-  Firecrawl até a fila zerar. 1º lote: 160 buscados, 47 fotos novas (648 no almoxarifado); ~1.313 na fila. A rotina automática só roda com as chaves na Vercel (abaixo);
+  Firecrawl até a fila zerar. 1º lote: 160 buscados, 47 fotos novas (648 no almoxarifado); ~1.313 na fila.
+  Download e padrão (16/11): rotina do repositório de dados (03:47) grava tudo em JPEG 1600×1600 quadrado + mini 400×400;
+  páginas mortas/sem foto/de outro item saíram (voltam à busca). Falta o segredo FIRECRAWL_API_KEY no repositório de dados
+  para as lojas que bloqueiam o download. A rotina automática só roda com as chaves na Vercel (abaixo);
   sem elas, buscas manuais pelo Firecrawl quando houver crédito.
 
 - **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta

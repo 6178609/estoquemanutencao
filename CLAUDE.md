@@ -89,6 +89,12 @@
 - **Só o almoxarifado (pedido do PCM, 16/11/2026):** a busca automática de fotos e de datasheets cobre só os materiais do
   almoxarifado (MB52) com fabricante e REF no Sysmat (`planejarBusca`); o resto do catálogo não entra na fila. Fotos já
   gravadas de materiais fora do almoxarifado continuam aparecendo.
+- **Fotos baixadas e no padrão (pedido do PCM, 16/11/2026):** a tela só mostra foto guardada no repositório de dados. A rotina
+  "Baixar fotos dos materiais" do repositório de dados (GitHub Actions, 03:47 de Brasília; `.github/scripts/baixar_fotos.py`)
+  baixa toda foto de `fotos_referencia.json` e grava no padrão único: JPEG quadrado 1600×1600, fundo branco, a peça inteira
+  centralizada, mais miniatura 400×400 (`app/fotos/fabricante/<material>.jpg` e `_mini.jpg`). Loja que bloqueia: endereço
+  direto da imagem pelo Firecrawl (segredo `FIRECRAWL_API_KEY` no repositório de dados). Página morta ou de outro item sai do
+  cadastro e o material volta à busca.
 - **Datasheet do material (aba Estoque):** seção no detalhamento (Almoxarifado e Catálogo) com os links/PDFs da biblioteca
   `datasheets_materiais.json` (coleção MATERIAL em `lib/dados/documentos.ts`, PDFs em `app/documentos/materiais/`), o botão
   "Procurar datasheet" e, para editor, link ou PDF. Busca automática na mesma rotina das fotos (`lib/datasheet/`), mesma fila
