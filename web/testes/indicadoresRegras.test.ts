@@ -198,3 +198,24 @@ describe("código ABC pelas notas IW28", () => {
     expect(x.quebrasOrdem.map((q) => [q.ordem, q.codigoAbc])).toEqual([["10", "A"]]);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// classificação dos tipos de ordem (como corrigida em Metas): YM11 emergencial, YM12 corretiva…
+// ---------------------------------------------------------------------------------------------------------------
+describe("classes dos tipos de ordem", () => {
+  const CLASSES: Record<string, string> = { YM11: "Emergencial", YM12: "Corretiva", YM13: "Preditiva / inspeção", YM14: "Preditiva / inspeção",
+    YM15: "Preventiva", YM16: "Melhoria", YM17: "Preditiva / inspeção", YM18: "Lubrificação", YM19: "Preditiva / inspeção", YM20: "Outros" };
+  const tipos = Object.fromEntries(Object.entries(CLASSES).map(([c, classe]) => [c, { descricao: "", classe }]));
+  const HOJE = dia(2026, 10, 20)!;
+  const COLS = ["Ordem", "Status do sistema", "Data-base do início", "Tipo de ordem", "Custos tot.reais"];
+  const ordens = prepararIw38(Object.keys(CLASSES).map((t, i) => [String(i + 1), "ENTE CONF", "05/10/2026", t, "10"])
+    .map((l) => Object.fromEntries(COLS.map((c, i) => [c, l[i]]))), HOJE).ordens;
+  const r = ind.calcular(dadosBase({ ordens, tipos, hoje: HOJE }), dia(2026, 10, 1)!, dia(2026, 10, 31)!);
+  it("emergencial = só YM11; % corretiva = YM11 + YM12", () => {
+    expect(r.pct_emergencial).toBe(10);
+    expect(r.pct_corretiva).toBe(20);
+  });
+  it("YM11 é o tipo da quebra e é emergencial", () => expect(ind.classeTipo(ind.TIPO_QUEBRA, tipos)).toBe("Emergencial"));
+  it("preditiva/inspeção e lubrificação contam como planejadas", () =>
+    expect(["YM13", "YM15", "YM18"].every((t) => ind.PLANEJADAS.includes(ind.classeTipo(t, tipos)))).toBe(true));
+});
