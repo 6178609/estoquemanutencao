@@ -48,7 +48,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   ] },
   { titulo: "Configuração", abas: [
     { id: "metas", titulo: "Metas e parâmetros", icone: "SlidersHorizontal", rota: "/metas" },
-    { id: "qualidade", titulo: "Qualidade dos dados", icone: "BadgeCheck", rota: "/qualidade", oculta: true },
+    { id: "qualidade", titulo: "Qualidade dos dados", icone: "BadgeCheck", rota: "/qualidade" },
     { id: "dados", titulo: "Fontes de dados", icone: "FolderOpen", rota: "/dados" },
   ] },
 ];
