@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import * as ind from "@/lib/wcm/indicadores";
-import { cruzarBases, dataDosDados } from "@/lib/wcm/cruzamento";
+import { abcDasNotas, completarAbc, cruzarBases, dataDosDados } from "@/lib/wcm/cruzamento";
 import { lerFiltros, textoDadosAte } from "@/lib/wcm/filtros";
 import {
-  marcarQuebras, prepararIw38, quebrasDasOrdens, regraQuebra, TEXTO_REGRA_QUEBRA, tiposPorOrdem, type Confirmacao, type Nota, type Operacao,
+  marcarQuebras, prepararIw38, quebrasDasOrdens, regraQuebra, TEXTO_REGRA_QUEBRA, tiposPorOrdem, type Confirmacao, type Equipamento, type Nota, type Operacao,
 } from "@/lib/wcm/preparo";
 import { dia } from "@/lib/wcm/util";
 
@@ -169,5 +169,32 @@ describe("data dos dados", () => {
     expect(lerFiltros({}, encodeURIComponent(JSON.stringify({ atalho: "Últimos 3 meses" })), hojeDados).fim).toBe(hojeDados);
     expect(textoDadosAte(hojeDados, CAL)).toBe("Dados até 12/11/2026");
     expect(textoDadosAte(CAL, CAL)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// criticidade: ABC das notas quando o IH08 não traz
+// ---------------------------------------------------------------------------------------------------------------
+describe("código ABC pelas notas IW28", () => {
+  const eq = (codigo: string, abc = "") => ({ equipamento: codigo, codigoAbc: abc }) as Equipamento;
+  const notas = [
+    nota("100", "Y2", "", "E1", dia(2026, 9, 1)!, "C"),
+    nota("101", "Y2", "", "E1", dia(2026, 10, 1)!, "a"),  // a mais recente vale (maiúscula)
+    nota("102", "Y2", "", "E1", dia(2026, 10, 5)!, ""),   // sem código: não conta
+    nota("103", "Y3", "", "E2", dia(2026, 10, 1)!, "B"),
+    nota("105", "Y3", "", "E2", dia(2026, 10, 1)!, "C"),  // mesma data: a de maior número
+  ];
+  it("o mais recente por equipamento", () =>
+    expect([...abcDasNotas(notas)]).toEqual([["E1", "A"], ["E2", "C"]]));
+  it("completa só onde o IH08 não tem, marcando a origem", () => {
+    const r = completarAbc([eq("E1"), eq("E2", "B"), eq("E3")], notas);
+    expect(r.map((e) => [e.equipamento, e.codigoAbc, e.origemAbc])).toEqual([["E1", "A", "IW28"], ["E2", "B", undefined], ["E3", "", undefined]]);
+  });
+  it("entra no cruzamento das bases e na classe A das quebras pelas ordens", () => {
+    const COLS = ["Ordem", "Status do sistema", "Data-base do início", "Tipo de ordem", "Equipamento", "Data de entrada"];
+    const ordens = prepararIw38([Object.fromEntries(COLS.map((c, i) => [c, ["10", "LIB", "02/10/2026", "YM11", "E1", "02/10/2026"][i]]))], dia(2026, 10, 20)!).ordens;
+    const x = cruzarBases({ ordens, notas, oper: [], conf: [], equipamentos: [eq("E1"), eq("E2", "B")], calendario: dia(2026, 10, 20)! });
+    expect(x.equipamentos!.map((e) => e.codigoAbc)).toEqual(["A", "B"]);
+    expect(x.quebrasOrdem.map((q) => [q.ordem, q.codigoAbc])).toEqual([["10", "A"]]);
   });
 });
