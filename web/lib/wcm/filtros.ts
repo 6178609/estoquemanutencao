@@ -67,6 +67,11 @@ export function descrever(ini: Dia, fim: Dia): string {
   return ini === fim ? dataBr(ini) : `${dataBr(ini)} a ${dataBr(fim)} (${fim - ini + 1} dias)`;
 }
 
+/** "Dados até 12/11/2026" quando a data dos dados (o "hoje" dos indicadores) fica antes do calendário; senão nada. */
+export function textoDadosAte(hojeDados: Dia, calendario: Dia): string | undefined {
+  return hojeDados < calendario ? `Dados até ${dataBr(hojeDados)}` : undefined;
+}
+
 export function filtrado(f: Filtros): boolean {
   return !!(f.areas.length || f.setores.length || f.centros.length || f.tipos.length);
 }

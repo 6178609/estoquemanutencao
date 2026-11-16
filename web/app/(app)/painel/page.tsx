@@ -9,6 +9,7 @@ import { Cabecalho } from "@/components/ui";
 import { exigir } from "@/lib/auth/sessao";
 import { brl } from "@/lib/formato";
 import { campoDoEquipamento } from "@/lib/wcm/campoGeral";
+import { TEXTO_REGRA_QUEBRA } from "@/lib/wcm/preparo";
 import { barra, contexto, dados, porDimensao, resultados, serieMensal } from "@/lib/wcm/contexto";
 import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
@@ -34,6 +35,7 @@ const TENDENCIA: { id: string; barras: boolean; cor: Cor }[] = [
 ];
 const CHAVE_SCORE = ["quebras", "mtbf", "mttr", "reincidencia", "pct_plano", "pct_emergencial", "no_prazo", "idade_backlog", "hh",
   "pct_hh_plano", "custo", "pct_custo_corr"];
+const SEM_META_OU_DADOS = "Sem meta ou sem dados";
 const VISOES = ["Todos os indicadores", "Scorecard por área", "Scorecard por setor", "Scorecard por centro", "Evolução mensal", "Pontos de atenção"];
 
 export default async function Painel(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -52,7 +54,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
   const porGrupo = ind.GRUPOS.map((g) => {
     const ks = ind.KPIS.filter((k) => k.grupo === g);
     const n = (f: ind.Farol) => ks.filter((k) => cores[k.id] === f).length;
-    return { rotulo: g, valor: ks.length, partes: (["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => ({ nome: ind.NOME_FAROL[f], valor: n(f), cor: COR_FAROL[f] })) };
+    return { rotulo: g, valor: ks.length, partes: (["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => ({ nome: f === "neutro" ? SEM_META_OU_DADOS : ind.NOME_FAROL[f], valor: n(f), cor: COR_FAROL[f] })) };
   });
   const dist = (k: ind.Kpi) => Math.abs((atual[k.id] ?? 0) - (ind.meta(k, metas) ?? 0)) / Math.max(Math.abs(ind.meta(k, metas) ?? 1), 1e-9);
   const piores = [...ind.KPIS.filter((k) => cores[k.id] === "vermelho").sort((a, b) => dist(b) - dist(a)), ...ind.KPIS.filter((k) => cores[k.id] === "amarelo")];
@@ -60,7 +62,7 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
   return (
     <PaginaWcm barra={barra(c)}>
       <Cabecalho titulo="Painel Geral," destaque="o pilar Manutenção Profissional num olhar."
-        sobre="Visão geral" subtitulo={`Variações contra ${descrever(aIni, aFim)} (período anterior de mesma duração). Passe o mouse no nome de cada indicador para ver a fórmula.`} />
+        sobre="Visão geral" subtitulo={`Variações contra ${descrever(aIni, aFim)} (período anterior de mesma duração). Passe o mouse no nome de cada indicador para ver a fórmula.${c.b.regraQuebra === "ym11" ? ` ${TEXTO_REGRA_QUEBRA.ym11}.` : ""}`} />
 
       {atual.cobertura_hh != null && atual.cobertura_hh < 90 && (
         <Aviso>Só <b>{Math.round(atual.cobertura_hh)}%</b> das horas apontadas (IW47) são de ordens que estão no IW38 carregado — as corretivas
@@ -80,8 +82,8 @@ export default async function Painel(props: { searchParams: Promise<Record<strin
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Grafico titulo="Saúde por grupo do pilar" subtitulo="Indicadores na meta, em atenção e fora — por grupo"
-          legenda={<div className="flex flex-wrap gap-3">{(["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => <SeloFarol key={f} farol={f} />)}</div>}
-          tabela={{ colunas: ["Grupo", "Na meta", "Atenção", "Fora", "Sem meta"], linhas: porGrupo.map((g) => [g.rotulo, ...g.partes.map((p) => p.valor)]) }}>
+          legenda={<div className="flex flex-wrap gap-3">{(["verde", "amarelo", "vermelho", "neutro"] as ind.Farol[]).map((f) => <SeloFarol key={f} farol={f} rotulo={f === "neutro" ? SEM_META_OU_DADOS : undefined} />)}</div>}
+          tabela={{ colunas: ["Grupo", "Na meta", "Atenção", "Fora", SEM_META_OU_DADOS], linhas: porGrupo.map((g) => [g.rotulo, ...g.partes.map((p) => p.valor)]) }}>
           <Barras itens={porGrupo} larguraRotulo={190} formato="ind" />
         </Grafico>
         <div className="rounded-cartao border border-borda bg-superficie p-5">
@@ -210,7 +212,7 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
   const pend = (soManutencao(c.b.requisicoes.dados, pessoas) ?? []).filter((r) => r.pendente).sort((a, b) => (b.diasAguardando ?? 0) - (a.diasAguardando ?? 0));
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · laranja = reincidentes (≤ 30 dias)"
+      <Grafico titulo="Equipamentos com mais quebras" subtitulo={`Bad actors do período · laranja = reincidentes (≤ 30 dias) · ${TEXTO_REGRA_QUEBRA[c.b.regraQuebra]}`}
         legenda={<span className="text-[12px] text-texto-3" />}
         tabela={{ colunas: ["Campo de ordenação", "Equipamento", "Quebras", "Reincidentes"],
           linhas: bad.map(([k, v]) => [campoEq(k) || "—", `${v.nome} (${k})`, v.quebras, v.reinc]) }}>

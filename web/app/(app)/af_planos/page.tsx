@@ -55,7 +55,7 @@ export default async function PlanosAf(props: { searchParams: Promise<Params> })
   if (!c.afs) return moldura(<SemDados base="Gerenciador de AF (análises de falha)" />);
   if (!c.afs.length) return moldura(<Aviso>O Gerenciador de AF foi encontrado, mas não tem nenhuma análise de falha preenchida.</Aviso>);
 
-  const afs = c.afs, acoes = c.acoesAf ?? [], notas = c.b.notas.dados, hoje = c.b.hoje;
+  const afs = c.afs, acoes = c.acoesAf ?? [], notas = c.b.notas.dados ? [...c.b.notas.dados, ...c.b.quebrasOrdem] : null, hoje = c.b.calendario;
   const { ini, fim } = c.f;
   const [aIni, aFim] = ind.periodoAnterior(ini, fim);
   const atual = af.indicadores(afs, acoes, ini, fim, hoje, notas) as unknown as ind.Resultado;

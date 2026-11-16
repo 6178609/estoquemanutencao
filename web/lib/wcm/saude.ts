@@ -28,7 +28,7 @@ interface Contribuinte {
 
 export const CONTRIBUINTES: Contribuinte[] = [
   { id: "quebras", nome: "Quebras", peso: 20, cheio: 3,
-    regra: "Quebras (nota Y1 → ordem YM11) nos últimos 12 meses; reincidência (até 30 dias da anterior) conta em " +
+    regra: "Quebras (nota Y1 → ordem YM11; sem Y1 na IW28, as ordens YM11) nos últimos 12 meses; reincidência (até 30 dias da anterior) conta em " +
       "dobro. 3 ou mais = penalidade cheia." },
   { id: "falhas_af", nome: "Falhas registradas (AF)", peso: 20, cheio: 10,
     regra: "Falhas do Gerenciador de AF nos últimos 12 meses (pelo Código SAP do equipamento). 10 ou mais = cheia." },

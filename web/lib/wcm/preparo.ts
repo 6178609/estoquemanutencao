@@ -52,7 +52,11 @@ const IW38_COLUNAS: Record<string, string[]> = {
 export const ENCERRADA_SEM_CONF = "Encerrada sem confirmação";
 export const SITUACOES = ["Aberta", "Liberada", ENCERRADA_SEM_CONF, "Concluída", "Cancelada", "Sem status"] as const;
 export type Situacao = (typeof SITUACOES)[number];
-export const PENDENTES = new Set<Situacao>(["Aberta", "Liberada", ENCERRADA_SEM_CONF]);
+/**
+ * Ordens em aberto (backlog, atraso, dias em aberto). "Encerrada sem confirmação" não entra (decisão do PCM): a ordem foi
+ * encerrada no SAP e só falta o apontamento — vai para a lista à parte de cobrança (indicadores.encerradasSemConfirmacao).
+ */
+export const PENDENTES = new Set<Situacao>(["Aberta", "Liberada"]);
 export const NAT_PLANO = "Plano de manutenção", NAT_BACKLOG = "Backlog";
 export const STATUS_USUARIO: Record<string, string> = { PLA: "Em planejamento", PRO: "Programado", ELP: "Em planejamento (ELP)", CAN: "Cancelada" };
 
@@ -78,6 +82,23 @@ export interface Ordem {
   campo: string;
 }
 
+/** Atraso e dias em aberto da ordem numa data de referência ("hoje" dos indicadores = data dos dados). */
+export function atrasoDaOrdem(o: Pick<Ordem, "situacao" | "inicio" | "fim" | "entrada">, hoje: Dia): Pick<Ordem, "atrasada" | "diasEmAberto"> {
+  const pendente = PENDENTES.has(o.situacao);
+  const prazo = o.fim ?? o.inicio, ref = o.entrada ?? o.inicio;
+  return { atrasada: pendente && prazo != null && prazo < hoje, diasEmAberto: pendente && ref != null ? Math.max(0, hoje - ref) : null };
+}
+
+/** As ordens com atraso e dias em aberto recalculados para outra data de referência. */
+export function ancorarOrdens(ordens: Ordem[], hoje: Dia): Ordem[] {
+  return ordens.map((o) => ({ ...o, ...atrasoDaOrdem(o, hoje) }));
+}
+
+/** As notas com os dias desde a nota recalculados para outra data de referência. */
+export function ancorarNotas(notas: Nota[], hoje: Dia): Nota[] {
+  return notas.map((n) => ({ ...n, dias: n.data != null ? hoje - n.data : null }));
+}
+
 export function prepararIw38(cru: Crua[], hoje: Dia, excluir = true): { ordens: Ordem[]; removidas: number } {
   const c = mapear(colunasDe(cru), IW38_COLUNAS, { Plano: "TEXTO|ITEM" });
   const ordens: Ordem[] = [];
@@ -96,16 +117,12 @@ export function prepararIw38(cru: Crua[], hoje: Dia, excluir = true): { ordens: 
       "Local de instalação": base.local, "Objeto técnico": base.objeto })) { removidas++; continue; }
     const inicio = paraData(pega(l, c.Inicio)), fim = paraData(pega(l, c.Fim)), entrada = paraData(pega(l, c.Entrada));
     const situacao = situacaoDe(base.statusSistema, base.statusUsuario);
-    const pendente = PENDENTES.has(situacao);
-    const prazo = fim ?? inicio;
-    const ref = entrada ?? inicio;
     const dur = fim != null && inicio != null ? fim - inicio : null;
     const comPlano = /\d/.test(base.plano);
     ordens.push({
       ...base, inicio, fim, entrada, custoReal: num0(c.CustoReal ? l[c.CustoReal] : ""),
       custoPlanejado: num0(c.CustoPlanejado ? l[c.CustoPlanejado] : ""), comPlano, natureza: comPlano ? NAT_PLANO : NAT_BACKLOG,
-      situacao, data: inicio ?? entrada ?? fim, atrasada: pendente && prazo != null && prazo < hoje,
-      diasEmAberto: pendente && ref != null ? Math.max(0, hoje - ref) : null,
+      situacao, data: inicio ?? entrada ?? fim, ...atrasoDaOrdem({ situacao, inicio, fim, entrada }, hoje),
       duracao: dur != null && dur >= 0 && dur < 3650 ? dur : null,
       equipChave: base.equipamento || base.objeto, setor: setorDoCentro(base.centroTrabalho),
       campo: pega(l, c.Campo).trim().toUpperCase(),
@@ -254,15 +271,93 @@ export function prepararNotas(cru: Crua[], hoje: Dia, excluir = true): Nota[] {
 const TIPO_NOTA_QUEBRA = "Y1", TIPO_ORDEM_QUEBRA = "YM11";
 
 /**
- * Quebra (regra da planta) = nota Y1 convertida em ordem YM11. O tipo da ordem vem das bases (IW38, IW38OP, IW47);
- * ordem da Y1 que não está em nenhuma delas conta como quebra; com outro tipo, não.
+ * Regra de quebra em vigor: "y1" = nota Y1 da IW28 convertida em ordem YM11 (regra da planta); "ym11" = toda ordem YM11
+ * (IW38, IW38OP, IW47) — vale quando a IW28 carregada não traz nenhuma nota Y1 (export sem esse tipo de nota).
  */
-export function marcarQuebras(notas: Nota[], tipos: Map<string, string>): Nota[] {
+export type RegraQuebra = "y1" | "ym11";
+export const TEXTO_REGRA_QUEBRA: Record<RegraQuebra, string> = {
+  y1: "Quebras pelas notas Y1 (IW28) convertidas em ordem YM11",
+  ym11: "Quebras pelas ordens YM11 (a IW28 não traz notas Y1)",
+};
+
+/**
+ * Mínimo de notas Y1 na IW28 para valer a regra "y1": uma ou outra Y1 avulsa (ou uma IW28 parcial) não derruba o
+ * histórico inteiro de quebras; abaixo disso as quebras vêm das ordens YM11.
+ */
+export const MIN_NOTAS_Y1 = 20;
+
+export function regraQuebra(notas: Pick<Nota, "tipoNota">[] | null | undefined): RegraQuebra {
+  let y1 = 0;
+  for (const n of notas ?? []) if (n.tipoNota.trim().toUpperCase() === TIPO_NOTA_QUEBRA && ++y1 >= MIN_NOTAS_Y1) return "y1";
+  return "ym11";
+}
+
+/**
+ * Marca as notas de quebra. Regra "y1" (padrão da planta): nota Y1 convertida em ordem YM11 — o tipo da ordem vem das
+ * bases (IW38, IW38OP, IW47); ordem da Y1 que não está em nenhuma delas conta como quebra; com outro tipo, não.
+ * Regra "ym11" (IW28 sem nenhuma Y1): a nota cuja ordem é YM11 é a quebra (as ordens YM11 sem nota entram por
+ * quebrasDasOrdens).
+ */
+export function marcarQuebras(notas: Nota[], tipos: Map<string, string>, regra: RegraQuebra = regraQuebra(notas)): Nota[] {
   return notas.map((n) => {
     const tipoOrdem = (tipos.get(n.ordem) ?? "").trim().toUpperCase();
     const y1 = n.tipoNota.trim().toUpperCase() === TIPO_NOTA_QUEBRA;
-    return { ...n, tipoOrdem, quebra: y1 && n.ordem !== "" && (tipoOrdem === "" || tipoOrdem === TIPO_ORDEM_QUEBRA) };
+    const quebra = regra === "y1" ? y1 && n.ordem !== "" && (tipoOrdem === "" || tipoOrdem === TIPO_ORDEM_QUEBRA)
+      : n.ordem !== "" && tipoOrdem === TIPO_ORDEM_QUEBRA;
+    return { ...n, tipoOrdem, quebra };
   });
+}
+
+/**
+ * Regra "ym11": cada ordem YM11 sem nota na IW28 vira um registro de quebra no formato de nota (nota vazia), para os
+ * mesmos cálculos (MTBF, MTTR, reincidência…). Fontes em ordem: IW38, IW38OP, IW47 (a primeira que traz a ordem dá
+ * equipamento e texto). Data = data-base de início (ou entrada/fim); sem ela, a primeira confirmação na IW47.
+ * Canceladas ficam fora. `abc` = código ABC por equipamento (IH08, ou das notas).
+ */
+export function quebrasDasOrdens(ordens: Ordem[], oper: Operacao[], conf: Confirmacao[], notas: Nota[] | null,
+  abc: Map<string, string>, hoje: Dia): Nota[] {
+  const comNota = new Set((notas ?? []).filter((n) => n.ordem).map((n) => n.ordem));
+  const primeiraConf = new Map<string, Dia>();
+  for (const c of conf) if (c.data != null && c.data < (primeiraConf.get(c.ordem) ?? Infinity)) primeiraConf.set(c.ordem, c.data);
+  const vistas = new Set<string>();
+  const out: Nota[] = [];
+  const ym11 = (t: string) => t.trim().toUpperCase() === TIPO_ORDEM_QUEBRA;
+  const add = (x: { ordem: string; descricao: string; equipamento: string; objeto: string; local: string; centroTrabalho: string;
+    localizacao: string; criadoPor: string; plano: string; data: Dia | null }) => {
+    vistas.add(x.ordem);
+    if (comNota.has(x.ordem)) return;
+    const data = x.data ?? primeiraConf.get(x.ordem) ?? null;
+    out.push({
+      nota: "", tipoNota: "", notificador: "", codigoAbc: abc.get(x.equipamento) ?? "", inicioAvaria: null, fimAvaria: null, dataNota: null,
+      comParada: false, horasParado: 0, comOrdem: true, ...x, data, dias: data != null ? hoje - data : null,
+      equipChave: x.equipamento || x.objeto, setor: setorDoCentro(x.centroTrabalho), tipoOrdem: TIPO_ORDEM_QUEBRA, quebra: true,
+    });
+  };
+  for (const o of ordens) {
+    if (vistas.has(o.ordem) || !ym11(o.tipo)) continue;
+    if (o.situacao === "Cancelada") { vistas.add(o.ordem); continue; }
+    add({ ordem: o.ordem, descricao: o.texto, equipamento: o.equipamento, objeto: o.objeto, local: o.local, centroTrabalho: o.centroTrabalho,
+      localizacao: o.localizacao, criadoPor: o.criadoPor, plano: o.plano, data: o.data });
+  }
+  // IW38OP: uma linha por operação — a ordem conta se tem alguma operação não cancelada; data = menor início
+  const porOrdem = new Map<string, { x: Operacao; viva: boolean; inicio: Dia | null }>();
+  for (const x of oper) {
+    if (vistas.has(x.ordem) || !ym11(x.tipo)) continue;
+    const g = porOrdem.get(x.ordem) ?? porOrdem.set(x.ordem, { x, viva: false, inicio: null }).get(x.ordem)!;
+    g.viva ||= !x.cancelada;
+    if (x.inicio != null && (g.inicio == null || x.inicio < g.inicio)) g.inicio = x.inicio;
+  }
+  for (const [ordem, { x, viva, inicio }] of porOrdem) {
+    if (!viva) { vistas.add(ordem); continue; }
+    add({ ordem, descricao: x.textoOperacao, equipamento: x.equipamento, objeto: x.objeto, local: x.local,
+      centroTrabalho: x.centroTrabalho, localizacao: "", criadoPor: "", plano: "", data: inicio });
+  }
+  for (const c of conf) {
+    if (vistas.has(c.ordem) || !ym11(c.tipo)) continue;
+    add({ ordem: c.ordem, descricao: c.texto, equipamento: c.equipamento, objeto: "", local: "", centroTrabalho: c.centroTrabalho,
+      localizacao: "", criadoPor: "", plano: "", data: null });
+  }
+  return out;
 }
 
 /** Ordem → tipo (YM11, YM13…) juntando IW38, IW38OP e IW47 — vale a primeira que aparece, nessa ordem. */
@@ -285,6 +380,8 @@ export interface Equipamento {
   /** dados do IH08 completo (vazios num export antigo, que não traz essas colunas) */
   campo: string; centroCusto: string; centroTrabalho: string; statusSistema: string; statusUsuario: string; inventario: string;
   superior: string;
+  /** "IW28" quando o IH08 não traz o código ABC e ele veio da nota mais recente do equipamento (cruzamento.completarAbc) */
+  origemAbc?: "IW28";
   /**
    * fora de uso: status do sistema INAT (inativo) ou MREL (marcado para eliminação), ou posição vazia (denominação
    * "VAGO") — sai do inventário de ativos

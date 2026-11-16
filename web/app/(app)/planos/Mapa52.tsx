@@ -62,7 +62,8 @@ export async function Mapa52({ params }: { params: Params }) {
   const temIp19 = !!c.b.cruas.ip19.dados?.length;
   if (!temIp19 || !c.chamadas) return moldura(<>{cab}<SemDados base="IP19 (planos de manutenção)" /></>);
 
-  const hoje = c.b.hoje;
+  // ano/semana atual pelo calendário; situação e avanço das chamadas pela data dos dados (execução vem das ordens)
+  const hoje = c.b.calendario, hojeDados = c.b.hoje;
   const todas = planos.filtrarChamadas(c.chamadas.filter((x) => !x.doIw38), { inicio: hoje, fim: hoje, centrosGlobais: c.centros, tiposGlobais: c.f.tipos });
   const anos = m52.anos(todas);
   if (!anos.length) return moldura(<>{cab}<SemDados base="IP19 com data planejada" /></>);
@@ -75,12 +76,12 @@ export async function Mapa52({ params }: { params: Params }) {
   const selDis = lista(params, "mdis"), selCtr = lista(params, "mctr"), selPer = lista(params, "mper"), selSt = lista(params, "mst");
   const busca = um(params, "q");
   const filtro = m52.filtrar(todas, { ano, disciplinas: selDis, centros: selCtr, periodicidades: selPer, status: selSt, busca }, per);
-  const linhas = m52.mapa(filtro, per, hoje, ordenar);
+  const linhas = m52.mapa(filtro, per, hojeDados, ordenar);
   const semanas = m52.semanasDoAno(ano);
   const carga = m52.cargaSemanal(filtro, semanas);
-  const curva = m52.curvaS(filtro, semanas, hoje);
-  const avDis = m52.avancoPor(filtro, m52.disciplina, hoje);
-  const geral = m52.avancoPor(filtro, () => "Total", hoje)[0] ?? null;
+  const curva = m52.curvaS(filtro, semanas, hojeDados);
+  const avDis = m52.avancoPor(filtro, m52.disciplina, hojeDados);
+  const geral = m52.avancoPor(filtro, () => "Total", hojeDados)[0] ?? null;
 
   // capacidade de cada semana: Gerenciador de HH (jornada, % disponível e ausências) ou a configurada em Metas
   const d = await dados(c);

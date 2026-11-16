@@ -19,7 +19,7 @@ import { situacaoPeca, type SituacaoPeca } from "./logica";
 export async function inventarioAtivos(c: Contexto): Promise<ativos.LinhaAtivo[]> {
   const b = c.b;
   if (!b.ordens.dados) {
-    return guardar(`inv0|${assinatura(c)}`, () => ativos.inventario(b.hoje, { equip: b.equipamentos.dados, cadEq: c.cad.equipamentos,
+    return guardar(`inv0|${assinatura(c)}`, () => ativos.inventario(b.calendario, { equip: b.equipamentos.dados, cadEq: c.cad.equipamentos,
       chamadas: c.chamadas }));
   }
   const [d, s] = await Promise.all([dados(c, FABRICA), saudeAtivos(c, true)]);

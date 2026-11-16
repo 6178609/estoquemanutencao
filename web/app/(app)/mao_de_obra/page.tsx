@@ -83,7 +83,7 @@ export default async function MaoDeObra(props: { searchParams: Promise<Record<st
         {visao === "Equipe e pessoas" ? <Equipe c={c} d={d} ex={ex} jan={jan} />
           : visao === "Distribuição das horas" ? <Distribuicao d={d} ex={ex} />
           : visao === "Apontamentos (IW47)" ? <Apontamentos c={c} d={d} campoEq={campoEq} />
-            : <Backlog d={d} atual={atual} metas={metas} campoEq={campoEq} />}
+            : <Backlog d={d} atual={atual} metas={metas} campoEq={campoEq} calendario={c.b.calendario} />}
       </Secao>
     </PaginaWcm>
   );
@@ -266,7 +266,7 @@ const COL_SC: Coluna[] = [
   { rotulo: "Semanas", formato: "sem" }, { rotulo: "Ordens", formato: "inteiro" },
 ];
 
-function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Resultado; metas: Record<string, Record<string, unknown>>;
+function Backlog({ d, atual, metas, campoEq, calendario }: { d: ind.Dados; atual: ind.Resultado; metas: Record<string, Record<string, unknown>>; calendario: number;
   campoEq: (codigo: string | null | undefined) => string }) {
   const bk = ind.backlog(d);
   const [cap, origem] = ind.capacidadeSemanal(d, d.centros.length ? d.centros : null);
@@ -276,13 +276,25 @@ function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Result
   const hhTot = bk.reduce((s, b) => s + (b.hhPendentes ?? 0), 0);
   const numeros = (
     <Numeros itens={[
-      { rotulo: "Ordens em aberto (até hoje)", valor: n0.format(bk.length) },
+      { rotulo: "Ordens em aberto (até hoje)", valor: n0.format(bk.length), detalhe: "abertas ou liberadas; encerradas sem confirmação fora" },
       { rotulo: "HH pendentes", valor: temHh ? `${n0.format(hhTot)} h` : "—", detalhe: "operações abertas (IW38OP)" },
       { rotulo: "Capacidade semanal", valor: cap ? `${n0.format(cap)} h` : "—", detalhe: origem },
       { rotulo: "Backlog em semanas", valor: ind.formatar(kB, atual.backlog_sem), detalhe: `meta ≤ ${ind.formatar(kB, alvo)}`, dica: kB.formula },
     ]} />
   );
-  if (!bk.length) return <div className="space-y-4">{numeros}<p className="text-[14px] text-texto-3">Sem ordens em aberto no recorte.</p></div>;
+  // encerradas no SAP sem confirmação: fora do backlog (decisão do PCM), numa lista à parte para cobrar o apontamento
+  const esc = ind.encerradasSemConfirmacao(d).sort((a, b) => b.idade - a.idade);
+  const cobrar = esc.length > 0 && (
+    <details className="rounded-cartao border border-borda bg-superficie p-5">
+      <summary className="cursor-pointer font-display text-[15px] font-medium transition-colors hover:text-acao">
+        Encerradas sem confirmação (cobrar apontamento) · {n0.format(esc.length)}
+      </summary>
+      <div className="mb-4 mt-1 text-[12.5px] text-texto-3">Encerradas no SAP sem confirmação: não contam no backlog; falta apontar as horas (IW47) ou confirmar a ordem.</div>
+      <TabelaDados colunas={COL_BK.filter((x) => x.rotulo !== "HH pendentes")} baixar="encerradas_sem_confirmacao" busca="Buscar ordem, texto, equipamento, centro…" limite={500}
+        linhas={esc.slice(0, 3000).map((b) => [b.ordem, b.tipo, b.natureza, b.texto, campoEq(b.equipChave), b.equipChave, b.centroTrabalho, b.data, b.idade, b.situacao])} />
+    </details>
+  );
+  if (!bk.length) return <div className="space-y-4">{numeros}<p className="text-[14px] text-texto-3">Sem ordens em aberto no recorte.</p>{cobrar}</div>;
 
   const grupos = new Map<string, ind.ItemBacklog[]>();
   for (const b of bk) if (b.centroTrabalho) (grupos.get(b.centroTrabalho) ?? grupos.set(b.centroTrabalho, []).get(b.centroTrabalho)!).push(b);
@@ -293,7 +305,7 @@ function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Result
   }).sort((a, b) => b.h - a.h);
   const comSem = sc.filter((x) => x.semanas != null).sort((a, b) => b.semanas! - a.semanas!).slice(0, 14);
   const idade = idadeBacklog(bk);
-  const carga = d.oper ? cargaFutura(d.oper, d.hoje) : null;
+  const carga = d.oper ? cargaFutura(d.oper, calendario) : null;
   const lista = [...bk].sort((a, b) => b.idade - a.idade).slice(0, 3000);
   return (
     <div className="space-y-4">
@@ -329,6 +341,7 @@ function Backlog({ d, atual, metas, campoEq }: { d: ind.Dados; atual: ind.Result
         <TabelaDados colunas={COL_BK} baixar="backlog" busca="Buscar ordem, texto, equipamento, centro…" limite={500}
           linhas={lista.map((b) => [b.ordem, b.tipo, b.natureza, b.texto, campoEq(b.equipChave), b.equipChave, b.centroTrabalho, b.data, b.idade, b.hhPendentes, b.situacao])} />
       </div>
+      {cobrar}
       {sc.length > 0 && (
         <details className="rounded-cartao border border-borda bg-superficie p-5">
           <summary className="cursor-pointer font-display text-[15px] font-medium transition-colors hover:text-acao">Tabela de semanas de backlog por centro</summary>

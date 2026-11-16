@@ -47,7 +47,8 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
   if (!ch) return moldura(<>{cab}<SemDados base="IP19 (planos de manutenção)" /></>);
   const campoEq = await campoDoEquipamento(c);
 
-  const hoje = c.b.hoje;
+  // semana/mês atual pelo calendário; aderência e situação das chamadas pela data dos dados (execução vem das ordens)
+  const hoje = c.b.calendario, hojeDados = c.b.hoje;
   const temIp19 = !!c.b.cruas.ip19.dados?.length;
   const temIw38 = !!c.b.ordens.dados?.length;
   const fonte = temIp19 ? `IP19 de ${dataHora(c.b.cruas.ip19.atualizado)}${temIw38 ? " · cruzada com o IW38" : ""}`
@@ -69,7 +70,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
   const doPeriodo = planos.noIntervalo(globais, ini, fim);
   const filtro = planos.filtrarChamadas(globais, { inicio: ini, fim, busca, centros: selCtr, situacoes: selSit, atividades: selAtv });
   const noPeriodo = planos.noIntervalo(filtro, ini, fim);
-  const r = planos.resumoPeriodo(noPeriodo, hoje);
+  const r = planos.resumoPeriodo(noPeriodo, hojeDados);
 
   const cal = planos.montarCalendario(filtro, ini, fim);
   const linhas = planos.atrasadosPrimeiro(cal.linhas);
@@ -99,7 +100,7 @@ export default async function Planos(props: { searchParams: Promise<Params> }) {
 
   // plano aberto na gaveta
   const chavePlano = um(params, "plano");
-  const det = chavePlano ? planos.detalhePlano(filtro, chavePlano, hoje) : null;
+  const det = chavePlano ? planos.detalhePlano(filtro, chavePlano, hojeDados) : null;
   const descPlano = chavePlano ? (linhas.find((l) => l.plano === chavePlano)?.descricao ?? det?.chamadas[0]?.texto ?? "") : "";
 
   const legenda = (
