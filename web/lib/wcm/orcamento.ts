@@ -49,7 +49,8 @@ export interface LinhaOrcamento {
 
 export interface ResultadoOrcamento {
   linhas: LinhaOrcamento[];
-  totais: { disponivel: number | null; gasto: number; saldo: number | null; aEntrar: number | null };
+  /** Totais só dos meses até o de hoje; `gasto` = `ordens` + `requisicoes` (as partes mostradas no cartão "Gasto"). */
+  totais: { disponivel: number | null; gasto: number; ordens: number; requisicoes: number | null; saldo: number | null; aEntrar: number | null };
   /** Requisições (aprovada ou pendente, com total) sem data de envio: não entram em nenhum mês, em qualquer período. */
   semData: number;
   /** Nenhuma requisição com tipo (base sem a coluna): a tela avisa. */
@@ -109,11 +110,13 @@ export function orcamentoPorMes(
   const atuais = linhas.filter((l) => !l.previsao);
   const comDisp = atuais.filter((l) => l.disponivel != null);
   const somar = (xs: number[]) => xs.reduce((s, v) => s + v, 0);
+  const totOrdens = somar(atuais.map((l) => l.ordens));
+  const totReq = reqs ? somar(atuais.map((l) => l.requisicoes ?? 0)) : null;
   return {
     linhas,
     totais: {
       disponivel: comDisp.length ? somar(comDisp.map((l) => l.disponivel ?? 0)) : null,
-      gasto: somar(atuais.map((l) => l.ordens + (l.requisicoes ?? 0))),
+      gasto: totOrdens + (totReq ?? 0), ordens: totOrdens, requisicoes: totReq,
       saldo: comDisp.length ? somar(comDisp.map((l) => l.saldo ?? 0)) : null,
       aEntrar: reqs ? somar(atuais.map((l) => l.aEntrar ?? 0)) : null,
     },

@@ -66,7 +66,7 @@ describe("orçamento por mês", () => {
       { mes: "2026-01", disponivel: 10000, ordens: 3000, requisicoes: 1000, saldo: 6000, aEntrar: 0, previsao: false },
       { mes: "2026-02", disponivel: null, ordens: 500, requisicoes: 0, saldo: null, aEntrar: 400, previsao: false },
     ]);
-    expect(r.totais).toEqual({ disponivel: 10000, gasto: 4500, saldo: 6000, aEntrar: 400 });
+    expect(r.totais).toEqual({ disponivel: 10000, gasto: 4500, ordens: 3500, requisicoes: 1000, saldo: 6000, aEntrar: 400 });
     expect(r.semData).toBe(1);
     expect(r.semTipo).toBe(false);
   });
@@ -76,7 +76,13 @@ describe("orçamento por mês", () => {
     const r = orcamentoPorMes(ordens, reqs, comFuturo, ini, fim, D(2026, 1, 15));
     expect(r.linhas.map((l) => l.previsao)).toEqual([false, true]);
     expect(r.linhas[1].disponivel).toBe(20000);
-    expect(r.totais).toEqual({ disponivel: 10000, gasto: 4000, saldo: 6000, aEntrar: 0 });
+    expect(r.totais).toEqual({ disponivel: 10000, gasto: 4000, ordens: 3000, requisicoes: 1000, saldo: 6000, aEntrar: 0 });
+  });
+
+  it("as partes do gasto (ordens + requisições) fecham com o total, mesmo com mês em previsão", () => {
+    const r = orcamentoPorMes(ordens, reqs, disponivel, ini, fim, D(2026, 1, 15));
+    expect(r.linhas.some((l) => l.previsao)).toBe(true);
+    expect(r.totais.ordens + (r.totais.requisicoes ?? 0)).toBe(r.totais.gasto);
   });
 
   it("sem requisições (base não carregada): colunas de requisição ficam null", () => {
@@ -84,6 +90,8 @@ describe("orçamento por mês", () => {
     expect(r.linhas.every((l) => l.requisicoes === null && l.aEntrar === null)).toBe(true);
     expect(r.totais.aEntrar).toBeNull();
     expect(r.totais.gasto).toBe(3500);
+    expect(r.totais.ordens).toBe(3500);
+    expect(r.totais.requisicoes).toBeNull();
     expect(r.semTipo).toBe(false);
   });
 

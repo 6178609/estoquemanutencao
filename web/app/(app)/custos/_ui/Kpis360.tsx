@@ -64,7 +64,7 @@ export function Kpis360(p: Kpis360Props) {
         <span>{nf0.format(p.ordensComCusto)} ordens com custo</span>
       </Cartao>
 
-      <Cartao filete={FILETE_FAROL[backlog.farol]} rotulo="Custo sem plano (backlog)" dica={backlog.dica} valor={pctTxt(backlog.pct)}>
+      <Cartao filete={FILETE_FAROL[backlog.farol]} rotulo="Custo de ordens sem plano" dica={backlog.dica} valor={pctTxt(backlog.pct)}>
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <SeloFarol farol={backlog.farol} compacto />
           <span>meta {backlog.meta != null ? pctTxt(backlog.meta) : "—"}</span>
