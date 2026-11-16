@@ -63,12 +63,13 @@ export default async function FontesDeDados() {
                 <IconeQuadro icone={!b.carregada ? CircleDashed : b.velha ? Clock : CheckCircle2}
                   tom={!b.carregada ? "neutro" : b.velha ? "laranja" : "verde"} />
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-display text-[15px] font-medium leading-snug">{b.nome}</h3>
+                  <h3 className="break-words font-display text-[15px] font-medium leading-snug">{b.nome}</h3>
                   {b.carregada ? (
                     <div className="mt-1.5 space-y-0.5 text-[12.5px] text-texto-3">
-                      <div>
-                        {b.info.modificado ? <>Export de <b className="text-texto-2">{dataHora(b.info.modificado)}</b> · {idade(b.info.modificado)}</> : "Data do export desconhecida"}
-                        {b.velha && <Selo cor="laranja" className="ml-1.5">desatualizada</Selo>}
+                      {/* quebra a linha no celular: o selo (sem quebra interna) não pode empurrar o cartão para fora da tela */}
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 break-words">
+                        <span className="min-w-0">{b.info.modificado ? <>Export de <b className="text-texto-2">{dataHora(b.info.modificado)}</b> · {idade(b.info.modificado)}</> : "Data do export desconhecida"}</span>
+                        {b.velha && <Selo cor="laranja">desatualizada</Selo>}
                       </div>
                       {b.info.linhas !== undefined && <div>{inteiro(b.info.linhas)} linhas</div>}
                       {b.info.origem && <div className="truncate" title={b.info.origem}>{b.info.origem}</div>}

@@ -4,12 +4,17 @@ import type { Metadata } from "next";
 import { Barras, Grafico } from "@/components/graficos";
 import { Aviso, Secao, SemDados } from "@/components/PaginaWcm";
 import { Cabecalho } from "@/components/ui";
+import { podeEditar, podeVer } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
+import { lerCadastro } from "@/lib/dados/cadastros";
 import { brl, brlCurto, inteiro } from "@/lib/formato";
 import { bases } from "@/lib/wcm/dados";
 import { descrever } from "@/lib/wcm/filtros";
+import { ARQ_METAS } from "@/lib/wcm/indicadores";
 import type { Requisicao } from "@/lib/wcm/preparo";
+import { contarSolicitantes, escopoRequisicoes, pessoasAtivas, soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
 import { dataBr } from "@/lib/wcm/util";
+import { FiltroPessoas } from "../custos/_ui/FiltroPessoas";
 import { Baixar, query } from "../ordens/_comum/Baixar";
 import { FiltrosLocais } from "../ordens/_comum/FiltrosLocais";
 import { Numeros } from "../ordens/_comum/Numeros";
@@ -28,11 +33,15 @@ function Moldura({ children }: { children: React.ReactNode }) {
 }
 
 export default async function Requisicoes(props: { searchParams: Promise<Params> }) {
-  await exigir("requisicoes");
+  const u = await exigir("requisicoes");
   const params = await props.searchParams;
-  const b = await bases();
-  const todas = b.requisicoes.dados;
-  if (!todas) return <Moldura><Cabecalho titulo="Requisições de compra" /><SemDados base="Requisições de compra" /></Moldura>;
+  const [b, metas] = await Promise.all([bases(), lerCadastro(ARQ_METAS)]);
+  const daBase = b.requisicoes.dados;
+  if (!daBase) return <Moldura><Cabecalho titulo="Requisições de compra" /><SemDados base="Requisições de compra" /></Moldura>;
+  // pessoas da manutenção (Metas › "_solicitantes"; mesmo filtro da aba Custos): padrão só elas; pes=todas mostra a fábrica inteira
+  const padraoPessoas = solicitantesDe(metas);
+  const pessoas = pessoasAtivas(params, padraoPessoas);
+  const todas = soManutencao(daBase, pessoas) ?? [];
   const f = lerFiltro(params, b.hoje);
   const { filtradas, fora } = filtrar(todas, f);
   const { lista, ord, desc } = ordenarReq(filtradas, params);
@@ -61,7 +70,10 @@ export default async function Requisicoes(props: { searchParams: Promise<Params>
   return (
     <Moldura>
       <Cabecalho titulo="Requisições de compra," destaque="o que espera aprovação, com quem e há quanto tempo." sobre="Custos e suprimentos"
-        subtitulo={`Período pelo “Enviado em”: ${periodoTxt}. Os filtros de área e centro não se aplicam às requisições.`} />
+        subtitulo={`Período pelo “Enviado em”: ${periodoTxt}. Requisições de: ${escopoRequisicoes(pessoas.length || undefined)}. Os filtros de área e centro não se aplicam às requisições.`} />
+
+      <FiltroPessoas disponiveis={contarSolicitantes(daBase)} ativos={pessoas} padrao={padraoPessoas}
+        podeSalvarPadrao={podeEditar(u) && podeVer(u, "custos")} />
 
       <Secao titulo="Requisições" destaque="do filtro" acoes={<Baixar href={`/api/requisicoes?${query(params, ["pag"])}`}>Baixar requisições (CSV)</Baixar>}>
         <FiltrosLocais campos={[

@@ -90,7 +90,7 @@ function Periodo({ c, aplicar }: { c: Extract<Controle, { tipo: "periodo" }>; ap
         <>
           <button onClick={() => setMenu(!menu)} aria-expanded={menu}
             className="inline-flex h-11 items-center gap-1 rounded-xl border border-borda bg-superficie-2 px-3 text-[13.5px] text-texto-2 hover:text-texto">
-            Atalhos <ChevronDown className="size-3.5" />
+            Período <ChevronDown className="size-3.5" />
           </button>
           {menu && (
             <div className="absolute left-0 top-12 z-30 w-56 rounded-xl border border-borda bg-superficie p-1.5 shadow-flutuante" onMouseLeave={() => setMenu(false)}>

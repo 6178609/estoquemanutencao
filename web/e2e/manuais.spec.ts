@@ -53,3 +53,19 @@ test("em 390 px, o Vincular de cada equipamento sem manual aparece inteiro (cart
   const caixa = await botao.boundingBox();
   expect(caixa && caixa.x >= 0 && caixa.x + caixa.width <= 390).toBe(true);
 });
+
+test("em 390 px, o formulário de vincular (busca, modo link e acervo) não faz a página rolar de lado", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/manuais");
+  const sobra = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(await sobra()).toBeLessThanOrEqual(0);
+  // a busca é sob demanda: digita, espera a resposta (achados ou "nenhum") e confere de novo
+  await page.getByLabel("Buscar equipamento").fill("a");
+  await expect(page.getByRole("status").filter({ hasText: "Buscando…" })).toHaveCount(0);
+  expect(await sobra()).toBeLessThanOrEqual(0);
+  await page.getByRole("button", { name: "Link" }).first().click();
+  await page.getByLabel(/Usar link do acervo/).selectOption({ index: 1 });
+  expect(await sobra()).toBeLessThanOrEqual(0);
+  expect(erros).toEqual([]);
+});

@@ -49,10 +49,12 @@ test("estoque: sem foto genérica do tipo; as pílulas de sugestão e de ilustra
   await expect(page.getByText("Nenhum material com esses filtros.")).toHaveCount(0);
   await expect(grupo.getByRole("button", { name: /^Foto sugerida/ })).toHaveCount(0);
   await expect(grupo.getByRole("button", { name: /^Foto ilustrativa/ })).toHaveCount(0);
-  // material zerado não aparece na aba (a demonstração tem itens com saldo zero)
-  await expect(grupo.getByRole("button", { name: /^Zerados/ })).toHaveCount(0);
-  await expect(page.getByText("Zerado", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Foto ilustrativa", { exact: true })).toHaveCount(0);
+  // a lista padrão ("Com saldo") não traz material zerado; a pílula "Zerados" mostra as faltas (a demonstração tem itens com saldo zero)
+  await grupo.getByRole("button", { name: /^Com saldo · \d/ }).click();
+  await expect(page.getByText("Zerado", { exact: true })).toHaveCount(0);
+  await grupo.getByRole("button", { name: /^Zerados · [1-9]/ }).click();
+  await expect(page.getByText("Zerado", { exact: true }).first()).toBeVisible();
   expect(erros).toEqual([]);
 });
 
@@ -111,6 +113,28 @@ test("custos: o filtro Pessoas (requisições) marca quem entra e põe o endere�
   await page.getByRole("checkbox").first().check();
   await page.getByRole("button", { name: "Aplicar" }).click();
   await expect(page).toHaveURL(/[?&]pes=/);
+  expect(erros).toEqual([]);
+});
+
+test("requisições: o filtro Pessoas (requisições) também vale na aba e põe o endereço", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/requisicoes");
+  await page.getByRole("button", { name: /^Pessoas \(requisições\)/ }).click();
+  await page.getByRole("checkbox").first().check();
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page).toHaveURL(/[?&]pes=/);
+  await expect(page.getByText(/Requisições de: pessoas da manutenção \(1\)/)).toBeVisible();
+  expect(erros).toEqual([]);
+});
+
+test("fontes de dados e menu: sem rolagem lateral em 390 px; Qualidade dos dados no menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const erros = await entrarNaDemo(page);
+  await telaAbriu(page, "/dados");
+  const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(sobra).toBeLessThanOrEqual(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.getByRole("link", { name: "Qualidade dos dados" }).first()).toBeAttached();
   expect(erros).toEqual([]);
 });
 

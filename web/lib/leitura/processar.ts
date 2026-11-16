@@ -1,4 +1,5 @@
 import { chave } from "../dados/texto";
+import { avisosDeColunas } from "./colunasImportantes";
 import { lerArquivo, LeituraErro, paraTexto, sondar } from "./leitura";
 import { recortarPilarMp, recortarRoadmap } from "./indicadoresSim";
 import type { Tabela } from "./leitura";
@@ -14,6 +15,8 @@ export interface BaseLida {
   colunas: string[];
   linhas: number;
   partes: Uint8Array[];
+  /** Colunas importantes que faltam (e o que fica vazio no site): só aviso, o envio segue. */
+  avisos: string[];
 }
 
 export interface Processado {
@@ -61,7 +64,8 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
         t = recortarRoadmap(t);
         if (!t.linhas.length) throw new LeituraErro("o roadmap não tem nenhuma máquina");
       }
-      return { tipo: a.tipo, nome: NOMES_BASE[a.tipo], aba: a.aba, colunas: t.colunas, linhas: t.linhas.length, partes: emPartes(t) };
+      return { tipo: a.tipo, nome: NOMES_BASE[a.tipo], aba: a.aba, colunas: t.colunas, linhas: t.linhas.length, partes: emPartes(t),
+        avisos: avisosDeColunas(a.tipo, t) };
     });
     const tiposOrdem = x && bases.some((b) => b.tipo === "equipe") ? tiposDaGestao(x) : undefined;
     return { arquivo, bases, ...(tiposOrdem && Object.keys(tiposOrdem).length ? { tiposOrdem } : {}) };

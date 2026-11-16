@@ -14,6 +14,7 @@ import { descrever } from "@/lib/wcm/filtros";
 import * as ind from "@/lib/wcm/indicadores";
 import * as m52 from "@/lib/wcm/mapa52";
 import * as planos from "@/lib/wcm/planos";
+import { escopoRequisicoes, soManutencao, solicitantesDe } from "@/lib/wcm/solicitantes";
 import { dataBr, inicioDoMes } from "@/lib/wcm/util";
 
 import { GRUPOS_CLASSE, grupoDaClasse, mesesEntre } from "../confiabilidade/_comum/agregar";
@@ -204,7 +205,9 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
   const bad = [...porEq.entries()].sort((a, b) => b[1].quebras - a[1].quebras).slice(0, 10);
   const bk = ind.backlog(d).sort((a, b) => b.idade - a.idade).slice(0, 10);
   const pc = ind.pecasCriticasEmFalta(d);
-  const pend = (c.b.requisicoes.dados ?? []).filter((r) => r.pendente).sort((a, b) => (b.diasAguardando ?? 0) - (a.diasAguardando ?? 0));
+  // mesmo recorte da aba Requisições: só as pessoas da manutenção (Metas › _solicitantes); sem lista, a fábrica inteira
+  const pessoas = solicitantesDe(c.cad.metas);
+  const pend = (soManutencao(c.b.requisicoes.dados, pessoas) ?? []).filter((r) => r.pendente).sort((a, b) => (b.diasAguardando ?? 0) - (a.diasAguardando ?? 0));
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Grafico titulo="Equipamentos com mais quebras" subtitulo="Bad actors do período · laranja = reincidentes (≤ 30 dias)"
@@ -224,7 +227,7 @@ async function Detalhe({ visao, c, atual, anterior, serie, rotMes }: {
           p.equipamentos.split(", ").map((e) => (campoEq(e) ? `${campoEq(e)} · ${e}` : e)).join(", ")])} />
           : <p className="text-[13px] text-texto-3">Nenhuma peça de equipamento de criticidade Alta em falta.</p>}
       </Grafico>
-      <Grafico titulo="Compras aguardando aprovação" subtitulo={pend.length ? `${pend.length} requisições · ${brl(pend.reduce((s, r) => s + r.total, 0))}` : undefined}>
+      <Grafico titulo="Compras aguardando aprovação" subtitulo={`${pend.length ? `${pend.length} requisições · ${brl(pend.reduce((s, r) => s + r.total, 0))} · ` : ""}${escopoRequisicoes(pessoas.length || undefined)}`}>
         {pend.length ? <Tabela colunas={["Requisição", "Aprovador", "Total", "Dias", "Enviada"]} linhas={pend.slice(0, 10).map((r) => [r.requisicao, r.aprovador, brl(r.total), r.diasAguardando ?? "—", dataBr(r.ultimoEnvio ?? r.enviadoEm)])} />
           : <p className="text-[13px] text-texto-3">Nenhuma requisição pendente.</p>}
       </Grafico>

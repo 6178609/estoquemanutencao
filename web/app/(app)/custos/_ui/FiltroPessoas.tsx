@@ -14,7 +14,10 @@ import { mostrarBr } from "@/lib/numeroBr";
 import { salvarPessoasPadrao, type Resposta } from "../acoes";
 import { validarSolicitantes } from "../validacao";
 
-/** Filtro "Pessoas (requisições)" da aba Custos: escolhe quem solicita (endereço pes) e, se puder, grava o padrão. */
+/**
+ * Filtro "Pessoas (requisições)" das abas Custos, Requisições (e do recorte do Painel): escolhe quem solicita (endereço
+ * pes; nenhuma marcada = pes=todas, a fábrica inteira) e, se puder, grava o padrão (Metas › _solicitantes).
+ */
 
 interface OpcaoPessoa { nome: string; qtd: number }
 interface FiltroPessoasProps { disponiveis: OpcaoPessoa[]; ativos: string[]; padrao: string[]; podeSalvarPadrao: boolean }
@@ -92,6 +95,7 @@ export function FiltroPessoas({ disponiveis, ativos, padrao, podeSalvarPadrao }:
   function aplicar() {
     const p = new URLSearchParams(params.toString());
     p.delete("pes");
+    p.delete("pag"); // outra seleção de pessoas muda a lista: volta à primeira página
     if (n) for (const nome of marcados) p.append("pes", nome);
     else p.append("pes", "todas");
     setAberto(false);
