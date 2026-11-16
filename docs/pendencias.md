@@ -44,3 +44,13 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
 ## Decisões padrão assumidas (podem mudar)
 - Programação: todos os planos de GAL1; centro vazio = MEC; sábado 6,5 h/pessoa; moinho SF sem prensa vai para "Ativos sem
   HH"; IW32 só datas; feriados locais nos Parâmetros.
+
+## Avaliação geral do site (16/11/2026)
+- Feito (PRs #206 e #207): tipos de ordem YM11–YM20 classificados; quebras pelas ordens YM11 quando a IW28 não traz Y1
+  (1 evento por equipamento/dia); "Dados até" e "Sem dados"; backlog sem "Encerrada sem confirmação"; ABC pelas notas;
+  Requisições só da manutenção; Estoque com zerados; aviso de colunas faltantes no envio; Qualidade dos dados no menu.
+- Depende do usuário (reexportar do SAP e enviar em Fontes de dados): IW28 com todos os tipos de nota desde 01/2025;
+  IH08 completo (ABC, equip. superior, centro de custo); MB52 com valor e depósito; IW38 com prioridade; Sysmat atualizado;
+  lançamentos do SIM de out/nov. Cadastrar: aprovadores do Almoxarifado, mínimos de estoque, metas e orçamento.
+- Validar com o PCM: Reincidência ≈ 59% e MTTR < 1 h com a regra YM11 (efeito dos dados: várias YM11 por evento e apontamentos curtos).
+- Próxima fase (projeto com spec): menu de 29 → ~14 abas e ações de verdade (atribuir/concluir ações de AF e notas, cobrança).
