@@ -7,8 +7,7 @@ import { ARQUIVO_ESTADO, carregarDados, planejarBusca } from "../fotos/rodadaFot
 import { consultaDatasheet, escolherDatasheet } from "./escolha";
 
 /**
- * Busca automática do datasheet do fabricante, pela mesma fila das fotos (almoxarifado → ligados a equipamento →
- * aprovados → demais) e os mesmos provedores em rodízio, só com busca web. O achado vira um link na biblioteca de
+ * Busca automática do datasheet do fabricante, pela mesma fila das fotos (só o almoxarifado, MB52) e os mesmos provedores em rodízio, só com busca web. O achado vira um link na biblioteca de
  * datasheets do material (por "busca automática"); o editor pode trocar ou anexar o PDF. Tentativa registrada em
  * `datasheets_busca_estado.json` (não repete por 60 dias). Nunca registra endereços nem chaves no log.
  */
