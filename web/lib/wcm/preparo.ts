@@ -52,7 +52,11 @@ const IW38_COLUNAS: Record<string, string[]> = {
 export const ENCERRADA_SEM_CONF = "Encerrada sem confirmação";
 export const SITUACOES = ["Aberta", "Liberada", ENCERRADA_SEM_CONF, "Concluída", "Cancelada", "Sem status"] as const;
 export type Situacao = (typeof SITUACOES)[number];
-export const PENDENTES = new Set<Situacao>(["Aberta", "Liberada", ENCERRADA_SEM_CONF]);
+/**
+ * Ordens em aberto (backlog, atraso, dias em aberto). "Encerrada sem confirmação" não entra (decisão do PCM): a ordem foi
+ * encerrada no SAP e só falta o apontamento — vai para a lista à parte de cobrança (indicadores.encerradasSemConfirmacao).
+ */
+export const PENDENTES = new Set<Situacao>(["Aberta", "Liberada"]);
 export const NAT_PLANO = "Plano de manutenção", NAT_BACKLOG = "Backlog";
 export const STATUS_USUARIO: Record<string, string> = { PLA: "Em planejamento", PRO: "Programado", ELP: "Em planejamento (ELP)", CAN: "Cancelada" };
 

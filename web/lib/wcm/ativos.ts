@@ -38,7 +38,7 @@ const SEM_RECOMENDACAO = "—";
 const GARANTIAS = ["Vigente", `Vence em ${AVISO_GARANTIA_DIAS} dias`, "Vencida", "Sem garantia cadastrada"];
 export const ABC_PARA_CRITICIDADE: Record<string, string> = { A: "Alta", B: "Média", C: "Baixa" };
 /** o mesmo de preparo.PENDENTES */
-const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
+const PENDENTES = new Set(["Aberta", "Liberada"]); // "Encerrada sem confirmação" não é backlog (decisão do PCM)
 /** situação da chamada da IP19 que não conta como plano ativo (planos.classificar) */
 const CHAMADA_SALTADA = "Saltada/cancelada";
 

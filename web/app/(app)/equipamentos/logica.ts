@@ -14,7 +14,7 @@ export const CRITICIDADES = ["Alta", "Média", "Baixa"];
 export const CATEGORIAS = ["Mecânico", "Elétrico", "Instrumentação", "Hidráulico", "Pneumático", "Civil", "Utilidades", "Outro"];
 export const SEM_CLASSE = "Sem classe";
 export const NAO_CLASSIFICADO = "(não classificado)";
-const PENDENTES = new Set(["Aberta", "Liberada", "Encerrada sem confirmação"]);
+const PENDENTES = new Set(["Aberta", "Liberada"]); // "Encerrada sem confirmação" não é backlog (decisão do PCM)
 export const V_ATIVOS = "Gestão de ativos", V_CADASTRO = "Cadastro de equipamentos", V_ANALISE = "Análise pelas ordens (IW38)";
 export const VISOES = [V_ATIVOS, V_CADASTRO, V_ANALISE];
 /** Rótulo da coluna/campo com o campo de ordenação geral do equipamento (o mesmo do Calendário e da Gestão de MRO). */

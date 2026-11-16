@@ -14,7 +14,8 @@ import { inicioDoMes, partes, somarMeses, type Dia } from "./util";
  * - Horas de reparo de uma ordem = HH reais (IW47) ÷ pessoas que apontaram; sem IW47, Σ(trabalho ÷ pessoas) no IW38OP;
  *   quando a nota traz a duração da parada, ela vale no lugar.
  * - Data de conclusão de uma ordem = maior fim real das operações concluídas.
- * - Backlog = ordens pendentes com data-base de início até hoje.
+ * - Backlog = ordens abertas ou liberadas com data-base de início até hoje ("Encerrada sem confirmação" fica fora, numa
+ *   lista à parte para cobrar o apontamento).
  */
 export const CONFIABILIDADE = "Confiabilidade", PLANEJAMENTO = "Planejamento e controle", ANALISE_FALHA = "Análise de falhas (AF)",
   MAO_DE_OBRA = "Mão de obra", CUSTOS = "Custos", SUPRIMENTOS = "Suprimentos", PREDITIVA = "Preditiva (SEMEQ)";
@@ -42,7 +43,7 @@ export const KPIS: Kpi[] = [
   k("cumprimento_prev", "Cumprimento da preventiva", "%", 1, 90, PLANEJAMENTO, "/ordens", "Ordens de plano (preventivas) com data-base de início no período, até hoje, já concluídas ou encerradas ÷ ordens de plano do período até hoje (canceladas não contam).", { mensal: true }),
   k("no_prazo", "Ordens concluídas no prazo", "%", 1, 90, PLANEJAMENTO, "/ordens", "Ordens concluídas cujo fim real (IW38OP) foi até a data-base do fim ÷ ordens concluídas com as duas datas.", { mensal: true }),
   k("backlog_sem", "Backlog", "sem", -1, 3, PLANEJAMENTO, "/mao_de_obra", "HH pendentes das ordens em aberto ÷ capacidade semanal (configurada ou média das últimas 12 semanas).", { foto: true }),
-  k("idade_backlog", "Idade média do backlog", "dias", -1, 30, PLANEJAMENTO, "/ordens", "Média de dias desde a data-base de início das ordens em aberto (até hoje).", { foto: true }),
+  k("idade_backlog", "Idade média do backlog", "dias", -1, 30, PLANEJAMENTO, "/ordens", "Média de dias desde a data-base de início das ordens em aberto (abertas ou liberadas, até hoje; encerradas sem confirmação não contam).", { foto: true }),
   k("notas_7d", "Notas sem ordem > 7 dias", "%", -1, 10, PLANEJAMENTO, "/notas", "Notas do período com mais de 7 dias que ainda não viraram ordem ÷ notas do período com mais de 7 dias."),
   k("taxa_quebra_a", "Taxa de análise de quebra crítica (A)", "%", 1, 100, ANALISE_FALHA, "/af_planos", "AFs de criticidade A com data da falha no período já analisadas ÷ AFs de criticidade A com data da falha no período.", { mensal: true }),
   k("af_execucao", "Execução de AFs", "%", 1, 100, ANALISE_FALHA, "/af_planos", "AFs com data limite no período (até hoje) analisadas ÷ AFs com data limite no período (até hoje).", { mensal: true }),
@@ -175,6 +176,15 @@ export function backlog(d: Dados): ItemBacklog[] {
   }
   return d.ordens.filter((o) => PENDENTES.has(o.situacao) && o.data != null && o.data <= d.hoje)
     .map((o) => ({ ...o, idade: d.hoje - o.data!, hhPendentes: pend ? pend.get(o.ordem) ?? 0 : null }));
+}
+
+/**
+ * Ordens encerradas no SAP sem confirmação (ENTE/ENCE sem CONF) com data-base até hoje: não são backlog (decisão do PCM),
+ * mas ficam numa lista à parte para cobrar o apontamento. Idade = dias desde a data-base de início.
+ */
+export function encerradasSemConfirmacao(d: Dados): ItemBacklog[] {
+  return d.ordens.filter((o) => o.situacao === ENCERRADA_SEM_CONF && o.data != null && o.data <= d.hoje)
+    .map((o) => ({ ...o, idade: d.hoje - o.data!, hhPendentes: null }));
 }
 
 export const FORA_DO_IW38 = "Ordem fora do IW38";
