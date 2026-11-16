@@ -37,7 +37,7 @@ export function Titulo({ titulo, destaque, nivel = 1, className }: { titulo: str
   className?: string }) {
   const H = nivel === 1 ? "h1" : "h2";
   return (
-    <H className={clsx("font-display font-semibold tracking-[-0.03em] text-texto",
+    <H className={clsx("font-display font-semibold tracking-[-0.03em] text-texto", nivel === 2 && "titulo-secao",
       nivel === 1 ? "text-[27px] leading-[1.1] sm:text-[46px]" : "text-[22px] leading-[1.15] sm:text-[34px]", className)}>
       {titulo}{destaque && <> <span className="tom2">{destaque}</span></>}
     </H>
@@ -47,7 +47,7 @@ export function Titulo({ titulo, destaque, nivel = 1, className }: { titulo: str
 export function Cabecalho({ titulo, destaque, subtitulo, sobre, acoes }: { titulo: string; destaque?: string;
   subtitulo?: string; sobre?: React.ReactNode; acoes?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="cabecalho flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-4">
         {sobre && <div>{typeof sobre === "string" ? <Pilula>{sobre}</Pilula> : sobre}</div>}
         <Titulo titulo={titulo} destaque={destaque} />
