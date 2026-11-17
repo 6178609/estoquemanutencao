@@ -19,11 +19,13 @@ function Linha({ rotulo, c }: { rotulo: string; c: Cobertura }) {
         <span className="text-texto-3">{inteiro(c.total)} itens</span>
       </div>
       <div className="flex h-2 overflow-hidden rounded-full bg-superficie-2" role="img"
-        aria-label={`${pctTxt(c.exata, c.total)} com foto exata, ${pctTxt(c.sem, c.total)} sem foto`}>
+        aria-label={`${pctTxt(c.exata, c.total)} com foto exata, ${pctTxt(c.ilustrativa, c.total)} só com foto ilustrativa, ${pctTxt(c.sem, c.total)} sem foto`}>
         <div className="bg-[var(--selo-bom-texto)]" style={{ width: `${pct(c.exata, c.total)}%` }} />
+        <div className="bg-[var(--selo-atencao-texto)] opacity-60" style={{ width: `${pct(c.ilustrativa, c.total)}%` }} />
       </div>
       <div className="text-[12.5px] text-texto-3">
         <b className="text-texto-2">{pctTxt(c.exata, c.total)}</b> com foto exata ({inteiro(c.exata)}) ·{" "}
+        {c.ilustrativa > 0 && <><b className="text-texto-2">{pctTxt(c.ilustrativa, c.total)}</b> ilustrativa ({inteiro(c.ilustrativa)}) ·{" "}</>}
         <b className="text-texto-2">{pctTxt(c.sem, c.total)}</b> sem foto ({inteiro(c.sem)})
       </div>
     </div>

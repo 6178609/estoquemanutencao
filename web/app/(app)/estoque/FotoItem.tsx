@@ -66,7 +66,7 @@ export function FotoDetalhe({ f, className }: { f: FotoDoItem; className?: strin
         <figcaption className="space-y-1.5 text-sm text-texto-3">
           <Selo>{ROTULO_FOTO[f.origem]}</Selo>
           <p>{f.origem === "equivalente"
-            ? "Foto de um produto com a mesma especificação da descrição (o item não tem fabricante/referência cadastrados)."
+            ? "Foto ilustrativa: um produto com a mesma especificação da descrição (o item não tem fabricante/referência no Sysmat). A peça real pode ter outra marca ou aparência."
             : "Foto do fabricante, achada pela referência do item."}</p>
           {f.pagina && (
             <a href={f.pagina} target="_blank" rel="noopener noreferrer" className="block break-all text-acao underline underline-offset-2 hover:text-[var(--acao-forte)]">

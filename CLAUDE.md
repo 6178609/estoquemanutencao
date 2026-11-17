@@ -103,8 +103,12 @@
   CANCELADO e DUPLICADO (`semCanceladosDuplicados` em `lib/leitura/processar.ts`) e a leitura também as ignora
   (`prepararCatalogo`); vínculos e fotos desses códigos foram removidos dos cadastros.
 - **Só foto real do item:** própria ou do fabricante, cujo título/página traz a referência (REF) do material. Foto genérica
-  por tipo, subcategoria ou categoria (ilustrativa) não é usada: mostrava peça diferente da descrição. Sem foto exata, o
-  item fica sem foto.
+  por tipo, subcategoria ou categoria não é usada: mostrava peça diferente da descrição. Sem foto exata, o item fica sem foto.
+- **Exceção — foto Ilustrativa (pedido do PCM, 16/11/2026):** item do almoxarifado que está no Sysmat **sem** fabricante/REF
+  pode ter foto de um produto com a mesma especificação da Descr Completa (PDM + medidas), gravada com `equivalente: true`
+  em `fotos_referencia.json` e mostrada com o selo **"Ilustrativa"** (`ROTULO_FOTO` em `lib/fotoMaterial.ts`).
+- **Aba Estoque só com material do Sysmat (pedido do PCM, 16/11/2026):** o que está na MB52 e não está no catálogo do Sysmat
+  é item de produção e sai da lista (`soMateriaisDoSysmat` em `lib/dados/materiais.ts`); sem catálogo carregado, fica tudo.
 
 ## Estrutura
 - `web/`: o site (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer. É o único código do repositório:

@@ -39,7 +39,7 @@ test("busca no estoque filtra a lista", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
-test("estoque: sem foto genérica do tipo; as pílulas de sugestão e de ilustrativa saíram da tela", async ({ page }) => {
+test("estoque: sem foto genérica do tipo nem pílulas de sugestão e de ilustrativa (o selo Ilustrativa é só da foto equivalente)", async ({ page }) => {
   const erros = await entrarNaDemo(page);
   await telaAbriu(page, "/estoque");
   const grupo = page.getByRole("group", { name: "Situação do material" });
