@@ -9,7 +9,7 @@ import { dadosDemo } from "./demo";
 import { fonte } from "./fonte";
 import { lerParquet } from "./parquet";
 import {
-  montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais, type ItemAlmox, type ItemCatalogo, type ItemEstoque,
+  montarAlmox, prepararCatalogo, prepararMb52, soMateriaisDoSysmat, usoDosMateriais, type ItemAlmox, type ItemCatalogo, type ItemEstoque,
 } from "./materiais";
 
 /** As bases gravadas no repositório de dados pelo envio em Fontes de dados. */
@@ -143,7 +143,7 @@ export async function almoxarifado(): Promise<Almoxarifado> {
     estoque(), catalogo(), lerCadastro("cadastro_materiais.json"), lerCadastro("cadastro_equipamentos.json"),
     lerCadastro(ARQUIVO_REFERENCIA),
   ]);
-  const itens = est.dados ? montarAlmox(est.dados, cat.dados, cadMat, usoDosMateriais(cadEq)).map((i) => ({
+  const itens = est.dados ? soMateriaisDoSysmat(montarAlmox(est.dados, cat.dados, cadMat, usoDosMateriais(cadEq))).map((i) => ({
     ...i, ...fotosExternasDoItem(i.material, cadRef),
   })) : [];
   const sugestoes = await sugestoesDosMateriais(new Set(itens.map((i) => i.material)));

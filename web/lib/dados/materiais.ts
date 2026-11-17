@@ -197,6 +197,14 @@ export function montarAlmox(
   });
 }
 
+/**
+ * Só os materiais do almoxarifado que existem no catálogo do Sysmat (pedido do PCM, 16/11/2026): o que está na MB52 e
+ * não está no Sysmat é item de produção, fora da manutenção, e sai da aba Estoque. Sem catálogo carregado, fica tudo.
+ */
+export function soMateriaisDoSysmat(itens: ItemAlmox[]): ItemAlmox[] {
+  return itens.filter((i) => i.cadastro !== "Não encontrado no Sysmat");
+}
+
 /** Quanto do mínimo o estoque cobre, de 0 a 100%. Sem mínimo (ausente ou zero), não há cobertura: null. */
 export function cobertura(estoque: number, minimo: number | null): number | null {
   if (minimo == null || minimo <= 0) return null;

@@ -24,6 +24,10 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   páginas mortas/sem foto/de outro item saíram (voltam à busca). Falta o segredo FIRECRAWL_API_KEY no repositório de dados
   para as lojas que bloqueiam o download. A rotina automática só roda com as chaves na Vercel (abaixo);
   sem elas, buscas manuais pelo Firecrawl quando houver crédito.
+  17/11: 2º lote: 40 buscados, 19 fotos novas; Firecrawl sem crédito até 17/11 14h51 UTC (lotes alm_4, alm_6 a alm_11
+  ficam para a próxima rodada). Aba Estoque passou a mostrar só material do Sysmat (1.166 itens de produção da MB52 saíram).
+  Foto "Ilustrativa" liberada (selo) para os ~457 itens do Sysmat sem fabricante/REF: falta buscar essas fotos pela
+  descrição (PDM + medidas) quando houver crédito, gravando `equivalente: true`.
 
 - **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta
   publicar): pedido com foto, sequência Almoxarifado → chegada do material (foto) → PCM e vínculo ao equipamento ao validar.

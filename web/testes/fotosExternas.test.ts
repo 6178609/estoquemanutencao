@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { type FotoExterna, fotoDoItem } from "@/lib/fotoMaterial";
+import { type FotoExterna, fotoDoItem, ROTULO_FOTO } from "@/lib/fotoMaterial";
 import { _definirFonte } from "@/lib/dados/fonte";
 import { _definirSupabase } from "@/lib/dados/supabase";
 import { chaveSugestao } from "@/lib/dados/fotosSugestao";
@@ -18,12 +18,13 @@ describe("prioridade da foto do item", () => {
     expect(fotoDoItem({ ...base, foto: null, fotoRef: REF })?.origem).toBe("referencia");
     expect(fotoDoItem({ ...base, foto: null, fotoRef: null })).toBeNull();
   });
-  it("foto de produto equivalente (genérica) fica marcada no cadastro e não é mostrada", () => {
+  it("foto de produto equivalente fica marcada no cadastro e aparece como Ilustrativa", () => {
     const f = fotoDoCadastro({ url: URL_OK, pagina: null, titulo: "Abraçadeira 150x3,6", equivalente: true })!;
     expect(f.equivalente).toBe(true);
     const ext = fotoExternaDe(f);
     expect(ext.eq).toBe(true);
-    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: ext })).toBeNull();
+    expect(fotoDoItem({ material: "100200", foto: null, fotoRef: ext })?.origem).toBe("equivalente");
+    expect(ROTULO_FOTO.equivalente).toBe("Ilustrativa");
     expect(fotoDoItem({ material: "100200", foto: null, fotoRef: REF })?.origem).toBe("referencia");
     expect(fotoExternaDe(fotoDoCadastro({ url: URL_OK, equivalente: "sim" })!).eq).toBeUndefined();
   });

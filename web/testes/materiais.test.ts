@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { semCanceladosDuplicados } from "@/lib/leitura/processar";
-import { cobertura, fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, usoDosMateriais } from "@/lib/dados/materiais";
+import { cobertura, fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, soMateriaisDoSysmat, usoDosMateriais } from "@/lib/dados/materiais";
 
 // dados fictícios
 const CRU = [
@@ -68,6 +68,14 @@ describe("almoxarifado", () => {
     expect(a["444"].situacao).toBe("Abaixo do mínimo");
     expect(a["999"].cadastro).toBe("Não encontrado no Sysmat");
     expect(montarAlmox(mb52.resumo, null, {}).every((x) => x.cadastro === "Sem catálogo")).toBe(true);
+  });
+
+  it("a aba Estoque mostra só o que está no Sysmat (sem catálogo, mostra tudo)", () => {
+    const com = soMateriaisDoSysmat(montarAlmox(mb52.resumo, prepararCatalogo(CRU), {}));
+    expect(com.some((x) => x.material === "999")).toBe(false);
+    expect(com.some((x) => x.material === "111")).toBe(true);
+    const sem = montarAlmox(mb52.resumo, null, {});
+    expect(soMateriaisDoSysmat(sem)).toHaveLength(sem.length);
   });
 });
 

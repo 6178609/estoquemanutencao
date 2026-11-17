@@ -71,7 +71,8 @@ export function planejarBusca(d: DadosBusca): Alvo[] {
   const out: Alvo[] = [];
   const vistos = new Set<string>();
   const ok = (chave: string) => !vistos.has(chave) && !tentouRecente(d.estado, chave, d.agora);
-  const sem = (cad: Cadastro, chave: string) => !Object.hasOwn(cad, chave);
+  // a foto ilustrativa (equivalente) não conta como foto: o item que tem fabricante e REF volta à busca da foto real
+  const sem = (cad: Cadastro, chave: string) => !Object.hasOwn(cad, chave) || cad[chave]?.equivalente === true;
   const incluir = (a: Alvo) => { vistos.add(a.chave); out.push(a); };
   // só os materiais do almoxarifado (MB52) com referência e sem foto do fabricante
   for (const e of d.estoque) {
@@ -224,9 +225,9 @@ export async function rodadaFotos(o: OpcoesRodada): Promise<ResumoRodada> {
     }
     const resumo: ResumoRodada = { ligada: true, motivo, buscados: chamadas, achados, semResultado, erros,
       orcamento: teto, alvos: alvos.length, em };
-    // só grava onde ainda não há foto na hora da gravação (uma importação ou edição no meio da rodada não é apagada)
+    // só grava onde ainda não há foto (ou só a ilustrativa) na hora da gravação: uma importação no meio da rodada fica
     const soSeVazio = (c: Cadastro) => Object.fromEntries(Object.entries(c).map(([k, item]) =>
-      [k, (atual: Record<string, unknown> | undefined) => (atual ? undefined : item)]));
+      [k, (atual: Record<string, unknown> | undefined) => (atual && atual.equivalente !== true ? undefined : item)]));
     if (Object.keys(achouRef).length) await gravarCadastroLote(ARQUIVO_REFERENCIA, soSeVazio(achouRef), "busca automática", false);
     await gravarCadastroLote(ARQUIVO_ESTADO, {
       ...novos,
@@ -255,13 +256,15 @@ export interface ResumoFotos {
   orcamentoHoje: { usadas: number; limite: number };
 }
 
-export interface Cobertura { total: number; exata: number; sem: number }
+export interface Cobertura { total: number; exata: number; ilustrativa: number; sem: number }
 
-/** Cobertura de um conjunto de materiais: com foto exata (própria ou do fabricante) ou sem foto. */
+/** Cobertura de um conjunto de materiais: com foto exata (própria ou do fabricante), só ilustrativa ou sem foto. */
 export function cobertura(itens: { material: string; propria: boolean; cadRef: Cadastro }[]): Cobertura {
-  const r = { total: itens.length, exata: 0, sem: 0 };
+  const r = { total: itens.length, exata: 0, ilustrativa: 0, sem: 0 };
   for (const i of itens) {
-    if (i.propria || fotosExternasDoItem(i.material, i.cadRef).fotoRef) r.exata++;
+    const ref = i.propria ? null : fotosExternasDoItem(i.material, i.cadRef).fotoRef;
+    if (i.propria || (ref && !ref.eq)) r.exata++;
+    else if (ref) r.ilustrativa++;
     else r.sem++;
   }
   return r;

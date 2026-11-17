@@ -310,6 +310,10 @@ describe("planejamento da busca", () => {
     expect(planejarBusca(base({ refs: { "000100": {} } })).map((a) => a.chave)).toEqual(["m:100", "m:400"]);
   });
 
+  it("a foto ilustrativa não tira da fila o item que tem fabricante e REF", () => {
+    expect(planejarBusca(base({ refs: { "100": { equivalente: true } } })).map((a) => a.chave)).toEqual(["m:100", "m:400"]);
+  });
+
   it("orçamento: a rodada para no teto e o restante do dia conta", async () => {
     const buscar = vi.fn(async () => []);
     const mais = [...catalogo, item({ material: "500", pdm: "CORREIA", descrCompleta: "FAB: GATES - REF: B-50.", descricaoCurta: "CORREIA B50" })];
