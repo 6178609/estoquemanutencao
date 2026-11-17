@@ -28,6 +28,7 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   ficam para a próxima rodada). Aba Estoque passou a mostrar só material do Sysmat (1.166 itens de produção da MB52 saíram).
   Foto "Ilustrativa" liberada (selo) para os ~457 itens do Sysmat sem fabricante/REF: falta buscar essas fotos pela
   descrição (PDM + medidas) quando houver crédito, gravando `equivalente: true`.
+  17/11: Next.js 16.4.2 → 16.4.6 (falha de segurança conhecida) e nodemailer 10.1.2 → 10.6.0 (npm audit sem alertas).
 
 - **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta
   publicar): pedido com foto, sequência Almoxarifado → chegada do material (foto) → PCM e vínculo ao equipamento ao validar.

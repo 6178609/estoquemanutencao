@@ -11,6 +11,9 @@
   agentes em paralelo, cada um com o modelo adequado: `haiku` para busca, leitura, conversão e tarefas mecânicas;
   `opus` para planejar, revisar o diff e decisões de arquitetura. Dados da empresa continuam só em ferramentas locais.
 - Responder sempre em **português do Brasil**.
+- **Seguir com as melhorias sem perguntar (pedido do usuário, 17/11/2026):** melhoria, correção ou atualização de segurança
+  que já está clara segue direto (verificar → revisar → publicar) e é relatada na resposta; só pergunta o que for decisão de
+  negócio que só o usuário pode tomar ou ação irreversível fora do repositório.
 - Toda alteração é **publicada no site**: commit → push no ramo de trabalho → PR para `main` → merge →
   realinhar o ramo com `main`.
 - Antes de publicar: `cd web && npx tsc --noEmit && npx vitest run`.
