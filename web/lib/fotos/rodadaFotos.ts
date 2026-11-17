@@ -1,6 +1,6 @@
 import "server-only";
 
-import { fabricantesERefs, type ItemCatalogo } from "../dados/materiais";
+import { fabricantesERefs, foraDoEstoque, type ItemCatalogo } from "../dados/materiais";
 import { catalogo, estoque } from "../dados/bases";
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { fotosDoCadastro } from "../fotoMaterial";
@@ -78,7 +78,7 @@ export function planejarBusca(d: DadosBusca): Alvo[] {
   for (const e of d.estoque) {
     const c = cat.get(semZeros(e.material));
     const par = c ? fabricantesERefs(c.descrCompleta).find((p) => p.fab && p.ref) : undefined;
-    if (!c || !par || !sem(d.refs, e.material) || !ok(`m:${e.material}`)) continue;
+    if (!c || foraDoEstoque(c.pdm) || !par || !sem(d.refs, e.material) || !ok(`m:${e.material}`)) continue;
     const pdm = pdmEfetivo(c.pdm, e.descricao, pdms);
     incluir({ chave: `m:${e.material}`, consulta: consultaFotoExata(par.fab, par.ref, pdm), material: e.material, fab: par.fab, ref: par.ref, pdm });
   }
