@@ -115,6 +115,8 @@
   em `fotos_referencia.json` e mostrada com o selo **"Ilustrativa"** (`ROTULO_FOTO` em `lib/fotoMaterial.ts`).
 - **Aba Estoque só com material do Sysmat (pedido do PCM, 16/11/2026):** o que está na MB52 e não está no catálogo do Sysmat
   é item de produção e sai da lista (`soMateriaisDoSysmat` em `lib/dados/materiais.ts`); sem catálogo carregado, fica tudo.
+- **Agulhas de costura fora do estoque (pedido do PCM, 17/11/2026):** os PDMs de agulha de costura (`PDM_FORA_DO_ESTOQUE` em
+  `lib/dados/materiais.ts`) saem da aba Estoque e da fila de busca de fotos; fotos já gravadas delas foram apagadas.
 
 ## Estrutura
 - `web/`: o site (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer. É o único código do repositório:

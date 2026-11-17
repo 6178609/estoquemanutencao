@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { semCanceladosDuplicados } from "@/lib/leitura/processar";
-import { cobertura, fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, soMateriaisDoSysmat, usoDosMateriais } from "@/lib/dados/materiais";
+import { cobertura, fabricanteRef, linhasTecnicas, montarAlmox, prepararCatalogo, prepararMb52, soMateriaisDoSysmat, foraDoEstoque, usoDosMateriais } from "@/lib/dados/materiais";
 
 // dados fictícios
 const CRU = [
@@ -74,6 +74,10 @@ describe("almoxarifado", () => {
     const com = soMateriaisDoSysmat(montarAlmox(mb52.resumo, prepararCatalogo(CRU), {}));
     expect(com.some((x) => x.material === "999")).toBe(false);
     expect(com.some((x) => x.material === "111")).toBe(true);
+    const agulha = { ...com[0], material: "777", pdm: "AGULHA COSTURA INDUSTRIAL" };
+    expect(soMateriaisDoSysmat([com[0], agulha]).map((x) => x.material)).toEqual([com[0].material]);
+    expect(foraDoEstoque("agulha p/maquina  costura")).toBe(true);
+    expect(foraDoEstoque("ROLAMENTO AGULHAS")).toBe(false);
     const sem = montarAlmox(mb52.resumo, null, {});
     expect(soMateriaisDoSysmat(sem)).toHaveLength(sem.length);
   });

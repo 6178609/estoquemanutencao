@@ -202,8 +202,13 @@ export function montarAlmox(
  * não está no Sysmat é item de produção, fora da manutenção, e sai da aba Estoque. Sem catálogo carregado, fica tudo.
  */
 export function soMateriaisDoSysmat(itens: ItemAlmox[]): ItemAlmox[] {
-  return itens.filter((i) => i.cadastro !== "Não encontrado no Sysmat");
+  return itens.filter((i) => i.cadastro !== "Não encontrado no Sysmat" && !foraDoEstoque(i.pdm));
 }
+
+/** Tipos de material (PDM) de produção que não entram na aba Estoque nem na busca de fotos: agulhas de costura (pedido do PCM, 17/11/2026). */
+export const PDM_FORA_DO_ESTOQUE = new Set(["AGULHA COSTURA INDUSTRIAL", "AGULHA P/MAQUINA COSTURA", "AGULHA COSTURA DOMESTICA"]);
+export const foraDoEstoque = (pdm: string | null | undefined) =>
+  PDM_FORA_DO_ESTOQUE.has(String(pdm || "").trim().toUpperCase().replace(/\s+/g, " "));
 
 /** Quanto do mínimo o estoque cobre, de 0 a 100%. Sem mínimo (ausente ou zero), não há cobertura: null. */
 export function cobertura(estoque: number, minimo: number | null): number | null {
