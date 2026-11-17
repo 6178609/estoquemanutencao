@@ -21,6 +21,26 @@ interface Pedido {
 
 const agoraIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
 
+/** NP sem zeros à esquerda ("06178609" e "6178609" são a mesma pessoa). */
+const semZeros = (login: string) => login.replace(/^0+(?=\d)/, "");
+/** Nome para comparar: sem acento, maiúsculas, sem espaços repetidos. */
+const nomeComparavel = (nome: string | undefined) =>
+  String(nome || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase().split(/\s+/).filter(Boolean).join(" ");
+
+/**
+ * Quem já tem usuário não pede cadastro de novo (pedido do PCM, 17/11/2026): bloqueia o mesmo Número Pessoal (também
+ * com zeros à esquerda) e o mesmo nome completo (2 palavras ou mais) de um usuário já cadastrado, ativo ou não.
+ */
+export function jaTemUsuario(login: string, nome: string, us: Record<string, { nome?: unknown }>): string {
+  const np = semZeros(login);
+  if (Object.keys(us).some((k) => semZeros(k) === np))
+    return "Esse Número Pessoal já tem usuário: não é preciso pedir cadastro de novo. Entre com ele; se esqueceu a senha, peça a um administrador do PCM para redefinir.";
+  const n = nomeComparavel(nome);
+  if (n.split(" ").length >= 2 && Object.values(us).some((u) => nomeComparavel(String(u?.nome ?? "")) === n))
+    return "Já existe um usuário com esse nome: não é preciso pedir cadastro de novo. Entre com o seu Número Pessoal; se esqueceu a senha, peça a um administrador do PCM para redefinir.";
+  return "";
+}
+
 export async function solicitacoes(): Promise<Record<string, Pedido>> {
   const d = await lerCadastro(ARQ_SOLICITACOES);
   return Object.fromEntries(Object.entries(d).filter(([, v]) => v && typeof v === "object")) as Record<string, Pedido>;
@@ -43,9 +63,12 @@ export async function solicitar(d: { nome: string; login: string; senha: string;
   if (erro) return erro;
   if (Date.now() - (recentes.get(origem) ?? 0) < INTERVALO_MS)
     return "Você acabou de enviar um pedido. Aguarde a aprovação (ou tente de novo em alguns minutos).";
-  if (login in (await usuarios())) return "Esse Número Pessoal já tem usuário. Se esqueceu a senha, peça a um administrador para redefinir.";
+  const jaTem = jaTemUsuario(login, nome, await usuarios());
+  if (jaTem) return jaTem;
   const pend = await pendentes();
-  if (login in pend) return "Já existe um pedido para esse Número Pessoal aguardando aprovação.";
+  if (Object.keys(pend).some((k) => semZeros(k) === semZeros(login))
+    || (nomeComparavel(nome).split(" ").length >= 2 && Object.values(pend).some((p) => nomeComparavel(p.nome) === nomeComparavel(nome))))
+    return "Já existe um pedido seu aguardando aprovação. Aguarde o PCM aprovar.";
   if (Object.keys(pend).length >= MAX_PENDENTES) return "Há muitos pedidos aguardando aprovação. Fale direto com o PCM.";
   await gravarCadastroLote(ARQ_SOLICITACOES, { [login]: {
     nome, funcao: d.funcao in FUNCOES ? d.funcao : "", motivo: d.motivo.trim().slice(0, 300), status: "pendente",
@@ -66,7 +89,8 @@ async function decidir(login: string, ped: Pedido, status: "aprovada" | "recusad
 export async function aprovar(login: string, funcao: string, perfil: string, abas: string[] | null, por: string): Promise<string> {
   const ped = (await pendentes())[login];
   if (!ped) return "Esse pedido não está mais pendente (outro administrador já decidiu?).";
-  if (login in (await usuarios())) return "Já existe um usuário com esse login.";
+  const jaTem = jaTemUsuario(login, ped.nome || "", await usuarios());
+  if (jaTem) return `Esta pessoa já tem usuário (mesmo Número Pessoal ou mesmo nome): recuse o pedido. ${jaTem.split(":")[0]}.`;
   if (!(funcao in FUNCOES) || !(perfil in PERFIS)) return "Escolha a função e o perfil.";
   if (FUNCOES_SO_ESTOQUE.has(funcao) && perfil === "admin") return erroAdminSoEstoque(funcao);
   if (!ped.sal || !ped.senha_hash) return "O pedido está sem a senha; peça para a pessoa solicitar de novo.";
