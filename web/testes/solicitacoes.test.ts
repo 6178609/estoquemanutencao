@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { aprovar, pendentes, recusar, solicitacoes, solicitar } from "@/lib/auth/solicitacoes";
+import { aprovar, jaTemUsuario, pendentes, recusar, solicitacoes, solicitar } from "@/lib/auth/solicitacoes";
 import { confere } from "@/lib/auth/senha";
 import { criarPrimeiroAdmin, usuarios } from "@/lib/auth/usuarios";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
@@ -51,6 +51,26 @@ describe("pedido de acesso", () => {
     expect(await solicitar(pedido, nova())).toMatch(/aguardando aprovação/);
   });
 
+  it("quem já tem usuário não pede de novo: mesmo NP (com zeros à esquerda) ou mesmo nome", async () => {
+    // a admin "Ana Lima" (6178609) já existe
+    expect(await solicitar({ ...pedido, login: "6178609" }, nova())).toMatch(/já tem usuário/);
+    expect(await solicitar({ ...pedido, login: "06178609" }, nova())).toMatch(/já tem usuário/);
+    expect(await solicitar({ ...pedido, nome: "ana  LIMA", login: "7654321" }, nova())).toMatch(/usuário com esse nome/);
+    expect(await solicitar({ ...pedido, nome: "Âna Lima", login: "7654321" }, nova())).toMatch(/usuário com esse nome/);
+    expect(Object.keys(await pendentes())).toEqual([]);
+    // nome de uma palavra só não bloqueia (pode ser outra pessoa); NP novo e nome novo passam
+    expect(jaTemUsuario("7654321", "Ana", { "6178609": { nome: "Ana Lima" } })).toBe("");
+    expect(await solicitar(pedido, nova())).toBe("");
+    // segundo pedido da mesma pessoa com outro NP enquanto o primeiro espera
+    expect(await solicitar({ ...pedido, login: "1234568" }, nova())).toMatch(/aguardando aprovação/);
+  });
+
+  it("aprovar recusa quem já tem usuário com o mesmo nome", async () => {
+    expect(await solicitar(pedido, nova())).toBe("");
+    const us = await usuarios();
+    expect(jaTemUsuario("9999999", "Bia Souza", { ...us, "1234567": { nome: "Bia Souza" } })).toMatch(/nome/);
+  });
+
   it("um pedido a cada 10 minutos por origem", async () => {
     const o = nova();
     expect(await solicitar(pedido, o)).toBe("");
@@ -82,7 +102,7 @@ describe("pedido de acesso", () => {
   });
 
   it("limite de 30 pedidos pendentes", async () => {
-    for (let i = 0; i < 30; i++) expect(await solicitar({ ...pedido, login: String(2000000 + i) }, nova())).toBe("");
-    expect(await solicitar({ ...pedido, login: "3000000" }, nova())).toMatch(/muitos pedidos/);
+    for (let i = 0; i < 30; i++) expect(await solicitar({ ...pedido, nome: `Pessoa ${i} Teste`, login: String(2000000 + i) }, nova())).toBe("");
+    expect(await solicitar({ ...pedido, nome: "Outra Pessoa", login: "3000000" }, nova())).toMatch(/muitos pedidos/);
   }, 30_000); // 30 senhas com PBKDF2 de 260 mil iterações: passa de 5 s em máquina lenta
 });

@@ -43,6 +43,9 @@
 - Terceiro e Manutentor (`FUNCOES_SO_ESTOQUE`) não podem ser administradores, não gravam na biblioteca técnica
   (`podeEditarSuporte`) nem na Gestão de MRO e não têm bloco de cartão. O Início leva ao Painel, ou ao Estoque se a pessoa
   não vê o Painel.
+- **Pedido de acesso só para quem não tem usuário (pedido do PCM, 17/11/2026):** a tela de entrada recusa o pedido de quem já
+  tem usuário (mesmo Número Pessoal, também com zeros à esquerda, ou mesmo nome completo) e o segundo pedido da mesma pessoa
+  enquanto o primeiro espera; a aprovação confere de novo (`jaTemUsuario` em `web/lib/auth/solicitacoes.ts`).
 - **Cadastro de material:** aprovadores marcados em Usuários (Almoxarifado / PCM); Terceiro nunca aprova; só aprova quem vê a
   aba (regras em `web/lib/cadastroMaterial/`).
 
