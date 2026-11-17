@@ -28,6 +28,8 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   ficam para a próxima rodada). Aba Estoque passou a mostrar só material do Sysmat (1.166 itens de produção da MB52 saíram).
   Foto "Ilustrativa" liberada (selo) para os ~457 itens do Sysmat sem fabricante/REF: falta buscar essas fotos pela
   descrição (PDM + medidas) quando houver crédito, gravando `equivalente: true`.
+  17/11 (rotina diária): 40 buscados, 16 fotos novas; 13 imagens diretas para páginas que não baixavam; 454 de 560 fotos
+  baixadas no padrão 1600×1600; ~1.200 na fila. Firecrawl sem crédito de novo após ~60 chamadas (renova 18/11 14h51 UTC).
   17/11: pedido de acesso bloqueado para quem já tem usuário (NP com/sem zeros ou mesmo nome) e para 2º pedido pendente.
   17/11: Next.js 16.4.2 → 16.4.6 (falha de segurança conhecida) e nodemailer 10.1.2 → 10.6.0 (npm audit sem alertas).
 
