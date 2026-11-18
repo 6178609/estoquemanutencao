@@ -38,23 +38,27 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
   }
   return (
     // computador: tudo numa tela só (em tela baixa saem os destaques e o parágrafo); o formulário nunca é cortado
-    <div className="flex min-h-dvh flex-col overflow-x-clip bg-fundo">
+    <div className="flex min-h-dvh flex-col overflow-clip bg-fundo">
       <IntroFoguete />
       <header className="shrink-0 border-b border-borda">
         <div className="mx-auto flex h-12 max-w-[1240px] items-center gap-3 px-4 sm:px-8">
           <span className="font-display text-[15px] font-medium tracking-[-0.02em] text-texto">Central de Manutenção</span>
           <span className="text-[12px] text-texto-3">PCM · F26</span>
+          {/* no computador o rodapé fica aqui, para a tela caber sem rolagem */}
+          <span className="ml-auto hidden text-[12px] text-texto-4 lg:inline">
+            Alpargatas · Fábrica 26 · <Link href="/privacidade" className="underline hover:text-texto-2">Privacidade</Link>
+          </span>
         </div>
       </header>
 
       <main id="conteudo" tabIndex={-1} className="flex min-h-0 flex-1 flex-col focus:outline-none">
         <section className="relative flex-1 overflow-clip">
           <div aria-hidden className="pontos absolute inset-0" />
-          <div className="relative mx-auto grid h-full max-w-[1240px] items-center gap-8 px-4 py-10 sm:px-8 lg:grid-cols-[1fr_minmax(0,440px)] lg:py-4">
+          <div className="relative mx-auto grid h-full max-w-[1240px] items-center gap-8 px-4 py-10 sm:px-8 lg:grid-cols-[1fr_minmax(0,440px)] lg:py-4 [@media(min-width:1024px)_and_(max-height:680px)]:py-1">
             <div className="max-w-[560px] space-y-4 lg:space-y-3">
               <div className="lg:hidden"><LogoSim largura={180} /></div>
               <div className="[@media(min-width:1024px)_and_(max-height:740px)]:hidden"><Pilula>SIM · Manutenção Profissional · F26</Pilula></div>
-              <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[42px] lg:!leading-[1.05] [@media(min-width:1024px)_and_(max-height:740px)]:!text-[34px]" />
+              <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[42px] lg:!leading-[1.05] [@media(min-width:1024px)_and_(max-height:740px)]:!text-[34px] [@media(min-width:1024px)_and_(max-height:680px)]:!text-[26px]" />
               <p className="text-[15px] leading-relaxed text-texto-3 [@media(min-width:1024px)_and_(max-height:860px)]:hidden">
                 Estoque, ativos, ordens e indicadores num lugar só, lendo os exports do SAP assim que chegam. Entre com o seu Número Pessoal (NP) e a sua senha.
               </p>
@@ -96,7 +100,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
             </div>
           </div>
           <div className="hidden lg:block"><AstronautaSim /></div>
-          <p className="pb-3 pt-1 text-center text-[12px] text-texto-4 max-lg:pt-6">
+          <p className="pb-3 pt-6 text-center text-[12px] text-texto-4 lg:hidden">
             Alpargatas · Fábrica 26 · Central de Manutenção · <Link href="/privacidade" className="underline hover:text-texto-2">Privacidade</Link>
           </p>
         </section>
