@@ -63,7 +63,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
           {enviando ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Entrando…</> : <>Entrar <ArrowRight className="size-4" /></>}
         </button>
       </form>
-      <p className="text-center text-[12.5px] text-texto-3">
+      <p className="text-center text-[12.5px] text-texto-3 [@media(min-width:1024px)_and_(max-height:680px)]:hidden">
         {demo ? "Sem acesso ou esqueceu a senha? Peça a um administrador do PCM."
           : "Ainda sem acesso? Use Solicitar acesso. Esqueceu a senha? Peça a um administrador do PCM."}
       </p>
