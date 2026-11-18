@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
 import { LogoSim } from "@/components/Marca";
-import { FundoEntrada, LadoEntrada } from "@/components/entrada/FundoEntrada";
+import { ObjetoSim } from "@/components/ObjetoSim";
+import { OrbitasSim } from "@/components/OrbitasSim";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { INATIVIDADE_MIN, MOTIVO } from "@/lib/auth/inatividade";
@@ -34,20 +35,19 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
     erroFonte = (e as Error).message;
   }
   return (
-    <div className="relative min-h-dvh bg-fundo">
-      <FundoEntrada />
-      <header className="relative z-10 border-b border-borda bg-white/60 backdrop-blur-md">
+    <div className="min-h-dvh bg-fundo">
+      <header className="border-b border-borda">
         <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-3 px-4 sm:px-8">
           <span className="font-display text-[15px] font-medium tracking-[-0.02em] text-texto">Central de Manutenção</span>
           <span className="text-[12px] text-texto-3">PCM · F26</span>
         </div>
       </header>
 
-      <main id="conteudo" tabIndex={-1} className="relative z-10 focus:outline-none">
+      <main id="conteudo" tabIndex={-1} className="focus:outline-none">
         <section className="relative overflow-hidden">
           <div aria-hidden className="pontos absolute inset-0" />
           <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 py-14 sm:px-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:py-20">
-            <div className="max-w-[580px] space-y-6 lg:rounded-[28px] lg:border lg:border-white/70 lg:bg-white/85 lg:p-8 lg:shadow-flutuante lg:backdrop-blur-xl">
+            <div className="max-w-[560px] space-y-6">
               <div className="lg:hidden"><LogoSim largura={180} /></div>
               <Pilula>SIM · Manutenção Profissional · F26</Pilula>
               <Titulo titulo="A manutenção da F26," destaque="em tempo real." className="lg:!text-[56px]" />
@@ -69,12 +69,11 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
                   : <AbasEntrada demo={demo} />}
               </div>
             </div>
-            <div className="hidden justify-center lg:flex"><LadoEntrada tamanho={520} /></div>
+            <div className="relative hidden justify-center lg:flex"><OrbitasSim /><div className="relative"><ObjetoSim tamanho={520} /></div></div>
           </div>
         </section>
 
-        <section className="relative bg-fundo">
-        <div className="mx-auto max-w-[1240px] px-4 pb-20 pt-12 sm:px-8">
+        <section className="mx-auto max-w-[1240px] px-4 pb-20 sm:px-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {DESTAQUES.map((d) => (
               <div key={d.titulo} className="rounded-cartao border border-borda bg-superficie-2 p-6">
@@ -87,7 +86,6 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
           <p className="mt-12 text-center text-[12.5px] text-texto-4">
             Alpargatas · Fábrica 26 · Central de Manutenção · <Link href="/privacidade" className="underline hover:text-texto-2">Privacidade</Link>
           </p>
-        </div>
         </section>
       </main>
     </div>
