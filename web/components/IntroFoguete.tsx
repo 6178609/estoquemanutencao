@@ -1,7 +1,7 @@
 /**
  * Abertura da tela de entrada: um foguete (como o da logo SIM) atravessa a tela com rastro de fogo e, quando passa pela
- * logo, ela se abre com uma onda de luz (`.logo-abre` e `.onda-abertura` no globals.css). Toca uma vez, ao carregar.
- * Só CSS e SVG; com "reduzir movimento" vai direto ao fim (logo aberta, foguete fora da tela).
+ * logo, ela pulsa com uma onda de luz (`.logo-pulso` e `.onda-abertura` no globals.css); na primeira vez a logo se abre
+ * (`.logo-abre`). Repete a cada 12 s. Só CSS e SVG; com "reduzir movimento" fica parado (logo aberta, sem foguete).
  */
 export function IntroFoguete() {
   return (
