@@ -279,15 +279,32 @@ main .rounded-full[style*="--selo-"] { box-shadow: inset 0 0 0 1px color-mix(in 
 }
 .onda-abertura { animation: onda-abertura 12s ease-out 1.3s infinite both; }
 /* astronauta da faixa de baixo (AstronautaSim). Corrida em ciclo de 0,64 s (passada com joelho e cotovelo, quique duas vezes
-   por passada); por cima, a linha do tempo de 16 s: corre, tropeça, abana os braços, cai e quica, fica tonto, levanta e segue */
+   por passada); por cima, a linha do tempo de 18 s: corre, para no meio, acena e fala a frase do dia, e segue */
 @keyframes astro-trajeto {
   0% { transform: translateX(-210px); animation-timing-function: linear; }
-  43% { transform: translateX(42vw); animation-timing-function: cubic-bezier(.2,.7,.4,1); }
-  49%, 63% { transform: translateX(calc(42vw + 70px)); animation-timing-function: cubic-bezier(.5,0,.8,.6); }
-  70% { transform: translateX(calc(42vw + 95px)); animation-timing-function: linear; }
+  30% { transform: translateX(calc(40vw - 40px)); animation-timing-function: cubic-bezier(.2,.7,.4,1); }
+  34%, 74% { transform: translateX(40vw); animation-timing-function: cubic-bezier(.6,0,.9,.6); }
   100% { transform: translateX(calc(100vw + 30px)); }
 }
-.astro-trajeto { animation: astro-trajeto 16s infinite; }
+.astro-trajeto { animation: astro-trajeto 18s infinite; }
+@keyframes astro-correndo { 0%, 33.5%, 75%, 100% { opacity: 1; } 34%, 74.5% { opacity: 0; } }
+@keyframes astro-parado { 0%, 33.5%, 75%, 100% { opacity: 0; } 34%, 74.5% { opacity: 1; } }
+.astro-correndo { animation: astro-correndo 18s step-end infinite; }
+.astro-parado { animation: astro-parado 18s step-end infinite; }
+@keyframes astro-aceno { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(18deg); } }
+.astro-aceno { animation: astro-aceno 0.7s ease-in-out infinite; }
+@keyframes astro-respira { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+.astro-respira { animation: astro-respira 1.6s ease-in-out infinite; }
+@keyframes astro-fala { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-5deg); } 70% { transform: rotate(4deg); } }
+.astro-fala { animation: astro-fala 2.2s ease-in-out infinite; }
+@keyframes astro-balao {
+  0%, 35% { opacity: 0; transform: scale(0.6) translateY(6px); }
+  38%, 71% { opacity: 1; transform: scale(1) translateY(0); }
+  74%, 100% { opacity: 0; transform: scale(0.85) translateY(4px); }
+}
+.astro-balao { animation: astro-balao 18s ease-out infinite; }
+@keyframes astro-corda { 0%, 30% { width: 70px; } 36%, 72% { width: 46px; } 78%, 100% { width: 70px; } }
+.astro-corda { animation: astro-corda 18s ease-in-out infinite; }
 
 /* passada: coxa e canela (a perna de trás meio ciclo defasada) */
 @keyframes astro-coxa { 0%, 100% { transform: rotate(-38deg); } 50% { transform: rotate(30deg); } }
@@ -306,39 +323,6 @@ main .rounded-full[style*="--selo-"] { box-shadow: inset 0 0 0 1px color-mix(in 
 /* quique (duas vezes por passada) e inclinação para frente */
 @keyframes astro-quica { 0%, 100% { transform: translateY(0) rotate(7deg); } 50% { transform: translateY(-3.5px) rotate(9deg); } }
 .astro-quica { animation: astro-quica 0.32s ease-in-out infinite; transform-origin: 30px 78px; }
-
-/* linha do tempo da queda (pelos pés) */
-@keyframes astro-queda {
-  0%, 43% { transform: rotate(0) translateY(0); }
-  45% { transform: rotate(14deg) translateY(-4px); }
-  46.5% { transform: rotate(32deg) translateY(-9px); }
-  48.5% { transform: rotate(88deg) translate(-15px, 4px); }
-  49.5% { transform: rotate(82deg) translate(-21px, 0); }
-  50.5%, 59% { transform: rotate(90deg) translate(-15px, 4px); }
-  61.5% { transform: rotate(58deg) translate(-8px, 2px); }
-  64% { transform: rotate(22deg) translateY(0); }
-  66% { transform: rotate(-6deg); }
-  68%, 100% { transform: rotate(0); }
-}
-.astro-queda { animation: astro-queda 16s ease-in-out infinite; }
-/* braço da frente abanando (moinho) ao tropeçar */
-@keyframes astro-giro { 0%, 44% { transform: rotate(0); } 46% { transform: rotate(-200deg); } 48% { transform: rotate(-360deg); } 48.01%, 100% { transform: rotate(0); } }
-.astro-giro { animation: astro-giro 16s linear infinite; }
-/* cabeça: acompanha a corrida; tonto, balança e depois levanta o olhar */
-@keyframes astro-cabeca {
-  0%, 50%, 62%, 100% { transform: rotate(0); }
-  53% { transform: rotate(-14deg); } 54.5% { transform: rotate(12deg); } 56% { transform: rotate(-10deg); }
-  57.5% { transform: rotate(8deg); } 59% { transform: rotate(-22deg); }
-}
-.astro-cabeca { animation: astro-cabeca 16s ease-in-out infinite; }
-@keyframes astro-corda { 0%, 47% { width: 70px; } 51%, 62% { width: 6px; } 69%, 100% { width: 70px; } }
-.astro-corda { animation: astro-corda 16s ease-in-out infinite; }
-@keyframes astro-logo { 0%, 49%, 56%, 100% { transform: rotate(0); } 51% { transform: rotate(-14deg); } 53% { transform: rotate(9deg); } 54.5% { transform: rotate(-4deg); } }
-.astro-logo { animation: astro-logo 16s ease-in-out infinite; }
-@keyframes astro-tontura { 0%, 51%, 61%, 100% { opacity: 0; transform: translateX(20px) rotate(0); } 52.5%, 59.5% { opacity: 1; transform: translateX(20px) rotate(-14deg); } 56% { transform: translateX(20px) rotate(14deg); } }
-.astro-tontura { animation: astro-tontura 16s ease-in-out infinite; }
-@keyframes astro-poeira { 0%, 48%, 55%, 100% { opacity: 0; transform: translateX(16px) scale(0.3); } 49% { opacity: 0.7; transform: translateX(16px) scale(0.7); } 53% { opacity: 0; transform: translateX(16px) scale(2.4); } }
-.astro-poeira { animation: astro-poeira 16s ease-out infinite; }
 
 @keyframes orbitas-entram { from { opacity: 0; } to { opacity: 1; } }
 .orbitas-entram { animation: orbitas-entram 1.2s ease-out 1.9s both; }

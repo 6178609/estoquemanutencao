@@ -6,6 +6,7 @@ import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 import { LogoSim } from "@/components/Marca";
 import { ObjetoSim } from "@/components/ObjetoSim";
 import { AstronautaSim } from "@/components/AstronautaSim";
+import { fraseDoDia, hojeBrasil } from "@/lib/frasesDoDia";
 import { IntroFoguete } from "@/components/IntroFoguete";
 import { OrbitasSim } from "@/components/OrbitasSim";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
@@ -99,7 +100,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
               ))}
             </div>
           </div>
-          <div className="hidden lg:block"><AstronautaSim /></div>
+          <div className="hidden lg:block"><AstronautaSim frase={fraseDoDia(hojeBrasil())} /></div>
           <p className="pb-3 pt-6 text-center text-[12px] text-texto-4 lg:hidden">
             Alpargatas · Fábrica 26 · Central de Manutenção · <Link href="/privacidade" className="underline hover:text-texto-2">Privacidade</Link>
           </p>
