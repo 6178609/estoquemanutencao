@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
 import { LogoSim } from "@/components/Marca";
-import { ObjetoSim } from "@/components/ObjetoSim";
+import { HeroEntrada } from "@/components/entrada/HeroEntrada";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { INATIVIDADE_MIN, MOTIVO } from "@/lib/auth/inatividade";
@@ -68,7 +68,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
                   : <AbasEntrada demo={demo} />}
               </div>
             </div>
-            <div className="hidden justify-center lg:flex"><ObjetoSim tamanho={520} /></div>
+            <div className="hidden justify-center lg:flex"><HeroEntrada tamanho={540} /></div>
           </div>
         </section>
 
