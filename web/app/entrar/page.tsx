@@ -5,6 +5,7 @@ import { Boxes, Factory, Gauge, ShieldCheck } from "lucide-react";
 
 import { LogoSim } from "@/components/Marca";
 import { ObjetoSim } from "@/components/ObjetoSim";
+import { IntroFoguete } from "@/components/IntroFoguete";
 import { OrbitasSim } from "@/components/OrbitasSim";
 import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
@@ -36,6 +37,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
   }
   return (
     <div className="min-h-dvh bg-fundo">
+      <IntroFoguete />
       <header className="border-b border-borda">
         <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-3 px-4 sm:px-8">
           <span className="font-display text-[15px] font-medium tracking-[-0.02em] text-texto">Central de Manutenção</span>
@@ -69,7 +71,11 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
                   : <AbasEntrada demo={demo} />}
               </div>
             </div>
-            <div className="relative hidden justify-center lg:flex"><OrbitasSim /><div className="relative"><ObjetoSim tamanho={520} /></div></div>
+            <div className="relative hidden justify-center lg:flex">
+              <div className="orbitas-entram absolute inset-0"><OrbitasSim /></div>
+              <span aria-hidden className="onda-abertura pointer-events-none absolute left-1/2 top-1/2 size-[520px] rounded-full border-2 border-[var(--color-marca-300)] shadow-[0_0_60px_rgb(0_156_72/0.25)]" />
+              <div className="logo-abre relative"><ObjetoSim tamanho={520} /></div>
+            </div>
           </div>
         </section>
 
