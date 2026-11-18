@@ -1,7 +1,7 @@
 /**
- * Frase motivacional do dia (o astronauta da tela de entrada fala uma por dia). Sorteio repetível pela data de Brasília:
- * a lista é embaralhada a cada volta, então nenhuma frase se repete até todas terem saído, e duas voltas seguidas nunca
- * emendam a mesma frase (sem repetir em dias seguidos).
+ * Frases motivacionais do astronauta da tela de entrada. A cada vez que o balão aparece, sai a próxima de uma ordem
+ * sorteada: nenhuma se repete até todas terem saído, e a primeira de uma nova volta nunca é a última da anterior.
+ * A posição fica no navegador (localStorage), então recarregar a página continua a sequência sem repetir.
  */
 export const FRASES: readonly string[] = [
   "Manutenção bem feita hoje é a máquina rodando amanhã.",
@@ -66,35 +66,36 @@ export const FRASES: readonly string[] = [
   "Vamos juntos: manutenção forte, produção segura.",
 ];
 
-/** Data de Brasília no formato AAAA-MM-DD. */
-export const hojeBrasil = (agora = new Date()) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
+export interface Sorteio { ordem: number[]; pos: number }
 
-function embaralhar(n: number, semente: number): number[] {
+/** Embaralha 0..n-1 (Fisher-Yates) com o gerador `rnd` (0 ≤ x < 1). */
+export function embaralhar(n: number, rnd: () => number): number[] {
   const ordem = Array.from({ length: n }, (_, i) => i);
-  let s = (semente * 2654435761) % 2147483647 || 1;
   for (let i = n - 1; i > 0; i--) {
-    s = (s * 16807) % 2147483647;
-    const j = s % (i + 1);
+    const j = Math.floor(rnd() * (i + 1));
     [ordem[i], ordem[j]] = [ordem[j], ordem[i]];
   }
   return ordem;
 }
 
-/** Ordem da volta `volta`, garantindo que não começa com a frase que terminou a volta anterior. */
-function ordemDaVolta(volta: number, n: number): number[] {
-  const ordem = embaralhar(n, volta + 1);
-  if (volta > 0 && n > 1) {
-    const anterior = embaralhar(n, volta);
-    if (ordem[0] === anterior[n - 1]) [ordem[0], ordem[1]] = [ordem[1], ordem[0]];
-  }
-  return ordem;
-}
+/** Sorteio guardado é válido para uma lista de `n` frases? */
+const valido = (s: unknown, n: number): s is Sorteio => {
+  const o = s as Sorteio | null;
+  return !!o && Array.isArray(o.ordem) && o.ordem.length === n && Number.isInteger(o.pos) && o.pos >= 0 && o.pos <= n
+    && new Set(o.ordem).size === n && o.ordem.every((i) => Number.isInteger(i) && i >= 0 && i < n);
+};
 
-/** A frase do dia `data` (AAAA-MM-DD): cada volta pela lista inteira, sem repetir. */
-export function fraseDoDia(data: string, frases: readonly string[] = FRASES): string {
-  const dia = Math.floor(Date.parse(`${data}T12:00:00Z`) / 86_400_000);
-  const n = frases.length;
-  const volta = Math.floor(dia / n);
-  return frases[ordemDaVolta(volta, n)[((dia % n) + n) % n]];
+/**
+ * A próxima frase e o novo estado do sorteio. Terminada a volta (ou sem estado válido), sorteia outra ordem, sem começar
+ * pela frase que acabou de sair.
+ */
+export function proximaFrase(estado: unknown, rnd: () => number = Math.random, n = FRASES.length): { indice: number; estado: Sorteio } {
+  let s: Sorteio = valido(estado, n) ? { ordem: [...estado.ordem], pos: estado.pos } : { ordem: embaralhar(n, rnd), pos: 0 };
+  if (s.pos >= n) {
+    const ultima = s.ordem[n - 1];
+    const ordem = embaralhar(n, rnd);
+    if (n > 1 && ordem[0] === ultima) [ordem[0], ordem[1]] = [ordem[1], ordem[0]];
+    s = { ordem, pos: 0 };
+  }
+  return { indice: s.ordem[s.pos], estado: { ordem: s.ordem, pos: s.pos + 1 } };
 }

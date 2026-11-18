@@ -1,7 +1,9 @@
+import { BalaoFrase } from "./BalaoFrase";
+
 /**
  * Faixa de baixo da tela de entrada: um astronauta, no mesmo traço do foguetinho da logo, corre puxando a logo SIM por
  * uma corda (corpo articulado: quadril, joelhos, ombros, cotovelos). No meio do caminho ele para, acena e fala a frase
- * motivacional do dia num balão (`fraseDoDia`, uma por dia, sem repetir), depois segue. Ciclo de 18 s, só CSS e SVG
+ * motivacional num balão (`BalaoFrase`: a cada aparição uma frase sorteada, sem repetir), depois segue. Ciclo de 18 s, só CSS e SVG
  * (classes `astro-*` no globals.css); com "reduzir movimento" a faixa não aparece.
  */
 
@@ -34,7 +36,7 @@ function Capacete() {
   );
 }
 
-export function AstronautaSim({ frase }: { frase: string }) {
+export function AstronautaSim() {
   return (
     <div aria-hidden className="astro-faixa pointer-events-none relative h-[86px] overflow-x-clip [@media(max-height:680px)]:h-[70px] [@media(max-height:680px)]:[zoom:0.8]">
       {/* chão: linha tracejada como as órbitas */}
@@ -101,10 +103,7 @@ export function AstronautaSim({ frase }: { frase: string }) {
             </g>
           </svg>
           {/* balão com a frase do dia */}
-          <div className="astro-balao absolute bottom-[78px] left-[30px] w-max max-w-[340px] origin-bottom-left rounded-2xl border border-borda bg-white px-3.5 py-2.5 text-[13px] font-medium leading-snug text-texto-2 shadow-flutuante">
-            {frase}
-            <span className="absolute -bottom-[7px] left-4 size-3 rotate-45 border-b border-r border-borda bg-white" />
-          </div>
+          <BalaoFrase />
         </div>
       </div>
     </div>

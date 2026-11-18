@@ -119,8 +119,9 @@
 - **Tela de entrada (pedido do usuário, 18/11/2026):** visual limpo e claro, sem 3D (WebGL) nem foto/vídeo de fundo. Abertura
   em CSS/SVG, em ciclo de 12 s: um foguete cruza a tela e a logo SIM se abre e pulsa (`components/IntroFoguete.tsx`), com as órbitas da logo
   (`components/OrbitasSim.tsx`); embaixo, um astronauta articulado (joelhos, cotovelos) corre puxando a logo, para,
-  acena e fala a frase motivacional do dia (`components/AstronautaSim.tsx`, ciclo de 18 s; frases e sorteio em
-  `lib/frasesDoDia.ts`: uma por dia pela data de Brasília, sem repetir até a lista acabar e nunca em dias seguidos). No computador, tudo numa tela só, sem
+  acena e fala uma frase motivacional (`components/AstronautaSim.tsx`, ciclo de 18 s). A cada aparição do balão sai uma
+  frase sorteada (`components/BalaoFrase.tsx`, `lib/frasesAstronauta.ts`), sem repetir até a lista acabar; a posição
+  fica no navegador (localStorage), então recarregar continua a sequência. No computador, tudo numa tela só, sem
   rolagem, conferido nas alturas reais do navegador (1280×600 a 1920×940): o rodapé fica no topo e, em tela baixa, saem
   destaques, parágrafo e dica do formulário; o formulário nunca é cortado. Com "reduzir movimento", fica parado.
 - **Agulhas de costura fora do estoque (pedido do PCM, 17/11/2026):** os PDMs de agulha de costura (`PDM_FORA_DO_ESTOQUE` em
