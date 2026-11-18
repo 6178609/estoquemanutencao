@@ -244,6 +244,16 @@ main .rounded-full[style*="--selo-"] { box-shadow: inset 0 0 0 1px color-mix(in 
 .objeto-sim { animation: objeto-sim 9s ease-in-out infinite; }
 .objeto-sim-foguete { animation: objeto-sim-foguete 4.5s ease-in-out infinite; }
 
+/* órbitas da logo SIM no fundo da tela de entrada (OrbitasSim): pontos e foguete percorrendo as elipses */
+@keyframes orbita { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+@keyframes orbita-chama { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes orbita-estrela { 0%, 100% { opacity: 0.15; transform: scale(0.7); } 50% { opacity: 0.8; transform: scale(1.2); } }
+@keyframes orbitas-giro { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(-10deg); } }
+.orbita-ponto { offset-anchor: center; offset-rotate: 0deg; animation-name: orbita; animation-timing-function: linear; animation-iteration-count: infinite; }
+.orbita-chama { animation: orbita-chama 0.35s ease-in-out infinite; }
+.orbita-estrela { animation: orbita-estrela 4.5s ease-in-out infinite; }
+.orbitas-giro { animation: orbitas-giro 24s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
