@@ -74,7 +74,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
             <div className="relative hidden justify-center lg:flex">
               <div className="orbitas-entram absolute inset-0"><OrbitasSim /></div>
               <span aria-hidden className="onda-abertura pointer-events-none absolute left-1/2 top-1/2 size-[520px] rounded-full border-2 border-[var(--color-marca-300)] shadow-[0_0_60px_rgb(0_156_72/0.25)]" />
-              <div className="logo-abre relative"><ObjetoSim tamanho={520} /></div>
+              <div className="logo-abre relative"><div className="logo-pulso"><ObjetoSim tamanho={520} /></div></div>
             </div>
           </div>
         </section>

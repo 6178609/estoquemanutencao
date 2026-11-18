@@ -117,7 +117,7 @@
 - **Aba Estoque só com material do Sysmat (pedido do PCM, 16/11/2026):** o que está na MB52 e não está no catálogo do Sysmat
   é item de produção e sai da lista (`soMateriaisDoSysmat` em `lib/dados/materiais.ts`); sem catálogo carregado, fica tudo.
 - **Tela de entrada (pedido do usuário, 18/11/2026):** visual limpo e claro, sem 3D (WebGL) nem foto/vídeo de fundo. Abertura
-  em CSS/SVG: um foguete cruza a tela e a logo SIM se abre (`components/IntroFoguete.tsx`), depois as órbitas da logo
+  em CSS/SVG, em ciclo de 12 s: um foguete cruza a tela e a logo SIM se abre e pulsa (`components/IntroFoguete.tsx`), com as órbitas da logo
   (`components/OrbitasSim.tsx`); com "reduzir movimento", vai direto ao fim.
 - **Agulhas de costura fora do estoque (pedido do PCM, 17/11/2026):** os PDMs de agulha de costura (`PDM_FORA_DO_ESTOQUE` em
   `lib/dados/materiais.ts`) saem da aba Estoque e da fila de busca de fotos; fotos já gravadas delas foram apagadas.

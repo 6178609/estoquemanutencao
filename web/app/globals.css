@@ -254,31 +254,40 @@ main .rounded-full[style*="--selo-"] { box-shadow: inset 0 0 0 1px color-mix(in 
 .orbita-estrela { animation: orbita-estrela 4.5s ease-in-out infinite; }
 .orbitas-giro { animation: orbitas-giro 24s ease-in-out infinite; }
 
-/* abertura da tela de entrada (IntroFoguete): o foguete cruza a tela e a logo SIM se abre quando ele passa */
+/* abertura da tela de entrada (IntroFoguete), em ciclo de 12 s: o foguete cruza a tela; ao passar pela logo SIM, ela
+   pulsa com uma onda de luz. Na primeira vez a logo se abre (logo-abre). */
 @keyframes foguete-voo {
   0% { transform: translate(44vw, 108vh); opacity: 1; }
-  50% { transform: translate(64vw, 42vh); opacity: 1; }
-  92% { opacity: 1; }
+  10% { transform: translate(64vw, 42vh); opacity: 1; }
+  18.4% { opacity: 1; }
+  20% { transform: translate(104vw, -30vh); opacity: 0; }
   100% { transform: translate(104vw, -30vh); opacity: 0; }
 }
-.foguete-voo { animation: foguete-voo 2.4s cubic-bezier(.45,.05,.55,.95) 0.25s both; }
+.foguete-voo { animation: foguete-voo 12s cubic-bezier(.45,.05,.55,.95) 0.25s infinite both; }
 @keyframes logo-abre {
   0% { opacity: 0; transform: scale(0.55) translateY(18px); }
   60% { opacity: 1; transform: scale(1.06) translateY(0); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 .logo-abre { animation: logo-abre 1s cubic-bezier(.2,.8,.2,1) 1.3s both; }
+@keyframes logo-pulso { 0%, 9%, 100% { transform: scale(1); } 3% { transform: scale(1.05); } }
+.logo-pulso { animation: logo-pulso 12s ease-in-out 13.3s infinite; }
 @keyframes onda-abertura {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
-  15% { opacity: 0.9; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  2% { opacity: 0.9; }
+  12%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
 }
-.onda-abertura { animation: onda-abertura 1.4s ease-out 1.3s both; }
+.onda-abertura { animation: onda-abertura 12s ease-out 1.3s infinite both; }
 @keyframes orbitas-entram { from { opacity: 0; } to { opacity: 1; } }
 .orbitas-entram { animation: orbitas-entram 1.2s ease-out 1.9s both; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* animações em ciclo da tela de entrada: paradas (logo aberta, foguete fora da tela) */
+  .foguete-voo, .onda-abertura { display: none; }
+  .logo-pulso, .orbita-ponto, .orbita-estrela, .orbitas-giro, .orbita-chama { animation: none !important; }
 }
 
 @media print {
