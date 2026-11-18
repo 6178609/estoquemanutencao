@@ -56,6 +56,7 @@
   `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE`) — nunca no repositório; e-mails ficam só no cadastro de usuários.
 
 ## Skills e conectores (usar sempre)
+- **Sem exceção (pedido do usuário, 18/11/2026):** em todas as sessões e em toda entrega, usar as skills e conectores necessários.
 - No início de cada tarefa, conferir as skills e os conectores disponíveis na sessão e usar **todos os que se aplicam**
   à tarefa — não resolver "na mão" o que uma skill ou conector faz. Dizer na resposta quais foram usados.
 - Código do site: skills de processo (superpowers: brainstorming antes de tela/recurso novo, systematic-debugging em
@@ -115,6 +116,9 @@
   em `fotos_referencia.json` e mostrada com o selo **"Ilustrativa"** (`ROTULO_FOTO` em `lib/fotoMaterial.ts`).
 - **Aba Estoque só com material do Sysmat (pedido do PCM, 16/11/2026):** o que está na MB52 e não está no catálogo do Sysmat
   é item de produção e sai da lista (`soMateriaisDoSysmat` em `lib/dados/materiais.ts`); sem catálogo carregado, fica tudo.
+- **Tela de entrada (pedido do usuário, 18/11/2026):** visual limpo e claro, sem 3D (WebGL) nem foto/vídeo de fundo. Abertura
+  em CSS/SVG: um foguete cruza a tela e a logo SIM se abre (`components/IntroFoguete.tsx`), depois as órbitas da logo
+  (`components/OrbitasSim.tsx`); com "reduzir movimento", vai direto ao fim.
 - **Agulhas de costura fora do estoque (pedido do PCM, 17/11/2026):** os PDMs de agulha de costura (`PDM_FORA_DO_ESTOQUE` em
   `lib/dados/materiais.ts`) saem da aba Estoque e da fila de busca de fotos; fotos já gravadas delas foram apagadas.
 
