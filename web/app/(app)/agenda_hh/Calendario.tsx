@@ -108,7 +108,8 @@ function Dia({ data, hoje, itens, alertas, turnoAtivo, aoAbrir, porId }: {
   const fora = alertas.filter((a) => a.motivo !== "sobrecarga");
   const nomesAlerta = new Set(alertas.map((a) => a.nome.toLocaleLowerCase("pt-BR")));
   const ehHoje = data === hoje;
-  const grupos: [string, string][] = [["1º turno", "1º turno"], ["2º turno", "2º turno"], ["", "Sem turno"]];
+  // o Administrativo fica entre o 1º e o 2º turno (metade em cada), como no dia de trabalho
+  const grupos: [string, string][] = [["1º turno", "1º turno"], ["Administrativo", "Administrativo"], ["2º turno", "2º turno"], ["", "Sem turno"]];
   const total = itens.reduce((s, i) => s + i.minutos, 0);
   return (
     <li aria-current={ehHoje ? "date" : undefined}
@@ -146,10 +147,13 @@ function Dia({ data, hoje, itens, alertas, turnoAtivo, aoAbrir, porId }: {
       <div className="mt-2 flex-1 space-y-2">
         {!itens.length ? <span className="text-[12px] text-texto-4">Sem programação</span> : grupos.map(([t, rotulo]) => {
           const g = itens.filter((i) => i.turno === t);
-          if (!g.length && (t === "" || turnoAtivo)) return null;
+          if (!g.length && (t === "" || t === "Administrativo" || turnoAtivo)) return null;
+          const adm = t === "Administrativo";
           return (
-            <div key={rotulo}>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-texto-3">{rotulo}</div>
+            <div key={rotulo} className={clsx(adm && "-mx-1 rounded-lg border border-dashed border-[var(--borda-forte)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-marca-500)_7%,transparent)_50%,color-mix(in_srgb,var(--color-alp-azul)_7%,transparent)_50%)] px-1 py-1.5")}>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-texto-3">
+                {rotulo}{adm && <span className="font-normal normal-case tracking-normal text-texto-4"> · entre o 1º e o 2º turno</span>}
+              </div>
               {g.length ? (
                 <ul className="space-y-1">
                   {g.map((i) => <Item key={i.id + i.turno} item={i} alerta={i.tecnicos.some((n) => nomesAlerta.has(n.toLocaleLowerCase("pt-BR")))} aoAbrir={aoAbrir} porId={porId} />)}

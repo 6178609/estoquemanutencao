@@ -15,7 +15,18 @@ export const PREFIXO_TECNICO = "t_";
 export const PREFIXO_PROGRAMACAO = "p_";
 
 export const TURNOS_TECNICO = ["1º turno", "2º turno", "3º turno", "Administrativo"] as const;
-export const TURNOS_PROGRAMACAO = ["1º turno", "2º turno"] as const;
+/** Turnos da programação; o Administrativo (horário comercial) fica entre o 1º e o 2º turno no calendário. */
+export const TURNOS_PROGRAMACAO = ["1º turno", "Administrativo", "2º turno"] as const;
+
+/** Turno escrito na planilha → turno da programação ("1", "1º", "1o turno", "adm", "ADMINISTRATIVO"…); "" se não reconhecer. */
+export function turnoDaCelula(v: unknown): string {
+  const t = normalizarTexto(v).toLocaleLowerCase("pt-BR");
+  if (!t) return "";
+  if (t.startsWith("adm")) return "Administrativo";
+  if (/^1\s*(º|°|o|ª)?(\s*turno)?$/.test(t)) return "1º turno";
+  if (/^2\s*(º|°|o|ª)?(\s*turno)?$/.test(t)) return "2º turno";
+  return normalizarTexto(v);
+}
 export const STATUS = ["programada", "reprogramada", "concluida"] as const;
 export type Status = (typeof STATUS)[number];
 export const ROTULO_STATUS: Record<Status, string> = { programada: "Programada", reprogramada: "Reprogramada", concluida: "Concluída" };
@@ -591,7 +602,7 @@ export function validarProgramacao(e: EntradaProgramacao, tecnicos: Tecnico[], o
   if (!descricao) erros.descricao = "Informe a descrição.";
   if (!area) erros.area = "Informe a área de atuação.";
   if (!isoValida(data)) erros.data = "Informe a data programada.";
-  if (turno ? !(TURNOS_PROGRAMACAO as readonly string[]).includes(turno) : !opcoes.semTurnoPermitido) erros.turno = "Selecione o 1º ou 2º turno.";
+  if (turno ? !(TURNOS_PROGRAMACAO as readonly string[]).includes(turno) : !opcoes.semTurnoPermitido) erros.turno = "Selecione o turno: 1º, Administrativo ou 2º.";
   if (!STATUS.includes(status)) erros.status = "Status inválido.";
   if (!minutosTexto || !Number.isInteger(minutos) || minutos < 1 || minutos > MAX_MINUTOS) erros.minutos = "Informe o tempo em minutos.";
   if (!tecnico) erros.tecnicoId = "Selecione o técnico responsável.";
@@ -653,7 +664,7 @@ export function prepararImportacao(objetos: Record<string, unknown>[], tecnicos:
     const linha = i + 2;
     const np = chaveNp(normalizarTexto(o["NP"]));
     const tecnico = np ? tecnicos.find((t) => chaveNp(t.np) === np) : undefined;
-    const turno = normalizarTexto(o["Turno"]);
+    const turno = turnoDaCelula(o["Turno"]);
     const minutos = Number(String(o["Tempo em Min"] ?? "").trim().replace(",", "."));
     const entrada: EntradaProgramacao = {
       equipamento: normalizarTexto(o["Equipamento"]), tipoOrdem: normalizarTexto(o["Tipo de Ordem"]), ordem: normalizarTexto(o["Ordem"]),
@@ -668,7 +679,7 @@ export function prepararImportacao(objetos: Record<string, unknown>[], tecnicos:
     if (!entrada.area) faltam.push("Área de Atuação");
     if (!entrada.data) faltam.push("Data Programada");
     if (!entrada.status) faltam.push("Status");
-    if (!(TURNOS_PROGRAMACAO as readonly string[]).includes(turno)) faltam.push("Turno (1º turno ou 2º turno)");
+    if (!(TURNOS_PROGRAMACAO as readonly string[]).includes(turno)) faltam.push("Turno (1º turno, Administrativo ou 2º turno)");
     if (!Number.isInteger(minutos) || minutos < 1 || minutos > MAX_MINUTOS) faltam.push("Tempo em Min");
     if (!tecnico) faltam.push("NP não cadastrado");
     if (faltam.length) erros.push(`Linha ${linha}: ${faltam.join(", ")}`);
