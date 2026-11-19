@@ -564,7 +564,7 @@ describe("prepararImportacao", () => {
     const muitas = Array.from({ length: 501 }, () => linhaOk);
     const r = prepararImportacao(muitas, tecnicos);
     expect(r.itens).toEqual([]);
-    expect(r.erros).toEqual(["Importe no máximo 500 linhas por vez."]);
+    expect(r.erros).toEqual(["A planilha passa de 500 linhas preenchidas: importe no máximo 500 linhas por vez (divida em mais de um arquivo). Nada foi importado."]);
   });
 });
 

@@ -11,6 +11,8 @@ import {
   type Programacao, type Tecnico,
 } from "@/lib/agendaHh/regras";
 
+import { Avatar } from "./comum";
+
 /**
  * Folha de cobertura (antiga "Folha de rosto da programação" do Controle de HH | PCM): as ordens programadas para as
  * pessoas, a área e o período escolhidos, agrupadas por dia, com o total por pessoa e aviso de férias/folga/ausência.
@@ -28,15 +30,6 @@ const MOTIVOS_AVISO: MotivoDia[] = ["férias", "folga", "ausência"];
 interface Linha { p: Programacao; tecnico: Tecnico | null; nome: string; aviso: MotivoDia | null }
 interface Dia { data: string; linhas: Linha[]; minutos: number; avisos: { nome: string; motivo: MotivoDia }[] }
 interface TotalPessoa { chave: string; nome: string; np: string; foto: string; ordens: number; minutos: number }
-
-function Avatar({ nome, foto, pequeno }: { nome: string; foto?: string; pequeno?: boolean }) {
-  const tam = pequeno ? "size-8 text-[11px]" : "size-10 text-[13px]";
-  return foto
-    // eslint-disable-next-line @next/next/no-img-element -- foto em data URL guardada no cadastro (não passa pelo next/image)
-    ? <img src={foto} alt="" className={`${tam} shrink-0 rounded-full object-cover`} />
-    : <span aria-hidden className={`${tam} grid shrink-0 place-items-center rounded-full bg-[var(--selo-info-fundo)] font-semibold text-[var(--selo-info-texto)]`}>
-      {iniciais(nome)}</span>;
-}
 
 export function Cobertura({ tecnicos, programacoes, hoje }: { tecnicos: Tecnico[]; programacoes: Programacao[]; hoje: string }) {
   const semana = useMemo(() => periodoDaVisao("semana", hoje), [hoje]);
@@ -219,7 +212,7 @@ export function Cobertura({ tecnicos, programacoes, hoje }: { tecnicos: Tecnico[
               <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-3">
                 {totais.map((t) => (
                   <li key={t.chave} className="flex min-w-0 items-center gap-3 rounded-xl border border-borda px-3 py-2">
-                    <Avatar nome={t.nome} foto={t.foto} pequeno />
+                    <Avatar nome={t.nome} foto={t.foto} tamanho={32} />
                     <span className="min-w-0 flex-1">
                       <strong className="block truncate text-[13.5px] text-texto">{t.nome}</strong>
                       {t.np && <small className="block text-[12px] text-texto-3">NP {t.np}</small>}
@@ -280,6 +273,7 @@ export function Cobertura({ tecnicos, programacoes, hoje }: { tecnicos: Tecnico[
                             <strong className="num block break-words text-texto">{p.ordem || "—"}</strong>
                             {p.tipoOrdem && <small className="block text-[12px] text-texto-3">{p.tipoOrdem}</small>}
                             {p.status === "reprogramada" && <Selo cor="amarelo" className="mt-1">Reprogramada</Selo>}
+                            {p.status === "concluida" && <Selo cor="verde" className="mt-1">Concluída</Selo>}
                           </td>
                           <td className="sm:px-3 sm:py-2.5 sm:align-top">
                             <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-texto-3 sm:hidden">Máquina</span>
@@ -297,7 +291,7 @@ export function Cobertura({ tecnicos, programacoes, hoje }: { tecnicos: Tecnico[
                           <td className="sm:px-3 sm:py-2.5 sm:align-top">
                             <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-texto-3 sm:hidden">Executor</span>
                             <div className="flex min-w-0 items-center gap-2.5">
-                              <Avatar nome={nome} foto={tecnico?.foto} pequeno />
+                              <Avatar nome={nome} foto={tecnico?.foto} tamanho={32} />
                               <span className="min-w-0">
                                 <strong className="block break-words text-texto">{nome}</strong>
                                 <small className="block text-[12px] text-texto-3">
@@ -440,7 +434,7 @@ async function desenharFolha({ dias, totais, linhaSelecao, ordens, minutos }: { 
       const np = l.tecnico?.np || l.p.np;
       const meta = quebrarTexto(ctx, [np ? `NP ${np}` : "", l.p.area, l.aviso ? `⚠ ${l.aviso === "ausência" ? "Ausência" : l.aviso === "férias" ? "Férias" : "Folga"} neste dia` : ""]
         .filter(Boolean).join(" · ") || " ", 330);
-      const extraOrdem = (l.p.tipoOrdem ? 1 : 0) + (l.p.status === "reprogramada" ? 1 : 0);
+      const extraOrdem = (l.p.tipoOrdem ? 1 : 0) + (l.p.status === "reprogramada" || l.p.status === "concluida" ? 1 : 0);
       const altura = Math.max(72, 24 + Math.max(ordem.length + extraOrdem, maquina.length, descricao.length, nome.length + meta.length) * 23);
       return { l, ordem, maquina, descricao, nome, meta, altura };
     }),
@@ -532,6 +526,7 @@ async function desenharFolha({ dias, totais, linhaSelecao, ordens, minutos }: { 
       let yo = ty + r.ordem.length * 23 + 2;
       if (r.l.p.tipoOrdem) { escrever(ctx, [r.l.p.tipoOrdem], col.ordem + 10, yo, 20, COR.fraco, `15px ${FONTE}`); yo += 22; }
       if (r.l.p.status === "reprogramada") escrever(ctx, ["Reprogramada"], col.ordem + 10, yo, 20, COR.reprog, `700 15px ${FONTE}`);
+      else if (r.l.p.status === "concluida") escrever(ctx, ["Concluída"], col.ordem + 10, yo, 20, COR.verde, `700 15px ${FONTE}`);
       escrever(ctx, r.maquina, col.maquina, ty, 23, COR.titulo, `600 18px ${FONTE}`);
       escrever(ctx, r.descricao, col.descricao, ty, 23, COR.texto, `18px ${FONTE}`);
       escrever(ctx, [formatarMinutos(r.l.p.minutos)], col.tempo, ty, 23, COR.titulo, `700 18px ${FONTE}`);

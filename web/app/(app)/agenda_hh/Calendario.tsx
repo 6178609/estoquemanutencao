@@ -9,7 +9,7 @@ import { Cartao, Kpi, Selo } from "@/components/ui";
 import { alertasDoCalendario, resumoAlertasCalendario } from "@/lib/agendaHh/analise";
 import {
   type Alerta, type ItemCalendario, type Periodo, type Programacao, type Tecnico, TURNOS_PROGRAMACAO, calendario, comparar, deIso,
-  diaDaSemana, formatarHoras, formatarMinutos, mesCurto, periodoDaVisao,
+  diaDaSemana, formatarHoras, formatarMinutos, mesCurto, periodoDaVisao, ROTULO_STATUS,
 } from "@/lib/agendaHh/regras";
 
 import { SeletorPeriodo } from "./Comparativo";
@@ -25,7 +25,7 @@ const BORDA_STATUS: Record<string, string> = {
 
 export function Calendario({ tecnicos, programacoes, hoje, aoAbrir }: {
   tecnicos: Tecnico[]; programacoes: Programacao[]; hoje: string;
-  /** Abre a programação (o primeiro registro do grupo) para edição; sem ela, os itens são só leitura. */
+  /** Abre a programação para edição (num grupo com várias, a pessoa escolhe qual); sem ela, os itens são só leitura. */
   aoAbrir?: (id: string) => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>(() => periodoDaVisao("mes", hoje));
@@ -37,6 +37,7 @@ export function Calendario({ tecnicos, programacoes, hoje, aoAbrir }: {
   const areaAtiva = areas.includes(area) ? area : "";
   const filtros = useMemo(() => ({ area: areaAtiva, turno }), [areaAtiva, turno]);
   const cal = useMemo(() => calendario(programacoes, periodo, filtros), [programacoes, periodo, filtros]);
+  const porId = useMemo(() => new Map(programacoes.map((p) => [p.id, p])), [programacoes]);
   const alertasDia = useMemo(() => alertasDoCalendario(tecnicos, programacoes, periodo, filtros), [tecnicos, programacoes, periodo, filtros]);
   const resumo = useMemo(() => resumoAlertasCalendario(alertasDia), [alertasDia]);
 
@@ -83,7 +84,7 @@ export function Calendario({ tecnicos, programacoes, hoje, aoAbrir }: {
         <ol className={clsx("grid grid-cols-1 gap-2 sm:grid-cols-2", !soComProgramacao && "lg:grid-cols-7")}>
           {!soComProgramacao && Array.from({ length: vazios }, (_, i) => <li key={`v${i}`} aria-hidden className="hidden lg:block" />)}
           {datas.map((d) => (
-            <Dia key={d} data={d} hoje={hoje} itens={cal.dias.get(d) ?? []} alertas={alertasDia.get(d) ?? []} turnoAtivo={turno} aoAbrir={aoAbrir} />
+            <Dia key={d} data={d} hoje={hoje} itens={cal.dias.get(d) ?? []} alertas={alertasDia.get(d) ?? []} turnoAtivo={turno} aoAbrir={aoAbrir} porId={porId} />
           ))}
         </ol>
         {!cal.total && (
@@ -97,8 +98,9 @@ export function Calendario({ tecnicos, programacoes, hoje, aoAbrir }: {
   );
 }
 
-function Dia({ data, hoje, itens, alertas, turnoAtivo, aoAbrir }: {
+function Dia({ data, hoje, itens, alertas, turnoAtivo, aoAbrir, porId }: {
   data: string; hoje: string; itens: ItemCalendario[]; alertas: Alerta[]; turnoAtivo: string; aoAbrir?: (id: string) => void;
+  porId: Map<string, Programacao>;
 }) {
   const w = diaDaSemana(data);
   const fimDeSemana = w === 0 || w === 6;
@@ -150,7 +152,7 @@ function Dia({ data, hoje, itens, alertas, turnoAtivo, aoAbrir }: {
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-texto-3">{rotulo}</div>
               {g.length ? (
                 <ul className="space-y-1">
-                  {g.map((i) => <Item key={i.id + i.turno} item={i} alerta={i.tecnicos.some((n) => nomesAlerta.has(n.toLocaleLowerCase("pt-BR")))} aoAbrir={aoAbrir} />)}
+                  {g.map((i) => <Item key={i.id + i.turno} item={i} alerta={i.tecnicos.some((n) => nomesAlerta.has(n.toLocaleLowerCase("pt-BR")))} aoAbrir={aoAbrir} porId={porId} />)}
                 </ul>
               ) : <span className="text-[12px] text-texto-4">Sem programação</span>}
             </div>
@@ -161,7 +163,10 @@ function Dia({ data, hoje, itens, alertas, turnoAtivo, aoAbrir }: {
   );
 }
 
-function Item({ item, alerta, aoAbrir }: { item: ItemCalendario; alerta: boolean; aoAbrir?: (id: string) => void }) {
+function Item({ item, alerta, aoAbrir, porId }: { item: ItemCalendario; alerta: boolean; aoAbrir?: (id: string) => void;
+  porId: Map<string, Programacao> }) {
+  const [escolher, setEscolher] = useState(false);
+  const varias = item.ids.length > 1;
   const detalhe = `${item.tecnicos.join(", ") || "Sem técnico"} • ${formatarMinutos(item.minutos)}${item.quantidade > 1 ? ` • ${item.quantidade} programações` : ""}`;
   const conteudo = (
     <>
@@ -179,8 +184,26 @@ function Item({ item, alerta, aoAbrir }: { item: ItemCalendario; alerta: boolean
   return (
     <li>
       {aoAbrir ? (
-        <button type="button" onClick={() => aoAbrir(item.id)} title={titulo} className={clsx(cls, "min-h-11 transition hover:border-borda-forte")}>{conteudo}</button>
+        <button type="button" onClick={() => (varias ? setEscolher((v) => !v) : aoAbrir(item.id))} title={titulo}
+          aria-expanded={varias ? escolher : undefined} className={clsx(cls, "min-h-11 transition hover:border-borda-forte")}>{conteudo}</button>
       ) : <div title={titulo} className={cls}>{conteudo}</div>}
+      {aoAbrir && varias && escolher && (
+        <ul className="mt-1 space-y-1 pl-2" aria-label={`Escolha qual programação de ${item.equipamento} abrir`}>
+          {item.ids.map((id) => {
+            const p = porId.get(id);
+            if (!p) return null;
+            return (
+              <li key={id}>
+                <button type="button" onClick={() => { setEscolher(false); aoAbrir(id); }}
+                  className="block min-h-11 w-full min-w-0 rounded-lg border border-borda bg-superficie px-2 py-1.5 text-left text-[11.5px] transition hover:border-borda-forte">
+                  <span className="block break-words font-semibold text-texto">Ordem {p.ordem || "—"} · {ROTULO_STATUS[p.status]}</span>
+                  <span className="block break-words text-texto-3">{p.tecnicoNome || "Sem técnico"} • {formatarMinutos(p.minutos)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </li>
   );
 }

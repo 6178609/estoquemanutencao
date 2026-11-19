@@ -202,16 +202,20 @@ export function disponibilidade(t: Pick<Tecnico, "jornada" | "feriasInicio" | "f
   let diasOutras = 0, parciais = 0;
   if (externas.length) {
     const cobertos = new Set<string>();
+    // 1º os dias inteiros; depois as parciais, que só contam nos dias úteis ainda livres (sem férias, folga ou dia inteiro)
+    for (const a of externas) {
+      if (!isoValida(a.de) || !isoValida(a.ate) || a.ate < p.ini || a.de > p.fim || !diaInteiro(a)) continue;
+      for (let d = a.de < p.ini ? p.ini : a.de; d <= a.ate && d <= p.fim; d = somarDias(d, 1))
+        if (diaUtilNoPeriodo(d, p.ini, p.fim) && !nasFerias(d) && !(diasFolga && d === t.folga)) cobertos.add(d);
+    }
     for (const a of externas) {
       if (!isoValida(a.de) || !isoValida(a.ate) || a.ate < p.ini || a.de > p.fim) continue;
-      if (diaInteiro(a)) {
-        for (let d = a.de < p.ini ? p.ini : a.de; d <= a.ate && d <= p.fim; d = somarDias(d, 1))
-          if (diaUtilNoPeriodo(d, p.ini, p.fim) && !nasFerias(d) && !(diasFolga && d === t.folga)) cobertos.add(d);
-      } else if ((a.horas ?? 0) > 0) {
-        // carga horária repartida pelos dias corridos da ausência (16 h em 2 dias = 8 h por dia), como na Gestão de HH
-        const dentro = datasDoPeriodo({ ini: a.de < p.ini ? p.ini : a.de, fim: a.ate > p.fim ? p.fim : a.ate }).length;
-        parciais += (a.horas! * dentro) / Math.max(1, datasDoPeriodo({ ini: a.de, fim: a.ate }).length);
-      }
+      if (diaInteiro(a) || !((a.horas ?? 0) > 0)) continue;
+      // carga horária repartida pelos dias corridos da ausência (16 h em 2 dias = 8 h por dia), como na Gestão de HH;
+      // só entram os dias do período que ainda teriam HH (dia útil, fora das férias, da folga e de ausência de dia inteiro)
+      const dentro = datasDoPeriodo({ ini: a.de < p.ini ? p.ini : a.de, fim: a.ate > p.fim ? p.fim : a.ate })
+        .filter((d) => diaUtilNoPeriodo(d, p.ini, p.fim) && !nasFerias(d) && !(diasFolga && d === t.folga) && !cobertos.has(d)).length;
+      parciais += (a.horas! * dentro) / Math.max(1, datasDoPeriodo({ ini: a.de, fim: a.ate }).length);
     }
     diasOutras = cobertos.size;
   }
@@ -391,9 +395,9 @@ const minusculo = (s: string) => String(s ?? "").trim().toLocaleLowerCase("pt-BR
 export function tecnicoDaProgramacao(p: Programacao, tecnicos: Tecnico[]): Tecnico | null {
   const porId = tecnicos.find((t) => t.id === p.tecnicoId);
   if (porId) return porId;
-  const np = String(p.np ?? "").trim();
+  const np = chaveNp(p.np);
   if (np) {
-    const m = tecnicos.filter((t) => String(t.np ?? "").trim() === np);
+    const m = tecnicos.filter((t) => chaveNp(t.np) === np);
     if (m.length === 1) return m[0];
   }
   const nome = minusculo(p.tecnicoNome);
@@ -433,28 +437,38 @@ export function filtrarCobertura(lista: Programacao[], tecnicos: Tecnico[], f: {
 // ----------------------------------------------------------------------------
 export interface ItemCalendario {
   id: string; equipamento: string; turno: string; status: Status; minutos: number; tecnicos: string[]; descricoes: string[]; quantidade: number;
+  /** ids de todas as programações do grupo (o primeiro é `id`) */
+  ids: string[];
+}
+
+/** Status do grupo: concluída só se todas estiverem; senão reprogramada se alguma estiver; senão programada. */
+export function statusDoGrupo(status: Iterable<Status>): Status {
+  const s = new Set(status);
+  if (s.size && [...s].every((x) => x === "concluida")) return "concluida";
+  return s.has("reprogramada") ? "reprogramada" : "programada";
 }
 
 /** Programações do período agrupadas por dia e por turno + equipamento (soma os minutos). turno "sem turno" = só as sem turno. */
 export function calendario(lista: Programacao[], p: Periodo, f: { area?: string; turno?: string } = {}) {
   const itens = lista.filter((x) => x.data >= p.ini && x.data <= p.fim && (!f.area || x.area === f.area)
     && (!f.turno || (f.turno === "sem turno" ? !x.turno : x.turno === f.turno)));
-  const porDia = new Map<string, Map<string, ItemCalendario & { _t: Set<string>; _d: Set<string> }>>();
+  const porDia = new Map<string, Map<string, ItemCalendario & { _t: Set<string>; _d: Set<string>; _s: Set<Status> }>>();
   for (const x of itens) {
     const dia = porDia.get(x.data) ?? porDia.set(x.data, new Map()).get(x.data)!;
     const k = `${x.turno || "sem turno"}|${minusculo(x.equipamento)}`;
     let g = dia.get(k);
     if (!g) dia.set(k, (g = { id: x.id, equipamento: x.equipamento, turno: x.turno || "", status: x.status, minutos: 0, tecnicos: [],
-      descricoes: [], quantidade: 0, _t: new Set(), _d: new Set() }));
+      descricoes: [], quantidade: 0, ids: [], _t: new Set(), _d: new Set(), _s: new Set() }));
     g.minutos += Number(x.minutos) || 0;
     if (x.tecnicoNome) g._t.add(x.tecnicoNome);
     if (x.descricao) g._d.add(x.descricao);
-    if (x.status === "reprogramada") g.status = "reprogramada";
+    g.ids.push(x.id);
+    g._s.add(x.status);
     g.quantidade++;
   }
   const dias = new Map<string, ItemCalendario[]>();
   for (const [d, m] of porDia)
-    dias.set(d, [...m.values()].map(({ _t, _d, ...g }) => ({ ...g, tecnicos: [..._t], descricoes: [..._d] }))
+    dias.set(d, [...m.values()].map(({ _t, _d, _s, ...g }) => ({ ...g, status: statusDoGrupo(_s), tecnicos: [..._t], descricoes: [..._d] }))
       .sort((a, b) => comparar(a.equipamento, b.equipamento)));
   const equipamentos = new Set(itens.map((x) => minusculo(x.equipamento)).filter(Boolean));
   return { datas: datasDoPeriodo(p), dias, diasComProgramacao: porDia.size, equipamentos: equipamentos.size, total: itens.length };
@@ -527,7 +541,7 @@ export function validarTecnico(e: EntradaTecnico, opcoes: { legado?: boolean } =
   if (opcoes.legado && /^n[aã]o informado$/i.test(np)) np = "";
   const centro = normalizarTexto(e.centro).slice(0, 40);
   const area = normalizarTexto(e.area).slice(0, 60);
-  const turno = normalizarTexto(e.turno);
+  const turno = normalizarTexto(e.turno).slice(0, 40);
   const jornadaTexto = String(e.jornada ?? "").trim().replace(",", ".");
   const jornada = Number(jornadaTexto);
   const feriasInicio = dataOpcional(e.feriasInicio), feriasFim = dataOpcional(e.feriasFim), folga = dataOpcional(e.folga);
@@ -634,11 +648,11 @@ export function prepararImportacao(objetos: Record<string, unknown>[], tecnicos:
   const itens: LinhaImportada[] = [];
   const erros: string[] = [];
   if (!objetos.length) return { itens, erros: ["A planilha não possui linhas preenchidas."] };
-  if (objetos.length > MAX_LINHAS_PLANILHA) return { itens, erros: [`Importe no máximo ${MAX_LINHAS_PLANILHA} linhas por vez.`] };
+  if (objetos.length > MAX_LINHAS_PLANILHA) return { itens, erros: [`A planilha passa de ${MAX_LINHAS_PLANILHA} linhas preenchidas: importe no máximo ${MAX_LINHAS_PLANILHA} linhas por vez (divida em mais de um arquivo). Nada foi importado.`] };
   objetos.forEach((o, i) => {
     const linha = i + 2;
-    const np = normalizarTexto(o["NP"]);
-    const tecnico = np ? tecnicos.find((t) => String(t.np ?? "").trim() === np) : undefined;
+    const np = chaveNp(normalizarTexto(o["NP"]));
+    const tecnico = np ? tecnicos.find((t) => chaveNp(t.np) === np) : undefined;
     const turno = normalizarTexto(o["Turno"]);
     const minutos = Number(String(o["Tempo em Min"] ?? "").trim().replace(",", "."));
     const entrada: EntradaProgramacao = {
@@ -687,7 +701,8 @@ export function programacaoDe(id: string, v: Item | undefined): Programacao | nu
 
 export function historicoDe(v: unknown): Reprogramacao[] {
   return Array.isArray(v) ? v.flatMap((h) => (h && typeof h === "object" && isoValida((h as Item).de) && isoValida((h as Item).para)
-    ? [{ de: (h as Item).de as string, para: (h as Item).para as string, em: texto((h as Item).em), por: texto((h as Item).por) }] : [])) : [];
+    ? [{ de: (h as Item).de as string, para: (h as Item).para as string, em: texto((h as Item).em).slice(0, 80),
+      por: texto((h as Item).por).slice(0, 80) }] : [])).slice(-50) : [];
 }
 
 /** Ao editar: se a data mudou, guarda a data anterior no histórico (no máximo as 50 últimas). */

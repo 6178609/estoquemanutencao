@@ -36,6 +36,17 @@ async function gravar(itens: Record<string, Record<string, unknown> | null | Alt
   return { ok: true, msg, avisos };
 }
 
+const ERRO_LEITURA: Resposta = { ok: false, erro: "Não consegui ler o Controle de HH agora. Tente de novo em instantes." };
+
+/** Lê a agenda gravada; em falha devolve null (a ação responde com ERRO_LEITURA em vez de estourar na tela). */
+async function lerAgendaOuNull(): Promise<Awaited<ReturnType<typeof lerAgendaCrua>> | null> {
+  try {
+    return await lerAgendaCrua();
+  } catch {
+    return null;
+  }
+}
+
 const idOk = (id: unknown): id is string => typeof id === "string" && R.ID_VALIDO.test(id);
 
 // ----------------------------------------------------------------------------
@@ -97,7 +108,9 @@ export async function salvarProgramacao(entrada: R.EntradaProgramacao, id?: stri
   const usuario = await quem();
   if (!usuario) return SEM_PERMISSAO;
   if (id !== undefined && !idOk(id)) return { ok: false, erro: "Programação inválida." };
-  const { tecnicos, programacoes } = await lerAgendaCrua();
+  const agenda = await lerAgendaOuNull();
+  if (!agenda) return ERRO_LEITURA;
+  const { tecnicos, programacoes } = agenda;
   const existente = id ? programacoes.find((p) => p.id === id) : undefined;
   if (id && !existente) return { ok: false, erro: "A programação não existe mais; atualize a página." };
   const v = R.validarProgramacao(entrada ?? {}, tecnicos, { semTurnoPermitido: !!existente && !existente.turno });
@@ -139,17 +152,25 @@ export async function importarPlanilha(objetos: Record<string, unknown>[]): Prom
   const usuario = await quem();
   if (!usuario) return SEM_PERMISSAO;
   if (!Array.isArray(objetos)) return { ok: false, erro: "Planilha inválida." };
-  const { tecnicos } = await lerAgendaCrua();
-  const { itens, erros } = R.prepararImportacao(objetos, tecnicos);
-  if (erros.length) return { ok: false, erro: "Corrija a planilha antes de importar.", avisos: erros };
-  const gravar_: Record<string, Alteracao> = {};
-  const em = agora();
-  for (const { linha, entrada } of itens) {
-    const v = R.validarProgramacao(entrada, tecnicos);
-    if (!v.ok) return { ok: false, erro: `Linha ${linha}: ${Object.values(v.erros).join(" ")}` };
-    gravar_[`${R.PREFIXO_PROGRAMACAO}${novoId()}`] = () => R.itemProgramacao({ ...v.valor, criadoEm: em, historico: [] });
+  // só linhas que são objeto (o que vier diferente do navegador é descartado antes das regras)
+  const linhas = objetos.filter((o): o is Record<string, unknown> => !!o && typeof o === "object" && !Array.isArray(o));
+  const agenda = await lerAgendaOuNull();
+  if (!agenda) return ERRO_LEITURA;
+  const { tecnicos } = agenda;
+  try {
+    const { itens, erros } = R.prepararImportacao(linhas, tecnicos);
+    if (erros.length) return { ok: false, erro: "Corrija a planilha antes de importar.", avisos: erros.slice(0, 50) };
+    const gravar_: Record<string, Alteracao> = {};
+    const em = agora();
+    for (const { linha, entrada } of itens) {
+      const v = R.validarProgramacao(entrada, tecnicos);
+      if (!v.ok) return { ok: false, erro: `Linha ${linha}: ${Object.values(v.erros).join(" ")}` };
+      gravar_[`${R.PREFIXO_PROGRAMACAO}${novoId()}`] = () => R.itemProgramacao({ ...v.valor, criadoEm: em, historico: [] });
+    }
+    return gravar(gravar_, usuario, `${itens.length} programação(ões) importada(s) com sucesso.`);
+  } catch {
+    return { ok: false, erro: "Não consegui ler a planilha. Confira se ela segue o modelo e tente de novo." };
   }
-  return gravar(gravar_, usuario, `${itens.length} programação(ões) importada(s) com sucesso.`);
 }
 
 // ----------------------------------------------------------------------------
@@ -160,13 +181,20 @@ export async function importarPlanilha(objetos: Record<string, unknown>[]): Prom
  * os dados atuais são substituídos, como no app original. Tudo é validado de novo aqui.
  */
 export async function restaurarBackup(lote: { tecnicos: R.Tecnico[]; programacoes: R.Programacao[] }, substituir: boolean): Promise<Resposta> {
+  // Num lote só (backup até ~700 kB) a troca é atômica: apaga e grava na mesma gravação. Backup maior vai em partes
+  // (o navegador avisa antes e reenvia uma vez a parte que falhar).
   const usuario = await quem();
   if (!usuario) return SEM_PERMISSAO;
   const tecs = Array.isArray(lote?.tecnicos) ? lote.tecnicos : [], progs = Array.isArray(lote?.programacoes) ? lote.programacoes : [];
   if (tecs.length > 2000 || progs.length > 20000) return { ok: false, erro: "Lote grande demais." };
-  const atuais = substituir ? [] : (await lerAgendaCrua()).tecnicos;
+  let atuais: R.Tecnico[] = [];
   const itens: Record<string, Record<string, unknown> | null> = {};
-  if (substituir) for (const k of Object.keys(await lerCadastro(R.ARQ, { fresco: true }))) itens[k] = null;
+  try {
+    if (substituir) for (const k of Object.keys(await lerCadastro(R.ARQ, { fresco: true }))) itens[k] = null;
+    else atuais = (await lerAgendaCrua()).tecnicos;
+  } catch {
+    return ERRO_LEITURA;
+  }
   const validos: R.Tecnico[] = [];
   for (const t of tecs) {
     const v = R.validarTecnico(t ?? {}, { legado: true });

@@ -1,5 +1,6 @@
 import { gerarXlsx, type CelulaXlsx } from "@/lib/exportacao/xlsx";
 import { Xlsx } from "@/lib/leitura/xlsx";
+import { baixarArquivo } from "@/app/(app)/agenda_hh/comum";
 import {
   COLUNAS_MODELO, MAX_LINHAS_PLANILHA, ROTULO_STATUS, formatarData, type Programacao, type Tecnico,
 } from "./regras";
@@ -11,14 +12,8 @@ import {
 
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-function baixar(nome: string, bytes: Uint8Array) {
-  const blob = new Blob([bytes as BlobPart], { type: MIME_XLSX });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = nome;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
+// o baixarArquivo de comum.tsx só revoga a URL um minuto depois (revogar logo após o click cancela o download em alguns navegadores)
+const baixar = (nome: string, bytes: Uint8Array) => baixarArquivo(nome, bytes as BlobPart, MIME_XLSX);
 
 /** Modelo para preencher e importar: cabeçalho das colunas de COLUNAS_MODELO e uma linha de exemplo fictícia. */
 export function baixarModelo(): void {
@@ -45,10 +40,13 @@ export function exportarProgramacoes(lista: Programacao[], tecnicos: Tecnico[], 
   baixar(`${nome}.xlsx`, gerarXlsx("Programação", colunas, linhas));
 }
 
-/** Linhas cruas da primeira aba (cabeçalho + até MAX_LINHAS_PLANILHA linhas). Datas vêm como objeto de data do leitor. */
+/**
+ * Linhas cruas da primeira aba: cabeçalho + até MAX_LINHAS_PLANILHA + 1 linhas, para que prepararImportacao perceba a
+ * planilha acima do limite e a recuse (em vez de cortar em silêncio). Datas vêm como objeto de data do leitor.
+ */
 export async function lerPlanilha(arquivo: File): Promise<unknown[][]> {
   const x = new Xlsx(new Uint8Array(await arquivo.arrayBuffer()));
   const aba = x.abas[0];
   if (!aba) return [];
-  return x.linhas(aba, MAX_LINHAS_PLANILHA + 1);
+  return x.linhas(aba, MAX_LINHAS_PLANILHA + 2);
 }

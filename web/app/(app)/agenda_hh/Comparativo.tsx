@@ -66,7 +66,7 @@ export function Comparativo({ tecnicos, programacoes, hoje }: { tecnicos: Tecnic
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi rotulo="HH disponíveis" valor={formatarHoras(c.disponivel)} icone={Clock} tom="azul"
-          dica="Dias úteis × jornada, menos férias e folga de cada técnico no período." />
+          dica="Dias úteis × jornada, menos férias, folga e ausências lançadas na Gestão de HH (dia inteiro ou parcial) de cada técnico no período." />
         <Kpi rotulo="HH programadas" valor={formatarHoras(c.programado)} icone={ClipboardList} tom="laranja"
           detalhe={`${formatarNumero(c.programacoes)} programação(ões)`} dica="Soma do tempo das programações do período (minutos ÷ 60)." />
         <Kpi rotulo="Saldo da equipe" valor={formatarHorasSinal(c.saldo)} icone={Scale} tom="verde"

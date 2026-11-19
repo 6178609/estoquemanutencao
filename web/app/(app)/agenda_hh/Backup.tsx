@@ -60,19 +60,26 @@ export function Backup({ tecnicos, programacoes, hoje, edita }: { tecnicos: R.Te
           t.foto = await reduzirImagem(t.foto).catch(() => "");
       }
       const prep = R.prepararRestauracao(dados, novoId);
+      // cabe num lote só: uma gravação (tudo ou nada). Maior: em partes, e a pessoa é avisada antes
+      const partes = lotes(prep.tecnicos, prep.programacoes);
       if (!window.confirm(`Restaurar ${prep.tecnicos.length} técnico(s) e ${prep.programacoes.length} programação(ões)? Os dados atuais serão substituídos.`
+        + (partes.length > 1 ? `\n\nO backup é grande e será gravado em ${partes.length} partes: se uma parte falhar, os dados ficam incompletos até `
+          + "você restaurar de novo (a parte que falhar é reenviada uma vez automaticamente)." : "")
         + (prep.avisos.length ? `\n\n${prep.avisos.length} item(ns) do arquivo não entram (detalhes depois).` : ""))) return;
       iniciar(async () => {
-        const partes = lotes(prep.tecnicos, prep.programacoes);
         for (let i = 0; i < partes.length; i++) {
-          const r = await restaurarBackup(partes[i], i === 0);
+          // uma nova tentativa automática (a gravação de cada parte é idempotente: mesmos ids)
+          let r = await restaurarBackup(partes[i], i === 0).catch((e: Error) => ({ ok: false as const, erro: e.message || "Falha de rede." }));
+          if (!r.ok) r = await restaurarBackup(partes[i], i === 0).catch((e: Error) => ({ ok: false as const, erro: e.message || "Falha de rede." }));
           if (!r.ok) {
-            setAviso({ tipo: "erro", texto: `${r.erro}${i > 0 ? ` (parte ${i + 1} de ${partes.length}; restaure de novo para completar)` : ""}` });
+            setAviso({ tipo: "erro", texto: i === 0
+              ? `${r.erro} Nada foi alterado; tente restaurar de novo.`
+              : `${r.erro} A restauração parou na parte ${i + 1} de ${partes.length} (as ${i} primeiras foram gravadas): os dados estão incompletos. Restaure o mesmo backup de novo para completar.` });
             router.refresh();
             return;
           }
         }
-        setAviso({ tipo: "ok", texto: `Backup restaurado: ${prep.tecnicos.length} técnico(s) e ${prep.programacoes.length} programação(ões).`,
+        setAviso({ tipo: "ok", texto: `Backup restaurado por completo${partes.length > 1 ? ` (${partes.length} partes)` : ""}: ${prep.tecnicos.length} técnico(s) e ${prep.programacoes.length} programação(ões).`,
           lista: prep.avisos.slice(0, 12) });
         router.refresh();
       });
