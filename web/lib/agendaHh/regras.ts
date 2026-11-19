@@ -41,6 +41,8 @@ export interface Tecnico {
   feriasFim: string | null;
   folga: string | null;
   foto: string;
+  /** ausências lançadas na Gestão de HH para o NP do técnico (montadas pela página; não são gravadas aqui) */
+  ausenciasHh?: AusenciaExterna[];
 }
 
 export interface Programacao {
@@ -185,8 +187,8 @@ export interface Disponibilidade {
 /** Ausência de dia inteiro? (carga horária 0 = EAD/fora do horário: não tira HH; carga > 0 = parcial) */
 const diaInteiro = (a: AusenciaExterna) => a.horas == null;
 
-export function disponibilidade(t: Pick<Tecnico, "jornada" | "feriasInicio" | "feriasFim" | "folga">, p: Periodo,
-  externas: AusenciaExterna[] = []): Disponibilidade {
+export function disponibilidade(t: Pick<Tecnico, "jornada" | "feriasInicio" | "feriasFim" | "folga" | "ausenciasHh">, p: Periodo,
+  externas: AusenciaExterna[] = t.ausenciasHh ?? []): Disponibilidade {
   const jornada = Number(t.jornada) || 0;
   const diasUteis = contarDiasUteis(p.ini, p.fim);
   const teorico = diasUteis * jornada;
@@ -205,7 +207,11 @@ export function disponibilidade(t: Pick<Tecnico, "jornada" | "feriasInicio" | "f
       if (diaInteiro(a)) {
         for (let d = a.de < p.ini ? p.ini : a.de; d <= a.ate && d <= p.fim; d = somarDias(d, 1))
           if (diaUtilNoPeriodo(d, p.ini, p.fim) && !nasFerias(d) && !(diasFolga && d === t.folga)) cobertos.add(d);
-      } else if ((a.horas ?? 0) > 0) parciais += a.horas!;
+      } else if ((a.horas ?? 0) > 0) {
+        // carga horária repartida pelos dias corridos da ausência (16 h em 2 dias = 8 h por dia), como na Gestão de HH
+        const dentro = datasDoPeriodo({ ini: a.de < p.ini ? p.ini : a.de, fim: a.ate > p.fim ? p.fim : a.ate }).length;
+        parciais += (a.horas! * dentro) / Math.max(1, datasDoPeriodo({ ini: a.de, fim: a.ate }).length);
+      }
     }
     diasOutras = cobertos.size;
   }
@@ -232,7 +238,8 @@ export function situacao(c: Disponibilidade): SituacaoTecnico {
 /** Ausências da Gestão de HH do técnico (pelo NP, sem zeros à esquerda). */
 export const chaveNp = (np: string) => String(np ?? "").replace(/[\s.\-]/g, "").replace(/^0+(?=\d)/, "");
 export type AusenciasPorNp = Record<string, AusenciaExterna[]>;
-export const ausenciasDo = (t: Pick<Tecnico, "np">, mapa: AusenciasPorNp | undefined) => (t.np && mapa?.[chaveNp(t.np)]) || [];
+export const ausenciasDo = (t: Pick<Tecnico, "np" | "ausenciasHh">, mapa: AusenciasPorNp | undefined) =>
+  (mapa ? (t.np && mapa[chaveNp(t.np)]) || [] : t.ausenciasHh ?? []);
 
 /** Motivo de o dia não ter HH: fim de semana, férias, folga ou ausência da Gestão de HH (null = dia normal). */
 export type MotivoDia = "fim de semana" | "férias" | "folga" | "ausência";
@@ -266,7 +273,7 @@ export function alertas(tecnicos: Tecnico[], lista: Programacao[], p: Periodo, m
     if (!t) continue;
     const ext = ausenciasDo(t, mapa);
     const motivo = motivoDoDia(t, data, ext);
-    const parcial = ext.filter((a) => !diaInteiro(a) && data >= a.de && data <= a.ate).reduce((s, a) => s + (a.horas ?? 0), 0);
+    const parcial = ext.filter((a) => !diaInteiro(a) && data >= a.de && data <= a.ate).reduce((s, a) => s + (a.horas ?? 0) / Math.max(1, datasDoPeriodo({ ini: a.de, fim: a.ate }).length), 0);
     const disponivel = motivo ? 0 : Math.max(0, t.jornada - parcial);
     if (motivo || programado > disponivel + 1e-9)
       out.push({ tecnicoId: id, nome: t.nome, data, disponivel, programado, motivo: motivo ?? "sobrecarga" });
@@ -596,7 +603,7 @@ export function dataDaCelula(v: unknown): string {
     return paraIso(new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * DIA_MS + DIA_MS / 2));
   }
   const t = String(v ?? "").trim();
-  if (isoValida(t)) return t;
+  if (isoValida(t as unknown)) return t;
   const m = t.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   const iso = m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
   return isoValida(iso) ? iso : "";
