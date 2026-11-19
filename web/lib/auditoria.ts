@@ -138,7 +138,17 @@ export async function eventos(f: Filtro = {}): Promise<Evento[]> {
   if (f.acao) q.append("acao", `eq.${f.acao}`);
   if (desde) q.append("em", `gte.${desde}`);
   if (ate) q.append("em", `lte.${ate}`);
-  const resp = await fetch(`${r.url}?${q}`, { headers: r.h(), cache: "no-store", signal: AbortSignal.timeout(8_000) });
+  const foraDoAr = "O banco da auditoria (Supabase) não respondeu: pode estar pausado por falta de uso ou fora do ar. "
+    + "Os registros não se perdem — tente de novo em alguns minutos.";
+  let resp: Response;
+  try {
+    resp = await fetch(`${r.url}?${q}`, { headers: r.h(), cache: "no-store", signal: AbortSignal.timeout(8_000) });
+  } catch {
+    // rede, tempo esgotado ou projeto pausado (o fetch falha sem resposta)
+    throw new Error(foraDoAr);
+  }
+  // 5xx (inclusive 540, projeto pausado): banco fora do ar
+  if (resp.status >= 500) throw new Error(foraDoAr);
   if (!resp.ok) throw new Error(`A trilha de auditoria não respondeu (Supabase ${resp.status}).`);
   return (await resp.json()) as Evento[];
 }

@@ -142,6 +142,9 @@
 - `web/`: o site (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer. É o único código do repositório:
   o site antigo (Streamlit), o robô do SAP, o sincronizador do PC e o Calendário de ordens foram apagados.
   Os exports do SAP entram pela aba Fontes de dados.
+- **Banco sempre ativo (19/11/2026):** o plano gratuito do Supabase pausa o projeto sem uso e a Auditoria dava "fetch failed".
+  Agendamento diário `/api/manter-banco` (vercel.json, 13:41 UTC) faz uma leitura mínima (`lib/manterBanco.ts`); a Auditoria
+  mostra aviso claro se o banco estiver pausado. Se pausar mesmo assim: conector Supabase `restore_project`.
 - Dados: bases do SAP no repositório privado de dados (GitHub); cadastros no Supabase (projeto
   `central-manutencao-sp`, São Paulo) — ver `web/lib/dados/cadastros.ts` e `supabase.ts`. Mudança no banco só por
   migração (conector Supabase `apply_migration`), conferindo depois os avisos de segurança (`get_advisors`).

@@ -17,6 +17,10 @@
     {
       "path": "/api/fotos/buscar",
       "schedule": "17 6 * * *"
+    },
+    {
+      "path": "/api/manter-banco",
+      "schedule": "41 13 * * *"
     }
   ]
 }
