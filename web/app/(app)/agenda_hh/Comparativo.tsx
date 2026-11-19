@@ -12,8 +12,10 @@ import {
 } from "@/lib/agendaHh/analise";
 import {
   type Periodo, type Programacao, type Tecnico, comparar, comparativo, formatarHoras, formatarHorasSinal, formatarNumero,
-  formatarPct, iniciais, periodoDaVisao,
+  formatarPct, periodoDaVisao,
 } from "@/lib/agendaHh/regras";
+
+import { Avatar } from "./comum";
 
 /** Cor de cada status (identidade): concluída no verde de status; os outros nas séries. */
 const COR_STATUS: Record<string, Cor> = { programada: "serie-1", reprogramada: "serie-2", concluida: "st-bom" };
@@ -68,7 +70,7 @@ export function Comparativo({ tecnicos, programacoes, hoje }: { tecnicos: Tecnic
         <Kpi rotulo="HH programadas" valor={formatarHoras(c.programado)} icone={ClipboardList} tom="laranja"
           detalhe={`${formatarNumero(c.programacoes)} programação(ões)`} dica="Soma do tempo das programações do período (minutos ÷ 60)." />
         <Kpi rotulo="Saldo da equipe" valor={formatarHorasSinal(c.saldo)} icone={Scale} tom="verde"
-          status={c.saldo < 0 ? { cor: "vermelho", texto: "Programado acima do disponível" } : undefined}
+          status={c.saldo < 0 ? { cor: "vermelho", texto: "Negativo" } : undefined}
           dica="HH disponíveis − HH programadas." />
         <Kpi rotulo="Ocupação" valor={formatarPct(c.ocupacao)} icone={Gauge} tom="ciano"
           status={c.ocupacao > 100 ? { cor: "vermelho", texto: "Acima de 100%" } : undefined}
@@ -180,7 +182,7 @@ export function Comparativo({ tecnicos, programacoes, hoje }: { tecnicos: Tecnic
                     <tr key={l.tecnico.id} className={clsx(nivel === "sobrecarga" && "bg-[color-mix(in_srgb,var(--selo-critico-fundo)_60%,transparent)]")}>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2.5">
-                          <Avatar t={l.tecnico} />
+                          <Avatar nome={l.tecnico.nome} foto={l.tecnico.foto} tamanho={36} />
                           <div className="min-w-0">
                             <div className="font-semibold text-texto">{l.tecnico.nome}</div>
                             <SelosLinha nivel={nivel} dias={dias} />
@@ -208,7 +210,7 @@ export function Comparativo({ tecnicos, programacoes, hoje }: { tecnicos: Tecnic
               return (
                 <li key={l.tecnico.id} className={clsx("p-4", nivel === "sobrecarga" && "bg-[color-mix(in_srgb,var(--selo-critico-fundo)_60%,transparent)]")}>
                   <div className="flex items-center gap-2.5">
-                    <Avatar t={l.tecnico} />
+                    <Avatar nome={l.tecnico.nome} foto={l.tecnico.foto} tamanho={36} />
                     <div className="min-w-0">
                       <div className="break-words font-semibold text-texto">{l.tecnico.nome}</div>
                       <div className="text-[12px] text-texto-3">NP {l.tecnico.np || "não informado"} · {l.tecnico.centro} · {l.tecnico.turno}</div>
@@ -261,17 +263,6 @@ function Trilho({ valor, max, c, rotulo }: { valor: number; max: number; c: Cor;
       </div>
       <span className="num w-14 shrink-0 text-right text-[12px] font-medium text-texto">{formatarHoras(valor)}</span>
     </div>
-  );
-}
-
-function Avatar({ t }: { t: Tecnico }) {
-  return (
-    <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-superficie-2 text-[12px] font-semibold text-texto-2">
-      {t.foto
-        // eslint-disable-next-line @next/next/no-img-element -- foto é data URL pequena (240 px) guardada no cadastro
-        ? <img src={t.foto} alt="" className="size-full object-cover" />
-        : <span aria-hidden>{iniciais(t.nome)}</span>}
-    </span>
   );
 }
 
