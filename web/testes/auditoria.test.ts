@@ -61,4 +61,29 @@ describe("auditoria", () => {
     expect(aviso).toHaveBeenCalled();
     aviso.mockRestore();
   });
+
+  it("banco pausado ou fora do ar: mensagem clara em vez de \"fetch failed\"", async () => {
+    process.env.SUPABASE_URL = "https://exemplo.supabase.co";
+    process.env.SUPABASE_SECRET_KEY = "sb_secret_ficticia";
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    await expect(eventos()).rejects.toThrow(/não respondeu.*pausado/);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 540 })));
+    await expect(eventos()).rejects.toThrow(/pausado/);
+  });
+});
+
+describe("manter o banco ativo", () => {
+  afterEach(() => { vi.unstubAllGlobals(); delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SECRET_KEY; });
+  it("faz uma leitura mínima e informa se o banco respondeu", async () => {
+    const { manterBancoAtivo } = await import("@/lib/manterBanco");
+    expect((await manterBancoAtivo()).motivo).toBe("sem Supabase configurado");
+    process.env.SUPABASE_URL = "https://exemplo.supabase.co";
+    process.env.SUPABASE_SECRET_KEY = "sb_secret_ficticia";
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => { urls.push(url); return new Response("[]", { status: 200 }); }));
+    expect(await manterBancoAtivo()).toMatchObject({ ok: true, status: 200 });
+    expect(urls[0]).toBe("https://exemplo.supabase.co/rest/v1/auditoria?select=em&limit=1");
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    expect(await manterBancoAtivo()).toMatchObject({ ok: false, status: null });
+  });
 });
