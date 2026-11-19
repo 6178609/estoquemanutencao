@@ -149,6 +149,11 @@ export async function eventos(f: Filtro = {}): Promise<Evento[]> {
   }
   // 5xx (inclusive 540, projeto pausado): banco fora do ar
   if (resp.status >= 500) throw new Error(foraDoAr);
+  // 401/403: a chave secreta do site (SUPABASE_SECRET_KEY, variável da Vercel) foi revogada ou trocada
+  if (resp.status === 401 || resp.status === 403) {
+    throw new Error("O banco da auditoria recusou a chave do site (SUPABASE_SECRET_KEY na Vercel). Um administrador precisa "
+      + "gerar uma chave secreta nova no Supabase (Project Settings → API Keys) e atualizá-la na Vercel; os registros não se perdem.");
+  }
   if (!resp.ok) throw new Error(`A trilha de auditoria não respondeu (Supabase ${resp.status}).`);
   return (await resp.json()) as Evento[];
 }

@@ -69,6 +69,8 @@ describe("auditoria", () => {
     await expect(eventos()).rejects.toThrow(/não respondeu.*pausado/);
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 540 })));
     await expect(eventos()).rejects.toThrow(/pausado/);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 401 })));
+    await expect(eventos()).rejects.toThrow(/recusou a chave do site/);
   });
 });
 
