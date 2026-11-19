@@ -1,7 +1,7 @@
 import { gerarXlsx, type CelulaXlsx } from "@/lib/exportacao/xlsx";
 import { Xlsx } from "@/lib/leitura/xlsx";
 import {
-  COLUNAS_MODELO, MAX_LINHAS_PLANILHA, ROTULO_STATUS, formatarData, hojeIso, type Programacao, type Tecnico,
+  COLUNAS_MODELO, MAX_LINHAS_PLANILHA, ROTULO_STATUS, formatarData, type Programacao, type Tecnico,
 } from "./regras";
 
 /**
@@ -23,9 +23,8 @@ function baixar(nome: string, bytes: Uint8Array) {
 /** Modelo para preencher e importar: cabeçalho das colunas de COLUNAS_MODELO e uma linha de exemplo fictícia. */
 export function baixarModelo(): void {
   const colunas = COLUNAS_MODELO.map((titulo) => ({ titulo, largura: titulo === "Descrição" ? 40 : 18 }));
-  const exemplo: CelulaXlsx[] = ["PRENSA-01", "YM11", "9000001", "Troca de rolamento (exemplo)", "Mecânica",
-    formatarData(hojeIso()), "1º turno", "programada", 120, "1000001"];
-  baixar("modelo_programacao_hh.xlsx", gerarXlsx("Programação", colunas, [exemplo]));
+  // só o cabeçalho: uma linha de exemplo com NP fictício faria a importação recusar a planilha inteira
+  baixar("modelo_programacao_hh.xlsx", gerarXlsx("Programação", colunas, []));
 }
 
 /** Uma linha por programação, com colunas legíveis em pt-BR, datas dd/mm/aaaa e duração em minutos e em horas. */
