@@ -57,6 +57,8 @@
 - Melhorias sobre o original: preenche a ordem pela IW38, traz a equipe da Gestão de HH, alertas de sobrecarga (programado
   acima do disponível, fim de semana, férias/folga), status "Concluída" e aderência, HH por tipo de ordem, histórico de
   reprogramação, Excel (modelo, importar até 500 linhas, exportar) e backup no formato do sistema antigo (para migrar).
+- Turnos da programação: 1º, Administrativo e 2º (pedido do usuário, 19/11/2026); no calendário o Administrativo fica numa
+  faixa entre o 1º e o 2º turno (metade em cada); a planilha aceita "ADM", "1", "2o turno" etc. (`turnoDaCelula`).
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

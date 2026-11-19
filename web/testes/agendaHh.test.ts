@@ -477,7 +477,7 @@ describe("validarProgramacao", () => {
   it("turno: 1º ou 2º; vazio só se for registro antigo (semTurnoPermitido)", () => {
     const r = validarProgramacao({ ...ok, turno: "3º turno" }, tecnicos);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.erros.turno).toBe("Selecione o 1º ou 2º turno.");
+    if (!r.ok) expect(r.erros.turno).toBe("Selecione o turno: 1º, Administrativo ou 2º.");
     expect(validarProgramacao({ ...ok, turno: "" }, tecnicos).ok).toBe(false);
     const antigo = validarProgramacao({ ...ok, turno: "" }, tecnicos, { semTurnoPermitido: true });
     expect(antigo.ok && antigo.valor.turno).toBe("");
@@ -550,7 +550,7 @@ describe("prepararImportacao", () => {
     expect(r.itens.map((i) => i.linha)).toEqual([2]);
     expect(r.erros).toHaveLength(2);
     expect(r.erros[0]).toBe("Linha 3: Equipamento, NP não cadastrado");
-    expect(r.erros[1]).toBe("Linha 4: Status, Turno (1º turno ou 2º turno), Tempo em Min");
+    expect(r.erros[1]).toBe("Linha 4: Status, Turno (1º turno, Administrativo ou 2º turno), Tempo em Min");
   });
 
   it("status concluída (com acento) é aceito; minutos fracionários são erro", () => {
@@ -673,5 +673,18 @@ describe("prepararRestauracao", () => {
     })!, novoId);
     expect(r.programacoes[0].criadoEm).toBe("");
     expect(r.programacoes[0].historico).toEqual([{ de: "2026-11-15", para: "2026-11-16", em: "x", por: "Administrador" }]);
+  });
+});
+
+describe("turno administrativo", () => {
+  it("é aceito na programação e lido da planilha em várias grafias", async () => {
+    const { turnoDaCelula, TURNOS_PROGRAMACAO } = await import("@/lib/agendaHh/regras");
+    expect(TURNOS_PROGRAMACAO).toContain("Administrativo");
+    expect(turnoDaCelula("ADM")).toBe("Administrativo");
+    expect(turnoDaCelula("administrativo")).toBe("Administrativo");
+    expect(turnoDaCelula("1")).toBe("1º turno");
+    expect(turnoDaCelula("2o turno")).toBe("2º turno");
+    expect(turnoDaCelula("1º turno")).toBe("1º turno");
+    expect(turnoDaCelula("")).toBe("");
   });
 });
