@@ -30,6 +30,7 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   descrição (PDM + medidas) quando houver crédito, gravando `equivalente: true`.
   17/11 (rotina diária): 40 buscados, 16 fotos novas; 13 imagens diretas para páginas que não baixavam; 454 de 560 fotos
   baixadas no padrão 1600×1600; ~1.200 na fila. Firecrawl sem crédito de novo após ~60 chamadas (renova 18/11 14h51 UTC).
+  19/11: 50 buscados, 19 fotos novas; 473 de 604 fotos baixadas no padrão; ~1.100 na fila (Firecrawl: ~50 por dia).
   18/11: 51 buscados, 27 fotos novas; 465 de 585 fotos baixadas no padrão; 9 materiais ficaram para a próxima rodada.
   17/11: pedido de acesso bloqueado para quem já tem usuário (NP com/sem zeros ou mesmo nome) e para 2º pedido pendente.
   17/11: Next.js 16.4.2 → 16.4.6 (falha de segurança conhecida) e nodemailer 10.1.2 → 10.6.0 (npm audit sem alertas).
