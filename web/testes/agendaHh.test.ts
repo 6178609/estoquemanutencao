@@ -341,7 +341,7 @@ describe("calendario", () => {
     expect(itens).toHaveLength(2);
     const turno1 = itens.find((i) => i.turno === "1º turno")!;
     expect(turno1).toEqual({
-      id: "x1", equipamento: "Prensa 1", turno: "1º turno", status: "reprogramada", minutos: 90, quantidade: 2,
+      id: "x1", equipamento: "Prensa 1", turno: "1º turno", status: "reprogramada", minutos: 90, quantidade: 2, ids: ["x1", "x2"],
       tecnicos: ["Técnico A", "Técnico B"], descricoes: ["Troca de correia"],
     });
     const semTurno = itens.find((i) => i.turno === "")!;

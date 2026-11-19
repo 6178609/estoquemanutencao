@@ -49,6 +49,15 @@
 - **Cadastro de material:** aprovadores marcados em Usuários (Almoxarifado / PCM); Terceiro nunca aprova; só aprova quem vê a
   aba (regras em `web/lib/cadastroMaterial/`).
 
+## Controle de HH (aba `agenda_hh`, pedido do usuário, 19/11/2026)
+- Recria no site o antigo "Controle de HH | PCM" (Cloudflare Workers), com 5 sub-abas: Horas disponíveis, Programação,
+  Comparativo, Cobertura e Calendário. Regras em `web/lib/agendaHh/regras.ts` (dias úteis seg–sex, disponível = dias úteis ×
+  jornada − férias − folga − ausências da Gestão de HH, sem contar dia em dobro) e `analise.ts`; dados no cadastro
+  `agenda_hh.json`; gravação só por `acoes.ts` (aba + `podeEditar` + fora da demonstração, validação no servidor).
+- Melhorias sobre o original: preenche a ordem pela IW38, traz a equipe da Gestão de HH, alertas de sobrecarga (programado
+  acima do disponível, fim de semana, férias/folga), status "Concluída" e aderência, HH por tipo de ordem, histórico de
+  reprogramação, Excel (modelo, importar até 500 linhas, exportar) e backup no formato do sistema antigo (para migrar).
+
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
   (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET`). Montagem em
