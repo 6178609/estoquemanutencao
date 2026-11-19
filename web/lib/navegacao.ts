@@ -36,6 +36,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "mao_de_obra", titulo: "Mão de obra e backlog", icone: "HardHat", rota: "/mao_de_obra" },
     { id: "gestao_hh", titulo: "Gerenciador de HH", icone: "UsersRound", rota: "/gestao_hh" },
     { id: "programacao_paradas", titulo: "Programação de paradas", icone: "CalendarCog", rota: "/programacao_paradas" },
+    { id: "agenda_hh", titulo: "Controle de HH", icone: "CalendarClock", rota: "/agenda_hh" },
     { id: "treinamentos_ferias", titulo: "Treinamentos e férias", icone: "GraduationCap", rota: "/treinamentos_ferias" },
   ] },
   { titulo: "Custos e suprimentos", abas: [

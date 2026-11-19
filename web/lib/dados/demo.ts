@@ -2,6 +2,8 @@
  * Modo demonstração: dados FICTÍCIOS gerados aqui, usados quando o site não tem fonte de dados configurada
  * (ex.: o primeiro deploy na Vercel antes de colocar o token). Nada aqui é dado da empresa.
  */
+import { agendaDemo } from "../agendaHh/demo";
+import { ARQ as ARQ_AGENDA, hojeIso, itemProgramacao, itemTecnico, PREFIXO_PROGRAMACAO, PREFIXO_TECNICO } from "../agendaHh/regras";
 import { AG_ALMOX, AG_PCM, ARQ_PEDIDOS, CONCLUIDO } from "../cadastroMaterial/regras";
 import { chaveMes } from "../wcm/orcamento";
 import { hoje, inicioDoMes, somarMeses } from "../wcm/util";
@@ -123,12 +125,22 @@ function pedidosDemo(): Record<string, Record<string, unknown>> {
   };
 }
 
+/** Controle de HH: técnicos e programações fictícios em volta de hoje (lib/agendaHh/demo.ts). */
+function agendaHhDemo(): Record<string, Record<string, unknown>> {
+  const { tecnicos, programacoes } = agendaDemo(hojeIso());
+  return Object.fromEntries([
+    ...tecnicos.map(({ id, ...t }) => [`${PREFIXO_TECNICO}${id}`, itemTecnico(t)]),
+    ...programacoes.map(({ id, ...p }) => [`${PREFIXO_PROGRAMACAO}${id}`, itemProgramacao(p)]),
+  ]);
+}
+
 const globalDemo = globalThis as unknown as { __cmCadastrosDemo?: Map<string, Record<string, Record<string, unknown>>> };
 const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<string, Record<string, unknown>>>([
   ["cadastro_materiais.json", {}],
   ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] } }],
   ["metas_wcm.json", orcamentoDemo(hoje())],
   [ARQ_PEDIDOS, pedidosDemo()],
+  [ARQ_AGENDA, agendaHhDemo()],
   // uma sugestão de foto de exemplo (o endereço não existe: a tela mostra que não carregou)
   ["sugestoes_fotos.json", { "500000": { sugestoes: [{ url: "https://exemplo.invalid/foto-sugerida.jpg",
     pagina: "https://exemplo.invalid/produto", titulo: "Exemplo de sugestão (demonstração)" }], buscado_em: "2026-01-01T00:00:00+00:00" } }],
