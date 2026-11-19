@@ -16,9 +16,9 @@ export const PREFIXO_PROGRAMACAO = "p_";
 
 export const TURNOS_TECNICO = ["1º turno", "2º turno", "3º turno", "Administrativo"] as const;
 export const TURNOS_PROGRAMACAO = ["1º turno", "2º turno"] as const;
-export const STATUS = ["programada", "reprogramada"] as const;
+export const STATUS = ["programada", "reprogramada", "concluida"] as const;
 export type Status = (typeof STATUS)[number];
-export const ROTULO_STATUS: Record<Status, string> = { programada: "Programada", reprogramada: "Reprogramada" };
+export const ROTULO_STATUS: Record<Status, string> = { programada: "Programada", reprogramada: "Reprogramada", concluida: "Concluída" };
 /** Sugestões do campo "Centro de trabalho" (o campo aceita qualquer texto). */
 export const CENTROS_SUGERIDOS = ["Mistura", "Prensas", "Vulcanização", "Injetados", "Acabamento", "Utilidades"];
 
@@ -59,7 +59,14 @@ export interface Programacao {
   tecnicoNome: string;
   np: string;
   criadoEm: string;
+  /** reprogramações: a data anterior, a nova, quando e quem mudou */
+  historico: Reprogramacao[];
 }
+
+export interface Reprogramacao { de: string; para: string; em: string; por: string }
+
+/** Ausência lançada na Gestão de HH (férias, afastamento, treinamento, folga…), já em datas ISO. `horas` > 0 = parcial. */
+export interface AusenciaExterna { tipo: string; de: string; ate: string; horas: number | null }
 
 export interface Periodo { ini: string; fim: string }
 export type ModoPeriodo = "dia" | "semana" | "mes" | "personalizado";
@@ -168,40 +175,116 @@ export interface Disponibilidade {
   horasFerias: number;
   diasFolga: number;
   horasFolga: number;
+  /** dias úteis de ausências da Gestão de HH que não caem nas férias/folga do cadastro */
+  diasOutras: number;
+  /** horas dessas ausências (dias inteiros + cargas parciais, como treinamento de 4 h) */
+  horasOutras: number;
   disponivel: number;
 }
 
-export function disponibilidade(t: Pick<Tecnico, "jornada" | "feriasInicio" | "feriasFim" | "folga">, p: Periodo): Disponibilidade {
+/** Ausência de dia inteiro? (carga horária 0 = EAD/fora do horário: não tira HH; carga > 0 = parcial) */
+const diaInteiro = (a: AusenciaExterna) => a.horas == null;
+
+export function disponibilidade(t: Pick<Tecnico, "jornada" | "feriasInicio" | "feriasFim" | "folga">, p: Periodo,
+  externas: AusenciaExterna[] = []): Disponibilidade {
   const jornada = Number(t.jornada) || 0;
   const diasUteis = contarDiasUteis(p.ini, p.fim);
   const teorico = diasUteis * jornada;
   const diasFerias = sobreposicaoDiasUteis(p.ini, p.fim, t.feriasInicio, t.feriasFim);
   const horasFerias = Math.min(teorico, diasFerias * jornada);
-  const folgaNasFerias = !!(t.folga && t.feriasInicio && t.feriasFim && t.folga >= t.feriasInicio && t.folga <= t.feriasFim);
+  const nasFerias = (d: string) => !!(t.feriasInicio && t.feriasFim && d >= t.feriasInicio && d <= t.feriasFim);
+  const folgaNasFerias = !!t.folga && nasFerias(t.folga);
   const diasFolga = diaUtilNoPeriodo(t.folga, p.ini, p.fim) && !folgaNasFerias ? 1 : 0;
   const horasFolga = diasFolga * jornada;
-  return { diasUteis, teorico, diasFerias, horasFerias, diasFolga, horasFolga, disponivel: Math.max(0, teorico - horasFerias - horasFolga) };
+  // ausências da Gestão de HH: cada dia útil conta uma vez só (fora das férias e da folga do cadastro)
+  let diasOutras = 0, parciais = 0;
+  if (externas.length) {
+    const cobertos = new Set<string>();
+    for (const a of externas) {
+      if (!isoValida(a.de) || !isoValida(a.ate) || a.ate < p.ini || a.de > p.fim) continue;
+      if (diaInteiro(a)) {
+        for (let d = a.de < p.ini ? p.ini : a.de; d <= a.ate && d <= p.fim; d = somarDias(d, 1))
+          if (diaUtilNoPeriodo(d, p.ini, p.fim) && !nasFerias(d) && !(diasFolga && d === t.folga)) cobertos.add(d);
+      } else if ((a.horas ?? 0) > 0) parciais += a.horas!;
+    }
+    diasOutras = cobertos.size;
+  }
+  const restante = Math.max(0, teorico - horasFerias - horasFolga);
+  const horasOutras = Math.min(restante, diasOutras * jornada + parciais);
+  return { diasUteis, teorico, diasFerias, horasFerias, diasFolga, horasFolga, diasOutras, horasOutras,
+    disponivel: Math.max(0, restante - horasOutras) };
 }
 
-export type SituacaoTecnico = "disponivel" | "ferias" | "folga" | "indisponivel";
+export type SituacaoTecnico = "disponivel" | "ferias" | "folga" | "ausencia" | "indisponivel";
 export const ROTULO_SITUACAO: Record<SituacaoTecnico, string> = {
-  disponivel: "Disponível", ferias: "Férias no período", folga: "Folga no período", indisponivel: "Indisponível",
+  disponivel: "Disponível", ferias: "Férias no período", folga: "Folga no período", ausencia: "Ausência na Gestão de HH",
+  indisponivel: "Indisponível",
 };
 
 export function situacao(c: Disponibilidade): SituacaoTecnico {
   if (c.disponivel === 0 && c.teorico > 0) return "indisponivel";
   if (c.diasFerias > 0) return "ferias";
   if (c.diasFolga > 0) return "folga";
+  if (c.horasOutras > 0) return "ausencia";
   return "disponivel";
 }
+
+/** Ausências da Gestão de HH do técnico (pelo NP, sem zeros à esquerda). */
+export const chaveNp = (np: string) => String(np ?? "").replace(/[\s.\-]/g, "").replace(/^0+(?=\d)/, "");
+export type AusenciasPorNp = Record<string, AusenciaExterna[]>;
+export const ausenciasDo = (t: Pick<Tecnico, "np">, mapa: AusenciasPorNp | undefined) => (t.np && mapa?.[chaveNp(t.np)]) || [];
+
+/** Motivo de o dia não ter HH: fim de semana, férias, folga ou ausência da Gestão de HH (null = dia normal). */
+export type MotivoDia = "fim de semana" | "férias" | "folga" | "ausência";
+export function motivoDoDia(t: Pick<Tecnico, "feriasInicio" | "feriasFim" | "folga">, data: string, externas: AusenciaExterna[] = []): MotivoDia | null {
+  const w = diaDaSemana(data);
+  if (w === 0 || w === 6) return "fim de semana";
+  if (t.feriasInicio && t.feriasFim && data >= t.feriasInicio && data <= t.feriasFim) return "férias";
+  if (t.folga === data) return "folga";
+  if (externas.some((a) => diaInteiro(a) && data >= a.de && data <= a.ate)) return "ausência";
+  return null;
+}
+
+export interface Alerta { tecnicoId: string; nome: string; data: string; disponivel: number; programado: number; motivo: MotivoDia | "sobrecarga" }
+
+/**
+ * Alertas de sobrecarga: técnico/dia com mais horas programadas do que as disponíveis no dia (jornada menos ausência
+ * parcial), ou com programação em fim de semana, férias, folga ou ausência da Gestão de HH. Concluídas não contam.
+ */
+export function alertas(tecnicos: Tecnico[], lista: Programacao[], p: Periodo, mapa?: AusenciasPorNp): Alerta[] {
+  const porTecDia = new Map<string, number>();
+  for (const x of lista) {
+    if (x.status === "concluida" || x.data < p.ini || x.data > p.fim) continue;
+    const k = `${x.tecnicoId}|${x.data}`;
+    porTecDia.set(k, (porTecDia.get(k) ?? 0) + (Number(x.minutos) || 0) / 60);
+  }
+  const porId = new Map(tecnicos.map((t) => [t.id, t]));
+  const out: Alerta[] = [];
+  for (const [k, programado] of porTecDia) {
+    const [id, data] = k.split("|");
+    const t = porId.get(id);
+    if (!t) continue;
+    const ext = ausenciasDo(t, mapa);
+    const motivo = motivoDoDia(t, data, ext);
+    const parcial = ext.filter((a) => !diaInteiro(a) && data >= a.de && data <= a.ate).reduce((s, a) => s + (a.horas ?? 0), 0);
+    const disponivel = motivo ? 0 : Math.max(0, t.jornada - parcial);
+    if (motivo || programado > disponivel + 1e-9)
+      out.push({ tecnicoId: id, nome: t.nome, data, disponivel, programado, motivo: motivo ?? "sobrecarga" });
+  }
+  return out.sort((a, b) => a.data.localeCompare(b.data) || comparar(a.nome, b.nome));
+}
+
+export const textoAlerta = (a: Alerta) => a.motivo === "sobrecarga"
+  ? `${a.nome}: ${formatarHoras(a.programado)} programadas para ${formatarHoras(a.disponivel)} disponíveis em ${formatarData(a.data)}`
+  : `${a.nome}: programação em dia de ${a.motivo} (${formatarData(a.data)})`;
 
 export interface FiltrosTecnicos { centro?: string; turno?: string; area?: string; busca?: string; ordem?: "maior" | "menor" | "nome" }
 
 export const comparar = (a: string, b: string) => String(a).localeCompare(String(b), "pt-BR", { sensitivity: "base" });
 
-export function tecnicosVisiveis(tecnicos: Tecnico[], p: Periodo, f: FiltrosTecnicos = {}): Tecnico[] {
+export function tecnicosVisiveis(tecnicos: Tecnico[], p: Periodo, f: FiltrosTecnicos = {}, mapa?: AusenciasPorNp): Tecnico[] {
   const busca = (f.busca ?? "").trim().toLocaleLowerCase("pt-BR");
-  const disp = new Map(tecnicos.map((t) => [t.id, disponibilidade(t, p).disponivel]));
+  const disp = new Map(tecnicos.map((t) => [t.id, disponibilidade(t, p, ausenciasDo(t, mapa)).disponivel]));
   return tecnicos
     .filter((t) => (!f.centro || t.centro === f.centro) && (!f.turno || t.turno === f.turno) && (!f.area || t.area === f.area)
       && (!busca || t.nome.toLocaleLowerCase("pt-BR").includes(busca)))
@@ -214,22 +297,22 @@ export function tecnicosVisiveis(tecnicos: Tecnico[], p: Periodo, f: FiltrosTecn
 
 export interface ResumoHoras { total: number; exibidos: number; ausencias: number; media: number }
 
-export function resumoHoras(tecnicos: Tecnico[], p: Periodo): ResumoHoras {
-  const calc = tecnicos.map((t) => disponibilidade(t, p));
+export function resumoHoras(tecnicos: Tecnico[], p: Periodo, mapa?: AusenciasPorNp): ResumoHoras {
+  const calc = tecnicos.map((t) => disponibilidade(t, p, ausenciasDo(t, mapa)));
   const total = calc.reduce((s, c) => s + c.disponivel, 0);
-  return { total, exibidos: tecnicos.length, ausencias: calc.filter((c) => c.diasFerias > 0 || c.diasFolga > 0).length,
+  return { total, exibidos: tecnicos.length, ausencias: calc.filter((c) => c.diasFerias > 0 || c.diasFolga > 0 || c.horasOutras > 0).length,
     media: tecnicos.length ? total / tecnicos.length : 0 };
 }
 
 /** Soma das horas disponíveis por centro de trabalho (maior primeiro). */
-export function horasPorCentro(tecnicos: Tecnico[], p: Periodo): { rotulo: string; valor: number }[] {
+export function horasPorCentro(tecnicos: Tecnico[], p: Periodo, mapa?: AusenciasPorNp): { rotulo: string; valor: number }[] {
   const m = new Map<string, number>();
-  for (const t of tecnicos) m.set(t.centro, (m.get(t.centro) ?? 0) + disponibilidade(t, p).disponivel);
+  for (const t of tecnicos) m.set(t.centro, (m.get(t.centro) ?? 0) + disponibilidade(t, p, ausenciasDo(t, mapa)).disponivel);
   return [...m.entries()].map(([rotulo, valor]) => ({ rotulo, valor })).sort((a, b) => b.valor - a.valor || comparar(a.rotulo, b.rotulo));
 }
 
-export function horasPorTecnico(tecnicos: Tecnico[], p: Periodo): { rotulo: string; valor: number }[] {
-  return tecnicos.map((t) => ({ rotulo: `${t.nome} • ${t.centro}`, valor: disponibilidade(t, p).disponivel }))
+export function horasPorTecnico(tecnicos: Tecnico[], p: Periodo, mapa?: AusenciasPorNp): { rotulo: string; valor: number }[] {
+  return tecnicos.map((t) => ({ rotulo: `${t.nome} • ${t.centro}`, valor: disponibilidade(t, p, ausenciasDo(t, mapa)).disponivel }))
     .sort((a, b) => b.valor - a.valor || comparar(a.rotulo, b.rotulo));
 }
 
@@ -241,17 +324,21 @@ export function distintos<T>(itens: T[], campo: (i: T) => string): string[] {
 // ----------------------------------------------------------------------------
 // Programação e comparativo
 // ----------------------------------------------------------------------------
-export function buscarProgramacoes(lista: Programacao[], busca: string, status: string): Programacao[] {
-  const q = busca.trim().toLocaleLowerCase("pt-BR");
+export interface FiltrosProgramacao { busca?: string; status?: string; tecnicoId?: string; area?: string; de?: string; ate?: string }
+
+export function buscarProgramacoes(lista: Programacao[], f: FiltrosProgramacao = {}): Programacao[] {
+  const q = (f.busca ?? "").trim().toLocaleLowerCase("pt-BR");
   return lista.filter((p) => {
     const texto = [p.equipamento, p.ordem, p.descricao, p.area, p.tecnicoNome, p.np].join(" ").toLocaleLowerCase("pt-BR");
-    return (!q || texto.includes(q)) && (!status || p.status === status);
+    return (!q || texto.includes(q)) && (!f.status || p.status === f.status) && (!f.tecnicoId || p.tecnicoId === f.tecnicoId)
+      && (!f.area || p.area === f.area) && (!f.de || p.data >= f.de) && (!f.ate || p.data <= f.ate);
   });
 }
 
 export function resumoProgramacao(lista: Programacao[]) {
   return { total: lista.length, programadas: lista.filter((p) => p.status === "programada").length,
     reprogramadas: lista.filter((p) => p.status === "reprogramada").length,
+    concluidas: lista.filter((p) => p.status === "concluida").length,
     minutos: lista.reduce((s, p) => s + (Number(p.minutos) || 0), 0) };
 }
 
@@ -262,19 +349,30 @@ export function horasProgramadas(lista: Programacao[], tecnicoId: string, p: Per
 
 export interface LinhaComparativo { tecnico: Tecnico; disponivel: number; programado: number; saldo: number; ocupacao: number }
 
-export function comparativo(tecnicos: Tecnico[], lista: Programacao[], p: Periodo, f: { area?: string; tecnicoId?: string } = {}) {
+export function comparativo(tecnicos: Tecnico[], lista: Programacao[], p: Periodo, f: { area?: string; tecnicoId?: string } = {},
+  mapa?: AusenciasPorNp) {
   const linhas: LinhaComparativo[] = tecnicos
     .filter((t) => (!f.area || t.area === f.area) && (!f.tecnicoId || t.id === f.tecnicoId))
     .sort((a, b) => comparar(a.nome, b.nome))
     .map((tecnico) => {
-      const disponivel = disponibilidade(tecnico, p).disponivel;
+      const disponivel = disponibilidade(tecnico, p, ausenciasDo(tecnico, mapa)).disponivel;
       const programado = horasProgramadas(lista, tecnico.id, p);
       const ocupacao = disponivel > 0 ? (programado / disponivel) * 100 : programado > 0 ? 100 : 0;
       return { tecnico, disponivel, programado, saldo: disponivel - programado, ocupacao };
     });
   const disponivel = linhas.reduce((s, l) => s + l.disponivel, 0);
   const programado = linhas.reduce((s, l) => s + l.programado, 0);
-  return { linhas, disponivel, programado, saldo: disponivel - programado, ocupacao: disponivel > 0 ? (programado / disponivel) * 100 : 0 };
+  const ids = new Set(linhas.map((l) => l.tecnico.id));
+  const doPeriodo = lista.filter((x) => ids.has(x.tecnicoId) && x.data >= p.ini && x.data <= p.fim);
+  const concluidas = doPeriodo.filter((x) => x.status === "concluida").length;
+  // HH programado por tipo de ordem (maior primeiro)
+  const tipos = new Map<string, number>();
+  for (const x of doPeriodo) tipos.set(x.tipoOrdem || "Sem tipo", (tipos.get(x.tipoOrdem || "Sem tipo") ?? 0) + (Number(x.minutos) || 0) / 60);
+  return { linhas, disponivel, programado, saldo: disponivel - programado, ocupacao: disponivel > 0 ? (programado / disponivel) * 100 : 0,
+    /** aderência: concluídas ÷ programações do período (null sem programação) */
+    aderencia: doPeriodo.length ? (concluidas / doPeriodo.length) * 100 : null, concluidas, programacoes: doPeriodo.length,
+    porTipo: [...tipos.entries()].map(([rotulo, valor]) => ({ rotulo, valor })).sort((a, b) => b.valor - a.valor || comparar(a.rotulo, b.rotulo)),
+    alertas: alertas(linhas.map((l) => l.tecnico), lista, p, mapa) };
 }
 
 // ----------------------------------------------------------------------------
@@ -453,7 +551,7 @@ export interface EntradaProgramacao {
  * ser editado: `semTurnoPermitido`); minutos inteiros de 1 a 10.080; o técnico tem de estar cadastrado.
  */
 export function validarProgramacao(e: EntradaProgramacao, tecnicos: Tecnico[], opcoes: { semTurnoPermitido?: boolean } = {}):
-  Resultado<Omit<Programacao, "id" | "criadoEm">> {
+  Resultado<Omit<Programacao, "id" | "criadoEm" | "historico">> {
   const erros: Erros = {};
   const equipamento = normalizarTexto(e.equipamento).slice(0, 80);
   const tipoOrdem = normalizarTexto(e.tipoOrdem).slice(0, 40);
@@ -506,7 +604,7 @@ export function dataDaCelula(v: unknown): string {
 
 export function statusDaCelula(v: unknown): Status | "" {
   const n = String(v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
-  return n === "programada" || n === "reprogramada" ? n : "";
+  return n === "programada" || n === "reprogramada" ? n : n === "concluida" ? "concluida" : "";
 }
 
 /** Linha da planilha → texto por coluna do modelo (cabeçalho comparado sem acento nem caixa). */
@@ -575,9 +673,20 @@ export function tecnicoDe(id: string, v: Item | undefined): Tecnico | null {
 export function programacaoDe(id: string, v: Item | undefined): Programacao | null {
   if (!v || typeof v !== "object" || !isoValida(v.data)) return null;
   return { id, equipamento: texto(v.equipamento), tipoOrdem: texto(v.tipoOrdem), ordem: texto(v.ordem), descricao: texto(v.descricao),
-    area: texto(v.area), data: v.data, turno: texto(v.turno), status: v.status === "reprogramada" ? "reprogramada" : "programada",
+    area: texto(v.area), data: v.data, turno: texto(v.turno), status: STATUS.includes(v.status as Status) ? v.status as Status : "programada",
     minutos: Number(v.minutos) || 0, tecnicoId: texto(v.tecnicoId), tecnicoNome: texto(v.tecnicoNome), np: texto(v.np),
-    criadoEm: texto(v.criadoEm) };
+    criadoEm: texto(v.criadoEm), historico: historicoDe(v.historico) };
+}
+
+export function historicoDe(v: unknown): Reprogramacao[] {
+  return Array.isArray(v) ? v.flatMap((h) => (h && typeof h === "object" && isoValida((h as Item).de) && isoValida((h as Item).para)
+    ? [{ de: (h as Item).de as string, para: (h as Item).para as string, em: texto((h as Item).em), por: texto((h as Item).por) }] : [])) : [];
+}
+
+/** Ao editar: se a data mudou, guarda a data anterior no histórico (no máximo as 50 últimas). */
+export function comReprogramacao(antes: Pick<Programacao, "data" | "historico">, novaData: string, em: string, por: string): Reprogramacao[] {
+  if (antes.data === novaData) return antes.historico;
+  return [...antes.historico, { de: antes.data, para: novaData, em, por }].slice(-50);
 }
 
 export function lerAgenda(cad: Record<string, Item>): { tecnicos: Tecnico[]; programacoes: Programacao[] } {
@@ -597,7 +706,8 @@ export function itemTecnico(t: Omit<Tecnico, "id">): Item {
   return Object.fromEntries(Object.entries({ ...t, tipo: "tecnico" }).filter(([, v]) => v !== null && v !== ""));
 }
 export function itemProgramacao(p: Omit<Programacao, "id">): Item {
-  return Object.fromEntries(Object.entries({ ...p, tipo: "programacao" }).filter(([, v]) => v !== null && v !== ""));
+  return Object.fromEntries(Object.entries({ ...p, tipo: "programacao" })
+    .filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && !v.length)));
 }
 
 // ----------------------------------------------------------------------------
@@ -618,7 +728,8 @@ export function backupDoSistema(tecnicos: Tecnico[], programacoes: Programacao[]
       dailyHours: t.jornada, vacationStart: t.feriasInicio, vacationEnd: t.feriasFim, dayOffDate: t.folga, photo: t.foto })),
     programming: programacoes.map((p) => ({ id: p.id, equipment: p.equipamento, orderType: p.tipoOrdem, orderNumber: p.ordem,
       description: p.descricao, area: p.area, scheduledDate: p.data, shift: p.turno, status: p.status, durationMinutes: p.minutos,
-      technicianId: p.tecnicoId, technicianName: p.tecnicoNome, personalNumber: p.np, createdAt: p.criadoEm })),
+      technicianId: p.tecnicoId, technicianName: p.tecnicoNome, personalNumber: p.np, createdAt: p.criadoEm,
+      rescheduleHistory: p.historico.map((h) => ({ from: h.de, to: h.para, at: h.em, by: h.por })) })),
   };
 }
 
@@ -632,14 +743,17 @@ export function entradaTecnicoDoBackup(o: Record<string, unknown>): EntradaTecni
     feriasFim: o.vacationEnd ?? o.feriasFim, folga: o.dayOffDate ?? o.folga, foto: o.photo ?? o.foto };
 }
 
-export interface ProgramacaoBackup extends EntradaProgramacao { id: string; tecnicoNome: string; np: string; criadoEm: string }
+export interface ProgramacaoBackup extends EntradaProgramacao { id: string; tecnicoNome: string; np: string; criadoEm: string; historico: Reprogramacao[] }
 
 export function entradaProgramacaoDoBackup(o: Record<string, unknown>): ProgramacaoBackup {
   return { id: texto(o.id), equipamento: o.equipment ?? o.equipamento, tipoOrdem: o.orderType ?? o.tipoOrdem, ordem: o.orderNumber ?? o.ordem,
     descricao: o.description ?? o.descricao, area: o.area, data: o.scheduledDate ?? o.data, turno: o.shift ?? o.turno, status: o.status,
     minutos: o.durationMinutes ?? o.minutos, tecnicoId: texto(o.technicianId ?? o.tecnicoId),
     tecnicoNome: normalizarTexto(o.technicianName ?? o.tecnicoNome), np: normalizarTexto(o.personalNumber ?? o.np),
-    criadoEm: texto(o.createdAt ?? o.criadoEm) };
+    criadoEm: texto(o.createdAt ?? o.criadoEm),
+    historico: historicoDe(Array.isArray(o.rescheduleHistory)
+      ? o.rescheduleHistory.map((h) => (h && typeof h === "object" ? { de: (h as Item).from, para: (h as Item).to, em: (h as Item).at, por: (h as Item).by } : h))
+      : o.historico) };
 }
 
 /**
@@ -685,7 +799,51 @@ export function prepararRestauracao(dados: NonNullable<ReturnType<typeof lerBack
     const tecnico = pelaChave ?? tecnicoDaProgramacao({ tecnicoId: "", np: e.np, tecnicoNome: e.tecnicoNome } as Programacao, tecnicos);
     const v = validarProgramacao({ ...e, tecnicoId: tecnico?.id ?? "" }, tecnicos, { semTurnoPermitido: true });
     if (!v.ok) { avisos.push(`Programação ${i + 1} (ordem ${normalizarTexto(e.ordem) || "?"}): ${Object.values(v.erros).join(" ")}`); return; }
-    programacoes.push({ id: idUnico(e.id), ...v.valor, criadoEm: e.criadoEm && !Number.isNaN(Date.parse(e.criadoEm)) ? e.criadoEm : "" });
+    programacoes.push({ id: idUnico(e.id), ...v.valor, criadoEm: e.criadoEm && !Number.isNaN(Date.parse(e.criadoEm)) ? e.criadoEm : "",
+      historico: e.historico });
   });
   return { tecnicos, programacoes, avisos };
 }
+
+// ----------------------------------------------------------------------------
+// Integração com as bases do site
+// ----------------------------------------------------------------------------
+/** Turma da equipe (Gestão de HH) → turno do técnico: "1"/"2"/"3" no texto viram o turno; o resto, Administrativo. */
+export function turnoDaTurma(turma: string): string {
+  const n = /([123])/.exec(String(turma ?? ""))?.[1];
+  return n ? `${n}º turno` : "Administrativo";
+}
+
+export interface PessoaDaEquipe { np: string; nome: string; centroTrabalho: string; area: string; especialidade?: string; turma: string;
+  /** jornada semanal do cadastro da Gestão de HH (h/semana), se houver */
+  jornadaSemana?: number | null }
+
+/**
+ * Técnicos novos a partir da equipe da Gestão de HH: só quem ainda não está (mesmo NP, sem zeros à esquerda). Jornada/dia =
+ * jornada semanal ÷ 5 (arredondada a 0,5 h, entre 1 e 24), ou 8 h.
+ */
+export function tecnicosDaEquipe(equipe: PessoaDaEquipe[], existentes: Pick<Tecnico, "np">[]): Omit<Tecnico, "id">[] {
+  const ja = new Set(existentes.map((t) => chaveNp(t.np)).filter(Boolean));
+  const out: Omit<Tecnico, "id">[] = [];
+  for (const p of equipe) {
+    const np = chaveNp(p.np);
+    if (!np || !normalizarTexto(p.nome) || ja.has(np)) continue;
+    ja.add(np);
+    const j = p.jornadaSemana && p.jornadaSemana > 0 ? Math.round((p.jornadaSemana / 5) * 2) / 2 : 8;
+    const v = validarTecnico({ nome: p.nome, np, centro: p.centroTrabalho || "Sem centro", area: p.area || p.especialidade || "Manutenção",
+      turno: turnoDaTurma(p.turma), jornada: Math.min(24, Math.max(1, j)) });
+    if (v.ok) out.push(v.valor);
+  }
+  return out;
+}
+
+export interface OrdemResumo { ordem: string; tipo: string; texto: string; equipamento: string; denominacao: string; area: string }
+
+/** Campos da programação preenchidos a partir da ordem da IW38 (equipamento com o nome do IH08, quando há). */
+export function camposDaOrdem(o: OrdemResumo): Pick<Programacao, "equipamento" | "tipoOrdem" | "descricao" | "area"> {
+  const equip = [o.equipamento, o.denominacao].filter(Boolean).join(" · ");
+  return { equipamento: equip.slice(0, 80), tipoOrdem: o.tipo.slice(0, 40), descricao: o.texto.slice(0, 300), area: o.area.slice(0, 60) };
+}
+
+/** Número da ordem como o SAP traz (só dígitos, sem zeros à esquerda). */
+export const chaveOrdem = (v: string) => String(v ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
