@@ -93,3 +93,13 @@ Variável nova só vale num deploy novo.
 - O deploy mais recente na Vercel aparece **Ready** e com o commit mais novo do `main`.
 - No dia seguinte, em Fontes de dados, a rotina de fotos aparece com a data de hoje.
 - Na segunda depois das 8h, os líderes receberam o aviso de treinamentos (se houver treinamento vencendo).
+
+## 8. Chave secreta do banco (Supabase) recusada — "Supabase 401"
+
+Se a Auditoria mostrar que o banco recusou a chave do site (ou "Supabase 401"):
+
+1. Entre em https://supabase.com → projeto **central-manutencao-sp** → **Project Settings** → **API Keys**.
+2. Em **Secret keys**, clique em **Create new secret key** (ou copie uma ativa). Não envie a chave por chat nem e-mail.
+3. Vercel → projeto **pcmemacao** → **Settings** → **Environment Variables** → edite **`SUPABASE_SECRET_KEY`**
+   (Production e Preview), cole a chave nova e salve.
+4. Faça um **Redeploy** (passo 6). A Auditoria e os cadastros no banco voltam a funcionar.
