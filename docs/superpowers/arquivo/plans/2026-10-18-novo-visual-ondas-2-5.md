@@ -12,7 +12,7 @@ Início reorganizado (Onda 2), Estoque (Onda 3), Ordens (Onda 4) e Pessoas (Onda
 **Tech Stack:** Next.js 16 (App Router, server components), React 19, Tailwind 4, vitest (node), Playwright para
 conferência.
 
-**Spec:** `docs/superpowers/specs/2026-10-18-novo-visual-design.md` (Ondas 1–5). Prévia (caminho B):
+**Spec:** `docs/superpowers/arquivo/specs/2026-10-18-novo-visual-design.md` (Ondas 1–5). Prévia (caminho B):
 https://claude.ai/artifact/EuX5scabBMC8d2VRSBarZz
 
 ## Global Constraints

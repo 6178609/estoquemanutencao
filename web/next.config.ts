@@ -37,10 +37,11 @@ const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // o leitor de parquet e os compressores rodam só no servidor
   serverExternalPackages: ["hyparquet", "hyparquet-compressors"],
-  // a Programação do mês e o Calendário de ordens foram retirados: endereço antigo salvo cai nos Planos
+  // a Programação do mês, o Calendário de ordens e a programação semanal foram retirados: endereço antigo salvo cai nos Planos
   async redirects() {
     return [{ source: "/programacao", destination: "/planos", permanent: false },
-      { source: "/calendario", destination: "/planos", permanent: false }];
+      { source: "/calendario", destination: "/planos", permanent: false },
+      { source: "/semanal", destination: "/planos?vista=mapa&vis=mensal", permanent: false }];
   },
   async headers() {
     const paginas = process.env.NODE_ENV === "production" ? [{ source: "/((?!api/).*)", headers: [{ key: "Content-Security-Policy", value: csp }] }] : [];

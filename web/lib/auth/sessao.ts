@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { cadastrosNoSupabase, gravarCadastroLote, lerCadastro } from "../dados/cadastros";
+import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
 import { registrar } from "../auditoria";
 import { fonte } from "../dados/fonte";
 import { podeEditar, podeVer, type Usuario } from "./acesso";
@@ -143,10 +143,11 @@ export async function usuarioAtual(): Promise<UsuarioSessao | null> {
   const agora = new Date().toISOString();
   const valida = (u: Registro | undefined) => !!u && u.ativo !== false && (u.sessoes || []).some((s) => s.h === h && (s.ate || "") > agora);
   let u = (await usuarios())[login];
-  // sessão criada há pouco em outra instância do servidor: no Supabase (consulta leve) confere a versão de agora
-  // antes de recusar; falha na releitura = sem sessão, nunca página de erro
-  // e quem aparece com os dados vencidos acabou de salvar noutra instância? relê antes de mostrar o formulário de novo
-  if ((!valida(u) || (u && precisaAtualizarDados(u.dados_confirmados_em))) && cadastrosNoSupabase()) u = (await usuarios(true).catch(() => ({} as Record<string, Registro>)))[login] ?? u;
+  // sessão criada há pouco em outra instância do servidor (ou dados confirmados lá): confere a versão de agora no
+  // repositório de dados antes de recusar; só para usuário que existe e no máximo uma releitura a cada 10 s por instância
+  // (cookie forjado com um NP real não esgota a cota da API do GitHub); falha na releitura = sem sessão, nunca erro
+  const listado = fonte()?.listadoEm?.() ?? 0;
+  if (u && (!valida(u) || precisaAtualizarDados(u.dados_confirmados_em)) && Date.now() - listado > 10_000) u = (await usuarios(true).catch(() => ({} as Record<string, Registro>)))[login] ?? u;
   return valida(u) ? publico(login, u!) : null;
 }
 

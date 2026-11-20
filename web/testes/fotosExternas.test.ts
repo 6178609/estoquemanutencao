@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { type FotoExterna, fotoDoItem, ROTULO_FOTO } from "@/lib/fotoMaterial";
 import { _definirFonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import { chaveSugestao } from "@/lib/dados/fotosSugestao";
 import { fotoDoCadastro, fotoExternaDe, fotosExternasDoItem, respostaFotoExterna } from "@/lib/dados/fotosExternas";
 import { lerFotoReferencia } from "@/lib/dados/fotosReferencia";
@@ -69,8 +68,8 @@ describe("chave e cadastro", () => {
 
 describe("leitura em modo demonstração", () => {
   // sem repositório de dados nem Supabase: os cadastros de demonstração (com um item de fabricante fictício)
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("a referência 900000 existe na demonstração, com endereço fictício", async () => {
     expect((await lerFotoReferencia("900000"))?.url).toBe("https://exemplo.invalid/referencia.jpg");

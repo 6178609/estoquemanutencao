@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { _definirFonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import { documentosDe, gravarDocumento, gravarLink, lerDocumento, limparTitulo, linkValido, removerDocumento, tipoDocumento } from "@/lib/dados/documentos";
 
 // tudo fictício; sem repositório de dados = modo demonstração (memória)
@@ -9,8 +8,8 @@ const PDF = new TextEncoder().encode("%PDF-1.7\n%fake\n");
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]);
 
 describe("biblioteca do ativo", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("aceita PDF e imagem pelos bytes; recusa o resto", () => {
     expect(tipoDocumento(PDF)).toBe("application/pdf");

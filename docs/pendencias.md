@@ -3,65 +3,85 @@
 Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). Sem dados da empresa.
 
 ## Em andamento
+
 - **Programação de paradas (GAL1 Componentes)** — spec `docs/superpowers/specs/2026-11-10-programacao-paradas-design.md`,
   plano `docs/superpowers/plans/2026-11-10-programacao-paradas.md`.
-  - Parte 1 (leitura, motor R1–R15, 11 conferências, aba com Programação, Verificação e "Fora das classes"): publicada,
-    com a revisão do Opus aplicada.
-  - Parte 2 (calendário do mês com impressão, Saldo HH, Campos por dia, Ativos sem HH, Excel) + motor ~10x mais rápido:
-    revisada pelo Opus (sem bloqueantes; impressão A4 corrigida e conferida em PDF) e publicada.
-  - Ajustes pendentes da parte 1: desempenho do motor (hoje ~5 s com os dados reais; meta < 500 ms antes da parte 3);
-    (desempenho resolvido na parte 2) ocupação da semana anterior (prensa/Pellet/mesma máquina na semana que começou antes de hoje); confirmar com o
-    planejador se EMPILHADEIRA, BANHEIRO, PINHEIRO e FORNO TÚNEL entram na programação de Componentes.
+  - Publicadas: parte 1 (leitura, motor R1–R15, 11 conferências, aba com Programação, Verificação e "Fora das classes") e
+    parte 2 (calendário do mês com impressão, Saldo HH, Campos por dia, Ativos sem HH, Excel), com o motor ~10x mais rápido.
+  - Em aberto: parte 3 (edição, Parâmetros, histórico) e parte 4 (IW38 backlog, IW32 CSV/VBS), cada uma revisada pelo
+    Opus e publicada.
+  - Ocupação da semana anterior: prensa/Pellet/mesma máquina na semana que começou antes de hoje.
+  - Confirmar com o planejador se EMPILHADEIRA, BANHEIRO, PINHEIRO e FORNO TÚNEL entram na programação de Componentes.
   - A IP19 nas bases do site é a antiga (out–dez): reenviar a IP19 atual (nov–jan) em Fontes de dados.
-  - Partes 2 (calendário, Saldo HH, Campos por dia, Ativos sem HH), 3 (edição, Parâmetros, histórico) e 4 (IW38 backlog,
-    IW32 CSV/VBS): a fazer, cada uma revisada pelo Opus e publicada.
-- **Fotos e datasheets dos materiais (só almoxarifado desde 16/11):** 3.946 materiais no MB52; 601 com foto do fabricante
-  (286 com a imagem já baixada, o resto com página a conferir) + fotos próprias; 1.725 com fabricante+REF ainda sem foto,
-  1.476 na fila (os demais foram tentados há menos de 60 dias).
-  16/11: tarefa agendada nesta sessão ("Busca diária de fotos do almoxarifado", 15h13 de Brasília) busca ~160/dia pelo
-  Firecrawl até a fila zerar. 1º lote: 160 buscados, 47 fotos novas (648 no almoxarifado); ~1.313 na fila.
-  Download e padrão (16/11): rotina do repositório de dados (03:47) grava tudo em JPEG 1600×1600 quadrado + mini 400×400;
-  páginas mortas/sem foto/de outro item saíram (voltam à busca). Falta o segredo FIRECRAWL_API_KEY no repositório de dados
-  para as lojas que bloqueiam o download. A rotina automática só roda com as chaves na Vercel (abaixo);
-  sem elas, buscas manuais pelo Firecrawl quando houver crédito.
-  17/11: 2º lote: 40 buscados, 19 fotos novas; Firecrawl sem crédito até 17/11 14h51 UTC (lotes alm_4, alm_6 a alm_11
-  ficam para a próxima rodada). Aba Estoque passou a mostrar só material do Sysmat (1.166 itens de produção da MB52 saíram).
-  Foto "Ilustrativa" liberada (selo) para os ~457 itens do Sysmat sem fabricante/REF: falta buscar essas fotos pela
-  descrição (PDM + medidas) quando houver crédito, gravando `equivalente: true`.
-  17/11 (rotina diária): 40 buscados, 16 fotos novas; 13 imagens diretas para páginas que não baixavam; 454 de 560 fotos
-  baixadas no padrão 1600×1600; ~1.200 na fila. Firecrawl sem crédito de novo após ~60 chamadas (renova 18/11 14h51 UTC).
-  19/11: aba Controle de HH (agenda_hh) publicada; migrar os dados do sistema antigo pelo "Importar backup".
-  19/11: 50 buscados, 19 fotos novas; 473 de 604 fotos baixadas no padrão; ~1.100 na fila (Firecrawl: ~50 por dia).
-  18/11: 51 buscados, 27 fotos novas; 465 de 585 fotos baixadas no padrão; 9 materiais ficaram para a próxima rodada.
-  17/11: pedido de acesso bloqueado para quem já tem usuário (NP com/sem zeros ou mesmo nome) e para 2º pedido pendente.
-  17/11: Next.js 16.4.2 → 16.4.6 (falha de segurança conhecida) e nodemailer 10.1.2 → 10.6.0 (npm audit sem alertas).
 
-- **Aba "Cadastro de material"** — spec `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`. Entregue (falta
-  publicar): pedido com foto, sequência Almoxarifado → chegada do material (foto) → PCM e vínculo ao equipamento ao validar.
-  Adiado para depois:
+- **Fotos e datasheets dos materiais (só almoxarifado desde 16/11)**
+  - Estado (19/11): 473 de 604 fotos já baixadas no padrão 1600×1600; cerca de 1.100 materiais na fila de busca.
+    Em 16/11, 1.725 materiais com fabricante e REF ainda não tinham foto.
+  - A busca é feita em rodadas manuais pelo Firecrawl (cerca de 50 buscas por dia, conforme o crédito disponível).
+    A rotina automática da Vercel (`/api/fotos/buscar`) depende do `CRON_SECRET` (ver `docs/liberacoes.md`).
+  - Download e padrão: a rotina do repositório de dados (03:47) grava as fotos em JPEG 1600×1600 quadrado e miniatura
+    400×400. Falta o segredo `FIRECRAWL_API_KEY` no repositório de dados para as lojas que bloqueiam o download.
+  - Foto "Ilustrativa" (selo, `equivalente: true`): faltam buscar as fotos dos ~457 itens do Sysmat sem fabricante/REF,
+    pela descrição (PDM + medidas), quando houver crédito.
+
+- **Aba "Cadastro de material"**: publicada (PR #201). Adiado para depois:
   - datalist com todas as tags dos equipamentos (carregar sob demanda);
   - mês UTC × São Paulo nos filtros e no resumo;
   - aviso por e-mail aos aprovadores (depende do SMTP na Vercel);
   - Usuários: marcar aprovador também ao criar usuário e ao aprovar pedido de acesso.
 
-## Depende do usuário (Vercel → Settings) — passo a passo em docs/liberacoes.md
-- **Deploy bloqueado (10/11, "Account is blocked")**: o merge do PR #196 não publicou; o site segue no ar com o #195.
-  Conferir em vercel.com → conta → Usage/Billing o motivo (limite do plano gratuito) e liberar; depois redeploy do main.
-- Chaves gratuitas: `BUSCA_IMAGENS_CHAVE_BRAVE`, `_SERPER`, `_FIRECRAWL`, `_SERPAPI` (Sensitive) e `CRON_SECRET`; Redeploy.
-- SMTP para o aviso de treinamentos: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE`.
-- Domínios: ligar `estoquemanutencao.vercel.app` a Production (hoje redireciona para domínio sem DNS) e remover os `.com`.
-- Fontes de dados → "Buscar agora" para baixar as fotos já gravadas.
+- **Controle de HH (aba `agenda_hh`)**: publicada (19/11). Falta migrar os dados do sistema antigo pelo "Importar backup".
+
+- **Avaliação geral do site (16/11/2026)**
+  - Validar com o PCM: Reincidência ≈ 59% e MTTR < 1 h com a regra YM11 (efeito dos dados: várias YM11 por evento e
+    apontamentos curtos).
+  - Reexportar do SAP e enviar em Fontes de dados: IW28 com todos os tipos de nota desde 01/2025; IH08 completo (ABC,
+    equip. superior, centro de custo); MB52 com valor e depósito; IW38 com prioridade; Sysmat atualizado; lançamentos do
+    SIM de out/nov.
+  - Cadastrar: aprovadores do Almoxarifado, mínimos de estoque, metas e orçamento.
+  - Próxima fase (projeto com spec): menu de 29 → ~14 abas e ações de verdade (atribuir/concluir ações de AF e notas, cobrança).
+
+## Depende do responsável (ver docs/liberacoes.md)
+
+Passo a passo completo em [docs/liberacoes.md](liberacoes.md). Lista curta:
+
+- **`CRON_SECRET`**: sem ele a busca diária de fotos/datasheets e o aviso semanal de treinamentos devolvem 401 e nunca rodaram.
+- **Chaves `BUSCA_IMAGENS_*`** (Brave, Serper, Firecrawl, SerpApi) e **`SMTP_*`** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`,
+  `SMTP_SENHA`, `EMAIL_REMETENTE`): não configuradas.
+- **Apagar `SUPABASE_URL` e `SUPABASE_SECRET_KEY`** da Vercel: o Supabase foi abandonado; cadastros e auditoria ficam só no
+  repositório de dados.
+- **Trocar a senha do site antigo de HH.**
 
 ## Decisões padrão assumidas (podem mudar)
+
 - Programação: todos os planos de GAL1; centro vazio = MEC; sábado 6,5 h/pessoa; moinho SF sem prensa vai para "Ativos sem
   HH"; IW32 só datas; feriados locais nos Parâmetros.
 
-## Avaliação geral do site (16/11/2026)
-- Feito (PRs #206 e #207): tipos de ordem YM11–YM20 classificados; quebras pelas ordens YM11 quando a IW28 não traz Y1
-  (1 evento por equipamento/dia); "Dados até" e "Sem dados"; backlog sem "Encerrada sem confirmação"; ABC pelas notas;
-  Requisições só da manutenção; Estoque com zerados; aviso de colunas faltantes no envio; Qualidade dos dados no menu.
-- Depende do usuário (reexportar do SAP e enviar em Fontes de dados): IW28 com todos os tipos de nota desde 01/2025;
-  IH08 completo (ABC, equip. superior, centro de custo); MB52 com valor e depósito; IW38 com prioridade; Sysmat atualizado;
-  lançamentos do SIM de out/nov. Cadastrar: aprovadores do Almoxarifado, mínimos de estoque, metas e orçamento.
-- Validar com o PCM: Reincidência ≈ 59% e MTTR < 1 h com a regra YM11 (efeito dos dados: várias YM11 por evento e apontamentos curtos).
-- Próxima fase (projeto com spec): menu de 29 → ~14 abas e ações de verdade (atribuir/concluir ações de AF e notas, cobrança).
+## Histórico de entregas (mais novo primeiro)
+
+- **20/11/2026: Limpeza.** Supabase removido do site (cadastros e auditoria só no repositório de dados; auditoria em
+  `app/auditoria/<mês>.json`, 12 meses); rotina manter-banco removida; backup do Supabase removido do repositório de dados;
+  cópias diárias de `app/backup` com retenção de 60 dias (fica o dia 1 de cada mês); planos concluídos movidos para
+  `docs/superpowers/arquivo/`; página `/semanal` virou redirecionamento.
+- **19/11/2026:** aba Controle de HH (`agenda_hh`) publicada. Fotos: 50 buscados, 19 fotos novas; 473 de 604 baixadas no
+  padrão; ~1.100 na fila.
+- **18/11/2026:** fotos: 51 buscados, 27 fotos novas; 465 de 585 baixadas no padrão; 9 materiais ficaram para a próxima rodada.
+- **17/11/2026:**
+  - Pedido de acesso bloqueado para quem já tem usuário (Número Pessoal com ou sem zeros, ou mesmo nome) e para o
+    segundo pedido enquanto o primeiro espera.
+  - Next.js 16.4.2 → 16.4.6 (falha de segurança conhecida) e nodemailer 10.1.2 → 10.6.0 (npm audit sem alertas).
+  - Aba Estoque passou a mostrar só material do Sysmat (1.166 itens de produção da MB52 saíram).
+  - Foto "Ilustrativa" liberada (selo) para os itens do Sysmat sem fabricante/REF.
+  - Fotos: 2º lote com 40 buscados e 19 fotos novas; rotina diária com 40 buscados, 16 fotos novas, 13 imagens diretas e
+    454 de 560 fotos baixadas no padrão 1600×1600.
+- **16/11/2026:**
+  - Avaliação geral do site, PRs #206 e #207: tipos de ordem YM11–YM20 classificados; quebras pelas ordens YM11 quando a
+    IW28 não traz Y1 (1 evento por equipamento/dia); "Dados até" e "Sem dados"; backlog sem "Encerrada sem confirmação";
+    ABC pelas notas; Requisições só da manutenção; Estoque com zerados; aviso de colunas faltantes no envio; Qualidade dos
+    dados no menu.
+  - Fotos: busca só do almoxarifado (MB52 com fabricante e REF no Sysmat); 1º lote com 160 buscados e 47 fotos novas
+    (648 no almoxarifado); rotina de download passou a gravar no padrão 1600×1600 e miniatura 400×400, com páginas mortas,
+    sem foto ou de outro item fora do cadastro (voltam à busca).
+- **Sem data registrada no arquivo:**
+  - Programação de paradas, parte 1 (revisada pelo Opus) e parte 2 (revisada pelo Opus, impressão A4 conferida em PDF).
+  - Aba Cadastro de material publicada (PR #201).

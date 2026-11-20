@@ -149,17 +149,16 @@ describe("cadastro de material: regras", () => {
 describe("cadastro de material: gravação (demonstração, na memória)", async () => {
   const { afterAll, beforeAll } = await import("vitest");
   const { _definirFonte } = await import("@/lib/dados/fonte");
-  const { _definirSupabase } = await import("@/lib/dados/supabase");
   const { gravarCadastroLote, lerCadastro } = await import("@/lib/dados/cadastros");
   const D = await import("@/lib/cadastroMaterial/dados");
   beforeAll(async () => {
-    _definirFonte(null); _definirSupabase(null);
+    _definirFonte(null);
     await gravarCadastroLote("cadastro_equipamentos.json", {
       "EQ-TESTE": { nome: "Equipamento Teste", materiais: ["1111111"] },
       "EQ-TESTE2": { nome: "Equipamento Teste 2" },
     }, "teste");
   });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  afterAll(() => { _definirFonte(undefined); });
 
   /** JPEG fictício (só o cabeçalho conta para o tipo). */
   const JPG = (marca = 1) => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, marca, 2, 3, 4, 5, 6]);
@@ -297,10 +296,9 @@ describe("cadastro de material: gravação (demonstração, na memória)", async
 describe("cadastro de material: demonstração", async () => {
   const { afterAll, beforeAll } = await import("vitest");
   const { _definirFonte } = await import("@/lib/dados/fonte");
-  const { _definirSupabase } = await import("@/lib/dados/supabase");
   const D = await import("@/lib/cadastroMaterial/dados");
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("traz pedidos fictícios aguardando o almoxarifado, aguardando o PCM e concluído, com fotos legíveis", async () => {
     // (só os da demonstração: os testes acima também gravam pedidos)

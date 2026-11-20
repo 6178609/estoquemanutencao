@@ -27,6 +27,6 @@ export default defineConfig({
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
     // demonstração: sem as variáveis do repositório de dados e do Supabase
-    env: { DADOS_GH_REPO: "", DADOS_GH_TOKEN: "", DADOS_PASTA: "", SUPABASE_URL: "", SUPABASE_SECRET_KEY: "" },
+    env: { DADOS_GH_REPO: "", DADOS_GH_TOKEN: "", DADOS_PASTA: "" },
   },
 });

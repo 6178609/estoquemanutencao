@@ -19,13 +19,13 @@ escuro. Fontes: Space Grotesk (títulos) e Inter (texto).
 - **`bases/*.parquet`** no repositório de dados: gravados pela aba **Fontes de dados** (o export é lido no navegador);
   `bases/manifesto.json` guarda a data do export, a origem e, numa base grande, as
   partes. O servidor só lê esses parquets — nunca planilhas soltas.
-- **Cadastros** (usuários, Gestão de HH, mínimos de estoque, equipamentos, metas…): no **Supabase** (Postgres em
-  São Paulo, tabela `cadastros`, um documento JSON por cadastro — `lib/dados/supabase.ts`) quando `SUPABASE_URL` e
-  `SUPABASE_SECRET_KEY` estão definidas; sem elas, em `app/*.json` no repositório de dados. Na primeira vez com o
-  Supabase, os `app/*.json` são copiados para lá sozinhos (nunca por cima do que já está no banco). As gravações
-  releem o cadastro, aplicam só o que mudou e gravam condicionado à versão (sem perder a gravação de outra pessoa).
-  Cópias de segurança: `cadastros_historico` no Supabase (a versão anterior, uma por dia, 60 dias) e a cópia diária
-  em `app/backup/` no repositório. Só a chave secreta acessa o banco (RLS ligado, sem acesso público).
+- **Cadastros** (usuários, Gestão de HH, Controle de HH, mínimos de estoque, equipamentos, metas…): em `app/*.json`
+  no repositório de dados (`lib/dados/cadastros.ts`). As gravações releem o cadastro, aplicam só o que mudou e gravam
+  condicionado à versão (sem perder a gravação de outra pessoa). Cópia de segurança: a versão anterior vai para
+  `app/backup/<cadastro>-<dia>.json` antes da primeira gravação do dia; as cópias com mais de 60 dias saem sozinhas
+  (fica a do dia 1 de cada mês), e o histórico do Git guarda tudo.
+- **Auditoria** (quem fez o quê e quando): `app/auditoria/<ano-mês>.json` no repositório de dados, 12 meses
+  (`lib/auditoria.ts`); os eventos de uma mesma resposta vão numa gravação só.
 - **Login**: Número Pessoal (NP) + senha (hash PBKDF2). A sessão fica registrada
   em `usuarios.json`: desativar a pessoa ou trocar a senha dela derruba o acesso na hora. Depois de **30 minutos sem
   uso** (em todas as abas abertas) o site avisa 1 minuto antes e sai sozinho; o servidor também encerra a sessão parada
@@ -59,8 +59,9 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 | `DADOS_GH_REPO` | repositório privado de dados, ex.: `6178609/estoquemanutencao-dados` |
 | `DADOS_GH_TOKEN` | token do GitHub com leitura e escrita **só** nesse repositório (fine-grained, Contents: read/write) |
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
-| `SUPABASE_URL` | endereço do projeto Supabase dos cadastros |
-| `SUPABASE_SECRET_KEY` | chave **secreta** do Supabase (Project Settings › API Keys › Secret keys), marcada como *Sensitive* |
+| `CRON_SECRET` | segredo das rotinas agendadas (`vercel.json`): sem ele a busca diária de fotos e o aviso semanal devolvem 401 e não rodam |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE` | e-mail do aviso semanal de treinamentos (ver `docs/liberacoes.md`) |
+| `URL_SITE` (ou `URL_SITE_ATUAL`) | endereço do site no link do e-mail (padrão: https://pcmemacao.vercel.app) |
 | `BUSCA_IMAGENS_CHAVE_GOOGLE` + `BUSCA_IMAGENS_GOOGLE_CX` | Google Programmable Search (imagens; 100 buscas/dia grátis): chave da API e id do buscador. **Só para chave já existente**: o Google fechou a API para clientes novos e encerra em 01/01/2027 |
 | `BUSCA_IMAGENS_CHAVE_BRAVE` | Brave Search API (plano grátis, ~2.000/mês) |
 | `BUSCA_IMAGENS_CHAVE_SERPER` | Serper (2.500 buscas grátis no cadastro) |
@@ -73,7 +74,7 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 Todas as chaves marcadas como *Sensitive*. A busca usa **todos** os provedores configurados em rodízio: cada material
 passa pelo próximo provedor quando o anterior não traz a foto exata (com a REF) ou está sem cota.
 
-Projeto na Vercel: **`estoquemanutencao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
+Projeto na Vercel: **`pcmemacao`** (conta 6178609), **Root Directory = `web`**, framework Next.js, Node 22 (fixado em `engines` do package.json) —
 cada push no `main` publica em produção (https://pcmemacao.vercel.app — endereço gratuito da Vercel; os domínios .com só funcionam com DNS configurado) e cada ramo ganha uma prévia. O plano Hobby da Vercel é só para uso pessoal; para
 uso na empresa, o plano Pro.
 

@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { datasheetsDe, gravarDatasheet, gravarLinkDatasheet, lerDatasheet, removerDatasheet } from "@/lib/dados/documentos";
 import { _definirFonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 
 import { consultaDatasheet, escolherDatasheet } from "@/lib/datasheet/escolha";
 import { normalizarWebBrave, normalizarWebFirecrawl, normalizarWebGoogle, normalizarWebSerpapi, normalizarWebSerper } from "@/lib/fotos/buscaImagem";
@@ -64,8 +63,8 @@ describe("busca web dos provedores (páginas)", () => {
 });
 
 describe("biblioteca de datasheets do material (demonstração, na memória)", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); });
   it("grava link e PDF pelo código sem zeros, lista e remove", async () => {
     const link = await gravarLinkDatasheet("000123456", { titulo: "Datasheet", url: "https://acme.com/vx.pdf" }, "teste");
     const pdf = await gravarDatasheet("123456", { titulo: "Ficha", nome: "ficha.pdf", bytes: new TextEncoder().encode("%PDF-1.4 teste") }, "teste");

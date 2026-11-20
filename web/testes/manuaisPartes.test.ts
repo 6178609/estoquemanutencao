@@ -29,7 +29,6 @@ import {
   podeIniciarEnvio,
   TAMANHO_PARTE,
 } from "@/lib/dados/manuaisPartes";
-import { _definirSupabase } from "@/lib/dados/supabase";
 
 // tudo fictício; sem repositório de dados = modo demonstração (memória)
 const PDF_INICIO = new TextEncoder().encode("%PDF-1.7\n");
@@ -114,8 +113,8 @@ describe("manuais em partes: regras", () => {
 });
 
 describe("manuais em partes: envio completo (demonstração)", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); _limparDemoPartes(); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); _limparDemoPartes(); });
+  beforeAll(() => { _definirFonte(null); _limparDemoPartes(); });
+  afterAll(() => { _definirFonte(undefined); _limparDemoPartes(); });
 
   const TAMANHO = 4_100_000; // 2 partes: 3,5 MB e 0,6 MB
   const original = pdf(TAMANHO);

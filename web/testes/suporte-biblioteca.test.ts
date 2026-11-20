@@ -2,7 +2,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { NextRequest } from "next/server";
 
 import { _definirFonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import {
   LIMITE_DOCUMENTO,
   documentosDe,
@@ -36,8 +35,8 @@ vi.mock("@/lib/auth/sessao", () => ({
 }));
 
 describe("biblioteca técnica: armazenamento", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("recusa área inexistente (gravar, ler, listar, remover)", async () => {
     const x = "inexistente" as Area;
@@ -103,8 +102,8 @@ describe("biblioteca técnica: armazenamento", () => {
 });
 
 describe("rota /api/suporte/documento", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); quem = null; });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); quem = null; });
   beforeEach(() => { quem = { login: "lider.teste", nome: "Pessoa Fictícia", funcao: "lider", perfil: "editor" }; abasPedidas = []; });
 
   const URL_ROTA = "http://localhost/api/suporte/documento";

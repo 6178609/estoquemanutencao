@@ -2,7 +2,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { NextRequest } from "next/server";
 
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import {
   ARQ_DOCUMENTOS,
   documentosDe,
@@ -55,8 +54,7 @@ function fonteFalsa() {
 }
 
 describe("manuais em vários equipamentos: armazenamento", () => {
-  beforeEach(() => { _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("vincular a 3 equipamentos grava o arquivo 1 vez e cria 2 referências", async () => {
     const f = fonteFalsa();
@@ -154,8 +152,8 @@ vi.mock("@/lib/auth/sessao", () => ({
 }));
 
 describe("rota /api/manuais", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); quem = null; });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); quem = null; });
   beforeEach(() => { quem = { login: "lider.teste", nome: "Pessoa Fictícia", funcao: "lider", perfil: "editor" }; });
 
   const URL_ROTA = "http://localhost/api/manuais";
@@ -247,8 +245,7 @@ describe("rota /api/manuais", () => {
 // ---------------------------------------------------------------------------- concorrência, batch e referência solta
 
 describe("manuais: gravação em lote, concorrência e referências soltas", () => {
-  beforeEach(() => { _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("duas gravações ao mesmo tempo no mesmo equipamento: as duas ficam", async () => {
     _definirFonte(fonteFalsa().fonte);
@@ -283,8 +280,8 @@ describe("manuais: gravação em lote, concorrência e referências soltas", () 
 });
 
 describe("GET do documento para quem vê só a aba Manuais", () => {
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); quem = null; });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); quem = null; });
 
   it("abre o arquivo com a aba Manuais, mas não sem ela", async () => {
     const d = await gravarDocumento("ABRE-01", { titulo: "Manual", nome: "m.pdf", bytes: PDF }, "Teste");
