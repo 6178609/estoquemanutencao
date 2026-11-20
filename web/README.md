@@ -59,7 +59,7 @@ Nenhum dado da empresa vai para este repositório (ele é público).
 | `DADOS_GH_REPO` | repositório privado de dados, ex.: `6178609/estoquemanutencao-dados` |
 | `DADOS_GH_TOKEN` | token do GitHub com leitura e escrita **só** nesse repositório (fine-grained, Contents: read/write) |
 | `DADOS_GH_RAMO` | ramo (padrão `main`) |
-| `CRON_SECRET` | segredo das rotinas agendadas (`vercel.json`): sem ele a busca diária de fotos e o aviso semanal devolvem 401 e não rodam |
+| `CRON_SECRET` | segredo das rotinas agendadas (`vercel.json`; criado em 20/11/2026): sem ele a busca diária de fotos e o aviso semanal devolvem 401 e não rodam |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE` | e-mail do aviso semanal de treinamentos (ver `docs/liberacoes.md`) |
 | `URL_SITE` (ou `URL_SITE_ATUAL`) | endereço do site no link do e-mail (padrão: https://pcmemacao.vercel.app) |
 | `BUSCA_IMAGENS_CHAVE_GOOGLE` + `BUSCA_IMAGENS_GOOGLE_CX` | Google Programmable Search (imagens; 100 buscas/dia grátis): chave da API e id do buscador. **Só para chave já existente**: o Google fechou a API para clientes novos e encerra em 01/01/2027 |

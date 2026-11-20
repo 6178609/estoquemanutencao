@@ -45,7 +45,8 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
 
 Passo a passo completo em [docs/liberacoes.md](liberacoes.md). Lista curta:
 
-- **`CRON_SECRET`**: sem ele a busca diária de fotos/datasheets e o aviso semanal de treinamentos devolvem 401 e nunca rodaram.
+- **`CRON_SECRET`**: criado na Vercel em 20/11/2026 (rotinas agendadas passam a rodar). Falta: chaves `BUSCA_IMAGENS_*` para a
+  busca nova de fotos/datasheets e `SMTP_*` para o aviso semanal sair (sem elas, a rotina de fotos só confere as já gravadas).
 - **Chaves `BUSCA_IMAGENS_*`** (Brave, Serper, Firecrawl, SerpApi) e **`SMTP_*`** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USUARIO`,
   `SMTP_SENHA`, `EMAIL_REMETENTE`): não configuradas.
 - **Apagar `SUPABASE_URL` e `SUPABASE_SECRET_KEY`** da Vercel: o Supabase foi abandonado; cadastros e auditoria ficam só no
