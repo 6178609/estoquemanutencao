@@ -225,8 +225,6 @@ export async function respostaFotoExterna(f: FotoCadastro | null, kPedida: strin
   }
 }
 
-/** Só para os testes: quantas imagens estão em cache e quantos bytes. */
-export const _estadoCache = () => ({ itens: cache.size, bytes: bytesCache });
 /** Só para os testes: esvazia o cache, as falhas guardadas e os pedidos em andamento. */
 export function _limparCacheFotos() {
   cache.clear();

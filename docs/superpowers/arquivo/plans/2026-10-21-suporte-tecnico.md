@@ -9,7 +9,7 @@ generalizado; página de servidor com três visões.
 
 **Tech Stack:** Next.js 16, React 19, Tailwind 4, vitest, Playwright.
 
-**Spec:** `docs/superpowers/specs/2026-10-21-suporte-tecnico-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-10-21-suporte-tecnico-design.md`
 
 ## Global Constraints
 - pt-BR; cores só tokens do site (`globals.css`); sem rolagem horizontal em 390 px.

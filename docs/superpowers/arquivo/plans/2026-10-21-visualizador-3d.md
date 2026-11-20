@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16, React 19.3, three 0.186, @react-three/fiber 9, @react-three/drei 10, vitest, Playwright.
 
-**Spec:** `docs/superpowers/specs/2026-10-21-visualizador-3d-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-10-21-visualizador-3d-design.md`
 
 ## Global Constraints
 - pt-BR; cores pelos tokens do site (ler `var(--…)` com `getComputedStyle` para passar ao three.js); destaque `--st-critico`.

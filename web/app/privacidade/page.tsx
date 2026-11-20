@@ -63,8 +63,8 @@ export default function Privacidade() {
         </Secao>
 
         <Secao titulo="Onde os dados ficam">
-          <p>O site roda na Vercel (servidores em São Paulo). Os cadastros e a trilha de auditoria ficam num banco Postgres do Supabase, também em São Paulo,
-            e as bases do SAP num repositório privado. Só o servidor do site tem a chave de acesso; a comunicação é sempre criptografada (HTTPS).</p>
+          <p>O site roda na Vercel (servidores em São Paulo). Os cadastros, a trilha de auditoria e as bases do SAP ficam num
+            repositório privado no GitHub. Só o servidor do site tem a chave de acesso; a comunicação é sempre criptografada (HTTPS).</p>
         </Secao>
 
         <Secao titulo="Cookies">

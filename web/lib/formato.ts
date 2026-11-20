@@ -34,7 +34,3 @@ export function idade(iso: string | null | undefined): string {
   return `há ${Math.round(h / 24)} dias`;
 }
 
-export function saudacao(): string {
-  const h = Number(new Intl.DateTimeFormat("pt-BR", { timeZone: fuso, hour: "numeric", hour12: false }).format(new Date()));
-  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-}

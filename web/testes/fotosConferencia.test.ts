@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { _definirFonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import { lerCadastro } from "@/lib/dados/cadastros";
 import { fotoDoCadastro, fotoExternaDe } from "@/lib/dados/fotosExternas";
 import { aConferir, conferirAosPoucos, conferirFotos } from "@/lib/fotos/conferencia";
@@ -13,7 +12,6 @@ const pag = (n: string) => ({ url: null, pagina: `https://loja.exemplo.com.br/p/
 
 describe("conferência das fotos do fabricante", () => {
   _definirFonte(null);
-  _definirSupabase(null);
 
   it("confere as nunca conferidas e as que falharam há mais de 3 dias", () => {
     const cad = {

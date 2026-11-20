@@ -4,7 +4,6 @@ import { criarPrimeiroAdmin, criarUsuario } from "@/lib/auth/usuarios";
 import { validarEmail } from "@/lib/auth/senha";
 import { enviarAvisoTreinamentos, ultimoEnvio } from "@/lib/avisos/treinamentos";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import type { ItemAviso } from "@/lib/wcm/avisoTreinamentos";
 import { dia } from "@/lib/wcm/util";
 
@@ -33,7 +32,6 @@ const SENHA = "Senha-Forte-1";
 beforeEach(async () => {
   process.env.DADOS_GH_TOKEN = "github_pat_FICTICIO_abc123XYZ789";
   _definirFonte(fonteMemoria());
-  _definirSupabase(null);
   await criarPrimeiroAdmin({ nome: "Admin", login: "9000001", funcao: "analista", senha: SENHA, senha2: SENHA, codigo: "XYZ789" });
   for (const [login, funcao, email] of [["9000002", "lider", "lider.a@exemplo.test"], ["9000003", "lider", "lider.b@exemplo.test"],
     ["9000004", "lider", ""], ["9000005", "analista", "analista@exemplo.test"]])
@@ -42,7 +40,6 @@ beforeEach(async () => {
 afterEach(() => {
   delete process.env.DADOS_GH_TOKEN;
   _definirFonte(undefined);
-  _definirSupabase(undefined);
 });
 
 describe("envio do aviso semanal", () => {

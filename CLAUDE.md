@@ -62,7 +62,8 @@
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
-  (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET`). Montagem em
+  (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET` — **pendente: sem `CRON_SECRET` e SMTP na
+  Vercel a rotina devolve 401 e não roda**, ver `docs/liberacoes.md`). Montagem em
   `lib/wcm/avisoTreinamentos.ts`, envio em `lib/avisos/`. SMTP só nas variáveis da Vercel (`SMTP_HOST`, `SMTP_PORT`,
   `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE`) — nunca no repositório; e-mails ficam só no cadastro de usuários.
 
@@ -98,11 +99,12 @@
 - Dados do informativo só de fontes reais do site (painel, indicadores); nada da empresa vai para o repositório.
 
 ## Fotos automáticas
-- Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET`; o botão
+- Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET` (**pendente na Vercel: sem ele e sem as chaves a
+  rotina não roda; as fotos andam por rodadas manuais do Firecrawl**); o botão
   "Buscar agora" em Fontes de dados chama o `POST` (editores, 10 buscas). **Todos os provedores gratuitos em rodízio**
   (Brave, Serper, Firecrawl, SerpApi; Google Programmable Search só com chave antiga, até 01/2027), cada um na sua cota diária; chaves só nas variáveis da
   Vercel (`BUSCA_IMAGENS_CHAVE_<PROVEDOR>`, `BUSCA_IMAGENS_GOOGLE_CX`, `BUSCA_IMAGENS_POR_DIA[_<PROVEDOR>]`; ver `web/README.md`). Lógica em
-  `lib/fotos/` (provedores, escolha, rodada) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json` e
+  `lib/fotos/` (`buscaImagem` = provedores, escolha, `rodadaFotos`) e `lib/dados/pdmDeducao.ts`; cadastros `fotos_referencia.json` e
   `fotos_busca_estado.json`.
 - **Só o almoxarifado (pedido do PCM, 16/11/2026):** a busca automática de fotos e de datasheets cobre só os materiais do
   almoxarifado (MB52) com fabricante e REF no Sysmat (`planejarBusca`); o resto do catálogo não entra na fila. Fotos já
@@ -142,9 +144,7 @@
 - `web/`: o site (Next.js 16 na Vercel) — leia `web/AGENTS.md` antes de mexer. É o único código do repositório:
   o site antigo (Streamlit), o robô do SAP, o sincronizador do PC e o Calendário de ordens foram apagados.
   Os exports do SAP entram pela aba Fontes de dados.
-- **Banco sempre ativo (19/11/2026):** o plano gratuito do Supabase pausa o projeto sem uso e a Auditoria dava "fetch failed".
-  Agendamento diário `/api/manter-banco` (vercel.json, 13:41 UTC) faz uma leitura mínima (`lib/manterBanco.ts`); a Auditoria
-  mostra aviso claro se o banco estiver pausado. Se pausar mesmo assim: conector Supabase `restore_project`.
-- Dados: bases do SAP no repositório privado de dados (GitHub); cadastros no Supabase (projeto
-  `central-manutencao-sp`, São Paulo) — ver `web/lib/dados/cadastros.ts` e `supabase.ts`. Mudança no banco só por
-  migração (conector Supabase `apply_migration`), conferindo depois os avisos de segurança (`get_advisors`).
+- Dados: bases do SAP, cadastros (`app/*.json`) e auditoria (`app/auditoria/<ano-mês>.json`, 12 meses) no repositório
+  privado de dados (GitHub) — ver `web/lib/dados/cadastros.ts` e `web/lib/auditoria.ts`. Cópia diária em `app/backup/`
+  (60 dias, fica o dia 1 de cada mês). **Sem Supabase (pedido do usuário, 20/11/2026):** o site está só na Vercel; não
+  usar o conector Supabase nem recriar banco.

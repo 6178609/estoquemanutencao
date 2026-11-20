@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Endereço do site para o link do e-mail: URL_SITE (variável da Vercel, se definida) ou o endereço gratuito da Vercel que
+ * Endereço do site para o link do e-mail: URL_SITE ou URL_SITE_ATUAL (variáveis da Vercel, se definidas) ou o endereço gratuito da Vercel que
  * funciona sem DNS próprio. O "domínio de produção" automático da Vercel não serve: pode ser um domínio .com sem DNS.
  */
 const URL_PADRAO = "https://pcmemacao.vercel.app";
 function site(req: NextRequest): string {
-  const fixo = process.env.URL_SITE?.trim().replace(/\/+$/, "");
+  const fixo = (process.env.URL_SITE || process.env.URL_SITE_ATUAL)?.trim().replace(/\/+$/, "");
   if (fixo) return fixo;
   return process.env.VERCEL ? URL_PADRAO : req.nextUrl.origin;
 }

@@ -4,7 +4,6 @@ import { lerRefFoto } from "@/lib/fotoMaterial";
 import { gravarCadastroLote } from "@/lib/dados/cadastros";
 import { _definirFonte } from "@/lib/dados/fonte";
 import { chaveSugestao, removerSugestao } from "@/lib/dados/fotosSugestao";
-import { _definirSupabase } from "@/lib/dados/supabase";
 import {
   adicionarFotoMaterial, alterarFotoMaterial, caminhoFoto, lerFotoMaterial, materialValido, podeEnviar, tipoImagem, versaoFoto,
 } from "@/lib/dados/fotos";
@@ -15,8 +14,8 @@ const WEBP = new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 ");
 
 describe("foto do material", () => {
   // sem repositório de dados: modo demonstração
-  beforeAll(() => { _definirFonte(null); _definirSupabase(null); });
-  afterAll(() => { _definirFonte(undefined); _definirSupabase(undefined); });
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); });
 
   it("reconhece a imagem pelos bytes, não pelo nome", () => {
     expect(tipoImagem(JPEG)).toBe("image/jpeg");

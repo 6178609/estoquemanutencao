@@ -2,24 +2,18 @@
 
 Passo a passo do que só o dono das contas consegue fazer. **Nenhuma chave, senha ou token vai para o chat, para o
 repositório ou para e-mail**: só nas telas da Vercel indicadas abaixo. Projeto na Vercel: **pcmemacao** (conta 6178609).
-Faça na ordem: o 1 destrava a publicação; os demais só valem depois de um Redeploy (passo 6).
+Variável nova (ou apagada) só vale depois de um Redeploy (passo 6).
 
-## 1. Desbloquear a conta na Vercel ("Account is blocked")
+## 1. Apagar as variáveis do Supabase
 
-Desde 10/11 os merges no `main` não viram site novo: a Vercel recusa o deploy com "Account is blocked". O site continua
-no ar com a última versão boa.
+O Supabase não é mais usado: cadastros e auditoria ficam só no repositório de dados. O banco estava vazio (nenhum
+cadastro nem registro de auditoria), então nada se perde.
 
-1. Entre em https://vercel.com com a conta dona do projeto.
-2. Veja se há um aviso vermelho/amarelo no topo do painel e se chegou um e-mail da Vercel sobre bloqueio ou limite.
-   Ele diz o motivo.
-3. Abra **Usage** (menu da conta). Procure o item que passou de 100% do plano Hobby (gratuito), por exemplo transferência
-   de dados, execuções de funções ou otimização de imagens.
-4. Para resolver:
-   - **Sem pagar:** esperar o ciclo de uso de 30 dias virar (a data aparece em Usage). O bloqueio cai sozinho.
-   - **Na hora:** Settings → Billing → mudar para o plano Pro.
-   - Se o aviso falar em verificação de conta ou violação de uso, siga o link do aviso ou abra um chamado em
-     https://vercel.com/help.
-5. Depois de liberado, faça o passo 6 (Redeploy) para publicar o que ficou parado.
+1. Vercel → projeto **pcmemacao** → **Settings** → **Environment Variables**.
+2. Apague **`SUPABASE_URL`** e **`SUPABASE_SECRET_KEY`** (menu **⋯** → **Remove**).
+3. Opcional: no Supabase, o projeto **central-manutencao-sp** pode ser pausado ou excluído (Project Settings →
+   General). Os segredos `SUPABASE_URL`/`SUPABASE_SECRET_KEY` do repositório de dados (Settings → Secrets and variables
+   → Actions), se existirem, também podem ser apagados.
 
 ## 2. Chaves dos provedores de busca de fotos e datasheets
 
@@ -93,13 +87,3 @@ Variável nova só vale num deploy novo.
 - O deploy mais recente na Vercel aparece **Ready** e com o commit mais novo do `main`.
 - No dia seguinte, em Fontes de dados, a rotina de fotos aparece com a data de hoje.
 - Na segunda depois das 8h, os líderes receberam o aviso de treinamentos (se houver treinamento vencendo).
-
-## 8. Chave secreta do banco (Supabase) recusada — "Supabase 401"
-
-Se a Auditoria mostrar que o banco recusou a chave do site (ou "Supabase 401"):
-
-1. Entre em https://supabase.com → projeto **central-manutencao-sp** → **Project Settings** → **API Keys**.
-2. Em **Secret keys**, clique em **Create new secret key** (ou copie uma ativa). Não envie a chave por chat nem e-mail.
-3. Vercel → projeto **pcmemacao** → **Settings** → **Environment Variables** → edite **`SUPABASE_SECRET_KEY`**
-   (Production e Preview), cole a chave nova e salve.
-4. Faça um **Redeploy** (passo 6). A Auditoria e os cadastros no banco voltam a funcionar.

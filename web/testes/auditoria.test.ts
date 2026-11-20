@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { _limparMemoria, ACOES, eventos, limparDetalhe, registrar } from "@/lib/auditoria";
+import { _definirIntervalo, _limparMemoria, ACOES, eventos, limparDetalhe, registrar } from "@/lib/auditoria";
+import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
 
 describe("auditoria", () => {
   const env = { ...process.env };
   beforeEach(() => {
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SECRET_KEY;
+    _definirFonte(null);
     _limparMemoria();
+    _definirIntervalo(0);
   });
   afterEach(() => {
     process.env = { ...env };
-    vi.unstubAllGlobals();
+    _definirFonte(undefined);
   });
 
   it("nunca guarda senha, token ou sessão no detalhe e encurta os textos", () => {
@@ -25,7 +26,7 @@ describe("auditoria", () => {
     expect(d.aninhado).toBe("[object Object]");
   });
 
-  it("sem Supabase guarda em memória, filtra por pessoa, ação e dia, mais novo primeiro", async () => {
+  it("na demonstração guarda em memória, filtra por pessoa, ação e dia, mais novo primeiro", async () => {
     await registrar("100", "login");
     await registrar("200", "login");
     await registrar("100", "exportacao", "saude_dos_ativos.csv", { linhas: 3 });
@@ -39,53 +40,44 @@ describe("auditoria", () => {
     expect(Object.keys(ACOES)).toContain("base_enviada");
   });
 
-  it("com Supabase grava na tabela auditoria e uma falha não derruba quem registrou", async () => {
-    process.env.SUPABASE_URL = "https://exemplo.supabase.co";
-    process.env.SUPABASE_SECRET_KEY = "sb_secret_ficticia";
-    const chamadas: { url: string; metodo: string; corpo?: string }[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
-      chamadas.push({ url, metodo: init.method ?? "GET", corpo: init.body as string | undefined });
-      return new Response(null, { status: chamadas.length === 1 ? 201 : 500 });
-    }));
-    await registrar("100", "usuario_criado", "300", { funcao: "lider", senha: "segredo" });
-    expect(chamadas[0].url).toBe("https://exemplo.supabase.co/rest/v1/auditoria");
-    expect(chamadas[0].metodo).toBe("POST");
-    const corpo = JSON.parse(chamadas[0].corpo!);
-    expect(corpo).toMatchObject({ quem: "100", acao: "usuario_criado", alvo: "300", detalhe: { funcao: "lider" } });
-    expect(JSON.stringify(corpo)).not.toContain("segredo");
-    // primeira gravação do dia: apaga o que passou de 12 meses
-    expect(chamadas[1].metodo).toBe("DELETE");
-    expect(chamadas[1].url).toMatch(/auditoria\?em=lt\./);
+  it("no repositório de dados: um arquivo por mês, gravações juntas, mais novo primeiro e falha não derruba quem registrou", async () => {
+    const arquivos = new Map<string, { bytes: Uint8Array; versao: string }>();
+    let n = 1;
+    let gravacoes = 0;
+    let recusar = 0;
+    const f: Fonte = {
+      modo: "pasta", descricao: "memória",
+      versoes: async () => new Map([...arquivos.entries()].map(([k, v]) => [k, v.versao])),
+      ler: async (c) => arquivos.get(c) ?? null,
+      apagar: async (c) => { arquivos.delete(c); return true; },
+      gravarCondicional: async (c, bytes, versao) => {
+        gravacoes++;
+        if (recusar > 0) { recusar--; return false; } // outra instância gravou no meio
+        if ((arquivos.get(c)?.versao ?? null) !== versao) return false;
+        arquivos.set(c, { bytes, versao: String(n++) });
+        return true;
+      },
+    };
+    _definirFonte(f);
+    // um mês fora da retenção é apagado na primeira gravação do dia
+    arquivos.set("app/auditoria/2000-01.json", { bytes: new TextEncoder().encode("[]"), versao: "0" });
+    recusar = 1;
+    await Promise.all([registrar("100", "usuario_criado", "300", { funcao: "lider", senha: "segredo" }), registrar("100", "login")]);
+    const mes = new Date().toISOString().slice(0, 7);
+    const bruto = new TextDecoder().decode(arquivos.get(`app/auditoria/${mes}.json`)!.bytes);
+    expect(bruto).not.toContain("segredo");
+    expect(gravacoes).toBe(2); // os dois eventos numa gravação só (mais a nova tentativa depois do conflito)
+    expect(arquivos.has("app/auditoria/2000-01.json")).toBe(false);
+    expect((await eventos()).map((e) => e.acao)).toEqual(["login", "usuario_criado"]);
+    expect((await eventos({ acao: "usuario_criado" }))[0]).toMatchObject({ quem: "100", alvo: "300", detalhe: { funcao: "lider" } });
+    // repositório recusando sempre: só aviso no log e o evento fica na fila para a próxima gravação
+    recusar = 99;
     const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     await expect(registrar("100", "logout")).resolves.toBeUndefined();
     expect(aviso).toHaveBeenCalled();
     aviso.mockRestore();
-  });
-
-  it("banco pausado ou fora do ar: mensagem clara em vez de \"fetch failed\"", async () => {
-    process.env.SUPABASE_URL = "https://exemplo.supabase.co";
-    process.env.SUPABASE_SECRET_KEY = "sb_secret_ficticia";
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
-    await expect(eventos()).rejects.toThrow(/não respondeu.*pausado/);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 540 })));
-    await expect(eventos()).rejects.toThrow(/pausado/);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 401 })));
-    await expect(eventos()).rejects.toThrow(/recusou a chave do site/);
-  });
-});
-
-describe("manter o banco ativo", () => {
-  afterEach(() => { vi.unstubAllGlobals(); delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SECRET_KEY; });
-  it("faz uma leitura mínima e informa se o banco respondeu", async () => {
-    const { manterBancoAtivo } = await import("@/lib/manterBanco");
-    expect((await manterBancoAtivo()).motivo).toBe("sem Supabase configurado");
-    process.env.SUPABASE_URL = "https://exemplo.supabase.co";
-    process.env.SUPABASE_SECRET_KEY = "sb_secret_ficticia";
-    const urls: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => { urls.push(url); return new Response("[]", { status: 200 }); }));
-    expect(await manterBancoAtivo()).toMatchObject({ ok: true, status: 200 });
-    expect(urls[0]).toBe("https://exemplo.supabase.co/rest/v1/auditoria?select=em&limit=1");
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
-    expect(await manterBancoAtivo()).toMatchObject({ ok: false, status: null });
+    recusar = 0;
+    await registrar("100", "login");
+    expect((await eventos()).map((e) => e.acao).slice(0, 2)).toEqual(["login", "logout"]);
   });
 });

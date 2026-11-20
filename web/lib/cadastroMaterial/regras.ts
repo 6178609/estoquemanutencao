@@ -6,7 +6,7 @@
  *   material recebido → PCM compara as fotos e valida (ou recusa a chegada, com motivo, e volta para o Almoxarifado).
  * - Quem aprova é marcado em Usuários (`aprova_almox`, `aprova_pcm`); o Papel já chega resolvido.
  * - Cadastro `pedidos_cadastro_material.json`: { <id do pedido>: Pedido sem o id }.
- * Spec: docs/superpowers/specs/2026-11-10-cadastro-material-design.md. Testado em testes/cadastroMaterial.test.ts.
+ * Spec: docs/superpowers/arquivo/specs/2026-11-10-cadastro-material-design.md. Testado em testes/cadastroMaterial.test.ts.
  */
 
 export const ARQ_PEDIDOS = "pedidos_cadastro_material.json";

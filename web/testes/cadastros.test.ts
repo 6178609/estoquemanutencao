@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { gravarCadastroLote, lerCadastro } from "@/lib/dados/cadastros";
+import { _esquecerLimpezaBackups, gravarCadastroLote, lerCadastro, limparBackupsAntigos } from "@/lib/dados/cadastros";
 import { _definirFonte, type Fonte } from "@/lib/dados/fonte";
 
 /** Fonte na memória que simula outra pessoa gravando no meio (o GitHub recusa pelo sha). */
@@ -64,5 +64,21 @@ describe("gravação de cadastros (igual a gravar_cadastro_lote)", () => {
     arquivos.set("app/cadastro_materiais.json", { bytes: new TextEncoder().encode("{quebrado"), versao: "x" });
     _definirFonte(f);
     await expect(gravarCadastroLote("cadastro_materiais.json", { a: { minimo: 1 } }, "Ana")).rejects.toThrow(/ilegível/);
+  });
+});
+
+describe("limpeza das cópias de segurança", () => {
+  it("apaga as com mais de 60 dias, menos a do dia 1 de cada mês, uma vez por dia", async () => {
+    _esquecerLimpezaBackups();
+    const { f, arquivos } = fonteFalsa({});
+    const pôr = (c: string) => arquivos.set(c, { bytes: new Uint8Array(), versao: "x" });
+    ["app/backup/usuarios-2026-01-15.json", "app/backup/usuarios-2026-01-01.json", "app/backup/usuarios-2026-10-26-b.json",
+      "app/backup/usuarios-2026-11-10.json", "app/usuarios.json"].forEach(pôr);
+    await limparBackupsAntigos(f, "2026-11-20");
+    expect([...arquivos.keys()].filter((k) => k.includes("usuarios")).sort()).toEqual([
+      "app/backup/usuarios-2026-01-01.json", "app/backup/usuarios-2026-10-26-b.json", "app/backup/usuarios-2026-11-10.json", "app/usuarios.json"]);
+    pôr("app/backup/usuarios-2026-02-15.json");
+    await limparBackupsAntigos(f, "2026-11-20"); // já limpou hoje
+    expect(arquivos.has("app/backup/usuarios-2026-02-15.json")).toBe(true);
   });
 });

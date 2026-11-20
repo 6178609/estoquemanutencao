@@ -15,7 +15,7 @@ vinculado ao equipamento.
 
 **Tech Stack:** Next.js 16 (App Router), TypeScript, Tailwind, vitest, Playwright.
 
-**Spec:** `docs/superpowers/specs/2026-11-10-cadastro-material-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-11-10-cadastro-material-design.md`
 
 ## Global Constraints
 

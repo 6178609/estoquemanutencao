@@ -11,7 +11,7 @@ gravação do disponível em `metas_wcm.json` (`orcamento:AAAA-MM`) por ação d
 
 **Tech Stack:** Next.js 16 (App Router, server actions), React 19, Tailwind 4, vitest, Playwright.
 
-**Spec:** `docs/superpowers/specs/2026-10-21-orcamento-requisicoes-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-10-21-orcamento-requisicoes-design.md`
 
 ## Global Constraints
 

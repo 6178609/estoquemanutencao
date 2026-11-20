@@ -12,7 +12,7 @@ pares de cor do spec.
 
 **Tech Stack:** Next.js 16, React 19, Tailwind 4 (`@theme`, `@utility`), vitest (ambiente node), `next/font/google`.
 
-**Spec:** `docs/superpowers/specs/2026-10-18-novo-visual-design.md` (seção "Onda 1"). Prévia:
+**Spec:** `docs/superpowers/arquivo/specs/2026-10-18-novo-visual-design.md` (seção "Onda 1"). Prévia:
 https://claude.ai/artifact/EuX5scabBMC8d2VRSBarZz
 
 ## Global Constraints
