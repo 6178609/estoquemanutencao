@@ -18,8 +18,9 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   - Estado (19/11): 473 de 604 fotos já baixadas no padrão 1600×1600; cerca de 1.100 materiais na fila de busca.
     Em 16/11, 1.725 materiais com fabricante e REF ainda não tinham foto.
   - A busca é feita em rodadas manuais: Firecrawl (cerca de 50 buscas por dia, conforme o crédito) e, desde 20/11/2026, também
-    a busca web do Claude (sem crédito; melhor para fabricante + REF internacionais). 20/11: 239 buscados (179 pela busca web, 60 pelo Firecrawl), 47 fotos novas (19 pela busca web,
-    28 pelo Firecrawl); total 651 materiais com foto, 495 já baixadas no padrão; fila do almoxarifado ≈ 1.000.
+    a busca web do Claude (sem crédito; melhor para fabricante + REF internacionais). 20/11: 300 buscados (240 pela busca web, 60 pelo Firecrawl), 53 fotos novas (25 pela busca web,
+    28 pelo Firecrawl); total 657 materiais com foto, 496 baixadas no padrão; 155 esperam o Firecrawl para baixar
+    (loja bloqueia); fila do almoxarifado ≈ 940.
     A rotina automática da Vercel (`/api/fotos/buscar`) depende do `CRON_SECRET` (ver `docs/liberacoes.md`).
   - Download e padrão: a rotina do repositório de dados (03:47) grava as fotos em JPEG 1600×1600 quadrado e miniatura
     400×400. Falta o segredo `FIRECRAWL_API_KEY` no repositório de dados para as lojas que bloqueiam o download.
