@@ -100,7 +100,8 @@
 
 ## Fotos automáticas
 - Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET` (criado em 20/11/2026; **sem as chaves `BUSCA_IMAGENS_*` a
-  rotina só confere as fotos gravadas; as fotos novas andam por rodadas manuais do Firecrawl**); o botão
+  rotina só confere as fotos gravadas; as fotos novas andam por rodadas manuais do Firecrawl e da busca web do Claude (WebSearch,
+  sem crédito), com a mesma conferência pela REF**); o botão
   "Buscar agora" em Fontes de dados chama o `POST` (editores, 10 buscas). **Todos os provedores gratuitos em rodízio**
   (Brave, Serper, Firecrawl, SerpApi; Google Programmable Search só com chave antiga, até 01/2027), cada um na sua cota diária; chaves só nas variáveis da
   Vercel (`BUSCA_IMAGENS_CHAVE_<PROVEDOR>`, `BUSCA_IMAGENS_GOOGLE_CX`, `BUSCA_IMAGENS_POR_DIA[_<PROVEDOR>]`; ver `web/README.md`). Lógica em
