@@ -62,8 +62,8 @@
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
-  (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET` — **pendente: sem `CRON_SECRET` e SMTP na
-  Vercel a rotina devolve 401 e não roda**, ver `docs/liberacoes.md`). Montagem em
+  (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET` (criado em 20/11/2026) — **pendente: sem SMTP na
+  Vercel o aviso não sai**, ver `docs/liberacoes.md`). Montagem em
   `lib/wcm/avisoTreinamentos.ts`, envio em `lib/avisos/`. SMTP só nas variáveis da Vercel (`SMTP_HOST`, `SMTP_PORT`,
   `SMTP_USUARIO`, `SMTP_SENHA`, `EMAIL_REMETENTE`) — nunca no repositório; e-mails ficam só no cadastro de usuários.
 
@@ -99,8 +99,8 @@
 - Dados do informativo só de fontes reais do site (painel, indicadores); nada da empresa vai para o repositório.
 
 ## Fotos automáticas
-- Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET` (**pendente na Vercel: sem ele e sem as chaves a
-  rotina não roda; as fotos andam por rodadas manuais do Firecrawl**); o botão
+- Rotina diária `GET /api/fotos/buscar` (vercel.json, 06:17 UTC = 03:17 em Brasília), protegida por `CRON_SECRET` (criado em 20/11/2026; **sem as chaves `BUSCA_IMAGENS_*` a
+  rotina só confere as fotos gravadas; as fotos novas andam por rodadas manuais do Firecrawl**); o botão
   "Buscar agora" em Fontes de dados chama o `POST` (editores, 10 buscas). **Todos os provedores gratuitos em rodízio**
   (Brave, Serper, Firecrawl, SerpApi; Google Programmable Search só com chave antiga, até 01/2027), cada um na sua cota diária; chaves só nas variáveis da
   Vercel (`BUSCA_IMAGENS_CHAVE_<PROVEDOR>`, `BUSCA_IMAGENS_GOOGLE_CX`, `BUSCA_IMAGENS_POR_DIA[_<PROVEDOR>]`; ver `web/README.md`). Lógica em

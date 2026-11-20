@@ -32,7 +32,9 @@ Para cada chave:
 2. **Key**: o nome da tabela acima. **Value**: a chave copiada do provedor.
 3. Marque **Production**, salve e marque como **Sensitive** se a opção aparecer.
 
-## 3. Segredo das rotinas automáticas (`CRON_SECRET`)
+## 3. Segredo das rotinas automáticas (`CRON_SECRET`) — feito em 20/11/2026
+
+Já criado na Vercel (Production, Sensitive). Só refaça se quiser trocar o valor:
 
 Protege a busca diária de fotos (03:17 em Brasília) e o aviso semanal de treinamentos (segunda, 8h). Sem ele as rotinas
 não rodam.
