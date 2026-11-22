@@ -5,6 +5,8 @@
 import { agendaDemo } from "../agendaHh/demo";
 import { ARQ as ARQ_AGENDA, hojeIso, itemProgramacao, itemTecnico, PREFIXO_PROGRAMACAO, PREFIXO_TECNICO } from "../agendaHh/regras";
 import { AG_ALMOX, AG_PCM, ARQ_PEDIDOS, CONCLUIDO } from "../cadastroMaterial/regras";
+import { ARQ_ARMARIOS as ARQ_UBM_ARMARIOS, ARQ_MOVIMENTOS as ARQ_UBM_MOVIMENTOS } from "../ubm/regras";
+import { armariosUbmDemo, movimentosUbmDemo } from "../ubm/demo";
 import { chaveMes } from "../wcm/orcamento";
 import { hoje, inicioDoMes, somarMeses } from "../wcm/util";
 import type { ItemCatalogo, ItemEstoque } from "./materiais";
@@ -141,6 +143,9 @@ const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<s
   ["metas_wcm.json", orcamentoDemo(hoje())],
   [ARQ_PEDIDOS, pedidosDemo()],
   [ARQ_AGENDA, agendaHhDemo()],
+  // UBM: armários e movimentos fictícios (lib/ubm/demo.ts)
+  [ARQ_UBM_ARMARIOS, armariosUbmDemo()],
+  [ARQ_UBM_MOVIMENTOS, movimentosUbmDemo()],
   // uma sugestão de foto de exemplo (o endereço não existe: a tela mostra que não carregou)
   ["sugestoes_fotos.json", { "500000": { sugestoes: [{ url: "https://exemplo.invalid/foto-sugerida.jpg",
     pagina: "https://exemplo.invalid/produto", titulo: "Exemplo de sugestão (demonstração)" }], buscado_em: "2026-01-01T00:00:00+00:00" } }],

@@ -232,3 +232,41 @@ test("MRO: incluir no SAP (IA06) pela Gestão de MRO e pelo atalho da biblioteca
   await expect(page).toHaveURL(/\/mro\?.*ia06=1/);
   expect(erros).toEqual([]);
 });
+
+test("UBM (demonstração): abas, formulário de retirada no celular sem rolagem lateral e etiquetas QR", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  for (const v of ["Visão geral", "Retiradas", "Solicitações", "Análise", "Armários", "Como funciona"]) await telaAbriu(page, `/ubm?visao=${v}`);
+  await telaAbriu(page, "/ubm");
+  await expect(page.getByRole("heading", { name: "Lista de reposição" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Retiradas não lançadas na ordem" })).toBeVisible();
+
+  // celular (390 px): o formulário do QR cabe na largura, acha a ordem/código ou avisa que grava assim mesmo
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/ubm/retirada?u=UBM-01");
+  const form = page.getByRole("form", { name: "Retirada de material" });
+  await expect(form).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  await form.getByLabel("Ordem").fill("ORDEM-FICTICIA");
+  await expect(form.getByText(/será gravada mesmo assim/)).toBeVisible();
+  await form.getByLabel("1º turno").check();
+  await form.getByLabel("Código do material").fill("900007");
+  await expect(form.getByText(/no kit do armário/)).toBeVisible();
+  await form.getByLabel("Descrição do uso").fill("Teste de ponta a ponta (fictício)");
+  await form.getByLabel("Não", { exact: true }).check();
+  await form.getByLabel(/Foto do material/).setInputFiles({ name: "retirada.png", mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
+  await form.getByRole("button", { name: "Enviar retirada" }).click();
+  await expect(page.getByRole("heading", { name: "Retirada registrada" })).toBeVisible();
+
+  await page.goto("/ubm/solicitacao?u=UBM-01");
+  await expect(page.getByRole("form", { name: "Solicitação de material" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+
+  // etiquetas: retirada e solicitação de cada armário, com o QR em SVG
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/ubm/qr");
+  await expect(page.getByRole("region", { name: "Etiqueta RETIRADA · UBM-01" }).locator("svg")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Etiqueta SOLICITAÇÃO · UBM-01" }).locator("svg")).toBeVisible();
+  expect(await page.locator(".qr-ubm svg").count()).toBeGreaterThanOrEqual(4);
+  expect(erros).toEqual([]);
+});

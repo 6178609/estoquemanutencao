@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { registrar } from "@/lib/auditoria";
 import { entrar, entrarDemo } from "@/lib/auth/sessao";
 import { normalizarLogin } from "@/lib/auth/senha";
+import { caminhoDeVolta } from "@/lib/auth/volta";
 import { solicitar } from "@/lib/auth/solicitacoes";
 import { criarPrimeiroAdmin } from "@/lib/auth/usuarios";
 
@@ -21,12 +22,13 @@ export async function acaoEntrar(_: EstadoEntrada, form: FormData): Promise<Esta
   if (!login.trim() || !senha) return { erro: "Informe seu NP e a senha.", login };
   const erro = await entrar(login, senha, form.get("manter") === "on");
   if (erro) return { erro, login };
-  redirect("/");
+  // volta à página que a pessoa abriu sem estar logada (ex.: o QR da UBM); só caminho interno
+  redirect(caminhoDeVolta(form.get("volta")) || "/");
 }
 
-export async function acaoDemo() {
+export async function acaoDemo(form: FormData) {
   await entrarDemo();
-  redirect("/");
+  redirect(caminhoDeVolta(form.get("volta")) || "/");
 }
 
 export interface EstadoPrimeiro {

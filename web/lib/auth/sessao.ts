@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
@@ -10,6 +10,7 @@ import { fonte } from "../dados/fonte";
 import { podeEditar, podeVer, type Usuario } from "./acesso";
 import { precisaAtualizarDados } from "./atualizacaoDados";
 import { COOKIE_ATIVO, COOKIE_SESSAO, VALIDADE_S } from "./inatividade";
+import { CABECALHO_CAMINHO, caminhoDeVolta, PARAM_VOLTA } from "./volta";
 import { confere, hashToken, normalizarLogin } from "./senha";
 
 /**
@@ -158,10 +159,13 @@ export async function hashSessaoAtual(): Promise<string | null> {
   return i > 0 ? hashToken(valor.slice(i + 1)) : null;
 }
 
-/** Para páginas: exige login e acesso à aba (senão vai para a entrada / para o início). */
+/** Para páginas: exige login e acesso à aba (senão vai para a entrada, que volta à página depois / para o início). */
 export async function exigir(aba?: string): Promise<UsuarioSessao> {
   const u = await usuarioAtual();
-  if (!u) redirect("/entrar");
+  if (!u) {
+    const volta = caminhoDeVolta((await headers()).get(CABECALHO_CAMINHO));
+    redirect(volta && volta !== "/" ? `/entrar?${PARAM_VOLTA}=${encodeURIComponent(volta)}` : "/entrar");
+  }
   if (aba && !podeVer(u, aba)) redirect("/");
   return u;
 }

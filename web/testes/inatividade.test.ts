@@ -25,7 +25,8 @@ describe("saída por inatividade", () => {
   it("servidor: sessão parada além do limite vai para a entrada com o motivo e perde os cookies", () => {
     const r = proxy(pedir("/painel", { [COOKIE_SESSAO]: "123:abc", [COOKIE_ATIVO]: String(Date.now() - LIMITE_MS - 5000) }));
     expect(r.status).toBe(307);
-    expect(r.headers.get("location")).toBe("https://exemplo.test/entrar?motivo=inatividade");
+    // e volta para a página pedida depois de entrar de novo (lib/auth/volta.ts)
+    expect(r.headers.get("location")).toBe("https://exemplo.test/entrar?motivo=inatividade&volta=%2Fpainel");
     const sc = r.headers.getSetCookie().join("\n");
     expect(sc).toMatch(new RegExp(`${COOKIE_SESSAO}=;`));
     expect(sc).toMatch(new RegExp(`${COOKIE_ATIVO}=;`));

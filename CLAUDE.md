@@ -60,6 +60,21 @@
 - Turnos da programação: 1º, Administrativo e 2º (pedido do usuário, 19/11/2026); no calendário o Administrativo fica numa
   faixa entre o 1º e o 2º turno (metade em cada); a planilha aceita "ADM", "1", "2o turno" etc. (`turnoDaCelula`).
 
+## UBM (aba `ubm`, pedido do usuário, 22/11/2026)
+- Armário kanban em campo com itens do Almox ("UBM (armário kanban)", grupo Custos e suprimentos). Spec em
+  `docs/superpowers/specs/2026-11-22-ubm-design.md`. Regras puras em `web/lib/ubm/regras.ts` (validação, saldo, reposição,
+  análise, kit colado/Excel), gravação em `lib/ubm/dados.ts` (cadastros `ubm_armarios.json` e `ubm_movimentos.json`, fotos em
+  `app/documentos/ubm/<movimento>/`), rota `app/api/ubm/route.ts`, telas em `app/(app)/ubm/` (sub-abas, `retirada` e
+  `solicitacao` para o celular pelo QR, `qr` para imprimir as etiquetas A4; QR em SVG no servidor, `lib/ubm/qr.ts`).
+- **Ordem e código nunca travam:** só o formato; IW38 e Sysmat servem para mostrar a descrição e para a análise (associação
+  na leitura). Retirada pede foto e "Já lançado na ordem pelo SAP Mobile?"; a aba cobra as não lançadas.
+- Kit: UM por item (PC/UN inteiro, M e outras com 2 casas), quantidade padrão = máximo, mínimo opcional (= padrão). Saldo:
+  contagem fixa, reposição soma, retirada subtrai; repor quando saldo < mínimo (separar padrão − saldo).
+- Quem grava: retirada/solicitação, quem vê a aba (e quem retirou marca "lançada"); armários, reposição, contagem e fechar
+  solicitação, `podeGerir` (perfil de edição, fora de Terceiro/Manutentor). Auditoria `ubm_*`. Testes em `testes/ubm.test.ts`.
+- A lista real do kit vai só para o repositório de dados; a demonstração usa armários fictícios (`lib/ubm/demo.ts`).
+- Login com volta: quem abre uma página sem sessão entra e volta a ela (`lib/auth/volta.ts`, só caminho interno).
+
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
   (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET` (criado em 20/11/2026) — **pendente: sem SMTP na
