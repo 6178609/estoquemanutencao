@@ -7,6 +7,7 @@ import { FonteErro } from "@/lib/dados/fonte";
 import { podeEnviar } from "@/lib/dados/fotos";
 import { gerarXlsx, gerarXlsxAbas } from "@/lib/exportacao/xlsx";
 import * as D from "@/lib/ubm/dados";
+import { enderecosQr, etiquetaSvg, ETIQUETAS, qrPng, qrSvg, siteDe } from "@/lib/ubm/qr";
 import * as R from "@/lib/ubm/regras";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +27,33 @@ const planilha = (nome: string, bytes: Uint8Array) => new NextResponse(Buffer.fr
 
 /**
  * Tudo só para quem tem a aba: foto de um movimento (?foto=<id>&v=<arquivo>), descrição de um código no catálogo e no
- * kit do armário (?codigo=&u=), ordem na IW38 (?ordem=), planilhas (?planilha=retiradas|reposicao|kit|modelo_kit).
+ * kit do armário (?codigo=&u=), QR para baixar (?qr=retirada|solicitacao&u=&formato=svg|png|etiqueta), ordem na IW38 (?ordem=), planilhas (?planilha=retiradas|reposicao|kit|modelo_kit).
  */
 export async function GET(req: NextRequest) {
   const u = await autorizar(ABA);
   if (!u) return new NextResponse("Sem acesso.", { status: 403 });
   const p = req.nextUrl.searchParams;
+
+  const qr = p.get("qr");
+  if (qr !== null) {
+    if (qr !== "retirada" && qr !== "solicitacao") return new NextResponse("QR inválido.", { status: 400 });
+    const a = await D.armario(p.get("u") ?? "");
+    if (!a) return new NextResponse("Armário não encontrado.", { status: 404 });
+    const e = ETIQUETAS.find((x) => x.qual === qr)!;
+    const url = enderecosQr(siteDe(req.nextUrl.origin), a.id)[qr];
+    const formato = p.get("formato") ?? "svg";
+    const baixar = (corpo: BodyInit, tipo: string, nome: string) => new NextResponse(corpo, { headers: {
+      "Content-Type": tipo, "Content-Disposition": `attachment; filename="${nome}"`, "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" } });
+    if (formato === "png") return baixar(Buffer.from(await qrPng(url)), "image/png", `${a.id}_${qr}_qr.png`);
+    if (formato === "etiqueta") {
+      return baixar(await etiquetaSvg({ titulo: e.titulo, armario: a.id, nome: a.nome, local: a.local, instrucao: e.instrucao, url }),
+        "image/svg+xml; charset=utf-8", `${a.id}_${qr}_etiqueta.svg`);
+    }
+    if (formato !== "svg") return new NextResponse("Formato inválido.", { status: 400 });
+    const svg = (await qrSvg(url)).replace(/^<svg /, '<svg width="1200" height="1200" ');
+    return baixar(`<?xml version="1.0" encoding="UTF-8"?>\n${svg}`, "image/svg+xml; charset=utf-8", `${a.id}_${qr}_qr.svg`);
+  }
 
   const codigo = p.get("codigo");
   if (codigo !== null) {

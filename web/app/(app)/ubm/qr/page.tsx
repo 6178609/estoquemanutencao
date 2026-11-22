@@ -4,18 +4,13 @@ import Link from "next/link";
 
 import { exigir } from "@/lib/auth/sessao";
 import { lerArmarios } from "@/lib/ubm/dados";
-import { enderecoSite, enderecosQr, qrSvg } from "@/lib/ubm/qr";
+import { enderecoSite, enderecosQr, ETIQUETAS, qrSvg } from "@/lib/ubm/qr";
 import { normalizarIdArmario } from "@/lib/ubm/regras";
 
-import { Imprimir } from "./Imprimir";
+import { BaixarQr, Imprimir } from "./Imprimir";
 
 export const metadata: Metadata = { title: "Etiquetas QR · UBM" };
 export const dynamic = "force-dynamic";
-
-const ETIQUETAS = [
-  { qual: "retirada" as const, titulo: "RETIRADA", instrucao: "Vai tirar material do armário? Leia o QR, preencha a ordem, o código e tire a foto." },
-  { qual: "solicitacao" as const, titulo: "SOLICITAÇÃO", instrucao: "Item acabou, está no fim ou faltando? Leia o QR e avise o planejamento." },
-];
 
 /**
  * Página de impressão das etiquetas (A4): por armário kanban, a etiqueta de RETIRADA e a de SOLICITAÇÃO, cada uma com o
@@ -37,6 +32,7 @@ export default async function QrUbm(props: { searchParams: Promise<Record<string
         <div>
           <h1 className="font-display text-[26px] font-semibold tracking-[-0.02em]">Etiquetas QR da UBM</h1>
           <p className="text-[13.5px] text-texto-3">Duas etiquetas por armário kanban: cole a de retirada e a de solicitação na porta. Endereço: {site}</p>
+          <p className="text-[13.5px] text-texto-3">Para guardar em PDF: Imprimir todas (A4) e, no Chrome, escolha o destino “Salvar como PDF”. Cada QR também pode ser baixado em PNG ou SVG.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/ubm?visao=Armários" className="inline-flex h-11 items-center gap-2 rounded-xl border border-borda px-4 text-[14px] hover:bg-superficie-2"><ArrowLeft className="size-4" /> Voltar</Link>
@@ -55,6 +51,7 @@ export default async function QrUbm(props: { searchParams: Promise<Record<string
               dangerouslySetInnerHTML={{ __html: e.svg }} />
             <p className="max-w-[300px] text-[13px] leading-snug">{e.instrucao}</p>
             <p className="break-all text-[10px] text-neutral-600">{e.url}</p>
+            <BaixarQr armario={e.armario.id} qual={e.qual} />
           </section>
         ))}
       </div>

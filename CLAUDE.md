@@ -63,9 +63,12 @@
 ## UBM (aba `ubm`, pedido do usuário, 22/11/2026)
 - Armário kanban em campo com itens do Almox ("UBM (armário kanban)", grupo Custos e suprimentos). Spec em
   `docs/superpowers/specs/2026-11-22-ubm-design.md`. Regras puras em `web/lib/ubm/regras.ts` (validação, saldo, reposição,
-  análise, kit colado/Excel), gravação em `lib/ubm/dados.ts` (cadastros `ubm_armarios.json` e `ubm_movimentos.json`, fotos em
-  `app/documentos/ubm/<movimento>/`), rota `app/api/ubm/route.ts`, telas em `app/(app)/ubm/` (sub-abas, `retirada` e
-  `solicitacao` para o celular pelo QR, `qr` para imprimir as etiquetas A4; QR em SVG no servidor, `lib/ubm/qr.ts`).
+  análise, kit colado/Excel), gravação em `lib/ubm/dados.ts` (cadastros `ubm_armarios.json` e `ubm_movimentos_<AAAA-MM>.json`,
+  um por mês de Brasília, a leitura junta todos; fotos em `app/documentos/ubm/<movimento>/`, reduzidas no celular a 1600 px
+  JPEG), rota `app/api/ubm/route.ts`, telas em `app/(app)/ubm/` (sub-abas, `retirada` e `solicitacao` para o celular pelo QR,
+  `qr` para imprimir as etiquetas A4 ou salvar em PDF; QR em SVG/PNG no servidor, `lib/ubm/qr.ts`, e botões "Baixar QR
+  (PNG/SVG)" e "Baixar etiqueta (PNG)" — `UBM-01_retirada_qr.png` etc.). Datas e filtros pelo dia de Brasília (`diaBr`).
+  Endereço do QR: `URL_SITE`/`URL_SITE_ATUAL`, na Vercel sem elas o fixo `https://pcmemacao.vercel.app`.
 - **Ordem e código nunca travam:** só o formato; IW38 e Sysmat servem para mostrar a descrição e para a análise (associação
   na leitura). Retirada pede foto e "Já lançado na ordem pelo SAP Mobile?"; a aba cobra as não lançadas.
 - Kit: UM por item (PC/UN inteiro, M e outras com 2 casas), quantidade padrão = máximo, mínimo opcional (= padrão). Saldo:

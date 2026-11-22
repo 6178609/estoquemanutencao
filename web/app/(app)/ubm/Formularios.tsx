@@ -128,12 +128,47 @@ function Enviar({ ocupado, rotulo }: { ocupado: boolean; rotulo: string }) {
   );
 }
 
+const LADO_MAX = 1600;
+
+/**
+ * Reduz a foto no navegador antes de enviar (lado maior até 1600 px, JPEG 0,8), respeitando a orientação da câmera (EXIF).
+ * Se o navegador não abrir o arquivo (ex.: HEIC sem suporte), devolve o original.
+ */
+export async function reduzirFoto(arq: File): Promise<File> {
+  if (typeof createImageBitmap !== "function" || !arq.type.startsWith("image/")) return arq;
+  try {
+    const bmp = await createImageBitmap(arq, { imageOrientation: "from-image" });
+    const escala = Math.min(1, LADO_MAX / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * escala));
+    c.height = Math.max(1, Math.round(bmp.height * escala));
+    const ctx = c.getContext("2d");
+    if (!ctx) return arq;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/jpeg", 0.8));
+    if (!blob || (blob.size >= arq.size && arq.size <= LIMITE_DOCUMENTO && arq.type === "image/jpeg")) return arq;
+    return new File([blob], `${arq.name.replace(/\.[^.]+$/, "") || "foto"}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return arq;
+  }
+}
+
 function useEnvio() {
   const [estado, setEstado] = useState({ ocupado: false, erro: "", ok: false });
   const enviar = async (form: FormData) => {
-    const arq = form.get("foto");
-    if (arq instanceof File && arq.size > LIMITE_DOCUMENTO) { setEstado({ ocupado: false, erro: `A foto passou de ${MB} MB.`, ok: false }); return; }
     setEstado({ ocupado: true, erro: "", ok: false });
+    let arq = form.get("foto");
+    if (arq instanceof File && arq.size > 0) {
+      arq = await reduzirFoto(arq);
+      form.set("foto", arq);
+    }
+    if (arq instanceof File && arq.size > LIMITE_DOCUMENTO) {
+      setEstado({ ocupado: false, ok: false, erro: `A foto tem mais de ${MB} MB e o celular não conseguiu reduzi-la (formato HEIC?). Tire de novo ou ajuste a câmera para JPEG ("Mais compatível").` });
+      return;
+    }
     const r = await enviarUbm(form);
     setEstado({ ocupado: false, erro: r.erro, ok: !r.erro });
     if (r.erro) window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });

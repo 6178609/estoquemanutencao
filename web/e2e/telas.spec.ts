@@ -265,8 +265,19 @@ test("UBM (demonstração): abas, formulário de retirada no celular sem rolagem
   // etiquetas: retirada e solicitação de cada armário, com o QR em SVG
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/ubm/qr");
-  await expect(page.getByRole("region", { name: "Etiqueta RETIRADA · UBM-01" }).locator("svg")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Etiqueta SOLICITAÇÃO · UBM-01" }).locator("svg")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Etiqueta RETIRADA · UBM-01" }).locator(".qr-ubm svg")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Etiqueta SOLICITAÇÃO · UBM-01" }).locator(".qr-ubm svg")).toBeVisible();
   expect(await page.locator(".qr-ubm svg").count()).toBeGreaterThanOrEqual(4);
+  await expect(page.getByRole("button", { name: "Imprimir todas (A4)" })).toBeVisible();
+  const grupo = page.getByRole("group", { name: "Baixar retirada · UBM-01" }).first();
+  await expect(grupo.getByRole("link", { name: "Baixar QR (PNG)" })).toBeVisible();
+  await expect(grupo.getByRole("button", { name: "Baixar etiqueta (PNG)" })).toBeVisible();
+  const [svg] = await Promise.all([page.waitForEvent("download"), grupo.getByRole("link", { name: "Baixar QR (SVG)" }).click()]);
+  expect(svg.suggestedFilename()).toBe("UBM-01_retirada_qr.svg");
+  const [etiqueta] = await Promise.all([page.waitForEvent("download"), grupo.getByRole("button", { name: "Baixar etiqueta (PNG)" }).click()]);
+  expect(etiqueta.suggestedFilename()).toBe("UBM-01_retirada_etiqueta.png");
+  // os botões também ficam no cadastro dos armários
+  await page.goto("/ubm?visao=Armários");
+  await expect(page.getByRole("group", { name: "Baixar solicitação · UBM-01" }).getByRole("link", { name: "Baixar QR (SVG)" })).toBeVisible();
   expect(erros).toEqual([]);
 });

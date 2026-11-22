@@ -13,6 +13,7 @@ import { Controles } from "../planos/_comum/Controles";
 import { um, type Params } from "../planos/_comum/params";
 import { BotaoAcao, EditorArmario, Lancamento } from "./Acoes";
 import { Fluxograma } from "./Fluxograma";
+import { BaixarQr } from "./qr/Imprimir";
 
 export const metadata: Metadata = { title: "UBM (armário kanban)" };
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export const dynamic = "force-dynamic";
 const VISOES = ["Visão geral", "Retiradas", "Solicitações", "Análise", "Armários", "Como funciona"];
 const FUSO = "America/Sao_Paulo";
 const MAX_LISTA = 200;
+/** Retiradas por página (cada uma com a miniatura da foto). */
+const POR_PAGINA = 50;
 const hojeBr = () => new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(new Date());
 const somarDias = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const quando = (iso: string) => {
@@ -160,12 +163,15 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
 
         {visao === "Retiradas" && (() => {
           const rs = R.filtrar(movs, filtro).filter((m) => m.tipo === "retirada");
+          const paginas = Math.max(1, Math.ceil(rs.length / POR_PAGINA));
+          const pag = Math.min(paginas, Math.max(1, Number.parseInt(um(params, "pag"), 10) || 1));
+          const linkPag = (n: number) => `?${new URLSearchParams({ ...Object.fromEntries(Object.entries(params).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : []))), pag: String(n) })}`;
           return (
             <Secao titulo="Retiradas" destaque={`· ${inteiro(rs.length)}`} sub={`De ${dataBr(de)} a ${dataBr(ate)}, da mais nova para a mais antiga.`}
               acoes={<a href={`/api/ubm?planilha=retiradas&${qs}`} className={BOTAO_LINK}><Download className="size-4" /> Excel</a>}>
               {!rs.length ? <Vazio>Nenhuma retirada no período.</Vazio> : (
                 <ul className="grid gap-3 lg:grid-cols-2">
-                  {rs.slice(0, MAX_LISTA).map((m) => {
+                  {rs.slice((pag - 1) * POR_PAGINA, pag * POR_PAGINA).map((m) => {
                     const o = ordens?.get(R.chaveOrdem(m.ordem));
                     return (
                       <li key={m.id} className="flex min-w-0 gap-3 rounded-cartao border border-borda bg-superficie p-3">
@@ -193,7 +199,13 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
                   })}
                 </ul>
               )}
-              {rs.length > MAX_LISTA && <p className="text-[12.5px] text-texto-3">Mostrando as {MAX_LISTA} mais novas; o Excel traz todas.</p>}
+              {paginas > 1 && (
+                <nav aria-label="Páginas das retiradas" className="flex flex-wrap items-center gap-2 text-[13px]">
+                  {pag > 1 && <Link prefetch={false} href={linkPag(pag - 1)} className={BOTAO_LINK}>Anteriores</Link>}
+                  <span className="text-texto-3">Página {pag} de {paginas} · {POR_PAGINA} por página (o Excel traz todas)</span>
+                  {pag < paginas && <Link prefetch={false} href={linkPag(pag + 1)} className={BOTAO_LINK}>Próximas</Link>}
+                </nav>
+              )}
             </Secao>
           );
         })()}
@@ -245,6 +257,16 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
                         {gere && <EditorArmario armario={a} />}
                       </div>
                     </div>
+                    {a.ativo && (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(["retirada", "solicitacao"] as const).map((q) => (
+                          <div key={q} className="space-y-1.5 rounded-xl border border-borda bg-superficie-2 p-2.5 text-center">
+                            <div className="text-[12px] font-semibold uppercase tracking-wide text-texto-3">QR de {q === "retirada" ? "retirada" : "solicitação"}</div>
+                            <BaixarQr armario={a.id} qual={q} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {!!a.itens.length && (
                       <details className="text-[13px]">
                         <summary className="cursor-pointer text-texto-2">Ver o kit</summary>
@@ -348,7 +370,7 @@ function Analise({ armarios, movs, filtro, ordens, hoje, descr }: { armarios: R.
             {a.parados.map((i) => (
               <tr key={`${i.armario}|${i.codigo}`} className="border-t border-borda"><td className={TD}>{i.armario}</td><td className={`${TD} num`}>{i.codigo}</td>
                 <td className={TD}>{descr(i.armario, i.codigo) || i.descricao}</td><td className={TD}>{i.um}</td><td className={`${TD} num`}>{R.fmtQtd(i.maximo)}</td>
-                <td className={TD}>{i.ultima ? dataBr(i.ultima) : "Nunca"}</td></tr>
+                <td className={TD}>{i.ultima ? dataBr(R.diaBr(i.ultima)) : "Nunca"}</td></tr>
             ))}
           </Tabela>
         )}

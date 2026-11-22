@@ -94,12 +94,20 @@ describe("UBM: validação", () => {
     expect(p.erro).toBe("");
     expect(R.prepararKit(p.linhas, 2).itens.map((i) => [i.codigo, i.minimo, i.maximo])).toEqual([["111", 4, 4], ["222", 1, 2.5]]);
     expect(R.linhasDaPlanilha([["Outra"]]).erro).toMatch(/Código/);
+    // "Linha N" é a linha real da planilha, mesmo com linhas vazias no meio
+    const vazias = R.linhasDaPlanilha([["Código", "UM", "Quantidade padrão"], ["111", "PC", 1], [], ["", null, ""], ["222", "PC", "x"]]);
+    expect(R.prepararKit(vazias.linhas, 2).erros).toEqual(["Linha 5: quantidade padrão: um número de 1 a 999."]);
+    // 3 colunas: a 2ª é UM (sigla) ou descrição (texto com minúsculas)
+    expect(R.linhasDoTexto("555;Cabo de aço;3\n666;M;2,5")).toEqual([
+      { codigo: "555", descricao: "Cabo de aço", quantidade: "3" }, { codigo: "666", um: "M", quantidade: "2,5" }]);
     expect(R.linhasKitPlanilha(KIT)).toEqual([["111", "Peça fictícia", "PC", 4, 2], ["222", "Cabo fictício", "M", 10, null]]);
   });
 
   it("caminho de volta do login: só interno", () => {
     expect(caminhoDeVolta("/ubm/retirada?u=UBM-01")).toBe("/ubm/retirada?u=UBM-01");
-    for (const ruim of ["https://exemplo.invalid", "//exemplo.invalid", "/\\exemplo.invalid", "javascript:alert(1)", "/entrar", "/api/ubm", "", 5, "ubm"])
+    // inclusive os que só viram "//host" depois da normalização do caminho
+    for (const ruim of ["https://exemplo.invalid", "//exemplo.invalid", "/\\exemplo.invalid", "javascript:alert(1)", "/entrar", "/api/ubm", "", 5, "ubm",
+      "/.//evil.com", "/%2e//evil.com", "/a/..//evil.com", "/./\\evil.com"])
       expect(caminhoDeVolta(ruim)).toBe("");
   });
 });
@@ -157,6 +165,19 @@ describe("UBM: saldo, reposição e análise", () => {
     // filtro de período
     expect(R.analisar([ARM], movs, { de: "2026-01-05", ate: "2026-01-05" }, ordens, "2026-01-10").retiradas).toBe(2);
     expect(R.analisar([ARM], movs, { de: "lixo" }, ordens, "2026-01-10").retiradas).toBe(4);
+  });
+
+  it("datas pelo dia de Brasília (retirada às 21h30 é do próprio dia)", () => {
+    // 05/01/2026 21:30 em Brasília = 06/01 00:30 UTC
+    const noite = mov("retirada", "2026-01-06T00:30:00Z", "111", 1);
+    expect(R.diaBr(noite.em)).toBe("2026-01-05");
+    expect(R.filtrar([noite], { de: "2026-01-05", ate: "2026-01-05" })).toHaveLength(1);
+    expect(R.filtrar([noite], { de: "2026-01-06" })).toHaveLength(0);
+    // domingo 04/01 21:30 em Brasília: semana que começa na segunda 29/12
+    expect(R.semanaDe("2026-01-05T00:30:00Z")).toBe("2025-12-29");
+    expect(R.arquivoMovimentos("2026-02-01T01:00:00Z")).toBe("ubm_movimentos_2026-01.json");
+    expect(R.ehArquivoMovimentos("ubm_movimentos_2026-01.json")).toBe(true);
+    expect(R.ehArquivoMovimentos("ubm_movimentos.json")).toBe(false);
   });
 
   it("não lançadas na ordem e quem marca", () => {
@@ -244,11 +265,63 @@ describe("UBM: gravação (fonte na memória)", async () => {
     await expect(D.fecharSolicitacao(GESTOR, id)).rejects.toThrow(/já foi fechada/);
   });
 
+  it("movimentos em cadastros mensais (mês de Brasília); a leitura junta todos os meses", async () => {
+    const { listarCadastros, lerCadastro } = await import("@/lib/dados/cadastros");
+    const meses = await listarCadastros(R.ehArquivoMovimentos);
+    expect(meses.length).toBeGreaterThan(1); // a demonstração tem movimentos de vários meses
+    const doMes = await lerCadastro(R.arquivoMovimentos(new Date().toISOString()));
+    const ultimo = (await D.lerMovimentos(true)).find((m) => m.armario === "UBM-90" && m.tipo === "solicitacao");
+    expect(ultimo && doMes[ultimo.id]).toBeTruthy();
+    expect((await D.lerMovimentos()).some((m) => m.id === "demo0ubm0cont10")).toBe(true);
+  });
+
   it("demonstração: armários e movimentos fictícios, com fotos legíveis", async () => {
     const [arms, movs] = await Promise.all([D.lerArmarios(true), D.lerMovimentos(true)]);
     expect(arms.map((a) => a.id)).toEqual(expect.arrayContaining(["UBM-01", "UBM-02"]));
     const r = movs.find((m) => m.id === "demo0ubm0ret01")!;
     expect((await D.lerFoto(r.id))?.tipo).toBe("image/png");
     expect(movs.some((m) => m.tipo === "solicitacao" && !m.fechadaEm)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------- rota /api/ubm (QR para baixar)
+let quemRota: { login: string; nome: string; funcao: string; perfil: string; abas?: string[] } | null = null;
+vi.mock("@/lib/auth/sessao", () => ({
+  autorizar: async (aba: string) => (quemRota && (!quemRota.abas || quemRota.abas.includes(aba)) ? quemRota : null),
+}));
+
+describe("UBM: rota de QR", async () => {
+  const { afterAll, beforeAll } = await import("vitest");
+  const { NextRequest } = await import("next/server");
+  const { _definirFonte } = await import("@/lib/dados/fonte");
+  const rota = await import("@/app/api/ubm/route");
+  beforeAll(() => { _definirFonte(null); });
+  afterAll(() => { _definirFonte(undefined); quemRota = null; });
+  const pedir = (q: Record<string, string>) => rota.GET(new NextRequest(`http://localhost/api/ubm?${new URLSearchParams(q)}`));
+
+  it("SVG e PNG para quem vê a aba; etiqueta em SVG; 403 sem a aba", async () => {
+    quemRota = { login: "l1", nome: "Líder Teste", funcao: "lider", perfil: "editor" };
+    const svg = await pedir({ qr: "retirada", u: "UBM-01", formato: "svg" });
+    expect(svg.status).toBe(200);
+    expect(svg.headers.get("content-disposition")).toContain('attachment; filename="UBM-01_retirada_qr.svg"');
+    const texto = await svg.text();
+    expect(texto).toMatch(/^<\?xml[^>]*>\n<svg [^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+    expect(texto).toContain("</svg>");
+    const png = await pedir({ qr: "solicitacao", u: "UBM-01", formato: "png" });
+    expect(png.headers.get("content-disposition")).toContain("UBM-01_solicitacao_qr.png");
+    const bytes = new Uint8Array(await png.arrayBuffer());
+    expect([...bytes.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    // ~1200 px de largura (cabeçalho IHDR)
+    expect(new DataView(bytes.buffer).getUint32(16)).toBeGreaterThanOrEqual(1100);
+    const et = await (await pedir({ qr: "retirada", u: "UBM-01", formato: "etiqueta" })).text();
+    expect(et).toContain("RETIRADA");
+    expect(et).toContain("UBM-01");
+    expect(et).toContain("/ubm/retirada?u=UBM-01");
+    expect((await pedir({ qr: "outro", u: "UBM-01" })).status).toBe(400);
+    expect((await pedir({ qr: "retirada", u: "UBM-77" })).status).toBe(404);
+    quemRota = { login: "m1", nome: "Manutentor Teste", funcao: "manutentor", perfil: "leitor", abas: ["estoque"] };
+    expect((await pedir({ qr: "retirada", u: "UBM-01", formato: "svg" })).status).toBe(403);
+    quemRota = null;
+    expect((await pedir({ qr: "retirada", u: "UBM-01", formato: "png" })).status).toBe(403);
   });
 });
