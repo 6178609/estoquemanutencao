@@ -65,6 +65,10 @@ Passo a passo completo em [docs/liberacoes.md](liberacoes.md). Lista curta:
 
 ## Histórico de entregas (mais novo primeiro)
 
+- **22/11/2026: aba UBM (armário kanban).** Retirada e solicitação pelo QR (celular, foto, ordem/código livres, "lançado na
+  ordem pelo SAP Mobile"), saldo e lista de reposição, análise, cadastro de armários com kit (colar lista e Excel), etiquetas
+  QR em A4, fluxograma "Como funciona"; login volta ao formulário do QR (`?volta=`). Kit real fica só no repositório de dados.
+
 - **20/11/2026: Limpeza.** Supabase removido do site (cadastros e auditoria só no repositório de dados; auditoria em
   `app/auditoria/<mês>.json`, 12 meses); rotina manter-banco removida; backup do Supabase removido do repositório de dados;
   cópias diárias de `app/backup` com retenção de 60 dias (fica o dia 1 de cada mês); planos concluídos movidos para

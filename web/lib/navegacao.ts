@@ -45,6 +45,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "mro", titulo: "Gestão de MRO", icone: "Wrench", rota: "/mro" },
     { id: "requisicoes", titulo: "Requisições", icone: "Receipt", rota: "/requisicoes" },
     { id: "cadastro_material", titulo: "Cadastro de material", icone: "PackagePlus", rota: "/cadastro_material" },
+    { id: "ubm", titulo: "UBM (armário kanban)", icone: "Archive", rota: "/ubm" },
     { id: "cartao", titulo: "Cartão de crédito", icone: "CreditCard", rota: "/cartao" },
   ] },
   { titulo: "Configuração", abas: [

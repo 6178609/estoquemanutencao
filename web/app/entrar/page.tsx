@@ -12,6 +12,7 @@ import { IconeQuadro, Pilula, Titulo } from "@/components/ui";
 import { modo } from "@/lib/dados/fonte";
 import { INATIVIDADE_MIN, MOTIVO } from "@/lib/auth/inatividade";
 import { usuarioAtual } from "@/lib/auth/sessao";
+import { caminhoDeVolta, PARAM_VOLTA } from "@/lib/auth/volta";
 import { codigoConfiguracao, precisaPrimeiroAdmin } from "@/lib/auth/usuarios";
 import { AbasEntrada } from "./AbasEntrada";
 import { FormularioPrimeiroAdmin } from "./FormularioPrimeiroAdmin";
@@ -27,8 +28,10 @@ const DESTAQUES = [
 ];
 
 export default async function Entrar(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  if (await usuarioAtual()) redirect("/");
-  const inativo = (await props.searchParams).motivo === MOTIVO;
+  const sp = await props.searchParams;
+  const volta = caminhoDeVolta(sp[PARAM_VOLTA]);
+  if (await usuarioAtual()) redirect(volta || "/");
+  const inativo = sp.motivo === MOTIVO;
   const demo = modo() === "demo";
   let primeiro = false, erroFonte = "";
   try {
@@ -74,7 +77,7 @@ export default async function Entrar(props: { searchParams: Promise<Record<strin
                   </p>
                 )}
                 {primeiro ? <FormularioPrimeiroAdmin pedeCodigo={!!codigoConfiguracao()} />
-                  : <AbasEntrada demo={demo} />}
+                  : <AbasEntrada demo={demo} volta={volta} />}
               </div>
             </div>
             <div className="relative hidden justify-center lg:flex">

@@ -19,6 +19,18 @@ describe("aba Programação de paradas", () => {
   });
 });
 
+describe("aba UBM (armário kanban)", () => {
+  it("no grupo Custos e suprimentos; padrão de Líder e Analista; Manutentor e Terceiro só se marcada", () => {
+    expect(GRUPOS.find((g) => g.titulo === "Custos e suprimentos")?.abas.some((a) => a.id === "ubm" && a.rota === "/ubm")).toBe(true);
+    expect(ABAS_BASICAS.has("ubm")).toBe(false);
+    expect(podeVer({ login: "l", funcao: "lider" }, "ubm")).toBe(true);
+    expect(podeVer({ login: "a", funcao: "analista" }, "ubm")).toBe(true);
+    expect(podeVer({ login: "m", funcao: "manutentor" }, "ubm")).toBe(false);
+    expect(podeVer({ login: "t", funcao: "terceiro" }, "ubm")).toBe(false);
+    expect(podeVer({ login: "m", funcao: "manutentor", abas: ["estoque", "ubm"] }, "ubm")).toBe(true);
+  });
+});
+
 describe("aba Cadastro de material", () => {
   it("no padrão de Líder e Analista; fora das abas básicas (Manutentor e Terceiro só se marcada)", () => {
     expect(TODAS).toContain("cadastro_material");

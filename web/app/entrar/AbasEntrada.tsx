@@ -7,9 +7,9 @@ import { FormularioEntrada } from "./FormularioEntrada";
 import { FormularioSolicitar } from "./FormularioSolicitar";
 
 /** "Entrar" / "Solicitar acesso" — o pedido só existe com o repositório de dados ligado (na demonstração não há onde gravar). */
-export function AbasEntrada({ demo }: { demo: boolean }) {
+export function AbasEntrada({ demo, volta = "" }: { demo: boolean; volta?: string }) {
   const [aba, setAba] = useState<"entrar" | "pedir">("entrar");
-  if (demo) return <FormularioEntrada demo />;
+  if (demo) return <FormularioEntrada demo volta={volta} />;
   return (
     <div className="space-y-5">
       <div role="tablist" aria-label="Acesso" className="grid grid-cols-2 gap-1 rounded-xl bg-superficie-2 p-1"
@@ -23,7 +23,7 @@ export function AbasEntrada({ demo }: { demo: boolean }) {
         ))}
       </div>
       <div id="painel-entrada" role="tabpanel" aria-labelledby={`aba-${aba}`}>
-        {aba === "entrar" ? <FormularioEntrada demo={false} /> : <FormularioSolicitar />}
+        {aba === "entrar" ? <FormularioEntrada demo={false} volta={volta} /> : <FormularioSolicitar />}
       </div>
     </div>
   );

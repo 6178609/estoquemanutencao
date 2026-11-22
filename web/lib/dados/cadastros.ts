@@ -3,7 +3,7 @@ import "server-only";
 import { after } from "next/server";
 
 import { fonte, FonteErro, type Fonte } from "./fonte";
-import { lerJsonDemo, gravarJsonDemo } from "./demo";
+import { gravarJsonDemo, lerJsonDemo, nomesJsonDemo } from "./demo";
 
 /**
  * Cadastros do app — mínimos de estoque, usuários, equipamentos, Gestão de HH… Uma alteração feita aqui vale para
@@ -161,6 +161,16 @@ export async function lerCadastro(nome: string, opcoes: { fresco?: boolean } = {
     if (c && Date.now() - c.em <= RESERVA_MS) return c.dados;
     throw e;
   }
+}
+
+/**
+ * Os cadastros (nomes como em lerCadastro) que passam no filtro — ex.: os mensais de um prefixo. Com o repositório de
+ * dados, uma listagem só (a lista de versões da fonte); na demonstração, os da memória.
+ */
+export async function listarCadastros(filtro: (nome: string) => boolean, fresco = false): Promise<string[]> {
+  const f = armazem() ? fonte() : null;
+  const nomes = f ? [...(await f.versoes(fresco)).keys()].filter((c) => /^app\/[^/]+$/.test(c)).map((c) => c.slice(4)) : nomesJsonDemo();
+  return nomes.filter(filtro).sort();
 }
 
 export async function gravarCadastroLote(

@@ -34,7 +34,7 @@ repor, além de analisar as saídas.
 - Acesso só pela lista de abas (nova aba `ubm`, grupo "Custos e suprimentos"); Líder/Analista veem por padrão; gravar
   retirada/solicitação: quem vê a aba (inclusive Manutentor/Terceiro se o administrador liberar a aba); cadastro de
   armários, reposição e contagem: `podeEditar` e fora de Terceiro/Manutentor.
-- Dados no repositório de dados: cadastros `ubm_armarios.json` e `ubm_movimentos.json` (gravação por gravarCadastroLote),
+- Dados no repositório de dados: cadastros `ubm_armarios.json` e `ubm_movimentos_<AAAA-MM>.json` (um por mês de Brasília; a leitura junta todos) (gravação por gravarCadastroLote),
   fotos em `app/documentos/ubm/<movimento>/<arquivo>` (mesmo padrão do Cadastro de material). Demonstração com dados
   fictícios na memória. Nada de dados da empresa no repositório público.
 - Auditoria: `ubm_retirada`, `ubm_solicitacao`, `ubm_reposicao`, `ubm_armario`.

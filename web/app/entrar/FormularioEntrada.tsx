@@ -8,7 +8,7 @@ import { INATIVIDADE_MIN } from "@/lib/auth/inatividade";
 
 import { acaoDemo, acaoEntrar, type EstadoEntrada } from "./acoes";
 
-export function FormularioEntrada({ demo }: { demo: boolean }) {
+export function FormularioEntrada({ demo, volta = "" }: { demo: boolean; volta?: string }) {
   const [estado, enviar, enviando] = useActionState<EstadoEntrada, FormData>(acaoEntrar, { erro: "", login: "" });
   const [ver, setVer] = useState(false);
 
@@ -16,6 +16,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
     <div className="space-y-5">
       {demo && (
         <form action={acaoDemo}>
+          {volta && <input type="hidden" name="volta" value={volta} />}
           <button className="group flex w-full items-center justify-between rounded-xl border border-borda bg-superficie-2 px-4 py-3.5 text-left transition hover:border-marca-300">
             <span>
               <span className="flex items-center gap-2 font-display font-medium text-marca-600 dark:text-marca-300">
@@ -29,6 +30,7 @@ export function FormularioEntrada({ demo }: { demo: boolean }) {
       )}
 
       <form action={enviar} className="space-y-4">
+        {volta && <input type="hidden" name="volta" value={volta} />}
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-texto-2">Número Pessoal (NP)</span>
           <span className="relative block">
