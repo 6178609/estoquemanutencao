@@ -239,6 +239,11 @@ test("UBM (demonstração): abas, formulário de retirada no celular sem rolagem
   await telaAbriu(page, "/ubm");
   await expect(page.getByRole("heading", { name: "Lista de reposição" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Retiradas não lançadas na ordem" })).toBeVisible();
+  // o armário desenhado (como no infográfico): gavetas por família e os dois QR da porta
+  const arm = page.getByRole("figure", { name: "Armário UBM-01" });
+  await expect(arm).toBeVisible();
+  await expect(arm.getByRole("link", { name: /RETIRADA/ })).toBeVisible();
+  await expect(arm.getByRole("link", { name: /SOLICITAÇÃO/ })).toBeVisible();
 
   // celular (390 px): o formulário do QR cabe na largura, acha a ordem/código ou avisa que grava assim mesmo
   await page.setViewportSize({ width: 390, height: 844 });

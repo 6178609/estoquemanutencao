@@ -76,6 +76,9 @@
 - Quem grava: retirada/solicitação, quem vê a aba (e quem retirou marca "lançada"); armários, reposição, contagem e fechar
   solicitação, `podeGerir` (perfil de edição, fora de Terceiro/Manutentor). Auditoria `ubm_*`. Testes em `testes/ubm.test.ts`.
 - A lista real do kit vai só para o repositório de dados; a demonstração usa armários fictícios (`lib/ubm/demo.ts`).
+- Visão geral mostra o armário desenhado como no infográfico (`app/(app)/ubm/ArmarioVisual.tsx`, pedido do usuário,
+  22/11/2026): uma gaveta por família do kit (até 9; o resto em "Diversos"), "!" laranja com item abaixo do mínimo, gaveta
+  abre com os itens e saldo, e a porta com os dois QR reais. Teste em `testes/ubmArmario.test.ts`.
 - Login com volta: quem abre uma página sem sessão entra e volta a ela (`lib/auth/volta.ts`, só caminho interno).
 
 ## Avisos por e-mail

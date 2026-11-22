@@ -12,6 +12,7 @@ import * as R from "@/lib/ubm/regras";
 import { Controles } from "../planos/_comum/Controles";
 import { um, type Params } from "../planos/_comum/params";
 import { BotaoAcao, EditorArmario, Lancamento } from "./Acoes";
+import { ArmarioVisual } from "./ArmarioVisual";
 import { Fluxograma } from "./Fluxograma";
 import { BaixarQr } from "./qr/Imprimir";
 
@@ -96,6 +97,18 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
               <Kpi rotulo="Solicitações abertas" valor={inteiro(abertas.length)} detalhe="acabou, faltando ou reposição" tom={abertas.length ? "laranja" : "verde"} />
               <Kpi rotulo="Não lançadas na ordem" valor={inteiro(naoLancadas.length)} detalhe="retiradas sem o SAP Mobile" tom={naoLancadas.length ? "vermelho" : "verde"} />
             </div>
+
+            {doArmario.some((a) => a.ativo) && (
+              <Secao titulo={doArmario.filter((a) => a.ativo).length === 1 ? "O armário" : "Os armários"}
+                sub="Uma gaveta por família do kit; o laranja marca item abaixo do mínimo. Os QR da porta abrem os formulários.">
+                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                  {doArmario.filter((a) => a.ativo).map((a) => (
+                    <ArmarioVisual key={a.id} armario={a} linhas={saldo.filter((l) => l.armario === a.id)
+                      .map((l) => ({ ...l, descricao: descr(a.id, l.codigo) || l.descricao }))} />
+                  ))}
+                </div>
+              </Secao>
+            )}
 
             <div id="reposicao" className="scroll-mt-20">
               <Secao titulo="Lista de reposição" destaque={`· ${inteiro(repor.length)}`} sub="Saldo abaixo do mínimo: separar a quantidade padrão − saldo."
