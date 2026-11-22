@@ -3,14 +3,27 @@
  * fica em lib/ubm/dados.ts. Spec: docs/superpowers/specs/2026-11-22-ubm-design.md. Testado em testes/ubm.test.ts.
  *
  * - Cadastro `ubm_armarios.json`: { <id do armário, ex. UBM-01>: Armario sem o id } com o kit (código, UM, mínimo, padrão).
- * - Cadastro `ubm_movimentos.json`: { <id>: Movimento sem o id } — retirada, solicitação, reposição e contagem.
+ * - Cadastros `ubm_movimentos_<AAAA-MM>.json` (um por mês de Brasília do movimento): { <id>: Movimento sem o id } —
+ *   retirada, solicitação, reposição e contagem. A leitura junta todos os meses (o saldo precisa desde a última contagem).
  * - Ordem e código nunca travam: só o formato é conferido; a IW38 e o catálogo do Sysmat servem para mostrar a
  *   descrição e para a análise (a associação é feita na leitura, nunca gravada).
  * - Saldo por armário e item: a contagem fixa o saldo naquele momento; depois soma as reposições e tira as retiradas.
  */
 
 export const ARQ_ARMARIOS = "ubm_armarios.json";
-export const ARQ_MOVIMENTOS = "ubm_movimentos.json";
+/** Prefixo dos cadastros mensais de movimentos: `ubm_movimentos_<AAAA-MM>.json`. */
+export const PREFIXO_MOVIMENTOS = "ubm_movimentos_";
+export const FUSO = "America/Sao_Paulo";
+const formatoDia = new Intl.DateTimeFormat("en-CA", { timeZone: FUSO });
+/** Dia de Brasília (AAAA-MM-DD) de um instante ISO ("" se inválido). */
+export function diaBr(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : formatoDia.format(d);
+}
+/** Cadastro do mês (de Brasília) do movimento. */
+export const arquivoMovimentos = (iso: string) => `${PREFIXO_MOVIMENTOS}${(diaBr(iso) || diaBr(new Date().toISOString())).slice(0, 7)}.json`;
+/** O nome é de um cadastro mensal de movimentos? */
+export const ehArquivoMovimentos = (nome: string) => new RegExp(`^${PREFIXO_MOVIMENTOS}\\d{4}-\\d{2}\\.json$`).test(nome);
 export const TURNOS = ["1º turno", "Administrativo", "2º turno", "3º turno"] as const;
 export type Turno = (typeof TURNOS)[number];
 export const TIPOS_SOLICITACAO = {
@@ -172,7 +185,9 @@ export const normalizarIdArmario = (v: unknown) => txt(v, 20).toUpperCase().repl
 export const idArmarioValido = (id: string) => /^UBM-\d{2,3}$/.test(id);
 
 /** Uma linha do kit (como vem do formulário, da colagem ou da planilha). */
-export interface LinhaKit { codigo: unknown; descricao?: unknown; um?: unknown; quantidade: unknown; minimo?: unknown }
+export interface LinhaKit { codigo: unknown; descricao?: unknown; um?: unknown; quantidade: unknown; minimo?: unknown;
+  /** linha real de origem (planilha com linhas vazias no meio) para as mensagens */
+  linha?: number }
 
 /** Confere o kit linha a linha (linha = posição para a mensagem); sem erros, devolve os itens prontos. */
 export function prepararKit(linhas: LinhaKit[], primeiraLinha = 1): { itens: ItemKit[]; erros: string[] } {
@@ -181,7 +196,7 @@ export function prepararKit(linhas: LinhaKit[], primeiraLinha = 1): { itens: Ite
   if (linhas.length > MAX_ITENS_KIT) return { itens, erros: [`O kit passa de ${MAX_ITENS_KIT} itens. Nada foi importado.`] };
   const vistos = new Set<string>();
   linhas.forEach((l, i) => {
-    const n = i + primeiraLinha;
+    const n = typeof l.linha === "number" ? l.linha : i + primeiraLinha;
     const codigo = normalizarCodigo(l.codigo);
     if (!codigoValido(codigo)) { erros.push(`Linha ${n}: código inválido.`); return; }
     if (vistos.has(codigo)) { erros.push(`Linha ${n}: código ${codigo} repetido.`); return; }
@@ -213,11 +228,15 @@ export function linhasDoTexto(texto: string): LinhaKit[] {
   return linhas.map((l) => {
     const c = l.split(/\t|;|\s{2,}/).map((x) => x.trim());
     if (c.length >= 4) return { codigo: c[0], descricao: c[1], um: c[2], quantidade: c[3], minimo: c[4] };
-    if (c.length === 3) return { codigo: c[0], um: c[1], quantidade: c[2] };
+    // 3 colunas: código, UM, quantidade — ou código, descrição, quantidade quando a 2ª não parece uma UM
+    if (c.length === 3) return pareceUm(c[1]) ? { codigo: c[0], um: c[1], quantidade: c[2] } : { codigo: c[0], descricao: c[1], quantidade: c[2] };
     if (c.length === 2) return { codigo: c[0], quantidade: c[1] };
     return { codigo: c[0], quantidade: "" };
   });
 }
+
+/** Sigla de UM digitada como sigla (sem minúsculas, até 4 letras): "Cabo" é descrição, "M" e "PC" são UM. */
+const pareceUm = (v: string) => !/[a-zà-ÿ]/.test(v) && normalizarUm(v) !== null && v.trim() !== "";
 
 /** Colunas do modelo de Excel do kit (mesmo padrão do Controle de HH: cabeçalho comparado sem acento nem caixa). */
 export const COLUNAS_KIT = ["Código", "Descrição", "UM", "Quantidade padrão", "Mínimo"] as const;
@@ -231,8 +250,9 @@ export function linhasDaPlanilha(linhas: unknown[][]): { linhas: LinhaKit[]; err
   const [ic, id, iu, iq, im] = COLUNAS_KIT.map(pos);
   if (ic < 0 || iq < 0) return { linhas: [], erro: "A planilha precisa das colunas Código e Quantidade padrão (baixe o modelo)." };
   const val = (l: unknown[], i: number) => (i < 0 ? "" : l[i] ?? "");
-  return { erro: "", linhas: resto.filter((l) => l.some((v) => v != null && String(v).trim() !== ""))
-    .map((l) => ({ codigo: val(l, ic), descricao: val(l, id), um: val(l, iu), quantidade: val(l, iq), minimo: val(l, im) })) };
+  // a linha real da planilha (cabeçalho = 1) acompanha o item, mesmo pulando as linhas vazias
+  return { erro: "", linhas: resto.map((l, i) => ({ l, linha: i + 2 })).filter(({ l }) => l.some((v) => v != null && String(v).trim() !== ""))
+    .map(({ l, linha }) => ({ codigo: val(l, ic), descricao: val(l, id), um: val(l, iu), quantidade: val(l, iq), minimo: val(l, im), linha })) };
 }
 
 /** As linhas do kit para a planilha (mesmas colunas do modelo). */
@@ -361,12 +381,14 @@ const dataOk = (s: string | undefined) => (/^\d{4}-\d{2}-\d{2}$/.test(s ?? "") ?
 export function filtrar(movs: Movimento[], f: Filtro): Movimento[] {
   const armario = idArmarioValido(f.armario ?? "") ? f.armario : "";
   const de = dataOk(f.de), ate = dataOk(f.ate);
-  return movs.filter((m) => (!armario || m.armario === armario) && (!de || m.em.slice(0, 10) >= de) && (!ate || m.em.slice(0, 10) <= ate));
+  // dia de Brasília: uma retirada às 21h30 é do dia dela, não do dia seguinte (UTC)
+  return movs.filter((m) => { const d = diaBr(m.em); return (!armario || m.armario === armario) && (!de || d >= de) && (!ate || d <= ate); });
 }
 
-/** Segunda-feira da semana da data (AAAA-MM-DD, UTC). */
+/** Segunda-feira da semana do instante, pelo dia de Brasília (AAAA-MM-DD; aceita também só a data). */
 export function semanaDe(iso: string): string {
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  const dia = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : diaBr(iso);
+  const d = new Date(`${dia}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
   return d.toISOString().slice(0, 10);
@@ -421,7 +443,7 @@ export function analisar(armarios: Armario[], movs: Movimento[], f: Filtro, orde
   const ordemDe = (m: Movimento) => ordens?.get(chaveOrdem(m.ordem));
   const kit = new Map(armarios.map((a) => [a.id, new Set(a.itens.map((i) => i.codigo))]));
 
-  const limite = new Date(`${dataOk(hoje) || new Date().toISOString().slice(0, 10)}T12:00:00Z`);
+  const limite = new Date(`${dataOk(hoje) || diaBr(new Date().toISOString())}T12:00:00Z`);
   limite.setUTCDate(limite.getUTCDate() - DIAS_PARADO);
   const corte = limite.toISOString().slice(0, 10);
   const ultima = new Map<string, string>();
@@ -432,7 +454,7 @@ export function analisar(armarios: Armario[], movs: Movimento[], f: Filtro, orde
   const armariosFiltro = armarios.filter((a) => a.ativo && (!idArmarioValido(f.armario ?? "") || a.id === f.armario));
   const parados = armariosFiltro.flatMap((a) => a.itens
     .map((i) => ({ ...i, armario: a.id, ultima: ultima.get(chaveSaldo(a.id, i.codigo)) ?? "" }))
-    .filter((i) => i.ultima.slice(0, 10) < corte));
+    .filter((i) => (i.ultima ? diaBr(i.ultima) : "") < corte));
 
   const fora = rs.filter((m) => !kit.get(m.armario)?.has(m.codigo));
   const foraDoKit = agrupar(fora, (m) => chaveSaldo(m.armario, m.codigo)).sort(porQuantidade)

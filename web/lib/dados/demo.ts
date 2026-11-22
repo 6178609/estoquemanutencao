@@ -5,8 +5,8 @@
 import { agendaDemo } from "../agendaHh/demo";
 import { ARQ as ARQ_AGENDA, hojeIso, itemProgramacao, itemTecnico, PREFIXO_PROGRAMACAO, PREFIXO_TECNICO } from "../agendaHh/regras";
 import { AG_ALMOX, AG_PCM, ARQ_PEDIDOS, CONCLUIDO } from "../cadastroMaterial/regras";
-import { ARQ_ARMARIOS as ARQ_UBM_ARMARIOS, ARQ_MOVIMENTOS as ARQ_UBM_MOVIMENTOS } from "../ubm/regras";
-import { armariosUbmDemo, movimentosUbmDemo } from "../ubm/demo";
+import { ARQ_ARMARIOS as ARQ_UBM_ARMARIOS } from "../ubm/regras";
+import { armariosUbmDemo, movimentosUbmDemoPorArquivo } from "../ubm/demo";
 import { chaveMes } from "../wcm/orcamento";
 import { hoje, inicioDoMes, somarMeses } from "../wcm/util";
 import type { ItemCatalogo, ItemEstoque } from "./materiais";
@@ -145,7 +145,7 @@ const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<s
   [ARQ_AGENDA, agendaHhDemo()],
   // UBM: armários e movimentos fictícios (lib/ubm/demo.ts)
   [ARQ_UBM_ARMARIOS, armariosUbmDemo()],
-  [ARQ_UBM_MOVIMENTOS, movimentosUbmDemo()],
+  ...movimentosUbmDemoPorArquivo(),
   // uma sugestão de foto de exemplo (o endereço não existe: a tela mostra que não carregou)
   ["sugestoes_fotos.json", { "500000": { sugestoes: [{ url: "https://exemplo.invalid/foto-sugerida.jpg",
     pagina: "https://exemplo.invalid/produto", titulo: "Exemplo de sugestão (demonstração)" }], buscado_em: "2026-01-01T00:00:00+00:00" } }],
@@ -159,6 +159,11 @@ const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<s
     YM16: { descricao: "Melhoria" }, YM17: { descricao: "Calibração" }, YM18: { descricao: "Lubrificação" },
     YM19: { descricao: "Inspeção geral" }, YM20: { descricao: "Ferramentaria" } }],
 ]));
+
+/** Os nomes dos cadastros da demonstração (para listar os mensais, como a lista de versões da fonte). */
+export function nomesJsonDemo(): string[] {
+  return [...cadastrosDemo.keys()];
+}
 
 export function lerJsonDemo(nome: string) {
   return structuredClone(cadastrosDemo.get(nome) || {});

@@ -1,4 +1,4 @@
-import { type ItemKit, type Movimento, type TipoMovimento, armarioParaGravar, movimentoParaGravar } from "./regras";
+import { type ItemKit, type Movimento, type TipoMovimento, armarioParaGravar, arquivoMovimentos, movimentoParaGravar } from "./regras";
 
 /**
  * Dados FICTÍCIOS da UBM para a demonstração e os testes de ponta a ponta (nada daqui é da empresa): dois armários com
@@ -57,8 +57,14 @@ function movimentosDemoLista(): Movimento[] {
   ];
 }
 
-export function movimentosUbmDemo(): Record<string, Record<string, unknown>> {
-  return Object.fromEntries(movimentosDemoLista().map((m) => [m.id, movimentoParaGravar(m)]));
+/** Os movimentos fictícios nos cadastros mensais (ubm_movimentos_<AAAA-MM>.json), como no repositório de dados. */
+export function movimentosUbmDemoPorArquivo(): [string, Record<string, Record<string, unknown>>][] {
+  const porArquivo = new Map<string, Record<string, Record<string, unknown>>>();
+  for (const m of movimentosDemoLista()) {
+    const nome = arquivoMovimentos(m.em);
+    porArquivo.set(nome, { ...porArquivo.get(nome), [m.id]: movimentoParaGravar(m) });
+  }
+  return [...porArquivo];
 }
 
 /** As fotos da demonstração (caminho → bytes), lidas por lib/ubm/dados.ts. */

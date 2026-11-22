@@ -4,16 +4,19 @@ import { randomBytes } from "node:crypto";
 
 import { registrar } from "../auditoria";
 import { podeEditar, soEstoque, type Usuario } from "../auth/acesso";
-import { catalogo } from "../dados/bases";
-import { gravarCadastroLote, lerCadastro } from "../dados/cadastros";
+import { catalogo, lerBase } from "../dados/bases";
+import { gravarCadastroLote, lerCadastro, listarCadastros } from "../dados/cadastros";
 import { LIMITE_DOCUMENTO, tipoDocumento } from "../dados/documentos";
 import { fonte, FonteErro } from "../dados/fonte";
+import { DESTINO } from "../leitura/tipos";
 import { bases } from "../wcm/dados";
+import { type Equipamento, type Ordem, prepararEquipamentos, prepararIw38 } from "../wcm/preparo";
+import { hoje } from "../wcm/util";
 import { fotosUbmDemo, PASTA_FOTOS_UBM } from "./demo";
 import {
-  ARQ_ARMARIOS, ARQ_MOVIMENTOS, type Armario, armarioDe, armarioParaGravar, armariosDe, chaveOrdem, type EntradaArmario,
+  ARQ_ARMARIOS, arquivoMovimentos, type Armario, armarioDe, armarioParaGravar, armariosDe, chaveOrdem, type EntradaArmario,
   type EntradaRetirada, type EntradaSolicitacao, type Foto, idArmarioValido, type Movimento, movimentoDe, movimentoParaGravar,
-  movimentosDe, normalizarCodigo, podeMarcarLancada, normalizarIdArmario, type OrdemIw38, validarArmario, validarLancamento, validarRetirada,
+  ehArquivoMovimentos, movimentosDe, normalizarCodigo, podeMarcarLancada, normalizarIdArmario, type OrdemIw38, validarArmario, validarLancamento, validarRetirada,
   validarSolicitacao,
 } from "./regras";
 
@@ -48,8 +51,20 @@ export const _fotosGuardadas = () => [...demo.keys()];
 export async function lerArmarios(fresco = false): Promise<Armario[]> {
   return armariosDe(await lerCadastro(ARQ_ARMARIOS, { fresco }));
 }
+/**
+ * Todos os movimentos (todos os cadastros mensais: o saldo precisa de tudo desde a última contagem). Uma listagem só
+ * (lista de versões da fonte) e cada mês lido com o cache por versão de lerCadastro.
+ */
 export async function lerMovimentos(fresco = false): Promise<Movimento[]> {
-  return movimentosDe(await lerCadastro(ARQ_MOVIMENTOS, { fresco }));
+  const meses = await listarCadastros(ehArquivoMovimentos, fresco);
+  const cads = await Promise.all(meses.map((n) => lerCadastro(n, { fresco })));
+  return movimentosDe(Object.assign({}, ...cads));
+}
+
+/** O movimento pelo id (lido agora) e o cadastro mensal onde ele está (null se não existe). */
+async function movimentoAgora(id: string): Promise<{ m: Movimento; arquivo: string } | null> {
+  const m = (await lerMovimentos(true)).find((x) => x.id === id);
+  return m ? { m, arquivo: arquivoMovimentos(m.em) } : null;
 }
 
 /** O armário pelo id (null se não existe). */
@@ -59,8 +74,14 @@ export async function armario(id: string, fresco = false): Promise<Armario | nul
   return armarioDe(k, (await lerCadastro(ARQ_ARMARIOS, { fresco }))[k]);
 }
 
+/** O armário pelo cache (conferido pela versão); só relê sem cache se não achar (acabou de ser criado em outra instância). */
+async function armarioAgora(id: string): Promise<Armario | null> {
+  const a = await armario(id);
+  return a && a.ativo ? a : armario(id, true);
+}
+
 async function armarioAtivo(id: string): Promise<Armario> {
-  const a = await armario(id, true);
+  const a = await armarioAgora(id);
   if (!a || !a.ativo) throw new FonteErro("Armário não encontrado ou desativado: confira o QR code.");
   return a;
 }
@@ -68,37 +89,70 @@ async function armarioAtivo(id: string): Promise<Armario> {
 // ----------------------------------------------------------------------------
 // Bases (só para mostrar e analisar; nunca travam a gravação)
 // ----------------------------------------------------------------------------
-/** Descrição do código no catálogo do Sysmat (null = não achou ou sem a base). */
-export async function descricaoCatalogo(codigo: string): Promise<string | null> {
-  const c = normalizarCodigo(codigo);
-  if (!c) return null;
-  const itens = (await catalogo().catch(() => null))?.dados ?? [];
-  const i = itens.find((x) => normalizarCodigo(x.material) === c);
-  return (i?.descricaoCurta || i?.descrCompleta || "").trim() || null;
-}
+// Os mapas ficam guardados presos à identidade dos dados da base (o cache de lerBase devolve o mesmo array enquanto a
+// versão não muda): base nova = array novo = mapa novo; a mesma base = nenhum trabalho a cada consulta do formulário.
+const mapasCatalogo = new WeakMap<object, Map<string, string>>();
+const mapasOrdens = new WeakMap<object, WeakMap<object, Map<string, OrdemIw38>>>();
 
-/** Descrições do catálogo só dos códigos pedidos (sem a base: mapa vazio). */
-export async function descricoesCatalogo(codigos: Set<string>): Promise<Map<string, string>> {
-  const itens = (await catalogo().catch(() => null))?.dados ?? [];
-  const m = new Map<string, string>();
-  for (const i of itens) {
-    const c = normalizarCodigo(i.material);
-    const d = (i.descricaoCurta || i.descrCompleta || "").trim();
-    if (codigos.has(c) && d && !m.has(c)) m.set(c, d);
+/** Código → descrição do catálogo do Sysmat (sem a base: mapa vazio). */
+async function mapaCatalogo(): Promise<Map<string, string>> {
+  const itens = (await catalogo().catch(() => null))?.dados;
+  if (!itens) return new Map();
+  let m = mapasCatalogo.get(itens);
+  if (!m) {
+    m = new Map();
+    for (const i of itens) {
+      const c = normalizarCodigo(i.material);
+      const d = (i.descricaoCurta || i.descrCompleta || "").trim();
+      if (c && d && !m.has(c)) m.set(c, d);
+    }
+    mapasCatalogo.set(itens, m);
   }
   return m;
 }
 
+/** Descrição do código no catálogo do Sysmat (null = não achou ou sem a base). */
+export async function descricaoCatalogo(codigo: string): Promise<string | null> {
+  const c = normalizarCodigo(codigo);
+  return c ? (await mapaCatalogo()).get(c) ?? null : null;
+}
+
+/** Descrições do catálogo só dos códigos pedidos (sem a base: mapa vazio). */
+export async function descricoesCatalogo(codigos: Set<string>): Promise<Map<string, string>> {
+  const todos = await mapaCatalogo();
+  return new Map([...codigos].flatMap((c) => (todos.has(c) ? [[c, todos.get(c)!] as const] : [])));
+}
+
+/**
+ * Só a IW38 e o IH08 (não as outras bases): com o repositório de dados, lidas pelo lerBase com o mesmo preparo e a
+ * mesma chave de cache de lib/wcm/dados.ts (a mesma versão não é baixada de novo); na demonstração, as bases fictícias.
+ */
+async function iw38EIh08(): Promise<{ ordens: Ordem[] | null; equipamentos: Equipamento[] }> {
+  if (!fonte()) {
+    const b = await bases();
+    return { ordens: b.ordens.dados, equipamentos: b.equipamentos.dados ?? [] };
+  }
+  const h = hoje();
+  const [iw38, ih08] = await Promise.all([lerBase(DESTINO.iw38, (l) => prepararIw38(l, h).ordens, String(h)),
+    lerBase(DESTINO.ih08, (l) => prepararEquipamentos(l))]);
+  return { ordens: iw38.dados, equipamentos: ih08.dados ?? [] };
+}
+
 /** A IW38 por chave da ordem, com o nome do equipamento do IH08 (null sem a base). */
 export async function ordensIw38(): Promise<Map<string, OrdemIw38> | null> {
-  const b = await bases().catch(() => null);
-  const ordens = b?.ordens.dados;
+  const { ordens, equipamentos } = await iw38EIh08().catch(() => ({ ordens: null, equipamentos: [] as Equipamento[] }));
   if (!ordens?.length) return null;
-  const nomes = new Map((b!.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
-  const m = new Map<string, OrdemIw38>();
-  for (const o of ordens) {
-    const k = chaveOrdem(o.ordem);
-    if (k && !m.has(k)) m.set(k, { texto: o.texto, equipamento: o.equipamento, denominacao: nomes.get(o.equipamento) || "" });
+  const porEquip = mapasOrdens.get(ordens) ?? new WeakMap<object, Map<string, OrdemIw38>>();
+  mapasOrdens.set(ordens, porEquip);
+  let m = porEquip.get(equipamentos);
+  if (!m) {
+    const nomes = new Map(equipamentos.map((e) => [e.equipamento, e.denominacao]));
+    m = new Map();
+    for (const o of ordens) {
+      const k = chaveOrdem(o.ordem);
+      if (k && !m.has(k)) m.set(k, { texto: o.texto, equipamento: o.equipamento, denominacao: nomes.get(o.equipamento) || "" });
+    }
+    porEquip.set(equipamentos, m);
   }
   return m;
 }
@@ -134,7 +188,7 @@ async function apagarFoto(mov: string, arquivo: string | undefined) {
 /** A foto de um movimento (quem pode ver é conferido na rota). */
 export async function lerFoto(id: string): Promise<{ bytes: Uint8Array; tipo: string; nome: string; arquivo: string } | null> {
   if (!idOk(id)) return null;
-  const m = movimentoDe(id, (await lerCadastro(ARQ_MOVIMENTOS))[id]);
+  const m = (await lerMovimentos()).find((x) => x.id === id);
   if (!m?.foto) return null;
   const fo = fonte();
   const c = caminho(id, m.foto.arquivo);
@@ -149,11 +203,16 @@ export async function lerFoto(id: string): Promise<{ bytes: Uint8Array; tipo: st
 const vazio = { ordem: "", turno: "", uso: "", observacao: "", tipoSolicitacao: "" as const, foto: null, fechadaEm: "", fechadaPor: "",
   lancadoNaOrdem: false, lancadoEm: "", lancadoPor: "" };
 
+/** Grava movimentos novos no cadastro do mês (de Brasília) de cada um. */
 async function gravarNovos(movs: Movimento[], quem: Quem) {
-  await gravarCadastroLote(ARQ_MOVIMENTOS, Object.fromEntries(movs.map((m) => [m.id, (atual: unknown) => {
-    if (atual) throw new FonteErro("Não consegui gravar agora; tente de novo.");
-    return movimentoParaGravar(m);
-  }])), quem.login);
+  const porArquivo = new Map<string, Movimento[]>();
+  for (const m of movs) porArquivo.set(arquivoMovimentos(m.em), [...(porArquivo.get(arquivoMovimentos(m.em)) ?? []), m]);
+  for (const [arquivo, lista] of porArquivo) {
+    await gravarCadastroLote(arquivo, Object.fromEntries(lista.map((m) => [m.id, (atual: unknown) => {
+      if (atual) throw new FonteErro("Não consegui gravar agora; tente de novo.");
+      return movimentoParaGravar(m);
+    }])), quem.login);
+  }
 }
 
 /** Retirada pelo QR: ordem e código livres (só o formato), foto obrigatória. Devolve o id. */
@@ -203,7 +262,7 @@ export async function registrarSolicitacao(quem: Quem, armarioId: string, e: Ent
 export async function lancar(quem: Quem, armarioId: string, tipo: "reposicao" | "contagem", linhas: { codigo: string; quantidade: string }[],
   observacao = ""): Promise<number> {
   if (!quem.gerir) throw new FonteErro(SO_GESTAO);
-  const a = await armario(armarioId, true);
+  const a = await armarioAgora(armarioId);
   if (!a) throw new FonteErro("Armário não encontrado.");
   const v = validarLancamento(linhas, a, tipo === "contagem");
   if ("erro" in v) throw new FonteErro(v.erro);
@@ -220,7 +279,9 @@ export async function lancar(quem: Quem, armarioId: string, tipo: "reposicao" | 
 export async function fecharSolicitacao(quem: Quem, id: string): Promise<void> {
   if (!quem.gerir) throw new FonteErro("Só editores do PCM (fora de Terceiro e Manutentor) fecham solicitações.");
   if (!idOk(id)) throw new FonteErro("Solicitação inválida.");
-  await gravarCadastroLote(ARQ_MOVIMENTOS, { [id]: (atual) => {
+  const achado = await movimentoAgora(id);
+  if (!achado) throw new FonteErro("Solicitação não encontrada.");
+  await gravarCadastroLote(achado.arquivo, { [id]: (atual) => {
     const m = movimentoDe(id, atual);
     if (!m || m.tipo !== "solicitacao") throw new FonteErro("Solicitação não encontrada.");
     if (m.fechadaEm) throw new FonteErro("A solicitação já foi fechada; atualize a página.");
@@ -232,7 +293,9 @@ export async function fecharSolicitacao(quem: Quem, id: string): Promise<void> {
 /** Marca a retirada como já adicionada à ordem pelo SAP Mobile (quem retirou ou quem gere a UBM). */
 export async function marcarLancada(quem: Quem, id: string): Promise<void> {
   if (!idOk(id)) throw new FonteErro("Retirada inválida.");
-  await gravarCadastroLote(ARQ_MOVIMENTOS, { [id]: (atual) => {
+  const achado = await movimentoAgora(id);
+  if (!achado) throw new FonteErro("Retirada não encontrada.");
+  await gravarCadastroLote(achado.arquivo, { [id]: (atual) => {
     const m = movimentoDe(id, atual);
     if (!m || m.tipo !== "retirada") throw new FonteErro("Retirada não encontrada.");
     if (m.lancadoNaOrdem) throw new FonteErro("A retirada já está marcada como lançada; atualize a página.");

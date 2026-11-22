@@ -18,7 +18,8 @@ export function caminhoDeVolta(v: unknown): string {
   } catch {
     return "";
   }
-  if (u.origin !== "http://interno.invalid") return "";
+  // depois da normalização ("/.//x", "/%2e//x", "/a/..//x" viram "//x"): o caminho não pode começar com // ou /\
+  if (u.origin !== "http://interno.invalid" || /^\/[\/\\]/.test(u.pathname)) return "";
   if (u.pathname === "/entrar" || u.pathname.startsWith("/entrar/") || u.pathname.startsWith("/api/")) return "";
   return `${u.pathname}${u.search}`;
 }
