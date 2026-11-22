@@ -12,8 +12,8 @@ import * as R from "@/lib/ubm/regras";
 import { enviarUbm } from "./Acoes";
 
 /**
- * Formulários do celular (QR colado no armário kanban): campos grandes, câmera do celular, a descrição da ordem (IW38) e
- * do código (kit/Sysmat) aparece enquanto digita; o que não for achado é gravado assim mesmo, com o aviso amarelo.
+ * Formulário do celular (QR de solicitação colado no armário kanban): campos grandes, câmera do celular, a descrição do
+ * código (kit/Sysmat) aparece enquanto digita; o que não for achado é gravado assim mesmo, com o aviso amarelo.
  */
 const MB = Math.round(LIMITE_DOCUMENTO / 1_000_000);
 const GRANDE = "h-12 w-full rounded-xl border border-borda-forte bg-superficie px-3.5 text-[16px] transition placeholder:text-texto-4 focus:border-[var(--acao)]";
@@ -174,70 +174,6 @@ function useEnvio() {
     if (r.erro) window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   };
   return { ...estado, enviar, limpar: () => setEstado({ ocupado: false, erro: "", ok: false }) };
-}
-
-/** Retirada: ordem, turno, código, quantidade, descrição do uso, lançado na ordem (SAP Mobile) e foto obrigatória. */
-export function FormRetirada({ armario }: { armario: ArmarioTela }) {
-  const e = useEnvio();
-  const [chave, setChave] = useState(0);
-  const [ordem, setOrdem] = useState("");
-  const [codigo, setCodigo] = useState("");
-  const [turno, setTurno] = useState("");
-  const [lancado, setLancado] = useState("");
-  const idOrdem = useId(), idCodigo = useId(), idLista = useId();
-  const o = R.normalizarOrdem(ordem);
-  const achOrdem = useConsulta(o, R.ordemValida(o), (v) => `/api/ubm?ordem=${encodeURIComponent(v)}`, (j) => {
-    const a = j.achada as R.OrdemIw38 | null;
-    if (a) return { estado: "achou", texto: [a.texto, a.equipamento && `Equipamento ${a.equipamento}${a.denominacao ? ` · ${a.denominacao}` : ""}`].filter(Boolean).join(" · ") };
-    return { estado: "nao", texto: j.base ? "Ordem não encontrada na base — será gravada mesmo assim." : "IW38 não carregada — a ordem será gravada mesmo assim." };
-  });
-  const cod = useCodigo(codigo, armario);
-
-  if (e.ok) {
-    return <Pronto titulo="Retirada registrada" texto={lancado === "sim" ? "Obrigado! O planejamento já vê a retirada para repor o armário."
-      : "Obrigado! Lembre de adicionar o material na ordem pelo SAP Mobile e marcar como lançada na aba UBM."}
-      aoNovo={() => { e.limpar(); setOrdem(""); setCodigo(""); setTurno(""); setLancado(""); setChave(chave + 1); }} />;
-  }
-  return (
-    <form key={chave} aria-label="Retirada de material" className="space-y-5" onSubmit={(ev) => {
-      ev.preventDefault();
-      const f = new FormData(ev.currentTarget);
-      f.set("acao", "retirada");
-      f.set("u", armario.id);
-      void e.enviar(f);
-    }}>
-      <Cabeca armario={armario} titulo="Retirada de material" />
-      <label className="block">
-        <span className={ROTULO}>Ordem</span>
-        <input name="ordem" value={ordem} onChange={(ev) => setOrdem(ev.target.value)} required maxLength={20} autoComplete="off" spellCheck={false}
-          inputMode="numeric" placeholder="Número da ordem" aria-describedby={idOrdem} className={GRANDE} />
-        <Retorno a={achOrdem} id={idOrdem} />
-      </label>
-      <Escolhas nome="turno" rotulo="Turno" valor={turno} mudar={setTurno} opcoes={R.TURNOS.map((t) => [t, t] as const)} />
-      <label className="block">
-        <span className={ROTULO}>Código do material</span>
-        <input name="codigo" value={codigo} onChange={(ev) => setCodigo(ev.target.value)} required maxLength={40} autoComplete="off" spellCheck={false}
-          list={idLista} placeholder="Código SAP do item" aria-describedby={idCodigo} className={GRANDE} />
-        <datalist id={idLista}>{armario.itens.map((i) => <option key={i.codigo} value={i.codigo}>{i.descricao}</option>)}</datalist>
-        <Retorno a={cod.achado} id={idCodigo} />
-      </label>
-      <label className="block">
-        <span className={ROTULO}>Quantidade{cod.um ? ` (${cod.um})` : ""}</span>
-        <input name="quantidade" defaultValue="1" required inputMode={cod.um && R.umInteira(cod.um) ? "numeric" : "decimal"} autoComplete="off" className={GRANDE} />
-        <span className="mt-1 block text-[12.5px] text-texto-3">{cod.um && R.umInteira(cod.um) ? "Peça: número inteiro." : "Metro e outras unidades: até 2 casas (ex.: 1,5)."}</span>
-      </label>
-      <label className="block">
-        <span className={ROTULO}>Descrição do uso</span>
-        <textarea name="uso" required minLength={3} maxLength={500} rows={3} placeholder="Onde e para que o material foi usado"
-          className={`${GRANDE} h-auto py-3`} />
-      </label>
-      <Escolhas nome="lancado" rotulo="Já lançado na ordem pelo SAP Mobile?" valor={lancado} mudar={setLancado}
-        opcoes={[["sim", "Sim"], ["nao", "Não"]] as const} />
-      <Foto obrigatoria rotulo="Foto do material" />
-      {e.erro && <Mensagem>{e.erro}</Mensagem>}
-      <Enviar ocupado={e.ocupado} rotulo="Enviar retirada" />
-    </form>
-  );
 }
 
 /** Solicitação: acabou, faltando ou reposição; código opcional só em "faltando"; foto opcional. */

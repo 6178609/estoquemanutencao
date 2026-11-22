@@ -5,7 +5,9 @@
  * - Cadastro `ubm_armarios.json`: { <id do armário, ex. UBM-01>: Armario sem o id } com o kit (código, UM, mínimo, padrão).
  * - Cadastros `ubm_movimentos_<AAAA-MM>.json` (um por mês de Brasília do movimento): { <id>: Movimento sem o id } —
  *   retirada, solicitação, reposição e contagem. A leitura junta todos os meses (o saldo precisa desde a última contagem).
- * - Ordem e código nunca travam: só o formato é conferido; a IW38 e o catálogo do Sysmat servem para mostrar a
+ * - Retirada: só a confirmada pelo líder na validação da IW13 (lib/ubm/validacao.ts, origem "validacao"); as antigas
+ *   do QR de retirada (desativado em 22/11/2026, origem "qr") continuam lidas no saldo e no histórico.
+ * - Código nunca trava a solicitação: só o formato é conferido; a IW38 e o catálogo do Sysmat servem para mostrar a
  *   descrição e para a análise (a associação é feita na leitura, nunca gravada).
  * - Saldo por armário e item: a contagem fixa o saldo naquele momento; depois soma as reposições e tira as retiradas.
  */
@@ -24,8 +26,6 @@ export function diaBr(iso: string): string {
 export const arquivoMovimentos = (iso: string) => `${PREFIXO_MOVIMENTOS}${(diaBr(iso) || diaBr(new Date().toISOString())).slice(0, 7)}.json`;
 /** O nome é de um cadastro mensal de movimentos? */
 export const ehArquivoMovimentos = (nome: string) => new RegExp(`^${PREFIXO_MOVIMENTOS}\\d{4}-\\d{2}\\.json$`).test(nome);
-export const TURNOS = ["1º turno", "Administrativo", "2º turno", "3º turno"] as const;
-export type Turno = (typeof TURNOS)[number];
 export const TIPOS_SOLICITACAO = {
   acabou: "Item acabou ou está no fim",
   faltando: "Item que deveria estar no armário",
@@ -47,13 +47,17 @@ export interface ItemKit { codigo: string; descricao: string; um: string; minimo
 export interface Armario { id: string; nome: string; local: string; ativo: boolean; itens: ItemKit[]; criadoEm: string }
 export interface Movimento {
   id: string; tipo: TipoMovimento; armario: string; em: string; por: string; porNome: string;
+  /** `turno` só nas retiradas antigas do QR (lido para o histórico) */
   codigo: string; quantidade: number; ordem: string; turno: string; uso: string; observacao: string;
   tipoSolicitacao: TipoSolicitacao | ""; foto: Foto | null;
   /** solicitação: fechada por quem e quando ("" = aberta) */
   fechadaEm: string; fechadaPor: string;
-  /** retirada: o material já foi adicionado à ordem pelo SAP Mobile? E quem/quando marcou */
-  lancadoNaOrdem: boolean; lancadoEm: string; lancadoPor: string;
+  /** retirada: "validacao" = confirmada pelo líder pela IW13; "qr" = antiga, do QR de retirada (desativado) */
+  origem: OrigemRetirada | "";
 }
+export type OrigemRetirada = "qr" | "validacao";
+/** Texto do uso gravado na retirada confirmada na validação do líder. */
+export const USO_VALIDACAO = "Confirmado pelo líder pela IW13 (ordem de quebra)";
 
 // ----------------------------------------------------------------------------
 // Normalização e validação das entradas
@@ -109,35 +113,10 @@ export function validarQuantidade(v: unknown, um: string, zero = false): number 
   return r2(n);
 }
 
-export const turnoValido = (t: string): t is Turno => (TURNOS as readonly string[]).includes(t);
-
 /** Item do kit do armário pelo código (null = fora do kit). */
 export function itemDoKit(a: Pick<Armario, "itens"> | null | undefined, codigo: string): ItemKit | null {
   const c = normalizarCodigo(codigo);
   return a?.itens.find((i) => i.codigo === c) ?? null;
-}
-
-export interface EntradaRetirada { ordem: string; turno: string; codigo: string; quantidade: string; uso: string; temFoto: boolean;
-  /** "Já lançado na ordem pelo SAP Mobile?": "sim" ou "nao" (obrigatório) */
-  lancado: string }
-export interface CamposRetirada { ordem: string; turno: Turno; codigo: string; quantidade: number; uso: string; lancadoNaOrdem: boolean }
-
-/** Retirada: ordem e código só no formato (nunca recusados por não estarem na base), foto obrigatória. */
-export function validarRetirada(e: EntradaRetirada, armario: Pick<Armario, "itens"> | null): { erro: string } | { campos: CamposRetirada } {
-  const ordem = normalizarOrdem(e.ordem);
-  if (!ordemValida(ordem)) return { erro: "Ordem: informe o número da ordem (até 20 letras ou números)." };
-  const turno = txt(e.turno, 40);
-  if (!turnoValido(turno)) return { erro: "Escolha o turno." };
-  const codigo = normalizarCodigo(e.codigo);
-  if (!codigoValido(codigo)) return { erro: "Código do material: até 40 letras ou números." };
-  const q = validarQuantidade(e.quantidade, itemDoKit(armario, codigo)?.um ?? "");
-  if (typeof q === "string") return { erro: q };
-  const uso = txt(e.uso, 600);
-  if (uso.length < 3 || uso.length > 500) return { erro: "Descreva o uso: de 3 a 500 caracteres." };
-  const lancado = txt(e.lancado, 5).toLowerCase();
-  if (lancado !== "sim" && lancado !== "nao") return { erro: "Responda se o material já foi lançado na ordem pelo SAP Mobile." };
-  if (!e.temFoto) return { erro: "Tire a foto do material retirado." };
-  return { campos: { ordem, turno, codigo, quantidade: q, uso, lancadoNaOrdem: lancado === "sim" } };
 }
 
 export interface EntradaSolicitacao { tipo: string; codigo: string; quantidade: string; observacao: string }
@@ -318,7 +297,7 @@ export function movimentoDe(id: string, v: unknown): Movimento | null {
     codigo: normalizarCodigo(v.codigo), quantidade: r2(q), ordem: normalizarOrdem(v.ordem), turno: txt(v.turno, 40),
     uso: txt(v.uso, 500), observacao: txt(v.observacao, 500), tipoSolicitacao: ts in TIPOS_SOLICITACAO ? ts as TipoSolicitacao : "",
     foto: fotoDe(v.foto), fechadaEm: txt(v.fechadaEm, 40), fechadaPor: txt(v.fechadaPor, 120),
-    lancadoNaOrdem: v.lancadoNaOrdem === true, lancadoEm: txt(v.lancadoEm, 40), lancadoPor: txt(v.lancadoPor, 120),
+    origem: v.tipo !== "retirada" ? "" : v.origem === "validacao" ? "validacao" : "qr",
   };
 }
 
@@ -331,7 +310,7 @@ export function movimentosDe(cad: Record<string, unknown>): Movimento[] {
 export function movimentoParaGravar(m: Movimento): Record<string, unknown> {
   const { id: _id, ...resto } = m;
   void _id;
-  return Object.fromEntries(Object.entries(resto).filter(([k, v]) => v !== "" && v !== null && (k !== "lancadoNaOrdem" || m.tipo === "retirada")));
+  return Object.fromEntries(Object.entries(resto).filter(([, v]) => v !== "" && v !== null));
 }
 
 // ----------------------------------------------------------------------------
@@ -410,19 +389,10 @@ function agrupar(rs: Movimento[], chave: (m: Movimento) => string, rotulo: (k: s
 }
 const porQuantidade = (a: Grupo, b: Grupo) => b.retiradas - a.retiradas || b.quantidade - a.quantidade || a.chave.localeCompare(b.chave);
 
-/** Retiradas ainda não adicionadas à ordem pelo SAP Mobile (para cobrar o passo), da mais antiga para a mais nova. */
-export const naoLancadas = (movs: Movimento[]) =>
-  movs.filter((m) => m.tipo === "retirada" && !m.lancadoNaOrdem).sort((a, b) => a.em.localeCompare(b.em));
-
-/** Pode marcar a retirada como lançada na ordem: quem retirou (autor) ou quem gere a UBM. */
-export const podeMarcarLancada = (q: { login: string; gerir: boolean }, m: Pick<Movimento, "por" | "tipo" | "lancadoNaOrdem">) =>
-  m.tipo === "retirada" && !m.lancadoNaOrdem && (q.gerir || (!!q.login && q.login.toLowerCase() === m.por.toLowerCase()));
-
 export interface Analise {
   retiradas: number; quantidade: number;
-  /** retiradas já lançadas na ordem pelo SAP Mobile e o percentual (null sem retiradas) */
-  lancadas: number; pctLancadas: number | null;
-  porMaterial: Grupo[]; porTurno: Grupo[]; porEquipamento: Grupo[]; porOrdem: Grupo[]; porArmario: Grupo[]; porSemana: Grupo[];
+  /** porLider: quem confirmou a retirada (o líder na validação; nas antigas do QR, quem retirou) */
+  porMaterial: Grupo[]; porLider: Grupo[]; porEquipamento: Grupo[]; porOrdem: Grupo[]; porArmario: Grupo[]; porSemana: Grupo[];
   /** itens do kit sem retirada nos últimos 90 dias (de `hoje`) */
   parados: (ItemKit & { armario: string; ultima: string })[];
   /** retiradas de códigos que não estão no kit do armário: candidatos a entrar */
@@ -460,17 +430,11 @@ export function analisar(armarios: Armario[], movs: Movimento[], f: Filtro, orde
   const foraDoKit = agrupar(fora, (m) => chaveSaldo(m.armario, m.codigo)).sort(porQuantidade)
     .map((g) => { const [armario, codigo] = g.chave.split("|"); return { ...g, armario, codigo }; });
 
-  const lancadas = rs.filter((m) => m.lancadoNaOrdem).length;
   return {
     retiradas: rs.length,
-    lancadas,
-    pctLancadas: rs.length ? Math.round((lancadas / rs.length) * 1000) / 10 : null,
     quantidade: r2(rs.reduce((s, m) => s + m.quantidade, 0)),
     porMaterial: agrupar(rs, (m) => m.codigo).sort(porQuantidade),
-    porTurno: agrupar(rs, (m) => m.turno || "Sem turno").sort((a, b) => {
-      const i = (t: string) => { const k = (TURNOS as readonly string[]).indexOf(t); return k < 0 ? 99 : k; };
-      return i(a.chave) - i(b.chave);
-    }),
+    porLider: agrupar(rs, (m) => m.porNome || m.por || "Sem nome").sort(porQuantidade),
     porEquipamento: agrupar(rs, (m) => ordemDe(m)?.equipamento || "", (k) => k || (ordens ? "Ordem não encontrada na IW38" : "IW38 não carregada"))
       .map((g) => {
         const o = rs.map(ordemDe).find((x) => x?.equipamento === g.chave && g.chave);

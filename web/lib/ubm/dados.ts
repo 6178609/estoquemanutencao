@@ -4,31 +4,41 @@ import { randomBytes } from "node:crypto";
 
 import { registrar } from "../auditoria";
 import { podeEditar, soEstoque, type Usuario } from "../auth/acesso";
-import { catalogo, lerBase } from "../dados/bases";
+import { type Base, catalogo, lerBase } from "../dados/bases";
+import { consumoMateriais } from "../dados/consumo";
 import { gravarCadastroLote, lerCadastro, listarCadastros } from "../dados/cadastros";
 import { LIMITE_DOCUMENTO, tipoDocumento } from "../dados/documentos";
 import { fonte, FonteErro } from "../dados/fonte";
 import { DESTINO } from "../leitura/tipos";
 import { bases } from "../wcm/dados";
-import { type Equipamento, type Ordem, prepararEquipamentos, prepararIw38 } from "../wcm/preparo";
+import {
+  type Equipamento, marcarQuebras, type Nota, type Ordem, prepararEquipamentos, prepararIw38, prepararNotas, regraQuebra, tiposPorOrdem,
+} from "../wcm/preparo";
 import { hoje } from "../wcm/util";
-import { fotosUbmDemo, PASTA_FOTOS_UBM } from "./demo";
+import { fotosUbmDemo, iw13UbmDemo, PASTA_FOTOS_UBM } from "./demo";
 import {
   ARQ_ARMARIOS, arquivoMovimentos, type Armario, armarioDe, armarioParaGravar, armariosDe, chaveOrdem, type EntradaArmario,
-  type EntradaRetirada, type EntradaSolicitacao, type Foto, idArmarioValido, type Movimento, movimentoDe, movimentoParaGravar,
-  ehArquivoMovimentos, movimentosDe, normalizarCodigo, podeMarcarLancada, normalizarIdArmario, type OrdemIw38, validarArmario, validarLancamento, validarRetirada,
+  type EntradaSolicitacao, type Foto, idArmarioValido, type Movimento, movimentoDe, movimentoParaGravar,
+  ehArquivoMovimentos, movimentosDe, normalizarCodigo, normalizarIdArmario, type OrdemIw38, USO_VALIDACAO, validarArmario, validarLancamento,
   validarSolicitacao,
 } from "./regras";
+import {
+  ARQ_VALIDACOES, emDaRetirada, type EntradaValidacao, type InfoOrdem, type LinhaIw13, mapaOrdens, pendencias, podeDesfazer,
+  podeValidar as podeValidarQuem, proximaChave, type Validacao, validacaoDe, validacaoParaGravar, validacoesDe, validarDecisao,
+} from "./validacao";
 
 /**
- * Gravação da UBM (regras em ./regras.ts): armários em ubm_armarios.json, movimentos em ubm_movimentos.json, sempre por
- * gravarCadastroLote (relê e reaplica se outra pessoa gravou no meio). Fotos em app/documentos/ubm/<movimento>/<arquivo>,
- * um arquivo novo a cada envio (na demonstração, na memória). Testado em testes/ubm.test.ts.
+ * Gravação da UBM (regras em ./regras.ts e ./validacao.ts): armários em ubm_armarios.json, movimentos em
+ * ubm_movimentos_<AAAA-MM>.json, decisões do líder em ubm_validacoes.json, sempre por gravarCadastroLote (relê e reaplica
+ * se outra pessoa gravou no meio). Fotos da solicitação em app/documentos/ubm/<movimento>/<arquivo>, um arquivo novo a
+ * cada envio (na demonstração, na memória); as das retiradas antigas do QR continuam legíveis. Testado em
+ * testes/ubm.test.ts e testes/ubmValidacao.test.ts.
  *
- * Quem grava: retirada e solicitação, quem vê a aba (a rota confere); armários, reposição, contagem e fechar solicitação,
- * só quem `gere` (perfil de edição e fora de Terceiro/Manutentor).
+ * Quem grava: solicitação e validação do líder, quem vê a aba (a rota confere); armários, reposição, contagem, fechar
+ * solicitação e desfazer validação, só quem `gere` (perfil de edição e fora de Terceiro/Manutentor).
  */
 const TIPOS_FOTO = ["image/jpeg", "image/png", "image/webp"];
+const SO_DESFAZER = "Só editores do PCM (fora de Terceiro e Manutentor) desfazem uma validação.";
 const SO_GESTAO = "Só editores do PCM (fora de Terceiro e Manutentor) cadastram armários e registram reposição e contagem.";
 const globalDemo = globalThis as unknown as { __cmFotosUbmDemo?: Map<string, Uint8Array> };
 const demo = (globalDemo.__cmFotosUbmDemo ??= new Map(fotosUbmDemo()));
@@ -38,12 +48,14 @@ const idOk = (s: unknown): s is string => typeof s === "string" && /^[a-z0-9]{6,
 const caminho = (mov: string, arquivo: string) => `${PASTA_FOTOS_UBM}/${mov}/${arquivo}`;
 type Anexo = { nome: string; bytes: Uint8Array };
 
-/** Quem está gravando: login, nome para mostrar e se pode gerir (armários, reposição, contagem). */
-export interface Quem { login: string; nome: string; gerir: boolean }
+/** Quem está gravando: login, nome para mostrar, se pode gerir (armários, reposição, contagem) e validar (IW13). */
+export interface Quem { login: string; nome: string; gerir: boolean; validar: boolean }
 
 /** Gere a UBM: perfil de edição e fora das funções operacionais (Terceiro e Manutentor). */
 export const podeGerir = (u: Usuario | null) => !!u && podeEditar(u) && !soEstoque(u);
-export const quemDe = (u: Usuario & { nome?: string }): Quem => ({ login: u.login, nome: u.nome || u.login, gerir: podeGerir(u) });
+/** Valida as retiradas (IW13): quem vê a aba e não é Terceiro nem Manutentor (Líder, Analista e as outras funções). */
+export const podeValidar = (u: Usuario | null) => !!u && !soEstoque(u);
+export const quemDe = (u: Usuario & { nome?: string }): Quem => ({ login: u.login, nome: u.nome || u.login, gerir: podeGerir(u), validar: podeValidar(u) });
 
 /** Só para os testes: os caminhos das fotos guardadas na demonstração. */
 export const _fotosGuardadas = () => [...demo.keys()];
@@ -169,7 +181,7 @@ async function gravarFoto(mov: string, a: Anexo | null): Promise<Foto> {
   const c = caminho(mov, arquivo);
   const f = fonte();
   if (!f) demo.set(c, bytes);
-  else if (!(await f.gravarCondicional(c, bytes, null, "Foto de retirada da UBM")))
+  else if (!(await f.gravarCondicional(c, bytes, null, "Foto da UBM")))
     throw new FonteErro("Não consegui gravar a foto agora; tente de novo.");
   const nome = String(a?.nome ?? "").replace(/[^\w.\- ]/g, "_").slice(0, 120) || "foto";
   return { nome, tipo, tamanho: bytes.length, arquivo };
@@ -201,7 +213,7 @@ export async function lerFoto(id: string): Promise<{ bytes: Uint8Array; tipo: st
 // Movimentos
 // ----------------------------------------------------------------------------
 const vazio = { ordem: "", turno: "", uso: "", observacao: "", tipoSolicitacao: "" as const, foto: null, fechadaEm: "", fechadaPor: "",
-  lancadoNaOrdem: false, lancadoEm: "", lancadoPor: "" };
+  origem: "" as const };
 
 /** Grava movimentos novos no cadastro do mês (de Brasília) de cada um. */
 async function gravarNovos(movs: Movimento[], quem: Quem) {
@@ -213,28 +225,6 @@ async function gravarNovos(movs: Movimento[], quem: Quem) {
       return movimentoParaGravar(m);
     }])), quem.login);
   }
-}
-
-/** Retirada pelo QR: ordem e código livres (só o formato), foto obrigatória. Devolve o id. */
-export async function registrarRetirada(quem: Quem, armarioId: string, e: EntradaRetirada, foto: Anexo | null): Promise<string> {
-  if (!quem.login) throw new FonteErro("Entre no site para registrar a retirada.");
-  const a = await armarioAtivo(armarioId);
-  const v = validarRetirada({ ...e, temFoto: !!foto && foto.bytes.length > 0 }, a);
-  if ("erro" in v) throw new FonteErro(v.erro);
-  const id = novoId();
-  const f = await gravarFoto(id, foto);
-  const em = agora();
-  const m: Movimento = { ...vazio, id, tipo: "retirada", armario: a.id, em, por: quem.login, porNome: quem.nome, ...v.campos, foto: f,
-    ...(v.campos.lancadoNaOrdem ? { lancadoEm: em, lancadoPor: quem.nome } : {}) };
-  try {
-    await gravarNovos([m], quem);
-  } catch (err) {
-    await apagarFoto(id, f.arquivo); // não fica foto sem retirada
-    throw err;
-  }
-  void registrar(quem.login, "ubm_retirada", id, { armario: a.id, codigo: m.codigo, quantidade: m.quantidade, ordem: m.ordem,
-    lancado_na_ordem: m.lancadoNaOrdem });
-  return id;
 }
 
 /** Solicitação pelo QR (acabou, faltando, reposição), foto opcional. */
@@ -290,21 +280,6 @@ export async function fecharSolicitacao(quem: Quem, id: string): Promise<void> {
   void registrar(quem.login, "ubm_solicitacao", id, { acao: "fechar" });
 }
 
-/** Marca a retirada como já adicionada à ordem pelo SAP Mobile (quem retirou ou quem gere a UBM). */
-export async function marcarLancada(quem: Quem, id: string): Promise<void> {
-  if (!idOk(id)) throw new FonteErro("Retirada inválida.");
-  const achado = await movimentoAgora(id);
-  if (!achado) throw new FonteErro("Retirada não encontrada.");
-  await gravarCadastroLote(achado.arquivo, { [id]: (atual) => {
-    const m = movimentoDe(id, atual);
-    if (!m || m.tipo !== "retirada") throw new FonteErro("Retirada não encontrada.");
-    if (m.lancadoNaOrdem) throw new FonteErro("A retirada já está marcada como lançada; atualize a página.");
-    if (!podeMarcarLancada(quem, m)) throw new FonteErro("Só quem retirou ou um editor do PCM marca a retirada como lançada.");
-    return movimentoParaGravar({ ...m, lancadoNaOrdem: true, lancadoEm: agora(), lancadoPor: quem.nome });
-  } }, quem.login);
-  void registrar(quem.login, "ubm_lancada", id);
-}
-
 /** Cadastra (novo = true: o id não pode existir) ou altera um armário e o kit. */
 export async function salvarArmario(quem: Quem, e: EntradaArmario, novo: boolean): Promise<string> {
   if (!quem.gerir) throw new FonteErro(SO_GESTAO);
@@ -319,4 +294,144 @@ export async function salvarArmario(quem: Quem, e: EntradaArmario, novo: boolean
   } }, quem.login);
   void registrar(quem.login, "ubm_armario", c.id, { acao: novo ? "criar" : "editar", itens: c.itens.length, ativo: c.ativo });
   return c.id;
+}
+
+// ----------------------------------------------------------------------------
+// Validação do líder (IW13 × ordens de quebra)
+// ----------------------------------------------------------------------------
+export async function lerValidacoes(fresco = false): Promise<Validacao[]> {
+  return validacoesDe(await lerCadastro(ARQ_VALIDACOES, { fresco }));
+}
+
+/**
+ * As linhas da IW13 com retirada (a base do consumo, mesmo cache de lib/dados/consumo.ts) e a data do envio; na
+ * demonstração, a IW13 fictícia em volta das ordens YM11 das bases fictícias.
+ */
+export async function linhasIw13(): Promise<Base<LinhaIw13[]>> {
+  if (!fonte()) {
+    const b = await bases();
+    return { dados: iw13UbmDemo(b.ordens.dados ?? [], b.calendario), atualizado: new Date(Date.now() - 86_400_000).toISOString(), origem: DESTINO.iw13 };
+  }
+  const c = await consumoMateriais().catch(() => null);
+  return { dados: c?.dados?.tomadas ?? null, atualizado: c?.atualizado ?? null, origem: DESTINO.iw13 };
+}
+
+const mapasQuebra = new WeakMap<object, WeakMap<object, Map<string, InfoOrdem>>>();
+
+/**
+ * As ordens com a marca de quebra (lib/ubm/validacao.ts → mapaOrdens), pela regra em vigor no site (`regraQuebra`): só a
+ * IW38, a IW28 e o IH08, lidos pelo lerBase com o mesmo preparo e a mesma chave de cache de lib/wcm/dados.ts (sem montar
+ * as bases inteiras); o tipo da ordem para `marcarQuebras` vem da IW38. O mapa fica guardado preso aos arrays das bases.
+ * Na demonstração, as bases fictícias. null = sem IW38 nem IW28 (não dá para saber o que é quebra).
+ */
+export async function ordensDeQuebra(): Promise<Map<string, InfoOrdem> | null> {
+  let ordens: Ordem[] | null, notas: Nota[] | null, equipamentos: Equipamento[];
+  if (!fonte()) {
+    const b = await bases();
+    ({ ordens, equipamentos } = { ordens: b.ordens.dados, equipamentos: b.equipamentos.dados ?? [] });
+    notas = b.notas.dados;
+  } else {
+    const h = hoje();
+    const [iw38, iw28, ih08] = await Promise.all([lerBase(DESTINO.iw38, (l) => prepararIw38(l, h).ordens, String(h)),
+      lerBase(DESTINO.iw28, (l) => prepararNotas(l, h), String(h)), lerBase(DESTINO.ih08, (l) => prepararEquipamentos(l))]).catch(() => [null, null, null]);
+    ordens = iw38?.dados ?? null;
+    notas = iw28?.dados ?? null;
+    equipamentos = ih08?.dados ?? [];
+  }
+  if (!ordens?.length && !notas?.length) return null;
+  const o = ordens ?? [], n = notas ?? [];
+  const porNotas = mapasQuebra.get(o) ?? new WeakMap<object, Map<string, InfoOrdem>>();
+  mapasQuebra.set(o, porNotas);
+  let m = porNotas.get(n);
+  if (!m) {
+    const regra = regraQuebra(n);
+    const marcadas = marcarQuebras(n.filter((x) => x.ordem), tiposPorOrdem(o), regra).filter((x) => x.quebra);
+    m = mapaOrdens(o, marcadas, new Map(equipamentos.map((e) => [e.equipamento, e.denominacao])), regra);
+    porNotas.set(n, m);
+  }
+  return m;
+}
+
+/**
+ * Grava a decisão do líder para uma linha pendente (ordem + código). A pendência é recalculada aqui (IW13, ordens de
+ * quebra, kit e movimentos lidos agora): o formulário só manda a chave, a decisão, o armário e a quantidade. "ubm" cria
+ * a retirada (origem "validacao") que baixa o saldo. Duas pessoas ao mesmo tempo: a segunda recebe "já validado por X".
+ */
+export async function validar(quem: Quem, linha: string, e: EntradaValidacao): Promise<Validacao> {
+  if (!quem.login) throw new FonteErro("Entre no site para validar.");
+  if (!podeValidarQuem(quem)) throw new FonteErro("A validação é do líder: Terceiro e Manutentor não validam.");
+  const [iw13, ordens, armarios, movs, vs] = await Promise.all([linhasIw13(), ordensDeQuebra(), lerArmarios(true), lerMovimentos(true), lerValidacoes(true)]);
+  const item = pendencias(iw13.dados ?? [], ordens ?? new Map(), armarios, movs, vs, {}).flatMap((p) => p.itens).find((i) => i.chave === linha);
+  if (!item) {
+    const ja = vs.filter((v) => v.linha === linha).at(0);
+    throw new FonteErro(ja ? `Já validado por ${ja.porNome || ja.por} (${ja.decisao === "ubm" ? "veio da UBM" : "veio do Almox"}); atualize a página.`
+      : "Essa linha não está mais pendente (IW13, kit ou ordem mudaram); atualize a página.");
+  }
+  const d = validarDecisao(e, item);
+  if ("erro" in d) throw new FonteErro(d.erro);
+  const em = agora();
+  const chave = proximaChave(linha, vs);
+  const v: Validacao = { chave, linha, ordem: item.ordem, codigo: item.codigo, decisao: d.decisao, armario: d.armario, quantidade: d.quantidade, um: d.um,
+    tomada: item.tomada, umIw13: item.umIw13, dataIw13: item.data, equipamento: item.equipamento, em, por: quem.login, porNome: quem.nome,
+    movimento: d.decisao === "ubm" ? novoId() : "" };
+  // o mesmo lote gravado por outra pessoa no meio (as duas leram a mesma pendência): a segunda é recusada
+  await gravarCadastroLote(ARQ_VALIDACOES, { [chave]: (atual) => {
+    const outra = atual ? validacaoDe(chave, atual) : null;
+    if (atual) throw new FonteErro(`Já validado por ${outra?.porNome || outra?.por || "outra pessoa"}; atualize a página.`);
+    return validacaoParaGravar(v);
+  } }, quem.login);
+  if (v.decisao === "ubm") {
+    // a retirada leva a data do consumo na IW13 (meio-dia de Brasília): uma contagem feita depois já a inclui
+    const m: Movimento = { ...vazio, id: v.movimento, tipo: "retirada", armario: v.armario, em: emDaRetirada(v.dataIw13, em), por: quem.login,
+      porNome: quem.nome, codigo: v.codigo, quantidade: v.quantidade, ordem: v.ordem, uso: USO_VALIDACAO, origem: "validacao" };
+    const tirarDecisao = () => gravarCadastroLote(ARQ_VALIDACOES, { [chave]: (atual) => (atual && atual.movimento === v.movimento ? null : undefined) }, quem.login)
+      .catch(() => undefined);
+    try {
+      await gravarNovos([m], quem);
+    } catch (err) {
+      await tirarDecisao(); // sem a retirada, a decisão também sai (a linha volta a ficar pendente)
+      throw err;
+    }
+    // desfeita por um gestor enquanto a retirada era gravada: a retirada sai também (não fica retirada sem decisão)
+    if (!(await lerValidacoes(true)).some((x) => x.chave === chave)) {
+      await apagarMovimento(m, quem);
+      throw new FonteErro("A validação foi desfeita enquanto gravava; atualize a página.");
+    }
+  }
+  void registrar(quem.login, "ubm_validacao", chave, { decisao: v.decisao, ordem: v.ordem, codigo: v.codigo, armario: v.armario,
+    quantidade: v.quantidade, tomada: v.tomada });
+  return v;
+}
+
+/** Apaga a retirada criada por uma validação (só ela: origem "validacao"). */
+async function apagarMovimento(m: Pick<Movimento, "id" | "em">, quem: Quem) {
+  await gravarCadastroLote(arquivoMovimentos(m.em), { [m.id]: (atual) => {
+    const x = movimentoDe(m.id, atual);
+    return x && x.tipo === "retirada" && x.origem === "validacao" ? null : undefined;
+  } }, quem.login);
+}
+
+/** Desfaz uma validação (só quem gere): apaga a decisão e, se foi "veio da UBM", a retirada criada por ela. */
+export async function desfazerValidacao(quem: Quem, chave: string): Promise<void> {
+  if (!podeDesfazer(quem)) throw new FonteErro(SO_DESFAZER);
+  const v = (await lerValidacoes(true)).find((x) => x.chave === chave);
+  if (!v) throw new FonteErro("Validação não encontrada; atualize a página.");
+  if (v.movimento) {
+    const achado = await movimentoAgora(v.movimento);
+    if (achado) await apagarMovimento(achado.m, quem);
+  }
+  await gravarCadastroLote(ARQ_VALIDACOES, { [chave]: () => null }, quem.login);
+  void registrar(quem.login, "ubm_validacao", chave, { acao: "desfazer", decisao: v.decisao, movimento: v.movimento || undefined });
+}
+
+// O KPI "A validar" da Visão geral não recalcula a lista (IW13 × IW38 × IW28): mostra o total da última vez que a
+// sub-aba Validação foi aberta com o período padrão (últimos 30 dias), guardado por armário por até 15 minutos.
+const gAValidar = globalThis as unknown as { __cmUbmAValidar?: Map<string, { n: number; em: number }> };
+const aValidar = (gAValidar.__cmUbmAValidar ??= new Map());
+const VALE_A_VALIDAR = 15 * 60_000;
+export function guardarAValidar(armario: string, n: number) { aValidar.set(armario || "*", { n, em: Date.now() }); }
+/** O total guardado (null = não há um recente: a tela mostra só o link para a validação). */
+export function aValidarGuardado(armario: string): number | null {
+  const x = aValidar.get(armario || "*");
+  return x && Date.now() - x.em < VALE_A_VALIDAR ? x.n : null;
 }

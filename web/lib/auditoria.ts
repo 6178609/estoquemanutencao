@@ -39,11 +39,12 @@ export const ACOES: Record<string, string> = {
   comentario_roadmap: "Alterou comentário do Roadmap SIM",
   meus_dados: "Baixou os próprios dados (LGPD)",
   cadastro_material: "Pedido de cadastro de material",
-  ubm_retirada: "Retirada de material da UBM",
+  ubm_retirada: "Retirada de material da UBM (QR antigo)",
+  ubm_validacao: "Validação do líder na UBM (veio da UBM ou do Almox)",
   ubm_solicitacao: "Solicitação da UBM",
   ubm_reposicao: "Reposição ou contagem da UBM",
   ubm_armario: "Cadastro de armário da UBM",
-  ubm_lancada: "Marcou retirada da UBM como lançada na ordem",
+  ubm_lancada: "Marcou retirada da UBM como lançada na ordem (antigo)",
 };
 
 export interface Evento {

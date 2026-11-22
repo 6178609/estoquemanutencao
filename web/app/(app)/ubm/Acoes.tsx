@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ClipboardList, Download, FileUp, LoaderCircle, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Check, ClipboardList, Download, FileUp, LoaderCircle, Pencil, Plus, Trash2, Undo2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -19,15 +19,15 @@ export async function enviarUbm(form: FormData): Promise<{ erro: string; respost
 
 const LINHA = "inline-flex h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] hover:bg-superficie-2 disabled:opacity-60";
 
-/** Botão de uma ação simples (fechar solicitação, marcar como lançada). */
-export function BotaoAcao({ acao, id, rotulo, confirmar }: { acao: "fechar" | "lancada"; id: string; rotulo: string; confirmar?: string }) {
+/** Botão de uma ação simples (fechar solicitação; desfazer validação, com `id` = a chave ordem|código). */
+export function BotaoAcao({ acao, id, rotulo, confirmar }: { acao: "fechar" | "desfazer"; id: string; rotulo: string; confirmar?: string }) {
   const router = useRouter();
   const [estado, setEstado] = useState({ ocupado: false, erro: "" });
   const rodar = async () => {
     if (confirmar && !window.confirm(confirmar)) return;
     const f = new FormData();
     f.set("acao", acao);
-    f.set("id", id);
+    f.set(acao === "desfazer" ? "chave" : "id", id);
     setEstado({ ocupado: true, erro: "" });
     const r = await enviarUbm(f);
     setEstado({ ocupado: false, erro: r.erro });
@@ -36,7 +36,7 @@ export function BotaoAcao({ acao, id, rotulo, confirmar }: { acao: "fechar" | "l
   return (
     <span className="inline-flex flex-col items-start gap-1">
       <button type="button" onClick={rodar} disabled={estado.ocupado} aria-busy={estado.ocupado} className={BOTAO_COMPACTO}>
-        {estado.ocupado ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} {rotulo}
+        {estado.ocupado ? <LoaderCircle className="size-3.5 animate-spin" /> : acao === "desfazer" ? <Undo2 className="size-3.5" /> : <Check className="size-3.5" />} {rotulo}
       </button>
       {estado.erro && <span role="alert" className="text-[12px] text-[var(--selo-critico-texto)]">{estado.erro}</span>}
     </span>
