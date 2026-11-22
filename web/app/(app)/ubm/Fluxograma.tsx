@@ -4,7 +4,8 @@ import Link from "next/link";
 /**
  * "Como funciona": o fluxo do processo com o armário kanban, desenhado em HTML/CSS com as cores do site — início e fim
  * em amarelo-claro, ações em azul-claro, decisões em losango verde-claro. Vertical (cabe no celular); nas decisões, os
- * dois caminhos lado a lado. Os passos que têm tela levam a ela (QR de solicitação, de retirada, lista de reposição).
+ * dois caminhos lado a lado. Os passos que têm tela levam a ela (QR de solicitação, envio da IW13, validação do líder,
+ * lista de reposição). A retirada não tem mais QR: o líder confirma pela IW13 (pedido do usuário, 22/11/2026).
  */
 type Tipo = "limite" | "acao" | "decisao";
 const COR: Record<Tipo, { fundo: string; texto: string }> = {
@@ -60,37 +61,39 @@ export function Fluxograma() {
         <li><No tipo="acao">Abertura de nota</No><Seta /></li>
         <li><No tipo="acao">Aciona o mantenedor</No><Seta /></li>
         <li>
-          <No tipo="decisao">Necessita de material?</No>
+          <No tipo="decisao">Precisa de material?</No>
           <div className="mt-1 flex items-center justify-center gap-2 text-[12.5px] text-texto-3">
             <span className="font-semibold uppercase">Não</span><ArrowRight className="size-4" aria-hidden /> vai direto para <b className="text-texto-2">Corrigir a anomalia</b>
           </div>
           <Seta rotulo="Sim" />
         </li>
         <li>
-          <No tipo="decisao">Material tem no armário kanban?</No>
+          <No tipo="decisao">Tem no armário kanban?</No>
           <div className="mt-2 grid grid-cols-2 gap-3">
             <div className="flex flex-col items-center">
               <Seta rotulo="Não" />
-              <No tipo="acao" href="/ubm/solicitacao" dica="QR de SOLICITAÇÃO do armário">Solicitar material do almoxarifado para a correção</No>
+              <No tipo="acao" href="/ubm/solicitacao" dica="QR de SOLICITAÇÃO do armário">Solicitar ao almoxarifado</No>
             </div>
             <div className="flex flex-col items-center">
               <Seta rotulo="Sim" />
-              <No tipo="acao" href="/ubm/retirada" dica="QR de RETIRADA do armário">Acionar o líder para a retirada do material</No>
-              <Seta />
-              <No tipo="acao" href="/ubm?visao=Visão geral#nao-lancadas" dica="Marque “Já lançado na ordem” no formulário">Adicionar na ordem via SAP Mobile o material usado do armário</No>
+              <No tipo="acao">Líder retira do armário e lança na ordem pelo SAP Mobile</No>
             </div>
           </div>
           <Seta />
         </li>
-        <li><No tipo="acao">Corrigir a anomalia</No><Seta /></li>
+        <li><No tipo="acao">Corrige a anomalia</No><Seta /></li>
         <li><No tipo="acao">Libera o equipamento</No><Seta /></li>
+        <li><No tipo="acao" href="/dados" dica="Envio da IW13 em Fontes de dados">A IW13 traz o consumo da ordem de quebra</No><Seta /></li>
+        <li><No tipo="acao" href="/ubm?visao=Validação do líder" dica="Sub-aba Validação do líder">Líder confirma no site: “Veio da UBM” ou “Veio do Almox”</No><Seta /></li>
         <li>
-          <No tipo="decisao">Utilizou material do armário?</No>
+          <No tipo="decisao">Veio da UBM?</No>
           <div className="mt-2 grid grid-cols-2 gap-3">
-            <div className="flex flex-col items-center"><Seta rotulo="Não" /><No tipo="limite">Fim</No></div>
+            <div className="flex flex-col items-center"><Seta rotulo="Não" /><No tipo="acao" dica="Entra na análise (UBM sem saldo ou não usada)">Só registra</No><Seta /><No tipo="limite">Fim</No></div>
             <div className="flex flex-col items-center">
               <Seta rotulo="Sim" />
-              <No tipo="acao" href="/ubm?visao=Visão geral#reposicao" dica="Lista de reposição (padrão − saldo)">Repõe material no armário kanban</No>
+              <No tipo="acao">Baixa do saldo do armário</No>
+              <Seta />
+              <No tipo="acao" href="/ubm?visao=Visão geral#reposicao" dica="Lista de reposição (padrão − saldo)">Repõe o armário</No>
               <Seta />
               <No tipo="limite">Fim</No>
             </div>

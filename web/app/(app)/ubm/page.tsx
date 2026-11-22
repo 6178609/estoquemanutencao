@@ -1,4 +1,4 @@
-import { Download, Lock, QrCode } from "lucide-react";
+import { ArrowRight, Download, Lock, QrCode } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -8,6 +8,7 @@ import { exigir } from "@/lib/auth/sessao";
 import { inteiro } from "@/lib/formato";
 import * as D from "@/lib/ubm/dados";
 import * as R from "@/lib/ubm/regras";
+import * as V from "@/lib/ubm/validacao";
 
 import { Controles } from "../planos/_comum/Controles";
 import { um, type Params } from "../planos/_comum/params";
@@ -15,11 +16,13 @@ import { BotaoAcao, EditorArmario, Lancamento } from "./Acoes";
 import { ArmarioVisual } from "./ArmarioVisual";
 import { Fluxograma } from "./Fluxograma";
 import { BaixarQr } from "./qr/Imprimir";
+import { ItemValidacao } from "./Validacao";
 
 export const metadata: Metadata = { title: "UBM (armário kanban)" };
 export const dynamic = "force-dynamic";
 
-const VISOES = ["Visão geral", "Retiradas", "Solicitações", "Análise", "Armários", "Como funciona"];
+const VALIDACAO = "Validação do líder";
+const VISOES = ["Visão geral", VALIDACAO, "Retiradas", "Solicitações", "Análise", "Armários", "Como funciona"];
 const FUSO = "America/Sao_Paulo";
 const MAX_LISTA = 200;
 /** Retiradas por página (cada uma com a miniatura da foto). */
@@ -38,9 +41,10 @@ const BOTAO_LINK = "inline-flex h-11 items-center gap-2 rounded-xl border border
 
 /**
  * UBM — armário kanban em campo com itens estratégicos do Almox (spec docs/superpowers/specs/2026-11-22-ubm-design.md).
- * Retirada e solicitação pelo QR (formulários do celular em ./retirada e ./solicitacao); aqui o planejamento vê o saldo,
- * a lista de reposição, as retiradas (com foto), as solicitações, a análise e o cadastro dos armários. Regras em
- * lib/ubm/regras.ts; gravação em lib/ubm/dados.ts pela rota /api/ubm.
+ * Retirada: o líder confirma, pela IW13 das ordens de quebra, se o material veio da UBM ou do Almox (sub-aba "Validação
+ * do líder", regras em lib/ubm/validacao.ts); solicitação pelo QR (formulário do celular em ./solicitacao). Aqui o
+ * planejamento vê o saldo, a lista de reposição, as retiradas confirmadas, as solicitações, a análise e o cadastro dos
+ * armários. Regras em lib/ubm/regras.ts; gravação em lib/ubm/dados.ts pela rota /api/ubm.
  */
 export default async function Ubm(props: { searchParams: Promise<Params> }) {
   const u = await exigir("ubm");
@@ -50,15 +54,21 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
   const hoje = hojeBr();
   const [armarios, movs] = await Promise.all([D.lerArmarios(), D.lerMovimentos()]);
   const armario = armarios.some((a) => a.id === um(params, "u")) ? um(params, "u") : "";
-  const de = /^\d{4}-\d{2}-\d{2}$/.test(um(params, "ude")) ? um(params, "ude") : somarDias(hoje, -89);
+  const diasPadrao = visao === VALIDACAO ? V.DIAS_PADRAO : 90;
+  const de = /^\d{4}-\d{2}-\d{2}$/.test(um(params, "ude")) ? um(params, "ude") : somarDias(hoje, -(diasPadrao - 1));
   const ate = /^\d{4}-\d{2}-\d{2}$/.test(um(params, "uate")) ? um(params, "uate") : hoje;
   const filtro = { armario, de, ate };
   const doArmario = armarios.filter((a) => !armario || a.id === armario);
   const saldo = R.saldoDoKit(doArmario, movs);
   const repor = saldo.filter((l) => l.repor);
   const abertas = R.filtrar(movs, { armario }).filter((m) => m.tipo === "solicitacao" && !m.fechadaEm);
-  const naoLancadas = R.naoLancadas(R.filtrar(movs, { armario }));
   const ordens = visao === "Análise" || visao === "Retiradas" ? await D.ordensIw38() : null;
+  // validação do líder: IW13 × ordens de quebra (a Visão geral mostra o total dos últimos 30 dias no KPI)
+  const comValidacao = visao === "Visão geral" || visao === VALIDACAO || visao === "Análise";
+  const [iw13, quebras, validacoes] = comValidacao ? await Promise.all([D.linhasIw13(), D.ordensDeQuebra(), D.lerValidacoes()])
+    : [null, null, [] as V.Validacao[]];
+  const aValidar = visao === "Visão geral" && iw13 ? V.totalPendente(V.pendencias(iw13.dados ?? [], quebras ?? new Map(), armarios, movs, validacoes,
+    { armario, de: somarDias(hoje, -(V.DIAS_PADRAO - 1)), ate: hoje })) : 0;
   const codigos = new Set(movs.map((m) => m.codigo).filter(Boolean));
   const catalogo = visao === "Armários" || visao === "Como funciona" ? new Map<string, string>() : await D.descricoesCatalogo(codigos);
   const kitDesc = new Map(armarios.flatMap((a) => a.itens.map((i) => [`${a.id}|${i.codigo}`, i.descricao] as const)));
@@ -69,7 +79,7 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
     <Controles className="min-w-0 flex-1" controles={[
       { tipo: "escolha", chave: "u", rotulo: "Armário", valor: armario,
         opcoes: [{ valor: "", rotulo: "Todos" }, ...armarios.map((a) => ({ valor: a.id, rotulo: `${a.id} · ${a.nome}` }))] },
-      ...(visao === "Retiradas" || visao === "Análise" || visao === "Solicitações" ? [{ tipo: "periodo" as const, de: "ude", ate: "uate", valorDe: de, valorAte: ate,
+      ...(visao === "Retiradas" || visao === "Análise" || visao === "Solicitações" || visao === VALIDACAO ? [{ tipo: "periodo" as const, de: "ude", ate: "uate", valorDe: de, valorAte: ate,
         atalhos: [{ rotulo: "Últimos 30 dias", de: somarDias(hoje, -29), ate: hoje }, { rotulo: "Últimos 90 dias", de: somarDias(hoje, -89), ate: hoje },
           { rotulo: "Últimos 12 meses", de: somarDias(hoje, -364), ate: hoje }] }] : []),
     ]} />
@@ -78,13 +88,13 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
   return (
     <Pagina>
       <Cabecalho titulo="UBM," destaque="o armário kanban em campo." sobre="Custos e suprimentos"
-        subtitulo="Itens estratégicos do Almox perto da máquina para reduzir o MTTR. O manutentor registra a retirada pelo QR do armário (com a foto); o planejamento vê o saldo, o que repor e a análise das saídas."
+        subtitulo="Itens estratégicos do Almox perto da máquina para reduzir o MTTR. O líder confirma pela IW13 se o material das ordens de quebra veio da UBM ou do Almox; o planejamento vê o saldo, o que repor e a análise das saídas."
         acoes={<Link href="/ubm/qr" className={BOTAO_LINK}><QrCode className="size-4" /> Etiquetas QR</Link>} />
       <div className="space-y-6">
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {!gere && (
           <p className="inline-flex items-center gap-1.5 text-[12.5px] text-texto-3">
-            <Lock className="size-3.5" aria-hidden />Você registra retiradas e solicitações pelo QR; armários, reposição e contagem ficam com os editores do PCM.
+            <Lock className="size-3.5" aria-hidden />Você valida as retiradas (IW13) e registra solicitações pelo QR; armários, reposição, contagem e desfazer validações ficam com os editores do PCM.
           </p>
         )}
         {visao !== "Como funciona" && <div className="flex flex-wrap items-center gap-2">{controles}</div>}
@@ -95,7 +105,10 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
               <Kpi rotulo="Armários ativos" valor={inteiro(doArmario.filter((a) => a.ativo).length)} detalhe={`${inteiro(saldo.length)} itens nos kits`} tom="azul" />
               <Kpi rotulo="Itens para repor" valor={inteiro(repor.length)} detalhe="abaixo do mínimo" tom={repor.length ? "laranja" : "verde"} />
               <Kpi rotulo="Solicitações abertas" valor={inteiro(abertas.length)} detalhe="acabou, faltando ou reposição" tom={abertas.length ? "laranja" : "verde"} />
-              <Kpi rotulo="Não lançadas na ordem" valor={inteiro(naoLancadas.length)} detalhe="retiradas sem o SAP Mobile" tom={naoLancadas.length ? "vermelho" : "verde"} />
+              <Link href={`?${new URLSearchParams({ visao: VALIDACAO, ...(armario ? { u: armario } : {}) })}`} className="block rounded-cartao focus-visible:outline-2"
+                aria-label={`A validar: ${inteiro(aValidar)} materiais de ordens de quebra (abrir a validação do líder)`}>
+                <Kpi rotulo="A validar" valor={inteiro(aValidar)} detalhe={iw13?.dados ? "materiais de ordens de quebra (30 dias) · abrir" : "IW13 não carregada · abrir"} tom={aValidar ? "laranja" : "verde"} />
+              </Link>
             </div>
 
             {doArmario.some((a) => a.ativo) && (
@@ -123,25 +136,6 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
                       </tr>
                     ))}
                   </Tabela>
-                )}
-              </Secao>
-            </div>
-
-            <div id="nao-lancadas" className="scroll-mt-20">
-              <Secao titulo="Retiradas não lançadas na ordem" destaque={`· ${inteiro(naoLancadas.length)}`}
-                sub="O material usado do armário precisa entrar na ordem pelo SAP Mobile. Quem retirou (ou um editor do PCM) marca quando lançar.">
-                {!naoLancadas.length ? <Vazio>Todas as retiradas já estão lançadas na ordem.</Vazio> : (
-                  <ul className="grid gap-2 lg:grid-cols-2">
-                    {naoLancadas.slice(0, MAX_LISTA).map((m) => (
-                      <li key={m.id} className="flex flex-wrap items-start justify-between gap-3 rounded-cartao border border-borda bg-superficie p-3">
-                        <div className="min-w-0 text-[13px]">
-                          <div className="font-medium"><span className="num">{m.codigo}</span> · {R.fmtQtd(m.quantidade)} · ordem <span className="num">{m.ordem}</span></div>
-                          <div className="text-[12.5px] text-texto-3">{m.armario} · {m.porNome} · {quando(m.em)}</div>
-                        </div>
-                        {R.podeMarcarLancada({ login: u.login, gerir: gere }, m) && <BotaoAcao acao="lancada" id={m.id} rotulo="Marcar como lançada" />}
-                      </li>
-                    ))}
-                  </ul>
                 )}
               </Secao>
             </div>
@@ -180,7 +174,7 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
           const pag = Math.min(paginas, Math.max(1, Number.parseInt(um(params, "pag"), 10) || 1));
           const linkPag = (n: number) => `?${new URLSearchParams({ ...Object.fromEntries(Object.entries(params).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : []))), pag: String(n) })}`;
           return (
-            <Secao titulo="Retiradas" destaque={`· ${inteiro(rs.length)}`} sub={`De ${dataBr(de)} a ${dataBr(ate)}, da mais nova para a mais antiga.`}
+            <Secao titulo="Retiradas" destaque={`· ${inteiro(rs.length)}`} sub={`Confirmadas pelo líder na validação da IW13 (e as antigas do QR), de ${dataBr(de)} a ${dataBr(ate)}, da mais nova para a mais antiga.`}
               acoes={<a href={`/api/ubm?planilha=retiradas&${qs}`} className={BOTAO_LINK}><Download className="size-4" /> Excel</a>}>
               {!rs.length ? <Vazio>Nenhuma retirada no período.</Vazio> : (
                 <ul className="grid gap-3 lg:grid-cols-2">
@@ -194,18 +188,18 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
                             <img src={fotoUrl(m)} alt={`Foto da retirada de ${m.codigo}`} loading="lazy" className="size-20 object-cover" />
                             <span className="sr-only"> (abre em nova aba)</span>
                           </a>
-                        ) : <div className="size-20 shrink-0 rounded-xl border border-dashed border-borda" aria-hidden />}
+                        ) : null}
                         <div className="min-w-0 flex-1 text-[13px]">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="num font-medium">{m.codigo}</span><span>· {R.fmtQtd(m.quantidade)}</span>
-                            {m.lancadoNaOrdem ? <Selo cor="verde">Lançada na ordem</Selo> : <Selo cor="vermelho">Não lançada</Selo>}
+                            {m.origem === "validacao" ? <Selo cor="verde">Validação do líder (IW13)</Selo> : <Selo>QR de retirada (antigo)</Selo>}
                           </div>
                           {descr(m.armario, m.codigo) && <div className="break-words text-texto-2">{descr(m.armario, m.codigo)}</div>}
                           <div className="break-words text-[12.5px] text-texto-3">
                             Ordem <span className="num text-texto-2">{m.ordem}</span>{o ? ` · ${o.texto}${o.equipamento ? ` · ${o.equipamento}` : ""}` : ordens ? " · não encontrada na IW38" : ""}
                           </div>
-                          <div className="break-words text-[12.5px] text-texto-2">{m.uso}</div>
-                          <div className="text-[12px] text-texto-3">{m.armario} · {m.turno} · {m.porNome} · {quando(m.em)}</div>
+                          {m.origem !== "validacao" && m.uso && <div className="break-words text-[12.5px] text-texto-2">{m.uso}</div>}
+                          <div className="text-[12px] text-texto-3">{m.armario}{m.turno ? ` · ${m.turno}` : ""} · {m.origem === "validacao" ? "confirmada por" : "retirada por"} {m.porNome} · {quando(m.em)}</div>
                         </div>
                       </li>
                     );
@@ -251,7 +245,12 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
           );
         })()}
 
-        {visao === "Análise" && <Analise armarios={armarios} movs={movs} filtro={filtro} ordens={ordens} hoje={hoje} descr={descr} />}
+        {visao === VALIDACAO && (
+          <ValidacaoLider iw13={iw13} quebras={quebras} armarios={armarios} movs={movs} validacoes={validacoes} filtro={filtro}
+            decisao={um(params, "dec")} gere={gere} descr={descr} qs={qs} />
+        )}
+
+        {visao === "Análise" && <Analise armarios={armarios} movs={movs} filtro={filtro} ordens={ordens} hoje={hoje} descr={descr} validacoes={validacoes} />}
 
         {visao === "Armários" && (
           <Secao titulo="Armários kanban" destaque={`· ${inteiro(armarios.length)}`} sub="Identificação, local e o kit (código, UM, quantidade padrão e mínimo)."
@@ -271,13 +270,9 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
                       </div>
                     </div>
                     {a.ativo && (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {(["retirada", "solicitacao"] as const).map((q) => (
-                          <div key={q} className="space-y-1.5 rounded-xl border border-borda bg-superficie-2 p-2.5 text-center">
-                            <div className="text-[12px] font-semibold uppercase tracking-wide text-texto-3">QR de {q === "retirada" ? "retirada" : "solicitação"}</div>
-                            <BaixarQr armario={a.id} qual={q} />
-                          </div>
-                        ))}
+                      <div className="space-y-1.5 rounded-xl border border-borda bg-superficie-2 p-2.5 text-center">
+                        <div className="text-[12px] font-semibold uppercase tracking-wide text-texto-3">QR de solicitação</div>
+                        <BaixarQr armario={a.id} qual="solicitacao" />
                       </div>
                     )}
                     {!!a.itens.length && (
@@ -344,17 +339,20 @@ function Barras({ titulo, grupos, max = 12 }: { titulo: string; grupos: R.Grupo[
   );
 }
 
-function Analise({ armarios, movs, filtro, ordens, hoje, descr }: { armarios: R.Armario[]; movs: R.Movimento[]; filtro: R.Filtro;
-  ordens: Map<string, R.OrdemIw38> | null; hoje: string; descr: (a: string, c: string) => string }) {
+function Analise({ armarios, movs, filtro, ordens, hoje, descr, validacoes }: { armarios: R.Armario[]; movs: R.Movimento[]; filtro: R.Filtro;
+  ordens: Map<string, R.OrdemIw38> | null; hoje: string; descr: (a: string, c: string) => string; validacoes: V.Validacao[] }) {
   const a = R.analisar(armarios, movs, filtro, ordens, hoje);
+  const v = V.analisarValidacoes(validacoes, armarios, movs, filtro);
   const descricaoDe = (c: string) => armarios.map((x) => descr(x.id, c)).find(Boolean) || "";
   const comDescricao = (g: R.Grupo) => ({ ...g, rotulo: descricaoDe(g.chave) ? `${g.chave} · ${descricaoDe(g.chave)}` : g.chave });
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi rotulo="Retiradas" valor={inteiro(a.retiradas)} detalhe={`${R.fmtQtd(a.quantidade)} unidades no período`} tom="azul" />
-        <Kpi rotulo="Lançadas na ordem" valor={a.pctLancadas == null ? "—" : `${R.fmtQtd(a.pctLancadas)}%`} detalhe={`${inteiro(a.lancadas)} de ${inteiro(a.retiradas)} pelo SAP Mobile`}
-          tom={a.pctLancadas == null || a.pctLancadas >= 95 ? "verde" : "laranja"} />
+        <Kpi rotulo="Veio da UBM" valor={v.pctUbm == null ? "—" : `${R.fmtQtd(v.pctUbm)}%`} detalhe={`${inteiro(v.ubm)} UBM · ${inteiro(v.almox)} Almox nas validações`}
+          tom={v.pctUbm == null || v.pctUbm >= 50 ? "verde" : "laranja"} />
+        <Kpi rotulo="Tempo até a validação" valor={v.diasMedia == null ? "—" : `${R.fmtQtd(v.diasMedia)} d`}
+          detalhe={v.diasMedia == null ? "sem validações no período" : `média · mediana ${R.fmtQtd(v.diasMediana ?? 0)} d · maior ${inteiro(v.diasMax ?? 0)} d`} tom="azul" />
         <Kpi rotulo="Sem ordem na IW38" valor={a.semOrdemNaIw38 ? inteiro(a.semOrdemNaIw38.length) : "—"} detalhe={a.semOrdemNaIw38 ? "ordem digitada não achada" : "IW38 não carregada"} tom="laranja" />
         <Kpi rotulo="Itens parados" valor={inteiro(a.parados.length)} detalhe={`do kit, sem saída em ${R.DIAS_PARADO} dias`} tom="laranja" />
       </div>
@@ -362,11 +360,24 @@ function Analise({ armarios, movs, filtro, ordens, hoje, descr }: { armarios: R.
       <div className="grid gap-4 lg:grid-cols-2">
         <Barras titulo="Por material" grupos={a.porMaterial.map(comDescricao)} />
         <Barras titulo="Por equipamento" grupos={a.porEquipamento} />
-        <Barras titulo="Por turno" grupos={a.porTurno} />
+        <Barras titulo="Por líder (quem confirmou)" grupos={a.porLider} />
         <Barras titulo="Por armário" grupos={a.porArmario} />
         <Barras titulo="Por semana (início na segunda)" grupos={a.porSemana.map((g) => ({ ...g, rotulo: dataBr(g.chave) }))} max={20} />
         <Barras titulo="Por ordem" grupos={a.porOrdem} />
       </div>
+      <Secao titulo="Itens do kit em ordens de quebra que vieram do Almox" destaque={`· ${inteiro(v.doAlmox.length)}`}
+        sub="Validados como “veio do Almox”. O saldo é o da UBM no dia do lançamento na IW13: sem saldo pede revisar o mínimo; com saldo, a UBM não foi usada.">
+        {!v.doAlmox.length ? <Vazio>Nenhum item do kit veio do Almox no período.</Vazio> : (
+          <Tabela cab={["Lançado na IW13", "Ordem", "Código", "Descrição", "Tomado", "Saldo na UBM", "Situação", "Validado por"]}>
+            {v.doAlmox.slice(0, MAX_LISTA).map((x) => (
+              <tr key={x.chave} className="border-t border-borda"><td className={TD}>{dataBr(x.dataIw13)}</td><td className={`${TD} num`}>{x.ordem}</td>
+                <td className={`${TD} num`}>{x.codigo}</td><td className={TD}>{armarios.map((ar) => descr(ar.id, x.codigo)).find(Boolean) || ""}</td>
+                <td className={`${TD} num`}>{V.qtdUm(x.tomada, x.um)}</td><td className={`${TD} num`}>{R.fmtQtd(x.saldoNaData)}</td>
+                <td className={TD}><Selo cor={x.motivo === "nao_usada" ? "amarelo" : "laranja"}>{V.MOTIVOS[x.motivo]}</Selo></td><td className={TD}>{x.porNome}</td></tr>
+            ))}
+          </Tabela>
+        )}
+      </Secao>
       <Secao titulo="Retirados fora do kit" destaque={`· ${inteiro(a.foraDoKit.length)}`} sub="Códigos retirados que não estão no kit do armário: candidatos a entrar.">
         {!a.foraDoKit.length ? <Vazio>Nenhuma retirada fora do kit.</Vazio> : (
           <Tabela cab={["Armário", "Código", "Descrição", "Retiradas", "Quantidade"]}>
@@ -410,6 +421,92 @@ function Analise({ armarios, movs, filtro, ordens, hoje, descr }: { armarios: R.
             ))}
           </Tabela>
         )}
+      </Secao>
+    </div>
+  );
+}
+
+const MAX_ORDENS = 100;
+
+/** Sub-aba "Validação do líder": pendências por ordem de quebra (IW13) e o histórico das decisões. */
+function ValidacaoLider({ iw13, quebras, armarios, movs, validacoes, filtro, decisao, gere, descr, qs }: {
+  iw13: Awaited<ReturnType<typeof D.linhasIw13>> | null; quebras: Map<string, V.InfoOrdem> | null; armarios: R.Armario[]; movs: R.Movimento[];
+  validacoes: V.Validacao[]; filtro: R.Filtro; decisao: string; gere: boolean; descr: (a: string, c: string) => string; qs: string }) {
+  const pend = V.pendencias(iw13?.dados ?? [], quebras ?? new Map(), armarios, movs, validacoes, filtro);
+  const total = V.totalPendente(pend);
+  const hist = V.filtrarValidacoes(validacoes, { ...filtro, decisao });
+  const enviada = iw13?.atualizado ? new Date(iw13.atualizado) : null;
+  const diasIw13 = enviada && !Number.isNaN(enviada.getTime()) ? Math.floor((Date.now() - enviada.getTime()) / 86_400_000) : null;
+  const descrItem = (codigo: string, iw13Desc: string) => armarios.map((a) => descr(a.id, codigo)).find(Boolean) || iw13Desc;
+  const linkDec = (d: string) => `?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(qs)), visao: VALIDACAO, ...(d ? { dec: d } : {}) })}`;
+  return (
+    <div className="space-y-6">
+      <p className="max-w-3xl text-[13.5px] text-texto-2">
+        O material usado nas <b>ordens de quebra</b> é lançado na ordem pelo SAP Mobile e aparece na IW13, que não diz se saiu do armário kanban ou do
+        Almox. Confirme cada item: <b>Veio da UBM</b> baixa o saldo do armário; <b>Veio do Almox</b> só registra.
+      </p>
+      {!iw13?.dados ? (
+        <Aviso>A IW13 (consumo de materiais das ordens) não está carregada: <Link prefetch={false} href="/dados" className="font-medium underline">Envie a IW13 em Fontes de dados</Link>.</Aviso>
+      ) : diasIw13 != null && diasIw13 > V.DIAS_IW13_VELHA ? (
+        <Aviso>A IW13 foi enviada em {quando(iw13.atualizado!)} (há {inteiro(diasIw13)} dias): o consumo mais novo ainda não aparece. <Link prefetch={false} href="/dados" className="font-medium underline">Envie a IW13 em Fontes de dados</Link>.</Aviso>
+      ) : iw13.atualizado ? <p className="text-[12.5px] text-texto-3">IW13 enviada em {quando(iw13.atualizado)}.</p> : null}
+      {iw13?.dados && !quebras && <Aviso>A IW38 e a IW28 não estão carregadas: sem elas não dá para saber quais ordens são de quebra.</Aviso>}
+
+      <Secao titulo="A validar" destaque={`· ${inteiro(total)}`} sub={`Ordens de quebra com material do kit lançado na IW13 de ${dataBr(filtro.de ?? "")} a ${dataBr(filtro.ate ?? "")}, a mais recente primeiro.`}
+        acoes={<a href={`/api/ubm?planilha=validacao&${qs}${decisao ? `&dec=${decisao}` : ""}`} className={BOTAO_LINK}><Download className="size-4" /> Excel</a>}>
+        {!pend.length ? <Vazio>Nada para validar no período{filtro.armario ? ` no ${filtro.armario}` : ""}.</Vazio> : (
+          <ul className="grid gap-4 xl:grid-cols-2">
+            {pend.slice(0, MAX_ORDENS).map((o) => (
+              <li key={o.chaveOrdem} className="min-w-0 space-y-3 rounded-cartao border border-borda bg-superficie-2 p-3 sm:p-4" aria-label={`Ordem ${o.ordem}`}>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-display text-[16px] font-medium">Ordem <span className="num">{o.ordem}</span></span>
+                    <Selo cor="laranja">Quebra{o.info?.tipo ? ` · ${o.info.tipo}` : ""}</Selo>
+                  </div>
+                  {(o.info?.texto || o.info?.notaTexto) && <div className="break-words text-[13px] text-texto-2">{o.info?.texto || o.info?.notaTexto}</div>}
+                  <div className="break-words text-[12.5px] text-texto-3">
+                    {o.equipamento ? <>Equipamento <span className="num">{o.equipamento}</span>{o.info?.denominacao ? ` · ${o.info.denominacao}` : ""} · </> : null}
+                    lançado na IW13 em {dataBr(o.data)}{o.info?.nota ? ` · nota ${o.info.nota}` : ""}
+                  </div>
+                </div>
+                <ul className="grid gap-2">
+                  {o.itens.map((i) => <ItemValidacao key={i.chave} item={{ ...i, descricao: descrItem(i.codigo, i.descricao) }} />)}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+        {pend.length > MAX_ORDENS && <p className="text-[12.5px] text-texto-3">Mostrando {MAX_ORDENS} de {inteiro(pend.length)} ordens; o Excel traz todas.</p>}
+      </Secao>
+
+      <Secao titulo="Histórico das validações" destaque={`· ${inteiro(hist.length)}`} sub="Quem validou, quando e a decisão (pela data da validação, no período escolhido)."
+        acoes={
+          <nav aria-label="Filtrar a decisão" className="flex flex-wrap gap-1.5">
+            {[["", "Todas"], ["ubm", "Veio da UBM"], ["almox", "Veio do Almox"]].map(([d, r]) => (
+              <Link key={d} prefetch={false} href={linkDec(d)} aria-current={decisao === d || (!d && decisao !== "ubm" && decisao !== "almox") ? "true" : undefined}
+                className="inline-flex h-11 items-center rounded-full border border-borda px-4 text-[13px] hover:bg-superficie-2 aria-[current]:border-[var(--acao)] aria-[current]:bg-[var(--selo-bom-fundo)] aria-[current]:font-medium">{r}</Link>
+            ))}
+          </nav>
+        }>
+        {!hist.length ? <Vazio>Nenhuma validação no período.</Vazio> : (
+          <ul className="grid gap-2 lg:grid-cols-2">
+            {hist.slice(0, MAX_LISTA).map((x) => (
+              <li key={x.chave} className="flex min-w-0 flex-wrap items-start justify-between gap-3 rounded-cartao border border-borda bg-superficie p-3 text-[13px]">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Selo cor={x.decisao === "ubm" ? "verde" : "azul"}>{V.DECISOES[x.decisao]}</Selo>
+                    <span className="num font-medium">{x.codigo}</span><span>· {V.qtdUm(x.quantidade, x.um)}{x.decisao === "ubm" ? ` do ${x.armario}` : ""}</span>
+                  </div>
+                  <div className="break-words text-texto-2">Ordem <span className="num">{x.ordem}</span>{x.equipamento ? ` · equipamento ${x.equipamento}` : ""}{x.dataIw13 ? ` · IW13 de ${dataBr(x.dataIw13)}` : ""}</div>
+                  <div className="text-[12px] text-texto-3">{x.porNome} · {quando(x.em)}</div>
+                </div>
+                {gere && <BotaoAcao acao="desfazer" id={x.chave} rotulo="Desfazer"
+                  confirmar={x.decisao === "ubm" ? "Desfazer a validação? A retirada criada por ela sai e o saldo do armário volta." : "Desfazer a validação? A linha volta a ficar pendente."} />}
+              </li>
+            ))}
+          </ul>
+        )}
+        {!!hist.length && <p className="inline-flex items-center gap-1 text-[12.5px] text-texto-3"><ArrowRight className="size-3.5" aria-hidden />As retiradas confirmadas ficam também em “Retiradas”.</p>}
       </Secao>
     </div>
   );

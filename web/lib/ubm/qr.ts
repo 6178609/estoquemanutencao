@@ -27,17 +27,19 @@ export async function enderecoSite(): Promise<string> {
   return siteDe(`${proto === "http" ? "http" : "https"}://${host.replace(/[^\w.:\-[\]]/g, "")}`);
 }
 
-export type QualQr = "retirada" | "solicitacao";
-/** As duas etiquetas de cada armário (o mesmo texto na impressão A4 e na etiqueta baixada). */
+/**
+ * Só o QR de SOLICITAÇÃO: o de retirada saiu em 22/11/2026 (a retirada agora é confirmada pelo líder na validação da
+ * IW13). A rota /ubm/retirada das etiquetas antigas já coladas leva à validação.
+ */
+export type QualQr = "solicitacao";
+/** A etiqueta de cada armário (o mesmo texto na impressão A4 e na etiqueta baixada). */
 export const ETIQUETAS: { qual: QualQr; titulo: string; instrucao: string }[] = [
-  { qual: "retirada", titulo: "RETIRADA", instrucao: "Vai tirar material do armário? Leia o QR, preencha a ordem, o código e tire a foto." },
   { qual: "solicitacao", titulo: "SOLICITAÇÃO", instrucao: "Item acabou, está no fim ou faltando? Leia o QR e avise o planejamento." },
 ];
 
-/** Os endereços dos dois QR do armário (retirada e solicitação). */
+/** O endereço do QR do armário (solicitação). */
 export function enderecosQr(site: string, armario: string) {
-  const u = encodeURIComponent(armario);
-  return { retirada: `${site}/ubm/retirada?u=${u}`, solicitacao: `${site}/ubm/solicitacao?u=${u}` };
+  return { solicitacao: `${site}/ubm/solicitacao?u=${encodeURIComponent(armario)}` };
 }
 
 /** SVG do QR (só o texto do SVG, sem cabeçalho XML), correção de erro média, com margem branca. */
@@ -67,7 +69,7 @@ export function quebrar(texto: string, max: number): string[] {
 }
 
 /**
- * A etiqueta pronta em SVG (1200 × 1600, o visual da impressa): faixa preta com RETIRADA/SOLICITAÇÃO, o armário, o QR,
+ * A etiqueta pronta em SVG (1200 × 1600, o visual da impressa): faixa preta com SOLICITAÇÃO, o armário, o QR,
  * a instrução e o endereço. O navegador converte em PNG (canvas) para baixar.
  */
 export async function etiquetaSvg(e: { titulo: string; armario: string; nome: string; local: string; instrucao: string; url: string }): Promise<string> {

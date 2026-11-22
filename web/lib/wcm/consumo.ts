@@ -40,7 +40,15 @@ export interface Consumo {
   linhas: number;
   de: Dia | null;
   ate: Dia | null;
+  /**
+   * As linhas com retirada (Tomados > 0) uma a uma, com a ordem e a data de lançamento: a validação do líder na aba UBM
+   * (lib/ubm/validacao.ts) confere material × ordem de quebra. Lidas daqui para usar o mesmo cache da base.
+   */
+  tomadas: LinhaTomada[];
 }
+
+/** Uma linha da IW13 com retirada (Tomados > 0). */
+export interface LinhaTomada { ordem: string; material: string; quantidade: number; um: string; descricao: string; equipamento: string; data: Dia | null }
 
 const semZeros = (c: string) => c.replace(/^0+/, "") || c;
 
@@ -60,10 +68,17 @@ export function prepararConsumo(linhas: Record<string, unknown>[]): Consumo {
   type Acc = ItemConsumo & { ordensSet: Set<string>; reservaSet: Set<string> };
   const por = new Map<string, Map<string, Acc>>();
   let de: Dia | null = null, ate: Dia | null = null, n = 0;
+  const tomadas: LinhaTomada[] = [];
   for (const l of linhas) {
     const mat = semZeros(texto(cMat ? l[cMat] : ""));
     const eq = semZeros(texto(cEq ? l[cEq] : ""));
     const ordem = semZeros(texto(cOrdem ? l[cOrdem] : ""));
+    if (mat && ordem && !eq) {
+      // sem equipamento não entra no consumo por ativo, mas a validação da UBM olha só ordem × material
+      const tom = paraNumero(cTom ? l[cTom] : "");
+      if (Number.isFinite(tom) && tom > 0) tomadas.push({ ordem, material: mat, quantidade: tom, um: texto(cUm2 ? l[cUm2] : "") || texto(cUm ? l[cUm] : ""),
+        descricao: texto(cTxt ? l[cTxt] : ""), equipamento: "", data: cData ? paraData(l[cData]) : null });
+    }
     if (!mat || !eq || !ordem) continue;
     n++;
     const tom = paraNumero(cTom ? l[cTom] : ""), res = paraNumero(cRes ? l[cRes] : "");
@@ -79,6 +94,8 @@ export function prepararConsumo(linhas: Record<string, unknown>[]): Consumo {
     if (!a.descricao) a.descricao = texto(cTxt ? l[cTxt] : "");
     if (!a.um) a.um = texto(cUm2 ? l[cUm2] : "") || texto(cUm ? l[cUm] : "");
     if (Number.isFinite(tom) && tom > 0) {
+      tomadas.push({ ordem, material: mat, quantidade: tom, um: texto(cUm2 ? l[cUm2] : "") || texto(cUm ? l[cUm] : ""),
+        descricao: texto(cTxt ? l[cTxt] : ""), equipamento: eq, data: d });
       a.ordensSet.add(ordem);
       a.quantidade += tom;
       if (d != null) {
@@ -101,7 +118,7 @@ export function prepararConsumo(linhas: Record<string, unknown>[]): Consumo {
     }
     if (itens.length) porEquipamento.set(eq, ordenar(itens));
   }
-  return { porEquipamento, ativosPorMaterial, linhas: n, de, ate };
+  return { porEquipamento, ativosPorMaterial, linhas: n, de, ate, tomadas };
 }
 
 function ordenar(itens: ItemConsumo[]): ItemConsumo[] {

@@ -9,6 +9,7 @@ import { gerarXlsx, gerarXlsxAbas } from "@/lib/exportacao/xlsx";
 import * as D from "@/lib/ubm/dados";
 import { enderecosQr, etiquetaSvg, ETIQUETAS, qrPng, qrSvg, siteDe } from "@/lib/ubm/qr";
 import * as R from "@/lib/ubm/regras";
+import * as V from "@/lib/ubm/validacao";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,7 +28,8 @@ const planilha = (nome: string, bytes: Uint8Array) => new NextResponse(Buffer.fr
 
 /**
  * Tudo só para quem tem a aba: foto de um movimento (?foto=<id>&v=<arquivo>), descrição de um código no catálogo e no
- * kit do armário (?codigo=&u=), QR para baixar (?qr=retirada|solicitacao&u=&formato=svg|png|etiqueta), ordem na IW38 (?ordem=), planilhas (?planilha=retiradas|reposicao|kit|modelo_kit).
+ * kit do armário (?codigo=&u=), QR para baixar (?qr=solicitacao&u=&formato=svg|png|etiqueta; o de retirada saiu: 404),
+ * planilhas (?planilha=retiradas|reposicao|validacao|kit|modelo_kit).
  */
 export async function GET(req: NextRequest) {
   const u = await autorizar(ABA);
@@ -36,7 +38,9 @@ export async function GET(req: NextRequest) {
 
   const qr = p.get("qr");
   if (qr !== null) {
-    if (qr !== "retirada" && qr !== "solicitacao") return new NextResponse("QR inválido.", { status: 400 });
+    // QR de retirada desativado (a retirada é confirmada na validação do líder)
+    if (qr === "retirada") return new NextResponse("O QR de retirada foi desativado: a retirada agora é confirmada pelo líder na validação.", { status: 404 });
+    if (qr !== "solicitacao") return new NextResponse("QR inválido.", { status: 400 });
     const a = await D.armario(p.get("u") ?? "");
     if (!a) return new NextResponse("Armário não encontrado.", { status: 404 });
     const e = ETIQUETAS.find((x) => x.qual === qr)!;
@@ -65,15 +69,6 @@ export async function GET(req: NextRequest) {
       { headers: SEM_CACHE });
   }
 
-  const ordem = p.get("ordem");
-  if (ordem !== null) {
-    const o = R.normalizarOrdem(ordem);
-    if (!R.ordemValida(o)) return NextResponse.json({ erro: "Ordem inválida." }, { status: 400 });
-    const mapa = await D.ordensIw38();
-    const achada = mapa?.get(R.chaveOrdem(o)) ?? null;
-    return NextResponse.json({ ordem: o, base: !!mapa, achada }, { headers: SEM_CACHE });
-  }
-
   const qual = p.get("planilha");
   if (qual) {
     if (qual === "modelo_kit")
@@ -95,6 +90,26 @@ export async function GET(req: NextRequest) {
         { titulo: "Saldo", largura: 10 }, { titulo: "Mínimo", largura: 10 }, { titulo: "Padrão", largura: 10 }, { titulo: "Separar", largura: 10 },
       ], lista.map((l) => [l.armario, l.codigo, l.descricao, l.um, l.saldo, l.minimo, l.maximo, l.separar])));
     }
+    if (qual === "validacao") {
+      const [iw13, ordens, vs] = await Promise.all([D.linhasIw13(), D.ordensDeQuebra(), D.lerValidacoes()]);
+      const pend = V.pendencias(iw13.dados ?? [], ordens ?? new Map(), armarios, movs, vs, filtro);
+      const hist = V.filtrarValidacoes(vs, { ...filtro, decisao: p.get("dec") ?? "" });
+      registrar(u.login, "exportacao", "ubm_validacao.xlsx", { pendentes: V.totalPendente(pend), validacoes: hist.length });
+      return planilha("ubm_validacao.xlsx", gerarXlsxAbas([
+        { nome: "Pendências", colunas: [
+          { titulo: "Ordem", largura: 14 }, { titulo: "Texto da ordem", largura: 40 }, { titulo: "Nota de quebra", largura: 14 }, { titulo: "Equipamento", largura: 16 },
+          { titulo: "Lançado na IW13", largura: 14 }, { titulo: "Código", largura: 14 }, { titulo: "Descrição", largura: 40 }, { titulo: "Tomado", largura: 10 },
+          { titulo: "UM", largura: 8 }, { titulo: "Armários com o item", largura: 24 }, { titulo: "Saldo na UBM", largura: 12 },
+        ], linhas: pend.flatMap((o) => o.itens.map((i) => [o.ordem, o.info?.texto ?? "", o.info?.nota ?? "", o.equipamento, i.data ? i.data.split("-").reverse().join("/") : "",
+          i.codigo, i.descricao, i.tomada, i.umIw13, i.armarios.map((a) => a.id).join(", "), i.armarios.reduce((t, a) => t + a.saldo, 0)])) },
+        { nome: "Validações", colunas: [
+          { titulo: "Validado em", largura: 18 }, { titulo: "Decisão", largura: 16 }, { titulo: "Ordem", largura: 14 }, { titulo: "Código", largura: 14 },
+          { titulo: "Armário", largura: 12 }, { titulo: "Quantidade", largura: 12 }, { titulo: "UM", largura: 8 }, { titulo: "Tomado na IW13", largura: 14 },
+          { titulo: "Lançado na IW13", largura: 14 }, { titulo: "Equipamento", largura: 16 }, { titulo: "Validado por", largura: 24 },
+        ], linhas: hist.map((v) => [dataHora(v.em), V.DECISOES[v.decisao], v.ordem, v.codigo, v.armario, v.quantidade, v.um, v.tomada,
+          v.dataIw13 ? v.dataIw13.split("-").reverse().join("/") : "", v.equipamento, v.porNome]) },
+      ]));
+    }
     if (qual === "retiradas") {
       const rs = R.filtrar(movs, filtro).filter((m) => m.tipo === "retirada");
       const ordens = await D.ordensIw38();
@@ -103,12 +118,12 @@ export async function GET(req: NextRequest) {
       return planilha("ubm_retiradas.xlsx", gerarXlsxAbas([
         { nome: "Retiradas", colunas: [
           { titulo: "Data", largura: 18 }, { titulo: "Armário", largura: 12 }, { titulo: "Código", largura: 14 }, { titulo: "Quantidade", largura: 12 },
-          { titulo: "Ordem", largura: 14 }, { titulo: "Ordem na IW38", largura: 40 }, { titulo: "Equipamento", largura: 18 }, { titulo: "Turno", largura: 16 },
-          { titulo: "Descrição do uso", largura: 50 }, { titulo: "Lançado na ordem (SAP Mobile)", largura: 16 }, { titulo: "Retirado por", largura: 24 },
+          { titulo: "Ordem", largura: 14 }, { titulo: "Ordem na IW38", largura: 40 }, { titulo: "Equipamento", largura: 18 },
+          { titulo: "Origem", largura: 22 }, { titulo: "Descrição do uso", largura: 50 }, { titulo: "Confirmado por", largura: 24 },
         ], linhas: rs.map((m) => {
           const o = ordens?.get(R.chaveOrdem(m.ordem));
           return [dataHora(m.em), m.armario, m.codigo, m.quantidade, m.ordem, o ? o.texto : ordens ? "Não encontrada na IW38" : "", o?.equipamento ?? "",
-            m.turno, m.uso, m.lancadoNaOrdem ? "Sim" : "Não", m.porNome];
+            m.origem === "validacao" ? "Validação do líder (IW13)" : "QR de retirada (antigo)", m.uso, m.porNome];
         }) },
         { nome: "Solicitações", colunas: [
           { titulo: "Data", largura: 18 }, { titulo: "Armário", largura: 12 }, { titulo: "Tipo", largura: 30 }, { titulo: "Código", largura: 14 },
@@ -131,8 +146,9 @@ export async function GET(req: NextRequest) {
   } });
 }
 
-/** Ações que gravam foto: passam pelo limite de envios. */
-const COM_FOTO = ["retirada", "solicitacao"];
+/** Ações que gravam foto (limite de 20 a cada 10 min) e a validação do líder (gravação sem arquivo: limite maior). */
+const COM_FOTO = ["solicitacao"];
+const LIMITE_VALIDACAO = 120;
 
 const json = (v: string): unknown => { try { return JSON.parse(v); } catch { return null; } };
 
@@ -148,7 +164,11 @@ export async function POST(req: NextRequest) {
   }
   const s = (k: string) => String(form.get(k) ?? "");
   const acao = s("acao");
-  if (COM_FOTO.includes(acao) && u.demo !== true && !podeEnviar(`ubm:${u.login}`)) {
+  if (acao === "retirada") {
+    return NextResponse.json({ erro: "A retirada agora é confirmada pelo líder na validação (aba UBM → Validação do líder)." }, { status: 410 });
+  }
+  if (u.demo !== true && ((COM_FOTO.includes(acao) && !podeEnviar(`ubm:${u.login}`))
+    || (acao === "validar" && !podeEnviar(`ubm-validar:${u.login}`, Date.now(), LIMITE_VALIDACAO)))) {
     return NextResponse.json({ erro: "Muitos envios em pouco tempo. Espere alguns minutos." }, { status: 429 });
   }
   const quem = D.quemDe(u);
@@ -163,11 +183,11 @@ export async function POST(req: NextRequest) {
       const v = json(s("itens"));
       return Array.isArray(v) ? v.slice(0, R.MAX_ITENS_KIT + 1).map((x) => ({ codigo: String(x?.codigo ?? ""), quantidade: String(x?.quantidade ?? "") })) : [];
     };
-    if (acao === "retirada") {
-      const id = await D.registrarRetirada(quem, s("u"), { ordem: s("ordem"), turno: s("turno"), codigo: s("codigo"), quantidade: s("quantidade"),
-        uso: s("uso"), lancado: s("lancado"), temFoto: !!foto }, foto);
-      return NextResponse.json({ ok: true, id });
+    if (acao === "validar") {
+      const v = await D.validar(quem, s("chave"), { decisao: s("decisao"), armario: s("armario"), quantidade: s("quantidade") });
+      return NextResponse.json({ ok: true, decisao: v.decisao, movimento: v.movimento || null });
     }
+    if (acao === "desfazer") { await D.desfazerValidacao(quem, s("chave")); return NextResponse.json({ ok: true }); }
     if (acao === "solicitacao") {
       const id = await D.registrarSolicitacao(quem, s("u"), { tipo: s("tipo"), codigo: s("codigo"), quantidade: s("quantidade"),
         observacao: s("observacao") }, foto);
@@ -178,7 +198,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, itens: n });
     }
     if (acao === "fechar") { await D.fecharSolicitacao(quem, s("id")); return NextResponse.json({ ok: true }); }
-    if (acao === "lancada") { await D.marcarLancada(quem, s("id")); return NextResponse.json({ ok: true }); }
     if (acao === "armario") {
       const itens = json(s("itens"));
       const id = await D.salvarArmario(quem, { id: s("id"), nome: s("nome"), local: s("local"), ativo: s("ativo") !== "nao",

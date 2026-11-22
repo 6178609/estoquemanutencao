@@ -26,7 +26,7 @@ function baixar(nome: string, blob: Blob) {
  * Baixar o QR (SVG ou PNG em ~1200 px, gerados no servidor) e a etiqueta pronta em PNG: o servidor manda a etiqueta em
  * SVG e o navegador desenha num canvas (1200 × 1600) para virar PNG — sem dependência nativa.
  */
-export function BaixarQr({ armario, qual }: { armario: string; qual: "retirada" | "solicitacao" }) {
+export function BaixarQr({ armario, qual }: { armario: string; qual: "solicitacao" }) {
   const [estado, setEstado] = useState({ ocupado: false, erro: "" });
   const base = `/api/ubm?${new URLSearchParams({ qr: qual, u: armario })}`;
   const etiqueta = async () => {
@@ -54,7 +54,7 @@ export function BaixarQr({ armario, qual }: { armario: string; qual: "retirada" 
     }
   };
   return (
-    <div className="nao-imprimir flex flex-wrap justify-center gap-1.5" aria-label={`Baixar ${qual === "retirada" ? "retirada" : "solicitação"} · ${armario}`} role="group">
+    <div className="nao-imprimir flex flex-wrap justify-center gap-1.5" aria-label={`Baixar solicitação · ${armario}`} role="group">
       <a href={`${base}&formato=png`} download={`${armario}_${qual}_qr.png`} className={BOTAO}><Download className="size-3.5" /> Baixar QR (PNG)</a>
       <a href={`${base}&formato=svg`} download={`${armario}_${qual}_qr.svg`} className={BOTAO}><Download className="size-3.5" /> Baixar QR (SVG)</a>
       <button type="button" onClick={etiqueta} disabled={estado.ocupado} className={BOTAO}>

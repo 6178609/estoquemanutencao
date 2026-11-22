@@ -6,7 +6,8 @@ import { enderecosQr, enderecoSite, qrSvg } from "@/lib/ubm/qr";
 /**
  * O armário kanban desenhado como no infográfico da proposta (docs/propostas/UBM_infografico.png): cabeçalho com o id,
  * uma gaveta por família do kit (primeira palavra da descrição: RESISTENCIA, RELE, TERMOPAR…), etiqueta laranja "!" na
- * gaveta com item abaixo do mínimo, e a porta com os dois QR reais (retirada e solicitação) e a faixa de segurança.
+ * gaveta com item abaixo do mínimo, e a porta com o QR real de solicitação (o de retirada saiu: o líder confirma pela
+ * IW13) e a faixa de segurança.
  * Cada gaveta abre (details/summary, sem JavaScript) e mostra os itens com o saldo.
  */
 
@@ -96,8 +97,7 @@ export async function ArmarioVisual({ armario, linhas }: { armario: R.Armario; l
             : <p className="col-span-full rounded-md bg-white/90 p-3 text-[12.5px] text-texto-3">Kit vazio: cadastre os itens em “Armários”.</p>}
         </div>
         <div className="mx-3 mb-3 rounded-md border border-black/20 bg-[#0a5f2f] p-3">
-          <div className="grid grid-cols-2 justify-items-center gap-3">
-            <EtiquetaQr titulo="RETIRADA" cor="#0f2a1c" url={urls.retirada} rota={`/ubm/retirada?u=${u}`} texto="Escaneie ao retirar" />
+          <div className="flex justify-center">
             <EtiquetaQr titulo="SOLICITAÇÃO" cor="#006cb4" url={urls.solicitacao} rota={`/ubm/solicitacao?u=${u}`} texto="Faltou · acabando" />
           </div>
           <div aria-hidden className="mt-3 h-4 rounded-sm bg-[repeating-linear-gradient(135deg,#fcb40c_0_14px,#0f2a1c_14px_24px)]" />

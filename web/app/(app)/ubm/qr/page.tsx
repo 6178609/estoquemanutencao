@@ -13,8 +13,9 @@ export const metadata: Metadata = { title: "Etiquetas QR · UBM" };
 export const dynamic = "force-dynamic";
 
 /**
- * Página de impressão das etiquetas (A4): por armário kanban, a etiqueta de RETIRADA e a de SOLICITAÇÃO, cada uma com o
- * QR (SVG gerado no servidor), o nome do armário e a instrução. ?u=<id> imprime só um armário.
+ * Página de impressão das etiquetas (A4): por armário kanban, a etiqueta de SOLICITAÇÃO com o QR (SVG gerado no
+ * servidor), o nome do armário e a instrução. ?u=<id> imprime só um armário. (O QR de retirada saiu: a retirada é
+ * confirmada pelo líder na validação da IW13.)
  */
 export default async function QrUbm(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await exigir("ubm");
@@ -31,7 +32,7 @@ export default async function QrUbm(props: { searchParams: Promise<Record<string
       <div className="nao-imprimir flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-[26px] font-semibold tracking-[-0.02em]">Etiquetas QR da UBM</h1>
-          <p className="text-[13.5px] text-texto-3">Duas etiquetas por armário kanban: cole a de retirada e a de solicitação na porta. Endereço: {site}</p>
+          <p className="text-[13.5px] text-texto-3">Uma etiqueta por armário kanban: cole a de solicitação na porta. A retirada não tem mais QR: o líder confirma pela IW13 na aba UBM. Se a etiqueta antiga de retirada ainda estiver colada, pode tirar (ela abre a validação). Endereço: {site}</p>
           <p className="text-[13.5px] text-texto-3">Para guardar em PDF: Imprimir todas (A4) e, no Chrome, escolha o destino “Salvar como PDF”. Cada QR também pode ser baixado em PNG ou SVG.</p>
         </div>
         <div className="flex flex-wrap gap-2">

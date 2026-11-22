@@ -82,11 +82,11 @@ function guardarCache(chave: string, b: Uint8Array) {
 }
 
 // ---------------------------------------------------------------------------- limite de envios
-// por pessoa: até 20 envios a cada 10 minutos (evita encher o repositório de dados)
+// por pessoa: até 20 envios a cada 10 minutos (evita encher o repositório de dados); `max` muda o teto (gravações sem arquivo)
 const envios = new Map<string, number[]>();
-export function podeEnviar(pessoa: string, agora = Date.now()): boolean {
+export function podeEnviar(pessoa: string, agora = Date.now(), max = 20): boolean {
   const recentes = (envios.get(pessoa) ?? []).filter((t) => agora - t < 10 * 60_000);
-  if (recentes.length >= 20) {
+  if (recentes.length >= max) {
     envios.set(pessoa, recentes);
     return false;
   }

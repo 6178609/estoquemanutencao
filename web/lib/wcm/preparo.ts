@@ -268,7 +268,7 @@ export function prepararNotas(cru: Crua[], hoje: Dia, excluir = true): Nota[] {
   return out;
 }
 
-const TIPO_NOTA_QUEBRA = "Y1", TIPO_ORDEM_QUEBRA = "YM11";
+export const TIPO_NOTA_QUEBRA = "Y1", TIPO_ORDEM_QUEBRA = "YM11";
 
 /**
  * Regra de quebra em vigor: "y1" = nota Y1 da IW28 convertida em ordem YM11 (regra da planta); "ym11" = toda ordem YM11
