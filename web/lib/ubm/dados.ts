@@ -11,7 +11,9 @@ import { LIMITE_DOCUMENTO, tipoDocumento } from "../dados/documentos";
 import { fonte, FonteErro } from "../dados/fonte";
 import { DESTINO } from "../leitura/tipos";
 import { bases } from "../wcm/dados";
-import { type Equipamento, type Ordem, prepararEquipamentos, prepararIw38 } from "../wcm/preparo";
+import {
+  type Equipamento, marcarQuebras, type Nota, type Ordem, prepararEquipamentos, prepararIw38, prepararNotas, regraQuebra, tiposPorOrdem,
+} from "../wcm/preparo";
 import { hoje } from "../wcm/util";
 import { fotosUbmDemo, iw13UbmDemo, PASTA_FOTOS_UBM } from "./demo";
 import {
@@ -21,8 +23,8 @@ import {
   validarSolicitacao,
 } from "./regras";
 import {
-  ARQ_VALIDACOES, chavesComRetirada, type EntradaValidacao, type InfoOrdem, type LinhaIw13, mapaOrdens, pendencias, podeDesfazer,
-  type Validacao, validacaoDe, validacaoParaGravar, validacoesDe, validarDecisao,
+  ARQ_VALIDACOES, emDaRetirada, type EntradaValidacao, type InfoOrdem, type LinhaIw13, mapaOrdens, pendencias, podeDesfazer,
+  podeValidar as podeValidarQuem, proximaChave, type Validacao, validacaoDe, validacaoParaGravar, validacoesDe, validarDecisao,
 } from "./validacao";
 
 /**
@@ -46,12 +48,14 @@ const idOk = (s: unknown): s is string => typeof s === "string" && /^[a-z0-9]{6,
 const caminho = (mov: string, arquivo: string) => `${PASTA_FOTOS_UBM}/${mov}/${arquivo}`;
 type Anexo = { nome: string; bytes: Uint8Array };
 
-/** Quem está gravando: login, nome para mostrar e se pode gerir (armários, reposição, contagem). */
-export interface Quem { login: string; nome: string; gerir: boolean }
+/** Quem está gravando: login, nome para mostrar, se pode gerir (armários, reposição, contagem) e validar (IW13). */
+export interface Quem { login: string; nome: string; gerir: boolean; validar: boolean }
 
 /** Gere a UBM: perfil de edição e fora das funções operacionais (Terceiro e Manutentor). */
 export const podeGerir = (u: Usuario | null) => !!u && podeEditar(u) && !soEstoque(u);
-export const quemDe = (u: Usuario & { nome?: string }): Quem => ({ login: u.login, nome: u.nome || u.login, gerir: podeGerir(u) });
+/** Valida as retiradas (IW13): quem vê a aba e não é Terceiro nem Manutentor (Líder, Analista e as outras funções). */
+export const podeValidar = (u: Usuario | null) => !!u && !soEstoque(u);
+export const quemDe = (u: Usuario & { nome?: string }): Quem => ({ login: u.login, nome: u.nome || u.login, gerir: podeGerir(u), validar: podeValidar(u) });
 
 /** Só para os testes: os caminhos das fotos guardadas na demonstração. */
 export const _fotosGuardadas = () => [...demo.keys()];
@@ -312,16 +316,40 @@ export async function linhasIw13(): Promise<Base<LinhaIw13[]>> {
   return { dados: c?.dados?.tomadas ?? null, atualizado: c?.atualizado ?? null, origem: DESTINO.iw13 };
 }
 
+const mapasQuebra = new WeakMap<object, WeakMap<object, Map<string, InfoOrdem>>>();
+
 /**
- * As ordens das bases com a marca de quebra (lib/ubm/validacao.ts → mapaOrdens): IW38 (tipo YM11) e as notas da IW28 já
- * marcadas por marcarQuebras, mais as quebras das ordens YM11 sem nota. Usa as bases montadas do site (lib/wcm/dados.ts,
- * com cache). null = sem IW38 nem IW28 (não dá para saber o que é quebra).
+ * As ordens com a marca de quebra (lib/ubm/validacao.ts → mapaOrdens), pela regra em vigor no site (`regraQuebra`): só a
+ * IW38, a IW28 e o IH08, lidos pelo lerBase com o mesmo preparo e a mesma chave de cache de lib/wcm/dados.ts (sem montar
+ * as bases inteiras); o tipo da ordem para `marcarQuebras` vem da IW38. O mapa fica guardado preso aos arrays das bases.
+ * Na demonstração, as bases fictícias. null = sem IW38 nem IW28 (não dá para saber o que é quebra).
  */
 export async function ordensDeQuebra(): Promise<Map<string, InfoOrdem> | null> {
-  const b = await bases().catch(() => null);
-  if (!b || (!b.ordens.dados?.length && !b.notas.dados?.length)) return null;
-  const nomes = new Map((b.equipamentos.dados ?? []).map((e) => [e.equipamento, e.denominacao]));
-  return mapaOrdens(b.ordens.dados ?? [], [...(b.notas.dados ?? []), ...b.quebrasOrdem], nomes);
+  let ordens: Ordem[] | null, notas: Nota[] | null, equipamentos: Equipamento[];
+  if (!fonte()) {
+    const b = await bases();
+    ({ ordens, equipamentos } = { ordens: b.ordens.dados, equipamentos: b.equipamentos.dados ?? [] });
+    notas = b.notas.dados;
+  } else {
+    const h = hoje();
+    const [iw38, iw28, ih08] = await Promise.all([lerBase(DESTINO.iw38, (l) => prepararIw38(l, h).ordens, String(h)),
+      lerBase(DESTINO.iw28, (l) => prepararNotas(l, h), String(h)), lerBase(DESTINO.ih08, (l) => prepararEquipamentos(l))]).catch(() => [null, null, null]);
+    ordens = iw38?.dados ?? null;
+    notas = iw28?.dados ?? null;
+    equipamentos = ih08?.dados ?? [];
+  }
+  if (!ordens?.length && !notas?.length) return null;
+  const o = ordens ?? [], n = notas ?? [];
+  const porNotas = mapasQuebra.get(o) ?? new WeakMap<object, Map<string, InfoOrdem>>();
+  mapasQuebra.set(o, porNotas);
+  let m = porNotas.get(n);
+  if (!m) {
+    const regra = regraQuebra(n);
+    const marcadas = marcarQuebras(n.filter((x) => x.ordem), tiposPorOrdem(o), regra).filter((x) => x.quebra);
+    m = mapaOrdens(o, marcadas, new Map(equipamentos.map((e) => [e.equipamento, e.denominacao])), regra);
+    porNotas.set(n, m);
+  }
+  return m;
 }
 
 /**
@@ -329,39 +357,58 @@ export async function ordensDeQuebra(): Promise<Map<string, InfoOrdem> | null> {
  * quebra, kit e movimentos lidos agora): o formulário só manda a chave, a decisão, o armário e a quantidade. "ubm" cria
  * a retirada (origem "validacao") que baixa o saldo. Duas pessoas ao mesmo tempo: a segunda recebe "já validado por X".
  */
-export async function validar(quem: Quem, chave: string, e: EntradaValidacao): Promise<Validacao> {
+export async function validar(quem: Quem, linha: string, e: EntradaValidacao): Promise<Validacao> {
   if (!quem.login) throw new FonteErro("Entre no site para validar.");
+  if (!podeValidarQuem(quem)) throw new FonteErro("A validação é do líder: Terceiro e Manutentor não validam.");
   const [iw13, ordens, armarios, movs, vs] = await Promise.all([linhasIw13(), ordensDeQuebra(), lerArmarios(true), lerMovimentos(true), lerValidacoes(true)]);
-  const ja = vs.find((v) => v.chave === chave);
-  if (ja) throw new FonteErro(`Já validado por ${ja.porNome || ja.por} (${ja.decisao === "ubm" ? "veio da UBM" : "veio do Almox"}); atualize a página.`);
-  if (chavesComRetirada(movs).has(chave)) throw new FonteErro("Essa ordem e material já têm retirada registrada na UBM; atualize a página.");
-  const item = pendencias(iw13.dados ?? [], ordens ?? new Map(), armarios, movs, [], {}).flatMap((p) => p.itens).find((i) => i.chave === chave);
-  if (!item) throw new FonteErro("Essa linha não está mais pendente (IW13, kit ou ordem mudaram); atualize a página.");
+  const item = pendencias(iw13.dados ?? [], ordens ?? new Map(), armarios, movs, vs, {}).flatMap((p) => p.itens).find((i) => i.chave === linha);
+  if (!item) {
+    const ja = vs.filter((v) => v.linha === linha).at(0);
+    throw new FonteErro(ja ? `Já validado por ${ja.porNome || ja.por} (${ja.decisao === "ubm" ? "veio da UBM" : "veio do Almox"}); atualize a página.`
+      : "Essa linha não está mais pendente (IW13, kit ou ordem mudaram); atualize a página.");
+  }
   const d = validarDecisao(e, item);
   if ("erro" in d) throw new FonteErro(d.erro);
   const em = agora();
-  const v: Validacao = { chave, ordem: item.ordem, codigo: item.codigo, decisao: d.decisao, armario: d.armario, quantidade: d.quantidade, um: d.um,
-    tomada: item.tomada, dataIw13: item.data, equipamento: item.equipamento, em, por: quem.login, porNome: quem.nome,
+  const chave = proximaChave(linha, vs);
+  const v: Validacao = { chave, linha, ordem: item.ordem, codigo: item.codigo, decisao: d.decisao, armario: d.armario, quantidade: d.quantidade, um: d.um,
+    tomada: item.tomada, umIw13: item.umIw13, dataIw13: item.data, equipamento: item.equipamento, em, por: quem.login, porNome: quem.nome,
     movimento: d.decisao === "ubm" ? novoId() : "" };
+  // o mesmo lote gravado por outra pessoa no meio (as duas leram a mesma pendência): a segunda é recusada
   await gravarCadastroLote(ARQ_VALIDACOES, { [chave]: (atual) => {
     const outra = atual ? validacaoDe(chave, atual) : null;
     if (atual) throw new FonteErro(`Já validado por ${outra?.porNome || outra?.por || "outra pessoa"}; atualize a página.`);
     return validacaoParaGravar(v);
   } }, quem.login);
   if (v.decisao === "ubm") {
-    const m: Movimento = { ...vazio, id: v.movimento, tipo: "retirada", armario: v.armario, em, por: quem.login, porNome: quem.nome,
-      codigo: v.codigo, quantidade: v.quantidade, ordem: v.ordem, uso: USO_VALIDACAO, origem: "validacao" };
+    // a retirada leva a data do consumo na IW13 (meio-dia de Brasília): uma contagem feita depois já a inclui
+    const m: Movimento = { ...vazio, id: v.movimento, tipo: "retirada", armario: v.armario, em: emDaRetirada(v.dataIw13, em), por: quem.login,
+      porNome: quem.nome, codigo: v.codigo, quantidade: v.quantidade, ordem: v.ordem, uso: USO_VALIDACAO, origem: "validacao" };
+    const tirarDecisao = () => gravarCadastroLote(ARQ_VALIDACOES, { [chave]: (atual) => (atual && atual.movimento === v.movimento ? null : undefined) }, quem.login)
+      .catch(() => undefined);
     try {
       await gravarNovos([m], quem);
     } catch (err) {
-      // sem a retirada, a decisão também sai (a linha volta a ficar pendente)
-      await gravarCadastroLote(ARQ_VALIDACOES, { [chave]: (atual) => (atual && atual.movimento === v.movimento ? null : undefined) }, quem.login).catch(() => undefined);
+      await tirarDecisao(); // sem a retirada, a decisão também sai (a linha volta a ficar pendente)
       throw err;
+    }
+    // desfeita por um gestor enquanto a retirada era gravada: a retirada sai também (não fica retirada sem decisão)
+    if (!(await lerValidacoes(true)).some((x) => x.chave === chave)) {
+      await apagarMovimento(m, quem);
+      throw new FonteErro("A validação foi desfeita enquanto gravava; atualize a página.");
     }
   }
   void registrar(quem.login, "ubm_validacao", chave, { decisao: v.decisao, ordem: v.ordem, codigo: v.codigo, armario: v.armario,
     quantidade: v.quantidade, tomada: v.tomada });
   return v;
+}
+
+/** Apaga a retirada criada por uma validação (só ela: origem "validacao"). */
+async function apagarMovimento(m: Pick<Movimento, "id" | "em">, quem: Quem) {
+  await gravarCadastroLote(arquivoMovimentos(m.em), { [m.id]: (atual) => {
+    const x = movimentoDe(m.id, atual);
+    return x && x.tipo === "retirada" && x.origem === "validacao" ? null : undefined;
+  } }, quem.login);
 }
 
 /** Desfaz uma validação (só quem gere): apaga a decisão e, se foi "veio da UBM", a retirada criada por ela. */
@@ -371,11 +418,20 @@ export async function desfazerValidacao(quem: Quem, chave: string): Promise<void
   if (!v) throw new FonteErro("Validação não encontrada; atualize a página.");
   if (v.movimento) {
     const achado = await movimentoAgora(v.movimento);
-    if (achado) await gravarCadastroLote(achado.arquivo, { [v.movimento]: (atual) => {
-      const m = movimentoDe(v.movimento, atual);
-      return m && m.tipo === "retirada" && m.origem === "validacao" ? null : undefined;
-    } }, quem.login);
+    if (achado) await apagarMovimento(achado.m, quem);
   }
   await gravarCadastroLote(ARQ_VALIDACOES, { [chave]: () => null }, quem.login);
   void registrar(quem.login, "ubm_validacao", chave, { acao: "desfazer", decisao: v.decisao, movimento: v.movimento || undefined });
+}
+
+// O KPI "A validar" da Visão geral não recalcula a lista (IW13 × IW38 × IW28): mostra o total da última vez que a
+// sub-aba Validação foi aberta com o período padrão (últimos 30 dias), guardado por armário por até 15 minutos.
+const gAValidar = globalThis as unknown as { __cmUbmAValidar?: Map<string, { n: number; em: number }> };
+const aValidar = (gAValidar.__cmUbmAValidar ??= new Map());
+const VALE_A_VALIDAR = 15 * 60_000;
+export function guardarAValidar(armario: string, n: number) { aValidar.set(armario || "*", { n, em: Date.now() }); }
+/** O total guardado (null = não há um recente: a tela mostra só o link para a validação). */
+export function aValidarGuardado(armario: string): number | null {
+  const x = aValidar.get(armario || "*");
+  return x && Date.now() - x.em < VALE_A_VALIDAR ? x.n : null;
 }

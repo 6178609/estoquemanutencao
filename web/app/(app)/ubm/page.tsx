@@ -51,6 +51,7 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
   const params = await props.searchParams;
   const visao = VISOES.includes(um(params, "visao")) ? um(params, "visao") : VISOES[0];
   const gere = D.podeGerir(u);
+  const valida = D.podeValidar(u);
   const hoje = hojeBr();
   const [armarios, movs] = await Promise.all([D.lerArmarios(), D.lerMovimentos()]);
   const armario = armarios.some((a) => a.id === um(params, "u")) ? um(params, "u") : "";
@@ -63,12 +64,13 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
   const repor = saldo.filter((l) => l.repor);
   const abertas = R.filtrar(movs, { armario }).filter((m) => m.tipo === "solicitacao" && !m.fechadaEm);
   const ordens = visao === "Análise" || visao === "Retiradas" ? await D.ordensIw38() : null;
-  // validação do líder: IW13 × ordens de quebra (a Visão geral mostra o total dos últimos 30 dias no KPI)
-  const comValidacao = visao === "Visão geral" || visao === VALIDACAO || visao === "Análise";
-  const [iw13, quebras, validacoes] = comValidacao ? await Promise.all([D.linhasIw13(), D.ordensDeQuebra(), D.lerValidacoes()])
-    : [null, null, [] as V.Validacao[]];
-  const aValidar = visao === "Visão geral" && iw13 ? V.totalPendente(V.pendencias(iw13.dados ?? [], quebras ?? new Map(), armarios, movs, validacoes,
-    { armario, de: somarDias(hoje, -(V.DIAS_PADRAO - 1)), ate: hoje })) : 0;
+  // validação do líder: IW13 × ordens de quebra só na sub-aba dela; a Análise lê só as decisões; a Visão geral mostra o
+  // total guardado da última abertura da validação no período padrão (sem recalcular), ou só o link
+  const [iw13, quebras] = visao === VALIDACAO ? await Promise.all([D.linhasIw13(), D.ordensDeQuebra()]) : [null, null];
+  const validacoes = visao === VALIDACAO || visao === "Análise" ? await D.lerValidacoes() : [];
+  const pend = visao === VALIDACAO ? V.pendencias(iw13?.dados ?? [], quebras ?? new Map(), armarios, movs, validacoes, filtro) : [];
+  if (visao === VALIDACAO && iw13?.dados && de === somarDias(hoje, -(V.DIAS_PADRAO - 1)) && ate === hoje) D.guardarAValidar(armario, V.totalPendente(pend));
+  const aValidar = visao === "Visão geral" ? D.aValidarGuardado(armario) : null;
   const codigos = new Set(movs.map((m) => m.codigo).filter(Boolean));
   const catalogo = visao === "Armários" || visao === "Como funciona" ? new Map<string, string>() : await D.descricoesCatalogo(codigos);
   const kitDesc = new Map(armarios.flatMap((a) => a.itens.map((i) => [`${a.id}|${i.codigo}`, i.descricao] as const)));
@@ -94,7 +96,7 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
         <AbasVisao visoes={VISOES} atual={visao} params={params} />
         {!gere && (
           <p className="inline-flex items-center gap-1.5 text-[12.5px] text-texto-3">
-            <Lock className="size-3.5" aria-hidden />Você valida as retiradas (IW13) e registra solicitações pelo QR; armários, reposição, contagem e desfazer validações ficam com os editores do PCM.
+            <Lock className="size-3.5" aria-hidden />{valida ? "Você valida as retiradas (IW13) e registra solicitações pelo QR" : "Você registra solicitações pelo QR (a validação das retiradas é do líder)"}; armários, reposição, contagem e desfazer validações ficam com os editores do PCM.
           </p>
         )}
         {visao !== "Como funciona" && <div className="flex flex-wrap items-center gap-2">{controles}</div>}
@@ -106,8 +108,9 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
               <Kpi rotulo="Itens para repor" valor={inteiro(repor.length)} detalhe="abaixo do mínimo" tom={repor.length ? "laranja" : "verde"} />
               <Kpi rotulo="Solicitações abertas" valor={inteiro(abertas.length)} detalhe="acabou, faltando ou reposição" tom={abertas.length ? "laranja" : "verde"} />
               <Link href={`?${new URLSearchParams({ visao: VALIDACAO, ...(armario ? { u: armario } : {}) })}`} className="block rounded-cartao focus-visible:outline-2"
-                aria-label={`A validar: ${inteiro(aValidar)} materiais de ordens de quebra (abrir a validação do líder)`}>
-                <Kpi rotulo="A validar" valor={inteiro(aValidar)} detalhe={iw13?.dados ? "materiais de ordens de quebra (30 dias) · abrir" : "IW13 não carregada · abrir"} tom={aValidar ? "laranja" : "verde"} />
+                aria-label={aValidar == null ? "A validar: ver a validação do líder" : `A validar: ${inteiro(aValidar)} materiais de ordens de quebra (abrir a validação do líder)`}>
+                <Kpi rotulo="A validar" valor={aValidar == null ? "—" : inteiro(aValidar)}
+                  detalhe={aValidar == null ? "Ver validação (IW13 das ordens de quebra)" : "materiais de ordens de quebra (30 dias) · abrir"} tom={aValidar ? "laranja" : aValidar == null ? "azul" : "verde"} />
               </Link>
             </div>
 
@@ -246,8 +249,8 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
         })()}
 
         {visao === VALIDACAO && (
-          <ValidacaoLider iw13={iw13} quebras={quebras} armarios={armarios} movs={movs} validacoes={validacoes} filtro={filtro}
-            decisao={um(params, "dec")} gere={gere} descr={descr} qs={qs} />
+          <ValidacaoLider iw13={iw13} quebras={quebras} pend={pend} armarios={armarios} validacoes={validacoes} filtro={filtro}
+            decisao={um(params, "dec")} gere={gere} valida={valida} descr={descr} qs={qs} />
         )}
 
         {visao === "Análise" && <Analise armarios={armarios} movs={movs} filtro={filtro} ordens={ordens} hoje={hoje} descr={descr} validacoes={validacoes} />}
@@ -402,7 +405,7 @@ function Analise({ armarios, movs, filtro, ordens, hoje, descr, validacoes }: { 
       {a.semOrdemNaIw38 && (
         <Secao titulo="Retiradas com ordem fora da IW38" destaque={`· ${inteiro(a.semOrdemNaIw38.length)}`} sub="Gravadas assim mesmo; conferir o número com quem retirou ou esperar a IW38 atualizar.">
           {!a.semOrdemNaIw38.length ? <Vazio>Todas as ordens das retiradas estão na IW38.</Vazio> : (
-            <Tabela cab={["Data", "Armário", "Ordem", "Código", "Quantidade", "Retirado por"]}>
+            <Tabela cab={["Data", "Armário", "Ordem", "Código", "Quantidade", "Por"]}>
               {a.semOrdemNaIw38.slice(0, MAX_LISTA).map((m) => (
                 <tr key={m.id} className="border-t border-borda"><td className={TD}>{quando(m.em)}</td><td className={TD}>{m.armario}</td><td className={`${TD} num`}>{m.ordem}</td>
                   <td className={`${TD} num`}>{m.codigo}</td><td className={`${TD} num`}>{R.fmtQtd(m.quantidade)}</td><td className={TD}>{m.porNome}</td></tr>
@@ -427,16 +430,19 @@ function Analise({ armarios, movs, filtro, ordens, hoje, descr, validacoes }: { 
 }
 
 const MAX_ORDENS = 100;
+/** Dias inteiros desde o instante (null sem data válida): idade do envio da IW13. */
+function diasDesde(iso: string | null | undefined): number | null {
+  const t = iso ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(t) ? null : Math.floor((new Date().getTime() - t) / 86_400_000);
+}
 
 /** Sub-aba "Validação do líder": pendências por ordem de quebra (IW13) e o histórico das decisões. */
-function ValidacaoLider({ iw13, quebras, armarios, movs, validacoes, filtro, decisao, gere, descr, qs }: {
-  iw13: Awaited<ReturnType<typeof D.linhasIw13>> | null; quebras: Map<string, V.InfoOrdem> | null; armarios: R.Armario[]; movs: R.Movimento[];
-  validacoes: V.Validacao[]; filtro: R.Filtro; decisao: string; gere: boolean; descr: (a: string, c: string) => string; qs: string }) {
-  const pend = V.pendencias(iw13?.dados ?? [], quebras ?? new Map(), armarios, movs, validacoes, filtro);
+function ValidacaoLider({ iw13, quebras, pend, armarios, validacoes, filtro, decisao, gere, valida, descr, qs }: {
+  iw13: Awaited<ReturnType<typeof D.linhasIw13>> | null; quebras: Map<string, V.InfoOrdem> | null; pend: V.OrdemPendente[]; armarios: R.Armario[];
+  validacoes: V.Validacao[]; filtro: R.Filtro; decisao: string; gere: boolean; valida: boolean; descr: (a: string, c: string) => string; qs: string }) {
   const total = V.totalPendente(pend);
   const hist = V.filtrarValidacoes(validacoes, { ...filtro, decisao });
-  const enviada = iw13?.atualizado ? new Date(iw13.atualizado) : null;
-  const diasIw13 = enviada && !Number.isNaN(enviada.getTime()) ? Math.floor((Date.now() - enviada.getTime()) / 86_400_000) : null;
+  const diasIw13 = diasDesde(iw13?.atualizado);
   const descrItem = (codigo: string, iw13Desc: string) => armarios.map((a) => descr(a.id, codigo)).find(Boolean) || iw13Desc;
   const linkDec = (d: string) => `?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(qs)), visao: VALIDACAO, ...(d ? { dec: d } : {}) })}`;
   return (
@@ -450,6 +456,7 @@ function ValidacaoLider({ iw13, quebras, armarios, movs, validacoes, filtro, dec
       ) : diasIw13 != null && diasIw13 > V.DIAS_IW13_VELHA ? (
         <Aviso>A IW13 foi enviada em {quando(iw13.atualizado!)} (há {inteiro(diasIw13)} dias): o consumo mais novo ainda não aparece. <Link prefetch={false} href="/dados" className="font-medium underline">Envie a IW13 em Fontes de dados</Link>.</Aviso>
       ) : iw13.atualizado ? <p className="text-[12.5px] text-texto-3">IW13 enviada em {quando(iw13.atualizado)}.</p> : null}
+      {!valida && <p className="inline-flex items-center gap-1.5 text-[12.5px] text-texto-3"><Lock className="size-3.5" aria-hidden />A validação é do líder: você vê a lista, sem os botões.</p>}
       {iw13?.dados && !quebras && <Aviso>A IW38 e a IW28 não estão carregadas: sem elas não dá para saber quais ordens são de quebra.</Aviso>}
 
       <Secao titulo="A validar" destaque={`· ${inteiro(total)}`} sub={`Ordens de quebra com material do kit lançado na IW13 de ${dataBr(filtro.de ?? "")} a ${dataBr(filtro.ate ?? "")}, a mais recente primeiro.`}
@@ -470,7 +477,7 @@ function ValidacaoLider({ iw13, quebras, armarios, movs, validacoes, filtro, dec
                   </div>
                 </div>
                 <ul className="grid gap-2">
-                  {o.itens.map((i) => <ItemValidacao key={i.chave} item={{ ...i, descricao: descrItem(i.codigo, i.descricao) }} />)}
+                  {o.itens.map((i) => <ItemValidacao key={i.chave} item={{ ...i, descricao: descrItem(i.codigo, i.descricao) }} pode={valida} />)}
                 </ul>
               </li>
             ))}

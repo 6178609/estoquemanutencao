@@ -13,40 +13,14 @@ const KIT: R.ItemKit[] = [
 ];
 const ARM: R.Armario = { id: "UBM-01", nome: "Armário teste", local: "Linha teste", ativo: true, itens: KIT, criadoEm: "2026-01-01T00:00:00Z" };
 const base: Omit<R.Movimento, "id" | "tipo" | "em" | "codigo" | "quantidade"> = { armario: "UBM-01", por: "p1", porNome: "Pessoa Teste",
-  ordem: "", turno: "", uso: "", observacao: "", tipoSolicitacao: "", foto: null, fechadaEm: "", fechadaPor: "",
-  lancadoNaOrdem: false, lancadoEm: "", lancadoPor: "" };
+  ordem: "", turno: "", uso: "", observacao: "", tipoSolicitacao: "", foto: null, fechadaEm: "", fechadaPor: "", origem: "" };
 let seq = 0;
 const mov = (tipo: R.TipoMovimento, em: string, codigo: string, quantidade: number, x: Partial<R.Movimento> = {}): R.Movimento =>
   ({ ...base, id: `mov${String(++seq).padStart(6, "0")}`, tipo, em, codigo, quantidade, ...x });
-const ret = (x: Partial<R.EntradaRetirada> = {}): R.EntradaRetirada =>
-  ({ ordem: "4100003", turno: "1º turno", codigo: "111", quantidade: "1", uso: "Troca de peça", temFoto: true, lancado: "sim", ...x });
 
 describe("UBM: validação", () => {
-  it("retirada: ordem e código livres (só o formato)", () => {
-    const ok = R.validarRetirada(ret({ ordem: " 000999 ", codigo: "  XYZ-9 " }), ARM);
-    expect(ok).toEqual({ campos: { ordem: "000999", turno: "1º turno", codigo: "XYZ-9", quantidade: 1, uso: "Troca de peça", lancadoNaOrdem: true } });
-    // código fora do kit e ordem que não existe em base nenhuma: grava assim mesmo
-    expect("campos" in R.validarRetirada(ret({ codigo: "99999999", ordem: "NAOEXISTE1" }), ARM)).toBe(true);
-    expect("erro" in R.validarRetirada(ret({ ordem: "" }), ARM)).toBe(true);
-    expect("erro" in R.validarRetirada(ret({ ordem: "x".repeat(21) }), ARM)).toBe(true);
-    expect("erro" in R.validarRetirada(ret({ codigo: "" }), ARM)).toBe(true);
-    expect("erro" in R.validarRetirada(ret({ codigo: "a b ç" }), ARM)).toBe(true);
-  });
-
-  it("retirada: turno, uso, foto e lançado na ordem obrigatórios", () => {
-    expect("erro" in R.validarRetirada(ret({ turno: "4º turno" }), ARM)).toBe(true);
-    for (const t of R.TURNOS) expect("campos" in R.validarRetirada(ret({ turno: t }), ARM)).toBe(true);
-    expect("erro" in R.validarRetirada(ret({ uso: "ab" }), ARM)).toBe(true);
-    expect("erro" in R.validarRetirada(ret({ uso: "x".repeat(501) }), ARM)).toBe(true);
-    expect("campos" in R.validarRetirada(ret({ uso: "x".repeat(500) }), ARM)).toBe(true);
-    expect(R.validarRetirada(ret({ temFoto: false }), ARM)).toEqual({ erro: "Tire a foto do material retirado." });
-    expect("erro" in R.validarRetirada(ret({ lancado: "" }), ARM)).toBe(true);
-    const nao = R.validarRetirada(ret({ lancado: "nao" }), ARM);
-    expect("campos" in nao && nao.campos.lancadoNaOrdem).toBe(false);
-  });
-
   it("quantidade: inteira para PC, decimal (2 casas) para M e para código fora do kit", () => {
-    const q = (codigo: string, quantidade: string) => { const r = R.validarRetirada(ret({ codigo, quantidade }), ARM); return "campos" in r ? r.campos.quantidade : r.erro; };
+    const q = (codigo: string, quantidade: string) => R.validarQuantidade(quantidade, R.itemDoKit(ARM, codigo)?.um ?? "");
     expect(q("111", "2")).toBe(2);
     expect(q("111", "1,5")).toMatch(/inteiro/);
     expect(q("222", "1,5")).toBe(1.5);
@@ -104,7 +78,7 @@ describe("UBM: validação", () => {
   });
 
   it("caminho de volta do login: só interno", () => {
-    expect(caminhoDeVolta("/ubm/retirada?u=UBM-01")).toBe("/ubm/retirada?u=UBM-01");
+    expect(caminhoDeVolta("/ubm/solicitacao?u=UBM-01")).toBe("/ubm/solicitacao?u=UBM-01");
     // inclusive os que só viram "//host" depois da normalização do caminho
     for (const ruim of ["https://exemplo.invalid", "//exemplo.invalid", "/\\exemplo.invalid", "javascript:alert(1)", "/entrar", "/api/ubm", "", 5, "ubm",
       "/.//evil.com", "/%2e//evil.com", "/a/..//evil.com", "/./\\evil.com"])
@@ -116,7 +90,7 @@ describe("UBM: saldo, reposição e análise", () => {
   const movs = [
     mov("reposicao", "2026-01-01T10:00:00Z", "111", 10), // antes da contagem: some
     mov("contagem", "2026-01-02T10:00:00Z", "111", 4),
-    mov("retirada", "2026-01-03T10:00:00Z", "111", 3, { ordem: "4100003", turno: "1º turno", lancadoNaOrdem: true }),
+    mov("retirada", "2026-01-03T10:00:00Z", "111", 3, { ordem: "4100003", turno: "1º turno", origem: "qr" }),
     mov("reposicao", "2026-01-04T10:00:00Z", "111", 1),
     mov("retirada", "2026-01-05T10:00:00Z", "111", 1, { ordem: "777", turno: "2º turno" }),
     mov("retirada", "2026-01-05T11:00:00Z", "222", 2.5, { ordem: "4100003", turno: "2º turno" }),
@@ -141,15 +115,13 @@ describe("UBM: saldo, reposição e análise", () => {
     expect(R.listaReposicao([{ ...ARM, ativo: false }], movs)).toEqual([]);
   });
 
-  it("análise: por material, turno, ordem/equipamento, semana, fora do kit, abertas, sem ordem na IW38, % lançadas", () => {
+  it("análise: por material, líder, ordem/equipamento, semana, fora do kit, abertas, sem ordem na IW38", () => {
     const ordens = new Map([["4100003", { texto: "Troca fictícia", equipamento: "EQ-1", denominacao: "Equipamento fictício" }]]);
     const a = R.analisar([ARM], movs, { armario: "UBM-01" }, ordens, "2026-01-10");
     expect(a.retiradas).toBe(4);
     expect(a.quantidade).toBe(7.5);
-    expect(a.lancadas).toBe(1);
-    expect(a.pctLancadas).toBe(25);
     expect(a.porMaterial[0]).toMatchObject({ chave: "111", retiradas: 2, quantidade: 4 });
-    expect(a.porTurno.map((g) => g.chave)).toEqual(["1º turno", "2º turno"]);
+    expect(a.porLider).toEqual([expect.objectContaining({ chave: "Pessoa Teste", retiradas: 4 })]);
     expect(a.porEquipamento[0]).toMatchObject({ chave: "EQ-1", rotulo: "EQ-1 · Equipamento fictício", retiradas: 3 });
     expect(a.porEquipamento.find((g) => g.chave === "")?.rotulo).toBe("Ordem não encontrada na IW38");
     expect(a.porOrdem[0].rotulo).toBe("4100003 · Troca fictícia");
@@ -180,15 +152,6 @@ describe("UBM: saldo, reposição e análise", () => {
     expect(R.ehArquivoMovimentos("ubm_movimentos.json")).toBe(false);
   });
 
-  it("não lançadas na ordem e quem marca", () => {
-    expect(R.naoLancadas(movs).map((m) => m.codigo)).toEqual(["111", "222", "FORA1"]);
-    const m = R.naoLancadas(movs)[0];
-    expect(R.podeMarcarLancada({ login: "p1", gerir: false }, m)).toBe(true);
-    expect(R.podeMarcarLancada({ login: "outro", gerir: false }, m)).toBe(false);
-    expect(R.podeMarcarLancada({ login: "outro", gerir: true }, m)).toBe(true);
-    expect(R.podeMarcarLancada({ login: "p1", gerir: true }, { ...m, lancadoNaOrdem: true })).toBe(false);
-  });
-
   it("leitura segura do cadastro tolera lixo", () => {
     expect(R.movimentoDe("x", {})).toBeNull();
     expect(R.movimentoDe("abc123", { tipo: "furto", armario: "UBM-01", quantidade: 1 })).toBeNull();
@@ -196,8 +159,13 @@ describe("UBM: saldo, reposição e análise", () => {
     expect(R.armarioDe("UBM-01", { nome: "A", itens: [{ codigo: "1", um: "PC", maximo: 2 }, { codigo: "", maximo: 1 }, 5] })?.itens)
       .toEqual([{ codigo: "1", descricao: "", um: "PC", minimo: 2, maximo: 2 }]);
     const m = mov("solicitacao", "2026-01-01T00:00:00Z", "1", 1);
-    expect(R.movimentoParaGravar(m)).not.toHaveProperty("lancadoNaOrdem");
+    expect(R.movimentoParaGravar(m)).not.toHaveProperty("origem");
     expect(R.movimentoDe(m.id, R.movimentoParaGravar(m))).toEqual(m);
+    // retirada antiga (QR, sem origem gravada, com os campos do SAP Mobile de antes): lida como "qr", campos antigos ignorados
+    const antiga = R.movimentoDe("abc123", { tipo: "retirada", armario: "UBM-01", quantidade: 1, codigo: "111", lancadoNaOrdem: true, turno: "1º turno" });
+    expect(antiga).toMatchObject({ origem: "qr", turno: "1º turno" });
+    expect(antiga).not.toHaveProperty("lancadoNaOrdem");
+    expect(R.movimentoDe("abc124", { tipo: "retirada", armario: "UBM-01", quantidade: 1, codigo: "111", origem: "validacao" })?.origem).toBe("validacao");
   });
 });
 
@@ -208,9 +176,8 @@ describe("UBM: gravação (fonte na memória)", async () => {
   beforeAll(() => { _definirFonte(null); });
   afterAll(() => { _definirFonte(undefined); });
 
-  const JPG = (marca = 1) => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, marca, 2, 3, 4, 5, 6]);
-  const GESTOR: Quem = { login: "gestor1", nome: "Gestor Teste", gerir: true };
-  const MANUT: Quem = { login: "manut1", nome: "Manutentor Teste", gerir: false };
+  const GESTOR: Quem = { login: "gestor1", nome: "Gestor Teste", gerir: true, validar: true };
+  const MANUT: Quem = { login: "manut1", nome: "Manutentor Teste", gerir: false, validar: false };
   const kit = [{ codigo: "8880001", um: "PC", quantidade: "3", minimo: "2" }, { codigo: "8880002", um: "M", quantidade: "5" }];
 
   it("quem gere: perfil de edição, fora de Terceiro e Manutentor", () => {
@@ -240,23 +207,6 @@ describe("UBM: gravação (fonte na memória)", async () => {
     expect(lista.map((l) => [l.codigo, l.separar])).toEqual([["8880002", 5]]);
   });
 
-  it("retirada: grava com ordem e código fora das bases, foto obrigatória; marca lançada (autor ou gestor)", async () => {
-    const antes = D._fotosGuardadas().length;
-    await expect(D.registrarRetirada(MANUT, "UBM-90", ret({ codigo: "8880001" }), null)).rejects.toThrow(/foto/);
-    await expect(D.registrarRetirada(MANUT, "UBM-99", ret(), { nome: "f.jpg", bytes: JPG() })).rejects.toThrow(/Armário não encontrado/);
-    await expect(D.registrarRetirada(MANUT, "UBM-90", ret(), { nome: "x.pdf", bytes: new TextEncoder().encode("%PDF-1.4\n") })).rejects.toThrow(/JPEG/);
-    expect(D._fotosGuardadas().length).toBe(antes);
-    const id = await D.registrarRetirada(MANUT, "UBM-90", ret({ codigo: "CODIGO-INEXISTENTE", ordem: "ORDEM-INEXISTENTE", quantidade: "0,5", lancado: "nao" }),
-      { nome: "f.jpg", bytes: JPG() });
-    const m = (await D.lerMovimentos(true)).find((x) => x.id === id)!;
-    expect(m).toMatchObject({ tipo: "retirada", por: "manut1", codigo: "CODIGO-INEXISTENTE", ordem: "ORDEM-INEXISTENTE", quantidade: 0.5, lancadoNaOrdem: false });
-    expect((await D.lerFoto(id))?.tipo).toBe("image/jpeg");
-    await expect(D.marcarLancada({ login: "outro", nome: "Outro", gerir: false }, id)).rejects.toThrow(/Só quem retirou/);
-    await D.marcarLancada(MANUT, id);
-    expect((await D.lerMovimentos(true)).find((x) => x.id === id)).toMatchObject({ lancadoNaOrdem: true, lancadoPor: "Manutentor Teste" });
-    await expect(D.marcarLancada(GESTOR, id)).rejects.toThrow(/já está marcada/);
-  });
-
   it("solicitação: quem vê a aba registra; só quem gere fecha", async () => {
     const id = await D.registrarSolicitacao(MANUT, "UBM-90", { tipo: "faltando", codigo: "", quantidade: "", observacao: "Chave fictícia" }, null);
     await expect(D.fecharSolicitacao(MANUT, id)).rejects.toThrow(/Só editores/);
@@ -278,7 +228,9 @@ describe("UBM: gravação (fonte na memória)", async () => {
   it("demonstração: armários e movimentos fictícios, com fotos legíveis", async () => {
     const [arms, movs] = await Promise.all([D.lerArmarios(true), D.lerMovimentos(true)]);
     expect(arms.map((a) => a.id)).toEqual(expect.arrayContaining(["UBM-01", "UBM-02"]));
+    // retirada antiga do QR: continua lida, com a foto
     const r = movs.find((m) => m.id === "demo0ubm0ret01")!;
+    expect(r.origem).toBe("qr");
     expect((await D.lerFoto(r.id))?.tipo).toBe("image/png");
     expect(movs.some((m) => m.tipo === "solicitacao" && !m.fechadaEm)).toBe(true);
   });
@@ -299,11 +251,11 @@ describe("UBM: rota de QR", async () => {
   afterAll(() => { _definirFonte(undefined); quemRota = null; });
   const pedir = (q: Record<string, string>) => rota.GET(new NextRequest(`http://localhost/api/ubm?${new URLSearchParams(q)}`));
 
-  it("SVG e PNG para quem vê a aba; etiqueta em SVG; 403 sem a aba", async () => {
+  it("SVG e PNG para quem vê a aba; etiqueta em SVG; QR de retirada desativado (404); 403 sem a aba", async () => {
     quemRota = { login: "l1", nome: "Líder Teste", funcao: "lider", perfil: "editor" };
-    const svg = await pedir({ qr: "retirada", u: "UBM-01", formato: "svg" });
+    const svg = await pedir({ qr: "solicitacao", u: "UBM-01", formato: "svg" });
     expect(svg.status).toBe(200);
-    expect(svg.headers.get("content-disposition")).toContain('attachment; filename="UBM-01_retirada_qr.svg"');
+    expect(svg.headers.get("content-disposition")).toContain('attachment; filename="UBM-01_solicitacao_qr.svg"');
     const texto = await svg.text();
     expect(texto).toMatch(/^<\?xml[^>]*>\n<svg [^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
     expect(texto).toContain("</svg>");
@@ -313,15 +265,23 @@ describe("UBM: rota de QR", async () => {
     expect([...bytes.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     // ~1200 px de largura (cabeçalho IHDR)
     expect(new DataView(bytes.buffer).getUint32(16)).toBeGreaterThanOrEqual(1100);
-    const et = await (await pedir({ qr: "retirada", u: "UBM-01", formato: "etiqueta" })).text();
-    expect(et).toContain("RETIRADA");
+    const et = await (await pedir({ qr: "solicitacao", u: "UBM-01", formato: "etiqueta" })).text();
+    expect(et).toContain("SOLICITAÇÃO");
     expect(et).toContain("UBM-01");
-    expect(et).toContain("/ubm/retirada?u=UBM-01");
+    expect(et).toContain("/ubm/solicitacao?u=UBM-01");
+    expect(et).not.toContain("RETIRADA");
+    expect((await pedir({ qr: "retirada", u: "UBM-01", formato: "svg" })).status).toBe(404);
     expect((await pedir({ qr: "outro", u: "UBM-01" })).status).toBe(400);
-    expect((await pedir({ qr: "retirada", u: "UBM-77" })).status).toBe(404);
+    expect((await pedir({ qr: "solicitacao", u: "UBM-77" })).status).toBe(404);
+    // a retirada pelo QR acabou: o POST antigo responde 410 com a orientação
+    const f = new FormData();
+    f.set("acao", "retirada");
+    const pos = await rota.POST(new NextRequest("http://localhost/api/ubm", { method: "POST", body: f }));
+    expect(pos.status).toBe(410);
+    expect((await pos.json()).erro).toMatch(/confirmada pelo líder na validação/);
     quemRota = { login: "m1", nome: "Manutentor Teste", funcao: "manutentor", perfil: "leitor", abas: ["estoque"] };
-    expect((await pedir({ qr: "retirada", u: "UBM-01", formato: "svg" })).status).toBe(403);
+    expect((await pedir({ qr: "solicitacao", u: "UBM-01", formato: "svg" })).status).toBe(403);
     quemRota = null;
-    expect((await pedir({ qr: "retirada", u: "UBM-01", formato: "png" })).status).toBe(403);
+    expect((await pedir({ qr: "solicitacao", u: "UBM-01", formato: "png" })).status).toBe(403);
   });
 });

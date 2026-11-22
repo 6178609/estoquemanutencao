@@ -69,10 +69,10 @@ export function validacoesUbmDemo(): Record<string, Record<string, unknown>> {
   const em = (dias: number) => new Date(h - dias * 86_400_000).toISOString();
   const dia = (dias: number) => em(dias).slice(0, 10);
   const vs: Validacao[] = [
-    { chave: chaveValidacao("4199001", "900049"), ordem: "4199001", codigo: "900049", decisao: "ubm", armario: "UBM-02", quantidade: 1, um: "PC",
-      tomada: 1, dataIw13: dia(4), equipamento: "10000105", em: em(2), ...LIDER, movimento: MOV_VALIDADA },
-    { chave: chaveValidacao("4199002", "900042"), ordem: "4199002", codigo: "900042", decisao: "almox", armario: "", quantidade: 2, um: "PC",
-      tomada: 2, dataIw13: dia(6), equipamento: "10000109", em: em(1), ...LIDER, movimento: "" },
+    { chave: `${chaveValidacao("4199001", "900049")}#1`, linha: chaveValidacao("4199001", "900049"), ordem: "4199001", codigo: "900049", decisao: "ubm",
+      armario: "UBM-02", quantidade: 1, um: "PC", tomada: 1, umIw13: "PC", dataIw13: dia(4), equipamento: "10000105", em: em(2), ...LIDER, movimento: MOV_VALIDADA },
+    { chave: `${chaveValidacao("4199002", "900042")}#1`, linha: chaveValidacao("4199002", "900042"), ordem: "4199002", codigo: "900042", decisao: "almox",
+      armario: "", quantidade: 2, um: "PC", tomada: 2, umIw13: "PC", dataIw13: dia(6), equipamento: "10000109", em: em(1), ...LIDER, movimento: "" },
   ];
   return Object.fromEntries(vs.map((v) => [v.chave, validacaoParaGravar(v)]));
 }

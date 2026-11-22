@@ -65,20 +65,30 @@
   `docs/superpowers/specs/2026-11-22-ubm-design.md`. Regras puras em `web/lib/ubm/regras.ts` (validação, saldo, reposição,
   análise, kit colado/Excel), gravação em `lib/ubm/dados.ts` (cadastros `ubm_armarios.json` e `ubm_movimentos_<AAAA-MM>.json`,
   um por mês de Brasília, a leitura junta todos; fotos em `app/documentos/ubm/<movimento>/`, reduzidas no celular a 1600 px
-  JPEG), rota `app/api/ubm/route.ts`, telas em `app/(app)/ubm/` (sub-abas, `retirada` e `solicitacao` para o celular pelo QR,
+  JPEG), rota `app/api/ubm/route.ts`, telas em `app/(app)/ubm/` (sub-abas, `solicitacao` para o celular pelo QR,
   `qr` para imprimir as etiquetas A4 ou salvar em PDF; QR em SVG/PNG no servidor, `lib/ubm/qr.ts`, e botões "Baixar QR
-  (PNG/SVG)" e "Baixar etiqueta (PNG)" — `UBM-01_retirada_qr.png` etc.). Datas e filtros pelo dia de Brasília (`diaBr`).
+  (PNG/SVG)" e "Baixar etiqueta (PNG)" — `UBM-01_solicitacao_qr.png` etc.). Datas e filtros pelo dia de Brasília (`diaBr`).
   Endereço do QR: `URL_SITE`/`URL_SITE_ATUAL`, na Vercel sem elas o fixo `https://pcmemacao.vercel.app`.
-- **Ordem e código nunca travam:** só o formato; IW38 e Sysmat servem para mostrar a descrição e para a análise (associação
-  na leitura). Retirada pede foto e "Já lançado na ordem pelo SAP Mobile?"; a aba cobra as não lançadas.
+- **Retirada = validação do líder (pedido do usuário, 22/11/2026; substituiu o QR de retirada):** sub-aba "Validação do líder"
+  lista (ordem, material) da IW13 com Tomados > 0 (linhas somadas), material no kit de armário ativo e ordem de QUEBRA pela
+  regra do site (`regraQuebra`: "y1" só com nota de quebra da IW28 por `marcarQuebras`; "ym11" tipo YM11 na IW38 ou nota),
+  padrão 30 dias; pendente = tomada − já validada − retiradas antigas do QR (consumo novo volta só a diferença). "Veio da UBM"
+  (armário + quantidade; padrão = pendente, vazio se a UM da IW13 ≠ do kit) cria a retirada `origem: "validacao"` com a data da
+  IW13 (meio-dia de Brasília: contagem posterior já a inclui) que baixa o saldo; "Veio do Almox" só registra. Regras em
+  `lib/ubm/validacao.ts`; decisões em `ubm_validacoes.json` (um lote por validação, chave `ordem|código#n`; o mesmo lote
+  gravado ao mesmo tempo é recusado), auditoria `ubm_validacao`. Valida quem vê a aba e não é Terceiro/Manutentor
+  (`podeValidar`); desfazer só `podeGerir`. IW38/IW28 lidas pelo `lerBase` (sem `bases()`); o KPI "A validar" da Visão geral
+  usa o total guardado da última abertura da validação (15 min). `/ubm/retirada` redireciona para a validação (com o `?u=`),
+  POST de retirada → 410, `?qr=retirada` → 404; retiradas antigas do QR (origem "qr", com foto) continuam no saldo e no
+  histórico. Testes em `testes/ubmValidacao.test.ts`.
 - Kit: UM por item (PC/UN inteiro, M e outras com 2 casas), quantidade padrão = máximo, mínimo opcional (= padrão). Saldo:
   contagem fixa, reposição soma, retirada subtrai; repor quando saldo < mínimo (separar padrão − saldo).
-- Quem grava: retirada/solicitação, quem vê a aba (e quem retirou marca "lançada"); armários, reposição, contagem e fechar
-  solicitação, `podeGerir` (perfil de edição, fora de Terceiro/Manutentor). Auditoria `ubm_*`. Testes em `testes/ubm.test.ts`.
+- Quem grava: solicitação, quem vê a aba; validação, quem vê a aba fora de Terceiro/Manutentor; armários, reposição, contagem, fechar solicitação e desfazer validação,
+  `podeGerir` (perfil de edição, fora de Terceiro/Manutentor). Auditoria `ubm_*`. Testes em `testes/ubm.test.ts`.
 - A lista real do kit vai só para o repositório de dados; a demonstração usa armários fictícios (`lib/ubm/demo.ts`).
 - Visão geral mostra o armário desenhado como no infográfico (`app/(app)/ubm/ArmarioVisual.tsx`, pedido do usuário,
   22/11/2026): uma gaveta por família do kit (até 9; o resto em "Diversos"), "!" laranja com item abaixo do mínimo, gaveta
-  abre com os itens e saldo, e a porta com os dois QR reais. Teste em `testes/ubmArmario.test.ts`.
+  abre com os itens e saldo, e a porta só com o QR real de SOLICITAÇÃO. Teste em `testes/ubmArmario.test.ts`.
 - Login com volta: quem abre uma página sem sessão entra e volta a ela (`lib/auth/volta.ts`, só caminho interno).
 
 ## Avisos por e-mail

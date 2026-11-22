@@ -233,54 +233,65 @@ test("MRO: incluir no SAP (IA06) pela Gestão de MRO e pelo atalho da biblioteca
   expect(erros).toEqual([]);
 });
 
-test("UBM (demonstração): abas, formulário de retirada no celular sem rolagem lateral e etiquetas QR", async ({ page }) => {
+test("UBM (demonstração): abas, validação do líder no celular (Veio da UBM baixa o saldo) e etiqueta só de solicitação", async ({ page }) => {
   const erros = await entrarNaDemo(page);
-  for (const v of ["Visão geral", "Retiradas", "Solicitações", "Análise", "Armários", "Como funciona"]) await telaAbriu(page, `/ubm?visao=${v}`);
+  for (const v of ["Visão geral", "Validação do líder", "Retiradas", "Solicitações", "Análise", "Armários", "Como funciona"]) await telaAbriu(page, `/ubm?visao=${v}`);
   await telaAbriu(page, "/ubm");
   await expect(page.getByRole("heading", { name: "Lista de reposição" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Retiradas não lançadas na ordem" })).toBeVisible();
-  // o armário desenhado (como no infográfico): gavetas por família e os dois QR da porta
+  await expect(page.getByRole("heading", { name: "Retiradas não lançadas na ordem" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^A validar/ })).toBeVisible();
+  // o armário desenhado: gavetas e só o QR de SOLICITAÇÃO na porta (o de retirada saiu)
   const arm = page.getByRole("figure", { name: "Armário UBM-01" });
   await expect(arm).toBeVisible();
-  await expect(arm.getByRole("link", { name: /RETIRADA/ })).toBeVisible();
   await expect(arm.getByRole("link", { name: /SOLICITAÇÃO/ })).toBeVisible();
+  await expect(arm.getByRole("link", { name: /RETIRADA/ })).toHaveCount(0);
+  // saldo do 900028 (M) na lista de reposição, antes da validação
+  const linhaRepor = page.getByRole("row").filter({ hasText: "900028" }).first();
+  const saldoDe = async () => Number((await linhaRepor.locator("td").nth(4).innerText()).replace(/\./g, "").replace(",", "."));
+  const antes = await saldoDe();
 
-  // celular (390 px): o formulário do QR cabe na largura, acha a ordem/código ou avisa que grava assim mesmo
-  await page.setViewportSize({ width: 390, height: 844 });
+  // etiquetas antigas de retirada: o endereço leva à validação do líder
   await page.goto("/ubm/retirada?u=UBM-01");
-  const form = page.getByRole("form", { name: "Retirada de material" });
-  await expect(form).toBeVisible();
+  await expect(page).toHaveURL(/visao=Valida.*u=UBM-01/);
+
+  // celular (390 px): a validação cabe na largura; "Veio da UBM" com a quantidade da IW13 grava e a linha some
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/ubm?visao=Validação do líder");
+  await expect(page.getByRole("heading", { name: "A validar" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
-  await form.getByLabel("Ordem").fill("ORDEM-FICTICIA");
-  await expect(form.getByText(/será gravada mesmo assim/)).toBeVisible();
-  await form.getByLabel("1º turno").check();
-  await form.getByLabel("Código do material").fill("900007");
-  await expect(form.getByText(/no kit do armário/)).toBeVisible();
-  await form.getByLabel("Descrição do uso").fill("Teste de ponta a ponta (fictício)");
-  await form.getByLabel("Não", { exact: true }).check();
-  await form.getByLabel(/Foto do material/).setInputFiles({ name: "retirada.png", mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
-  await form.getByRole("button", { name: "Enviar retirada" }).click();
-  await expect(page.getByRole("heading", { name: "Retirada registrada" })).toBeVisible();
+  const item = page.getByRole("listitem", { name: /^Material 900028/ });
+  await expect(item).toContainText("2,5 M");
+  await item.getByRole("button", { name: "Veio da UBM" }).click();
+  const form = page.getByRole("form", { name: "Veio da UBM · 900028" });
+  await expect(form.getByLabel(/Quantidade que saiu da UBM/)).toHaveValue("2,5");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  await form.getByRole("button", { name: "Confirmar" }).click();
+  await expect(page.getByRole("listitem", { name: /^Material 900028/ })).toHaveCount(0);
+  await expect(page.getByText("Veio da UBM").filter({ hasText: /^Veio da UBM$/ }).first()).toBeVisible();
 
   await page.goto("/ubm/solicitacao?u=UBM-01");
   await expect(page.getByRole("form", { name: "Solicitação de material" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 
-  // etiquetas: retirada e solicitação de cada armário, com o QR em SVG
+  // o saldo baixou 2,5 M e a retirada aparece como confirmada na validação
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/ubm");
+  await expect.poll(saldoDe).toBeCloseTo(antes - 2.5, 2);
+  await page.goto("/ubm?visao=Retiradas");
+  await expect(page.getByText("Validação do líder (IW13)").first()).toBeVisible();
+
+  // etiquetas: só a de solicitação de cada armário, com o QR em SVG
   await page.goto("/ubm/qr");
-  await expect(page.getByRole("region", { name: "Etiqueta RETIRADA · UBM-01" }).locator(".qr-ubm svg")).toBeVisible();
   await expect(page.getByRole("region", { name: "Etiqueta SOLICITAÇÃO · UBM-01" }).locator(".qr-ubm svg")).toBeVisible();
-  expect(await page.locator(".qr-ubm svg").count()).toBeGreaterThanOrEqual(4);
+  await expect(page.getByRole("region", { name: /Etiqueta RETIRADA/ })).toHaveCount(0);
+  expect(await page.locator(".qr-ubm svg").count()).toBeGreaterThanOrEqual(2);
   await expect(page.getByRole("button", { name: "Imprimir todas (A4)" })).toBeVisible();
-  const grupo = page.getByRole("group", { name: "Baixar retirada · UBM-01" }).first();
+  const grupo = page.getByRole("group", { name: "Baixar solicitação · UBM-01" }).first();
   await expect(grupo.getByRole("link", { name: "Baixar QR (PNG)" })).toBeVisible();
-  await expect(grupo.getByRole("button", { name: "Baixar etiqueta (PNG)" })).toBeVisible();
   const [svg] = await Promise.all([page.waitForEvent("download"), grupo.getByRole("link", { name: "Baixar QR (SVG)" }).click()]);
-  expect(svg.suggestedFilename()).toBe("UBM-01_retirada_qr.svg");
+  expect(svg.suggestedFilename()).toBe("UBM-01_solicitacao_qr.svg");
   const [etiqueta] = await Promise.all([page.waitForEvent("download"), grupo.getByRole("button", { name: "Baixar etiqueta (PNG)" }).click()]);
-  expect(etiqueta.suggestedFilename()).toBe("UBM-01_retirada_etiqueta.png");
+  expect(etiqueta.suggestedFilename()).toBe("UBM-01_solicitacao_etiqueta.png");
   // os botões também ficam no cadastro dos armários
   await page.goto("/ubm?visao=Armários");
   await expect(page.getByRole("group", { name: "Baixar solicitação · UBM-01" }).getByRole("link", { name: "Baixar QR (SVG)" })).toBeVisible();
