@@ -89,3 +89,33 @@ o código é procurado pela descrição curta exata no catálogo do Sysmat.
 - Envio: conteúdo sanitizado no servidor campo a campo (`sanitizarConteudo`), abas exigidas conferidas, e o ledger do mesmo
   arquivo/nome é reaproveitado (reenviar não duplica). Classe e tipo de manutenção do RCM pelos cabeçalhos "Classificação" e
   "MANUTENÇÃO PM" (CBM/TBM/BM).
+
+## Operações das listas de tarefas e IA06 (pedido do usuário, 23/11/2026)
+- Fonte: export em texto das listas de tarefas gerais do SAP ("LTa <grupo> <numerador> <descrição>", Estratégia, Centro;
+  "Operação <nº> <texto breve>" + texto longo + Cen.trabalho, Chave de controle, Núm.de pessoas, Trabalho (min), Pac.manuten;
+  "Comp.mat. <material> <descrição>" + Quantidade/UM; "Suboperaç." entra no texto longo da operação). Parser puro em
+  `web/lib/machineLedger/listasTarefas.ts`; cadastro `listas_tarefas.json` { "<grupo>|<numerador>": { descricao, estrategia,
+  centro, operacoes } }; reenvio pela sub-aba "Enviar ledger" (lido no navegador, validado no servidor, substitui tudo).
+- Listas da máquina: pelos equipamentos SAP do ledger, o mesmo caminho da Gestão de MRO (planos das ordens da IW38 × IP19, listas
+  diretas da IP19 e as dos subconjuntos do IH08); lista da IP19 sem numerador = todas as listas do grupo. Sem equipamento ligado
+  ou sem o export das listas, a página não lê IW38/IP19/IH08; as listas validadas ficam guardadas por versão do cadastro.
+- Sugestão por componente do RCM (texto breve + longo da operação, sem acento, plural reduzido): nome inteiro 100; 2 primeiras
+  palavras significativas 70 (+10 com subconjunto/conjunto); palavra única do nome (5+ letras) 55 sozinha (média) e 70 com
+  subconjunto/conjunto (alta); só a 1ª palavra 40 (+10); só o subconjunto 50; só o conjunto 30. Confiança alta ≥ 70, média ≥ 45, baixa abaixo. Confirmação do PCM em
+  `machine_ledger_operacoes.json` ("<ledger>|<hash do conjunto/subconjunto/componente>" → grupo, numerador, operação, quantidade).
+- IA06: componentes com código SAP válido (regra do pente fino), operação confirmada que ainda existe nas
+  listas (confirmada órfã fica fora, com aviso) ou sugestão alta, se marcado, e material que ainda não é Comp.mat. em NENHUMA
+  operação da lista ("já na lista (op X)": o SAP aceita o material uma vez por lista); quantidade = quantidade instalada do RCM
+  ("1.0"/"2.5" do Excel = ponto decimal; com vírgula, formato brasileiro), editável; UM do catálogo. Mesmo material em dois
+  componentes da mesma lista = uma linha só, quantidades somadas (o contador da tela = linhas do CSV, com aviso dos juntados).
+  CSV e script VBS iguais aos da Gestão de MRO, com o número da operação; coluna ATIVOS com um ativo por equipamento do ledger
+  (`identificarAtivo`: campo de ordenação, código e nome, como na MRO). Componente repetido no RCM (mesmo hash de
+  conjunto/subconjunto/componente; o equip não entra no hash) = uma linha, com a melhor resolução de código entre as repetidas.
+  Excel da associação por máquina.
+- Código "Sysmat pela referência" (componente sem código válido, sem peça de reposição nem descrição exata): tokens de
+  referência do nome (dígito + letra, ou com hífen/ponto/barra, 5+ caracteres; fora medidas, rosca métrica `M8X1.25`, dimensões
+  `10X20MM` e polegadas `3/8X1/2"`) contra um índice só da Descr Curta, dos trechos `REF:`/`REFERENCIA:`/`DES:` da Descr Completa
+  e do "FAB REF" do catálogo (MODELO, APLICACAO e REQUISITOS não entram: casavam material errado). Material BLOQUEADO com "Para"
+  ativo vira o "Para". Um material = sugestão; vários = ambíguo, sem código (o inválido do RCM fica à parte, `codigoRcm`). Só vai
+  para a IA06 depois de o PCM confirmar; a confirmação vale enquanto o código é a sugestão ou um candidato — senão é
+  "confirmação antiga", ignorada e sinalizada.

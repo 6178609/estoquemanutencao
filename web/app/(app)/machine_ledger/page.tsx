@@ -12,7 +12,9 @@ import { dataBr, hoje, MESES, partes } from "@/lib/wcm/util";
 
 import { Controles } from "../planos/_comum/Controles";
 import { hrefCom, um, type Params } from "../planos/_comum/params";
-import { AcoesAchado, Correspondencia, EnviarLedger } from "./Acoes";
+import { AcoesAchado, ConfirmarCodigo, Correspondencia, EnviarLedger, EnviarListas } from "./Acoes";
+import { chaveAssociacao, confirmacaoValida } from "@/lib/machineLedger/listasTarefas";
+import { OperacoesIa06 } from "./Operacoes";
 
 export const metadata: Metadata = { title: "Machine Ledger" };
 export const dynamic = "force-dynamic";
@@ -38,6 +40,7 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
   const visao = VISOES.includes(um(params, "visao")) ? um(params, "visao") : VISOES[0];
   const grava = D.podeGravarMl(u);
   const indice = await D.lerIndice();
+  const nListas = visao === "Enviar ledger" ? (await D.lerListas()).size : 0;
 
   return (
     <Pagina>
@@ -53,17 +56,20 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
         {!indice.length ? <Aviso>Nenhum Machine Ledger carregado ainda. {grava ? "Envie a planilha em \"Enviar ledger\"." : ""}</Aviso> : (
           <>
             {visao === "Visão geral" && <VisaoGeral indice={indice} />}
-            {visao === "Máquinas" && <Maquinas indice={indice} params={params} />}
+            {visao === "Máquinas" && <Maquinas indice={indice} params={params} grava={grava} />}
             {visao === "Pente fino do MRO" && <Pente params={params} grava={grava} />}
             {visao === "Cruzamentos" && <Cruzamentos indice={indice} params={params} />}
             {visao === "Correspondência" && <Correspondencias indice={indice} grava={grava} />}
           </>
         )}
-        {visao === "Enviar ledger" && (grava ? (
+        {visao === "Enviar ledger" && (grava ? (<>
           <Secao titulo="Enviar ledger" sub="Escolha o .xlsx do Machine Ledger: a planilha é lida no seu navegador (precisa das abas CAPA, RCM, PLANO MESTRE e GT_SPARE_PARTS) e substitui o ledger escolhido; os equipamentos SAP já ligados ficam.">
             <EnviarLedger ledgers={indice.map((i) => ({ id: i.id, nome: i.nome }))} />
           </Secao>
-        ) : <Aviso>Só editores do PCM (fora de Terceiro e Manutentor) enviam ledgers.</Aviso>)}
+          <Secao titulo="Listas de tarefas (IA06)" sub="O export em texto das listas de tarefas gerais do SAP (blocos LTa, operações, texto longo e Comp.mat.): lido no seu navegador, validado no servidor e substitui o cadastro inteiro.">
+            <EnviarListas atual={nListas} />
+          </Secao>
+        </>) : <Aviso>Só editores do PCM (fora de Terceiro e Manutentor) enviam ledgers.</Aviso>)}
       </div>
     </Pagina>
   );
@@ -126,7 +132,7 @@ async function VisaoGeral({ indice }: { indice: R.Indice[] }) {
 }
 
 // ----------------------------------------------------------------------------
-async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params }) {
+async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params: Params; grava: boolean }) {
   const l = indice.find((i) => i.id === um(params, "m"));
   if (!l) {
     return (
@@ -145,12 +151,14 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
       </div>
     );
   }
-  const [c, b, nomes] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap()]);
+  const [c, b, nomes, opsLedger, codConf, ativos] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap(), D.operacoesDoLedger(l),
+    D.lerCodigosConfirmados(), D.ativosIa06(l.equipamentos)]);
   const ano = /^\d{4}$/.test(um(params, "ano")) ? Number(um(params, "ano")) : partes(hoje()).ano;
   const { afs, temAf } = await D.quebrasDos(new Set(l.equipamentos));
   const cal = R.calendarioQuebras(c.componentes, afs, ano);
   const classe = um(params, "classe"), tm = um(params, "tm"), imp = um(params, "imp");
-  const rcm = c.componentes.map((x) => ({ x, h: R.indiceH(x), classe: R.classeDe(x) }))
+  const porDesc = R.pecasPorDescricao(c.pecas);
+  const rcm = c.componentes.map((x) => ({ x, h: R.indiceH(x), classe: R.classeDe(x), cod: R.codigoDoComponente(x, porDesc, b) }))
     .filter((r) => (!classe || r.classe === classe) && (!tm || r.x.tipoManut === tm)
       && (!imp || (imp === "seg" ? r.x.seguranca : imp === "qual" ? r.x.qualidade : r.x.parada)))
     .sort((a, b2) => (b2.h ?? -1) - (a.h ?? -1));
@@ -192,6 +200,15 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
           : !cal.length ? <Vazio>Nenhuma AF desses equipamentos em {ano}.</Vazio> : <Calendario linhas={cal} />}
       </Secao>
 
+      <Secao titulo="Operações e IA06" destaque={`· ${inteiro(opsLedger.ligadas.length)} lista(s)`}
+        sub="Listas de tarefas dos equipamentos do ledger (planos da IW38 × IP19, listas diretas e as dos subconjuntos, como na Gestão de MRO). Cada componente recebe a operação sugerida pelo texto (componente, subconjunto, conjunto); o PCM confirma ou troca e baixa a carga IA06 dos que ainda não estão na operação.">
+        {!l.equipamentos.length ? <Vazio>Sem equipamento SAP ligado (ver Correspondência).</Vazio>
+          : !opsLedger.temListas ? <Vazio>O export das listas de tarefas ainda não foi enviado (sub-aba Enviar ledger).</Vazio>
+          : !opsLedger.ops.length ? <Vazio>{opsLedger.ligadas.length ? "As listas de tarefas da máquina não estão no export enviado." : "Nenhuma lista de tarefas ligada aos equipamentos (IW38/IP19)."}</Vazio>
+          : <OperacoesIa06 ledger={l.id} ativos={ativos} linhas={opsLedger.linhas} grava={grava}
+              ops={opsLedger.ops.map((o) => ({ valor: `${o.grupo}|${o.numerador}|${o.op.numero}`, rotulo: `${o.grupo}/${o.numerador} · ${o.op.numero} ${o.op.texto}`.slice(0, 90) }))} />}
+      </Secao>
+
       <Secao titulo="RCM por índice H" destaque={`· ${inteiro(rcm.length)}`} sub="Do maior índice H ao menor (H da planilha; vazio, calculado).">
         <Controles limpar={[]} controles={[
           { tipo: "escolha", chave: "classe", rotulo: "Classe", valor: classe, opcoes: [{ valor: "", rotulo: "Todas" }, ...["A", "B", "C"].map((x) => ({ valor: x, rotulo: x }))] },
@@ -199,11 +216,12 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
           { tipo: "escolha", chave: "imp", rotulo: "Impacto", valor: imp, opcoes: [{ valor: "", rotulo: "Qualquer" }, { valor: "seg", rotulo: "Segurança" }, { valor: "qual", rotulo: "Qualidade" }, { valor: "parada", rotulo: "Para a máquina" }] },
         ]} />
         <Tabela cab={["H", "Classe", "Componente", "Conjunto › subconjunto", "Código", "Modo de falha", "Seg.", "Qual.", "Para", "P", "T", "V", "Manutenção"]}>
-          {rcm.slice(0, MAX_LINHAS).map(({ x, h, classe: cl }, i) => (
+          {rcm.slice(0, MAX_LINHAS).map(({ x, h, classe: cl, cod }, i) => (
             <tr key={i} className="border-t border-borda">
               <td className={`${TD} num font-semibold`}>{h ?? "—"}</td><td className={TD}>{cl ? <Selo cor={cl === "A" ? "vermelho" : cl === "B" ? "laranja" : "cinza"}>{cl}</Selo> : "—"}</td>
               <td className={`${TD} min-w-[12rem]`}>{x.componente}</td><td className={`${TD} min-w-[10rem] text-texto-2`}>{x.conjunto} › {x.subconjunto}</td>
-              <td className={`${TD} num`}>{x.codigo || "—"}</td><td className={`${TD} min-w-[10rem] text-texto-2`}>{x.modo}</td>
+              <td className={`${TD} num min-w-[8rem]`}><CodigoRcm cod={cod} bruto={x.codigo} chave={chaveAssociacao(l.id, x)} conf={codConf.get(chaveAssociacao(l.id, x)) ?? null} grava={grava} /></td>
+              <td className={`${TD} min-w-[10rem] text-texto-2`}>{x.modo}</td>
               <td className={TD}>{sn(x.seguranca)}</td><td className={TD}>{sn(x.qualidade)}</td><td className={TD}>{sn(x.parada)}</td>
               <td className={`${TD} num`}>{x.p ?? ""}</td><td className={`${TD} num`}>{x.t ?? ""}</td><td className={`${TD} num`}>{x.v ?? ""}</td><td className={TD}>{x.tipoManut}</td>
             </tr>
@@ -237,7 +255,7 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
                 <tr key={i} className="border-t border-borda">
                   <td className={`${TD} num`}>{r.codigo || <span className="text-texto-3">{p.codigo || "sem código"}</span>}
                     {r.situacao !== "ok" && r.situacao !== "sem_codigo" && <div><Selo cor={r.situacao === "bloqueado" ? "amarelo" : "vermelho"}>{r.situacao === "bloqueado" ? "bloqueado" : r.status ? r.status.toLowerCase() : "não existe"}</Selo></div>}
-                    {r.origem === "descricao" && <div><Selo cor="azul">pela descrição</Selo></div>}</td>
+                    {r.origem === "descricao" && <div><Selo cor="azul">Sysmat pela descrição</Selo></div>}</td>
                   <td className={`${TD} min-w-[14rem]`}>{p.descricao}</td><td className={TD}>{p.conjunto}</td>
                   <td className={`${TD} num`}>{saldo == null ? "—" : saldo <= 0 && (p.estrategico || p.reserva) ? <Selo cor="vermelho">{saldo}</Selo> : saldo}</td>
                   <td className={TD}>{p.estrategico ? "Sim" : ""}</td><td className={TD}>{p.reserva ? "Sim" : ""}</td>
@@ -248,6 +266,22 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
           </Tabela>
         )}
       </Secao>
+    </div>
+  );
+}
+
+/** Código do componente no RCM: o resolvido, a origem e, na origem "Sysmat pela referência", a confirmação do PCM. */
+function CodigoRcm({ cod, bruto, chave, conf: conf0, grava }: { cod: R.ResolvidoComOrigem; bruto: string; chave: string; conf: { codigo: string; por: string; em: string } | null; grava: boolean }) {
+  // confirmação antiga (o código não é mais a sugestão nem um candidato): ignorada
+  const conf = conf0 && confirmacaoValida(cod, conf0) ? conf0.codigo : null;
+  const antiga = conf0 && !conf ? <div><Selo cor="amarelo">confirmação antiga ({conf0.codigo}) ignorada</Selo></div> : null;
+  if (!cod.sugerido) return cod.situacao === "ok" ? <>{cod.codigo}<div className="text-[11.5px] text-texto-3">{cod.origemCodigo}</div>{antiga}</> : <>{bruto || "—"}{antiga}</>;
+  return (
+    <div className="space-y-1">
+      <div>{conf ?? (cod.codigo || "ambígua")}</div>
+      <div className="text-[11.5px] text-texto-3">{cod.origemCodigo}{conf ? " · confirmado" : cod.codigo ? " · sugerido" : ` · ${cod.candidatos?.length ?? 0} candidatos`}{cod.codigoRcm ? ` · RCM: ${cod.codigoRcm} (inválido)` : ""}</div>
+      {antiga}
+      {grava && <ConfirmarCodigo chave={chave} candidatos={cod.candidatos ?? []} confirmado={conf} referencia={cod.referencia ?? ""} />}
     </div>
   );
 }
@@ -336,7 +370,7 @@ async function Pente({ params, grava }: { params: Params; grava: boolean }) {
                   ? <span className="text-texto-2">{a.ledgerNome} <span className="text-texto-3">· vale para {a.ativos.length ? `${a.ativos.length} equip. (${a.ativos.slice(0, 3).join(", ")}${a.ativos.length > 3 ? "…" : ""})` : "nenhum equipamento"}</span></span>
                   : <><span className="num font-semibold">{a.ativos[0]}</span><span className="text-texto-3">· {a.ledgerNome}</span></>}
               </div>
-              <div className="mt-1.5 text-[13.5px]">{a.codigo && <b className="num">{a.codigo} </b>}{a.descricao}</div>
+              <div className="mt-1.5 text-[13.5px]">{a.codigo && <b className="num">{a.codigo} </b>}{a.descricao}{a.origemCodigo && <span className="text-[12px] text-texto-3"> · código: {a.origemCodigo}</span>}</div>
               <div className="mt-0.5 text-[12.5px] text-texto-3">{a.detalhe}{a.para && ` Para: ${a.para}.`}</div>
               {grava && <div className="mt-2"><AcoesAchado chave={a.chave} acao={a.acao} ativo={a.ativos[0] ?? ""} codigo={a.codigo} /></div>}
             </li>
@@ -422,9 +456,10 @@ async function Cruzamentos({ indice, params }: { indice: R.Indice[]; params: Par
       <Secao titulo="Sugestões para a UBM" destaque={`· ${inteiro(ubm.length)}`} sub="Peças com estoque de segurança UBM > 0 no ledger: candidatas ao kit do armário."
         acoes={<Link prefetch={false} href="/ubm?visao=Arm%C3%A1rios" className={BOTAO_LINK}>Abrir a UBM <ArrowRight className="size-4" /></Link>}>
         {!ubm.length ? <Vazio>Nenhuma peça com estoque de segurança UBM nos ledgers.</Vazio> : (
-          <Tabela cab={["Ledger", "Código", "Descrição", "Est. seg. UBM"]}>
+          <Tabela cab={["Ledger", "Código", "Origem do código", "Descrição", "Est. seg. UBM"]}>
             {ubm.slice(0, 200).map(({ i, p, r }, k) => (
               <tr key={k} className="border-t border-borda"><td className={TD}>{i.nome}</td><td className={`${TD} num`}>{r.codigo || p.codigo || "—"}</td>
+                <td className={TD}>{r.situacao === "ok" ? R.origemDaPeca(r) : r.situacao === "sem_codigo" ? "sem código" : r.situacao}</td>
                 <td className={TD}>{p.descricao}</td><td className={`${TD} num`}>{p.estSegUbm}</td></tr>
             ))}
           </Tabela>

@@ -18,6 +18,10 @@ export interface ItemInclusao {
   grupo: string; numerador: string; operacao: string; material: string; quantidade: number; um: string; texto: string; equipamento: string;
   /** quantos equipamentos usam a lista (informativo na planilha) */
   usoLista?: number;
+  /** vários ativos pedindo o mesmo item (Machine Ledger com mais de um equipamento): somam-se ao `equipamento` na coluna ATIVOS */
+  ativos?: string[];
+  /** de onde veio o código (Machine Ledger: RCM, peça de reposição, Sysmat pela descrição); coluna extra no fim do CSV */
+  origemCodigo?: string;
 }
 
 type Linha = Record<string, unknown>;
@@ -136,22 +140,25 @@ export const CABECALHO_CSV = "EXECUTAR;GRUPO;CONTADOR;OPERACAO;MATERIAL;QUANTIDA
  * Um material entra UMA vez em cada lista de tarefas (grupo + contador), nunca repetido — nem em outra operação, nem
  * com zeros à esquerda diferentes. A coluna ATIVOS diz para quais ativos (campo de ordenação, equipamento e nome) a
  * peça está sendo incluída: numa lista geral compartilhada, todos eles numa linha só.
- * `marcar` = false deixa EXECUTAR em branco.
+ * `marcar` = false deixa EXECUTAR em branco. `comOrigem` acrescenta no FIM a coluna ORIGEM_CODIGO (o script lê as colunas
+ * pela posição: as anteriores não mudam).
  */
-export function csvInclusao(itens: ItemInclusao[], marcar = true): string {
+export function csvInclusao(itens: ItemInclusao[], marcar = true, comOrigem = false): string {
   const porChave = new Map<string, { i: ItemInclusao; op: string; ativos: string[] }>();
   for (const i of itens) {
     const op = operacao4(i.operacao), mat = chaveMaterial(i.material);
     if (!i.grupo || !op || !mat) continue;
     const k = `${i.grupo.trim().toUpperCase()}|${String(i.numerador ?? "").trim()}|${mat}`;
     const x = porChave.get(k) ?? porChave.set(k, { i, op, ativos: [] }).get(k)!;
-    const eq = limpo(i.equipamento, 90);
-    if (eq && !x.ativos.includes(eq)) x.ativos.push(eq);
+    for (const a of [i.equipamento, ...(i.ativos ?? [])]) {
+      const eq = limpo(a, 90);
+      if (eq && !x.ativos.includes(eq)) x.ativos.push(eq);
+    }
   }
-  const linhas = [CABECALHO_CSV];
+  const linhas = [comOrigem ? `${CABECALHO_CSV};ORIGEM_CODIGO` : CABECALHO_CSV];
   for (const { i, op, ativos } of porChave.values())
     linhas.push([marcar ? "X" : "", limpo(i.grupo, 20), limpo(i.numerador, 4), op, limpo(i.material, 40), qtdBr(i.quantidade > 0 ? i.quantidade : 1),
-      limpo(i.um, 6), limpo(i.texto), ativos.join(" | ").slice(0, 900), ativos.length, i.usoLista ?? ""].join(";"));
+      limpo(i.um, 6), limpo(i.texto), ativos.join(" | ").slice(0, 900), ativos.length, i.usoLista ?? "", ...(comOrigem ? [limpo(i.origemCodigo, 30)] : [])].join(";"));
   return linhas.join("\r\n") + "\r\n";
 }
 

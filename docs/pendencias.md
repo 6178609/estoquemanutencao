@@ -4,6 +4,12 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
 
 ## Em andamento
 
+- **Machine Ledger — operações e IA06 (publicado em 23/11)**
+  - Associação operação ↔ componente (sugestão + confirmação do PCM), código pela referência do fabricante (o PCM confirma) e
+    download da IA06 (CSV + VBS com a operação) no ar.
+  - Em aberto: o usuário exportar as listas de tarefas de EQUIPAMENTO ("E") no mesmo formato (só as gerais vieram); conferir
+    uma amostra dos códigos pela referência antes de confirmar em massa; confirmar as sugestões de correspondência.
+
 - **Programação de paradas (GAL1 Componentes)** — spec `docs/superpowers/specs/2026-11-10-programacao-paradas-design.md`,
   plano `docs/superpowers/plans/2026-11-10-programacao-paradas.md`.
   - Publicadas: parte 1 (leitura, motor R1–R15, 11 conferências, aba com Programação, Verificação e "Fora das classes") e

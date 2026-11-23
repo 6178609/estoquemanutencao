@@ -13,9 +13,16 @@ import { AF_CANCELADA, prepararAfs } from "../wcm/af";
 import { bases } from "../wcm/dados";
 import { marcarQuebras, type Nota, type Ordem, prepararEquipamentos, prepararIw38, prepararNotas, regraQuebra, TIPO_ORDEM_QUEBRA, tiposPorOrdem } from "../wcm/preparo";
 import { dia, hoje, partes } from "../wcm/util";
+import { comListasDosSubconjuntos, identificarAtivo, listasDiretasDaIp19, listasPorEquipamento, listasPorPlano, type ListaTarefas } from "@/app/(app)/mro/ia06";
+
 import { consumoDemo, quebrasDemo } from "./demo";
 import {
-  abasFaltando, type Achado, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
+  ARQ_LISTAS, ARQ_OPERACOES, chaveAssociacao, chaveLista, type CodigoConfirmado, codigosConfirmadosDe, type Confirmada, confirmadasDe, itemLista, type LinhaOperacao, type ListaSap,
+  listasDasLigadas, listasDe, linhasOperacoes,
+  MAX_LISTAS, type OperacaoDaMaquina, operacoesDasListas, sanitizarLista,
+} from "./listasTarefas";
+import {
+  abasFaltando, type Achado, codigoDoComponente, pecasPorDescricao, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
   idValido, type Indice, indexarBase, indiceDe, itemIndice, ledgerDoMesmoNome, limparEquipamentos, MAX_LINHAS, nomeDoArquivo, penteFino, sanitizarConteudo, type PlanoSap, podeGravar, type Quebra, semZeros, txt,
 } from "./regras";
 
@@ -71,10 +78,19 @@ export async function vinculos(): Promise<(ativo: string) => string[]> {
   return (a) => porChave.get(semZeros(a)) ?? [];
 }
 
+/** Equipamentos do IH08 (código sem zeros → denominação e campo de ordenação). */
+async function fichasSap(): Promise<Map<string, { denominacao: string; campo: string }>> {
+  const lista = fonte() ? (await lerBase(DESTINO.ih08, (l) => prepararEquipamentos(l)).catch(() => null))?.dados : (await bases()).equipamentos.dados;
+  return new Map((lista ?? []).map((e) => [semZeros(e.equipamento), { denominacao: e.denominacao, campo: e.campo }]));
+}
 /** Equipamentos do IH08 (código sem zeros → denominação). */
 export async function equipamentosSap(): Promise<Map<string, string>> {
-  const lista = fonte() ? (await lerBase(DESTINO.ih08, (l) => prepararEquipamentos(l)).catch(() => null))?.dados : (await bases()).equipamentos.dados;
-  return new Map((lista ?? []).map((e) => [semZeros(e.equipamento), e.denominacao]));
+  return new Map([...(await fichasSap())].map(([k, v]) => [k, v.denominacao]));
+}
+/** Coluna ATIVOS da carga IA06: um por equipamento do ledger, como a Gestão de MRO (campo de ordenação, código e nome). */
+export async function ativosIa06(equipamentos: string[]): Promise<string[]> {
+  const f = await fichasSap();
+  return equipamentos.map((e) => identificarAtivo({ codigo: e, campo: f.get(semZeros(e))?.campo, nome: f.get(semZeros(e))?.denominacao }));
 }
 
 /** Consumo da IW13 por equipamento (sem zeros). */
@@ -247,4 +263,138 @@ export async function penteFinoAtual(): Promise<{ achados: Achado[]; todos: Entr
   const valor = { achados: penteFino(todos, vinc, base, new Set(conf.keys())), todos, conferidos: conf.size };
   if (chave) gp.__cmPenteMl = { chave, base, valor };
   return { ...valor, base };
+}
+
+// ----------------------------------------------------------------------------
+// Listas de tarefas (IA06) — ligação pelo mesmo caminho da Gestão de MRO (app/(app)/mro/ia06.ts)
+// ----------------------------------------------------------------------------
+// as listas validadas ficam presas ao objeto do cadastro (o cache de lerCadastro por versão): até 5 mil listas não são
+// revalidadas a cada página
+const memoCadListas = new WeakMap<object, Map<string, ListaSap>>();
+export async function lerListas(fresco = false): Promise<Map<string, ListaSap>> {
+  const cad = await lerCadastro(ARQ_LISTAS, { fresco });
+  let m = memoCadListas.get(cad);
+  if (!m) { m = listasDe(cad); memoCadListas.set(cad, m); }
+  return m;
+}
+export async function lerConfirmadas(fresco = false): Promise<Map<string, Confirmada>> {
+  return confirmadasDe(await lerCadastro(ARQ_OPERACOES, { fresco }));
+}
+export async function lerCodigosConfirmados(fresco = false): Promise<Map<string, CodigoConfirmado>> {
+  return codigosConfirmadosDe(await lerCadastro(ARQ_OPERACOES, { fresco }));
+}
+
+const memoListas = new WeakMap<object, WeakMap<object, WeakMap<object, Map<string, ListaTarefas[]>>>>();
+/** Equipamento (sem zeros) → listas de tarefas: planos das ordens da IW38 × IP19, listas diretas da IP19 e as dos subconjuntos (IH08). */
+async function listasPorEquip(): Promise<Map<string, ListaTarefas[]>> {
+  let ordens: Ordem[], ip19: Record<string, unknown>[], equips: { equipamento: string; denominacao: string; superior?: string }[];
+  if (!fonte()) {
+    const b = await bases();
+    ordens = b.ordens.dados ?? []; ip19 = b.cruas.ip19.dados ?? []; equips = b.equipamentos.dados ?? [];
+  } else {
+    const h = hoje();
+    const [o, i, e] = await Promise.all([lerBase(DESTINO.iw38, (l) => prepararIw38(l, h).ordens, String(h)).catch(() => null),
+      lerBase(DESTINO.ip19, ident).catch(() => null), lerBase(DESTINO.ih08, (l) => prepararEquipamentos(l)).catch(() => null)]);
+    ordens = o?.dados ?? []; ip19 = i?.dados ?? []; equips = e?.dados ?? [];
+  }
+  const m1 = memoListas.get(ordens) ?? new WeakMap(); memoListas.set(ordens, m1);
+  const m2 = m1.get(ip19) ?? new WeakMap(); m1.set(ip19, m2);
+  let r = m2.get(equips);
+  if (!r) {
+    const bruto = comListasDosSubconjuntos(listasPorEquipamento(ordens, listasPorPlano(ip19), listasDiretasDaIp19(ip19)), equips);
+    r = new Map<string, ListaTarefas[]>();
+    for (const [k, v] of bruto) r.set(semZeros(k), [...(r.get(semZeros(k)) ?? []), ...v]);
+    m2.set(equips, r);
+  }
+  return r;
+}
+
+/**
+ * As listas de tarefas dos equipamentos do ledger (sem repetir) e as operações delas que estão no cadastro. Lista ligada sem
+ * numerador (IP19 sem a coluna) = todas as listas do grupo.
+ */
+export async function listasDaMaquina(equipamentos: string[], jaLidas?: Map<string, ListaSap>): Promise<{ ligadas: ListaTarefas[]; listas: Map<string, ListaSap>; ops: OperacaoDaMaquina[] }> {
+  const [por, listas] = await Promise.all([listasPorEquip(), jaLidas ?? lerListas()]);
+  const ligadas = new Map<string, ListaTarefas>();
+  for (const e of equipamentos) for (const l of por.get(semZeros(e)) ?? []) if (!ligadas.has(chaveLista(l.grupo, l.numerador))) ligadas.set(chaveLista(l.grupo, l.numerador), l);
+  return { ligadas: [...ligadas.values()], listas, ops: operacoesDasListas(listasDasLigadas([...ligadas.values()], listas)) };
+}
+
+/**
+ * As linhas da seção "Operações e IA06" de um ledger. Sem equipamento ligado ou sem o export das listas, não lê IW38/IP19/IH08
+ * (as linhas saem sem operação).
+ */
+export async function operacoesDoLedger(indice: Indice): Promise<{ linhas: LinhaOperacao[]; ligadas: ListaTarefas[]; ops: OperacaoDaMaquina[]; temListas: boolean }> {
+  const [c, b, listas, conf, cods] = await Promise.all([lerConteudo(indice.id), baseCodigos(), lerListas(), lerConfirmadas(), lerCodigosConfirmados()]);
+  const m = indice.equipamentos.length && listas.size ? await listasDaMaquina(indice.equipamentos, listas) : { ligadas: [], listas, ops: [] };
+  return { linhas: linhasOperacoes(indice.id, c.componentes, m.ops, conf, m.listas, b, c.pecas, cods), ligadas: m.ligadas, ops: m.ops, temListas: listas.size > 0 };
+}
+
+/** Confirma (ou troca) a operação de um componente; `null` remove a associação. A operação tem de ser de uma lista da máquina. */
+export async function gravarOperacao(u: Quem, chave: string, alvo: { grupo: string; numerador: string; operacao: string; quantidade?: number | null } | null): Promise<void> {
+  exigirGravar(u);
+  const k = txt(chave, 80);
+  const [ledger] = k.split("|");
+  const indice = (await lerIndice()).find((i) => i.id === ledger);
+  if (!indice) throw new FonteErro("Ledger não encontrado.");
+  const c = await lerConteudo(ledger);
+  if (!c.componentes.some((x) => chaveAssociacao(ledger, x) === k)) throw new FonteErro("Componente não encontrado no RCM do ledger.");
+  if (alvo) {
+    const { ops } = await listasDaMaquina(indice.equipamentos);
+    const op = ops.find((o) => o.grupo === txt(alvo.grupo, 20).toUpperCase() && o.numerador === txt(alvo.numerador, 4) && o.op.numero === txt(alvo.operacao, 4));
+    if (!op) throw new FonteErro("Essa operação não é de uma lista de tarefas dos equipamentos do ledger.");
+    const q = Number(alvo.quantidade);
+    // o item guarda também o código confirmado do componente: só os campos da operação mudam
+    await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => ({ ...(atual ?? {}), grupo: op.grupo, numerador: op.numerador, operacao: op.op.numero,
+      quantidade: Number.isFinite(q) && q > 0 && q < 100_000 ? q : null, por: por(u), em: new Date().toISOString() }) }, por(u));
+  } else await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => {
+    if (!atual) return undefined;
+    const { grupo: _g, numerador: _n, operacao: _o, quantidade: _q, por: _p, em: _e, ...resto } = atual;
+    return Object.keys(resto).some((x) => x.startsWith("codigo")) ? resto : null;
+  } }, por(u));
+  registrar(u.login, "machine_ledger_operacao", k, alvo ? { grupo: alvo.grupo, numerador: alvo.numerador, operacao: alvo.operacao } : { removida: true });
+}
+
+/** Substitui o cadastro das listas de tarefas pelo export enviado (validado aqui, lista a lista). */
+export async function gravarListas(u: Quem, brutas: unknown): Promise<number> {
+  exigirGravar(u);
+  if (!Array.isArray(brutas) || !brutas.length) throw new FonteErro("Arquivo sem listas de tarefas.");
+  if (brutas.length > MAX_LISTAS) throw new FonteErro("Arquivo grande demais.");
+  const novas = new Map<string, ListaSap>();
+  for (const b0 of brutas) {
+    const b = b0 as Record<string, unknown>;
+    const l = sanitizarLista(b?.grupo, b?.numerador, b);
+    if (l) novas.set(chaveLista(l.grupo, l.numerador), l);
+  }
+  if (!novas.size) throw new FonteErro("Nenhuma lista de tarefas válida no arquivo.");
+  const atuais = await lerCadastro(ARQ_LISTAS, { fresco: true });
+  const itens: Record<string, Record<string, unknown> | null> = Object.fromEntries(Object.keys(atuais).filter((k) => !novas.has(k)).map((k) => [k, null]));
+  for (const [k, l] of novas) itens[k] = itemLista(l);
+  await gravarCadastroLote(ARQ_LISTAS, itens, por(u));
+  registrar(u.login, "machine_ledger_listas", "", { listas: novas.size });
+  return novas.size;
+}
+
+/**
+ * Confirma (ou desfaz, com `null`) o código SAP de um componente cuja origem é "Sysmat pela referência": o código tem de ser o
+ * sugerido ou um dos candidatos da referência ambígua. Gravado no item da associação (machine_ledger_operacoes.json).
+ */
+export async function gravarCodigo(u: Quem, chave: string, codigo: string | null): Promise<void> {
+  exigirGravar(u);
+  const k = txt(chave, 80);
+  const [ledger] = k.split("|");
+  const [c, b] = await Promise.all([lerConteudo(ledger), baseCodigos()]);
+  const comp = c.componentes.find((x) => chaveAssociacao(ledger, x) === k);
+  if (!comp) throw new FonteErro("Componente não encontrado no RCM do ledger.");
+  if (codigo) {
+    const r = codigoDoComponente(comp, pecasPorDescricao(c.pecas), b);
+    const cod = semZeros(txt(codigo, 10));
+    if (!r.sugerido || !(r.candidatos ?? []).some((x) => x.codigo === cod)) throw new FonteErro("Esse código não é uma sugestão pela referência deste componente.");
+    await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => ({ ...(atual ?? {}), codigo: cod, codigoPor: por(u), codigoEm: new Date().toISOString() }) }, por(u));
+  } else await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => {
+    if (!atual) return undefined;
+    const { codigo: _c, codigoPor: _p, codigoEm: _e, ...resto } = atual;
+    return Object.keys(resto).some((x) => !x.startsWith("atualizado")) ? resto : null;
+  } }, por(u));
+  registrar(u.login, "machine_ledger_codigo", k, { codigo: codigo ?? null });
 }

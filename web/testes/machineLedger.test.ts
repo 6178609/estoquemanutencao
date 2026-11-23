@@ -297,6 +297,19 @@ describe("Machine Ledger: gravação na demonstração (mesmo campo da Gestão d
     await D.gravarCorrespondencia(EDITOR, l.id, l.equipamentos);
   });
 
+  it("confirmar o código sugerido pela referência libera o componente para a IA06", async () => {
+    const D = await import("@/lib/machineLedger/dados");
+    const l = (await D.lerIndice()).find((i) => i.id === "ml-demo0001")!;
+    const sug = (await D.operacoesDoLedger(l)).linhas.find((x) => x.sugerido && x.codigo)!;
+    expect(sug.codigoOk).toBe(false);
+    await expect(D.gravarCodigo(MANUT, sug.chave, sug.codigo)).rejects.toThrow(/editores/);
+    await expect(D.gravarCodigo(EDITOR, sug.chave, "900000")).rejects.toThrow(/não é uma sugestão/);
+    await D.gravarCodigo(EDITOR, sug.chave, sug.codigo);
+    expect((await D.operacoesDoLedger(l)).linhas.find((x) => x.chave === sug.chave)).toMatchObject({ codigoOk: true, codigoConfirmado: { codigo: sug.codigo } });
+    await D.gravarCodigo(EDITOR, sug.chave, null);
+    expect((await D.operacoesDoLedger(l)).linhas.find((x) => x.chave === sug.chave)?.codigoOk).toBe(false);
+  });
+
   it("demonstração gera achados de todos os tipos", async () => {
     const D = await import("@/lib/machineLedger/dados");
     const tipos = new Set((await D.penteFinoAtual()).achados.map((a) => a.tipo));

@@ -27,6 +27,24 @@ test("machine ledger: sub-abas, detalhe, pente fino com vincular e 390 px (demon
   await expect(page.getByRole("heading", { name: /RCM por índice H/ })).toBeVisible();
   await expect(page.getByText("FICTPRESS").first()).toBeVisible();
 
+  // código pela referência: o PCM confirma no RCM
+  const linhaRef = page.locator("tr").filter({ hasText: "VALVULA DO CIRCUITO DE AR" });
+  await expect(linhaRef.getByText(/Sysmat pela referência · sugerido/)).toBeVisible();
+  await linhaRef.getByRole("button", { name: "Confirmar código" }).click();
+  await expect(linhaRef.getByText(/Sysmat pela referência · confirmado/)).toBeVisible();
+
+  // operações e IA06: confirma a operação sugerida da correia e baixa a carga com o número da operação
+  await expect(page.getByRole("heading", { name: /Operações e IA06/ })).toBeVisible();
+  const correia = page.getByRole("list", { name: "Operações por componente" }).locator("li").filter({ hasText: "CORREIA EM V DO ACIONAMENTO" });
+  await expect(correia.getByText(/sugestão alta/)).toBeVisible();
+  await correia.getByRole("button", { name: "Confirmar" }).click();
+  await expect(correia.getByText("confirmada", { exact: true })).toBeVisible();
+  await expect(correia.getByText("vai na IA06")).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Baixar CSV da IA06" }).click()]);
+  expect(download.suggestedFilename()).toBe("SAP_IA06_INCLUIR_materiais.csv");
+  const csv = await (await import("node:fs/promises")).readFile((await download.path())!, "latin1");
+  expect(csv).toMatch(/^X;90000;1;0020;\d+;1;/m);
+
   // pente fino: os achados aparecem e "Vincular" tira o achado da lista
   await telaAbriu(page, "/machine_ledger?visao=Pente+fino+do+MRO&tipo=faltando");
   const achados = page.getByRole("list", { name: "Achados" }).locator("li");

@@ -107,6 +107,15 @@
 - Pente fino: código SAP = só dígitos (5–7); BLOQUEADO é "Bloqueado para compra" (não inválido); estratégico sem saldo separado
   de estocagem recomendada (secundária); sem respaldo só com sinal forte por padrão ("uso geral" = vinculado em ≥ 3 ativos ou
   ≥ 20%); resumo por códigos únicos e ledgers; envio sanitizado no servidor e reaproveita o ledger do mesmo nome.
+- **Operações e IA06 (pedido do usuário, 23/11/2026):** export em texto das listas de tarefas gerais do SAP lido por
+  `lib/machineLedger/listasTarefas.ts` (LTa, operações, texto longo, suboperação no texto, Comp.mat.) → cadastro
+  `listas_tarefas.json` (grupo|numerador; reenvio pela sub-aba Enviar, validado no servidor). Listas da máquina pelos equipamentos
+  do ledger com as funções da Gestão de MRO (`listasPorPlano` + `listasPorEquipamento` + `listasDiretasDaIp19` +
+  `comListasDosSubconjuntos` de `app/(app)/mro/ia06.ts`). Sugestão operação ↔ componente pelo texto (nome inteiro 100, 2 palavras 70,
+  palavra única 55 sozinha e 70 com subconjunto/conjunto, 1ª palavra 40, subconjunto 50, conjunto 30; alta ≥ 70, média ≥ 45); o PCM
+  confirma/troca/remove em `machine_ledger_operacoes.json` (ledger|hash do componente). IA06 = CSV + VBS da MRO
+  (`csvInclusao`/`scriptInclusao`) com o nº da operação, só código válido, operação confirmada que ainda existe (ou alta, opcional),
+  material fora de toda a lista (uma vez por lista; repetidos somados numa linha); ATIVOS por `identificarAtivo`; qtd = qtd instalada.
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ENTRADA, Mensagem } from "@/components/Campos";
 import { BOTAO_COMPACTO, BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 import { Xlsx } from "@/lib/leitura/xlsx";
+import { lerListasTarefas } from "@/lib/machineLedger/listasTarefas";
 import { lerLedger, type Sugestao } from "@/lib/machineLedger/regras";
 
 /** Grava pela rota da aba; devolve o erro ("" = deu certo) e a resposta. */
@@ -141,5 +142,73 @@ export function EnviarLedger({ ledgers }: { ledgers: { id: string; nome: string 
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
     </div>
+  );
+}
+
+/** Enviar o export em texto das listas de tarefas gerais do SAP (lido no navegador; substitui o cadastro inteiro). */
+export function EnviarListas({ atual }: { atual: number }) {
+  const router = useRouter();
+  const [estado, setEstado] = useState({ ocupado: false, erro: "", ok: "" });
+  const ler = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arq = e.target.files?.[0];
+    e.target.value = "";
+    if (!arq) return;
+    setEstado({ ocupado: true, erro: "", ok: "" });
+    try {
+      const bytes = new Uint8Array(await arq.arrayBuffer());
+      let texto = new TextDecoder("utf-8").decode(bytes);
+      if (texto.includes("\uFFFD")) texto = new TextDecoder("windows-1252").decode(bytes); // export salvo em ANSI
+      const r = lerListasTarefas(texto);
+      if ("erro" in r) { setEstado({ ocupado: false, erro: r.erro, ok: "" }); return; }
+      const ops = r.listas.reduce((s, l) => s + l.operacoes.length, 0);
+      if (!window.confirm(`${r.listas.length} listas e ${ops} operações. Substituir as ${atual} listas atuais?`)) { setEstado({ ocupado: false, erro: "", ok: "" }); return; }
+      const resp = await enviar({ acao: "listas", listas: r.listas });
+      setEstado({ ocupado: false, erro: resp.erro, ok: resp.erro ? "" : `${resp.resposta.listas} listas de tarefas gravadas.` });
+      if (!resp.erro) router.refresh();
+    } catch (err) {
+      setEstado({ ocupado: false, erro: `Não foi possível ler o arquivo: ${(err as Error).message || "arquivo inválido"}.`, ok: "" });
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <label className={`${BOTAO_PRIMARIO} cursor-pointer`}>
+        {estado.ocupado ? <LoaderCircle className="size-4 animate-spin" /> : <FileUp className="size-4" />} Escolher o .txt das listas de tarefas
+        <input type="file" accept=".txt,text/plain" className="sr-only" onChange={ler} disabled={estado.ocupado} />
+      </label>
+      {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
+      {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
+    </div>
+  );
+}
+
+/** Confirmar o código SAP sugerido pela referência (ou escolher entre os candidatos de uma referência ambígua). */
+export function ConfirmarCodigo({ chave, candidatos, confirmado, referencia }: { chave: string; candidatos: { codigo: string; descricao: string }[];
+  confirmado: string | null; referencia: string }) {
+  const router = useRouter();
+  const [escolha, setEscolha] = useState(confirmado ?? (candidatos.length === 1 ? candidatos[0].codigo : ""));
+  const [estado, setEstado] = useState({ ocupado: false, erro: "" });
+  const gravar = async (codigo: string | null) => {
+    setEstado({ ocupado: true, erro: "" });
+    const r = await enviar({ acao: "codigo", chave, codigo });
+    setEstado({ ocupado: false, erro: r.erro });
+    if (!r.erro) router.refresh();
+  };
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5" title={`Referência: ${referencia}`}>
+      {candidatos.length > 1 && !confirmado && (
+        <select aria-label="Código candidato" value={escolha} onChange={(e) => setEscolha(e.target.value)} className="h-9 max-w-[16rem] rounded-lg border border-borda bg-superficie-2 px-2 text-[12.5px]">
+          <option value="">Escolha o código…</option>
+          {candidatos.map((c) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.descricao}</option>)}
+        </select>
+      )}
+      {confirmado ? (
+        <button type="button" className={LINHA} disabled={estado.ocupado} onClick={() => gravar(null)}><X className="size-3.5" /> Desfazer código</button>
+      ) : (
+        <button type="button" className={LINHA} disabled={estado.ocupado || !escolha} onClick={() => gravar(escolha)}>
+          {estado.ocupado ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Confirmar código
+        </button>
+      )}
+      {estado.erro && <span role="alert" className="w-full text-[12px] text-[var(--st-critico)]">{estado.erro}</span>}
+    </span>
   );
 }

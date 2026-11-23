@@ -3,9 +3,10 @@
  * e da MB52 fictícios (lib/dados/demo.ts) e dos equipamentos fictícios (lib/wcm/demo.ts: 10000100 = Prensa hidráulica 01,
  * 10000101 = Injetora 01, 10000113 = Compressor 02) para gerar achados de cada tipo do pente fino.
  */
+import { ARQ_LISTAS } from "./listasTarefas";
 import { ARQ_INDICE, arquivoLedger, type Atividade, type Componente, type Consumido, type Indice, itemIndice, type Peca } from "./regras";
 
-interface CatDemo { material: string; descricaoCurta: string; descrCompleta: string; status: string }
+interface CatDemo { material: string; sysmat: string; descricaoCurta: string; descrCompleta: string; status: string }
 interface EstDemo { material: string; estoque: number }
 
 const comp = (conjunto: string, subconjunto: string, componente: string, codigo: string, p: number, t: number, v: number, seg = false, qual = false,
@@ -31,6 +32,9 @@ export function ledgersDemo(catalogo: CatDemo[], estoque: EstDemo[]): { indice: 
   const inativo = catalogo.find((c) => c.status === "BLOQUEADO") ?? catalogo[0];
   const porPdm = (p: string, i = 0) => ativos.filter((c) => c.descricaoCurta.startsWith(p))[i] ?? ativos[i];
   const rol = porPdm("ROLAMENTO"), cor = porPdm("CORREIA"), sen = porPdm("SENSOR"), val = porPdm("VALVULA");
+  // uma referência de fabricante que só um item do catálogo fictício tem (origem "Sysmat pela referência")
+  const refDe = (c: CatDemo) => /REF: (\S+?)\.?$/.exec(c.descrCompleta)?.[1] ?? "";
+  const refItem = ativos.find((c) => /^VALVULA/.test(c.descricaoCurta) && c !== val && refDe(c) && catalogo.filter((x) => x.descrCompleta.includes(refDe(c))).length === 1);
   const usados = new Set([rol, cor, sen, val, semSaldo[0], semSaldo[1]].map((c) => c?.material));
   const unico = ativos.find((c) => !usados.has(c.material) && /^CONTATOR/.test(c.descricaoCurta)
     && ativos.filter((x) => x.descricaoCurta === c.descricaoCurta).length === 1) ?? ativos[5];
@@ -42,8 +46,8 @@ export function ledgersDemo(catalogo: CatDemo[], estoque: EstDemo[]): { indice: 
     comp("SISTEMA HIDRAULICO", "CILINDRO PRINCIPAL", "VEDACAO DO CILINDRO", "", 1, 2, 1),
     comp("TRANSMISSAO", "ACIONAMENTO", "CORREIA EM V DO ACIONAMENTO", cor.material, 4, 1, 1),
     comp("SISTEMA ELETRICO", "PAINEL ELETRICO", "FUSIVEL DE COMANDO", "", 1, 1, 1),
-    comp("SISTEMA ELETRICO", "SENSORES", "SENSOR INDUTIVO DE POSICAO", `SysMat-${sen.material}`, 2, 2, 2, true, true),
-    comp("SISTEMA PNEUMATICO", "CIRCUITO DE AR", "MANGUEIRA PNEUMATICA", "", 2, 1, 1),
+    comp("SISTEMA ELETRICO", "SENSORES", "SENSOR INDUTIVO DE POSICAO", `SysMat-${sen.sysmat}`, 2, 2, 2, true, true),
+    comp("SISTEMA PNEUMATICO", "CIRCUITO DE AR", `VALVULA DO CIRCUITO DE AR ${refItem ? refDe(refItem) : ""}`.trim(), "", 2, 1, 1),
     comp("SISTEMA ELETRICO", "ACIONAMENTO", "MOTOR ELETRICO PRINCIPAL", "", 1, 5, 5, true),
   ];
   const prensaPecas = [
@@ -96,7 +100,20 @@ export function cadastrosLedgerDemo(catalogo: CatDemo[], estoque: EstDemo[]): { 
   const skf = catalogo.find((c) => c.status === "APROVADO" && /\bSKF\b/.test(c.descrCompleta) && !ls[0].pecas.some((p) => p.codigo === c.material));
   const fora = catalogo.filter((c) => c.status === "APROVADO" && /^CONTATOR/.test(c.descricaoCurta))[0];
   const vinculos = { "10000100": { materiais: [ls[0].pecas[0].codigo, ...(fora ? [fora.material] : []), ...(skf ? [skf.material] : [])], criado_pelo_mro: true } };
-  return { cadastros: [[ARQ_INDICE, indice], ...arquivos], vinculos };
+  // listas de tarefas fictícias das listas da IP19 fictícia (grupo 90000 + nº do equipamento, numerador 1)
+  const rolC = ls[0].pecas[0].codigo;
+  const op = (numero: string, texto: string, textoLongo: string, componentes: { material: string; descricao: string; quantidade: number; um: string }[] = []) =>
+    ({ numero, texto, textoLongo, centroTrabalho: "MEC_COMP", chave: "PM01", pessoas: 1, trabalhoMin: 30, pacote: "M 1 Mês", componentes });
+  const listas = {
+    "90000|1": { descricao: "PREVENTIVA PRENSA HIDRAULICA (FICTICIA)", estrategia: "YPMTST", centro: "A000", operacoes: [
+      op("0010", "INSPECIONAR ROLAMENTO DA BOMBA", "Verificar ruído e temperatura do rolamento rígido de esferas da bomba.", [{ material: rolC, descricao: "ROLAMENTO", quantidade: 1, um: "UN" }]),
+      op("0020", "VERIFICAR TENSAO DA CORREIA", "Conferir a tensão da correia em V do acionamento."),
+      op("0030", "LIMPEZA DO PAINEL ELETRICO", "Limpar e reapertar os bornes do painel elétrico."),
+      op("0040", "TESTAR SENSOR INDUTIVO DE POSICAO", "Testar o sensor indutivo de posição com a peça padrão.")] },
+    "90001|1": { descricao: "PREVENTIVA INJETORA (FICTICIA)", estrategia: "YPMTST", centro: "A000", operacoes: [
+      op("0010", "INSPECIONAR A ROSCA", "Inspecionar o rolamento axial da rosca."), op("0020", "TESTAR SENSOR DO MOLDE", "Testar o sensor de molde fechado.")] },
+  };
+  return { cadastros: [[ARQ_INDICE, indice], ...arquivos, [ARQ_LISTAS, listas]], vinculos };
 }
 
 const g = globalThis as unknown as { __cmConsumoMlDemo?: Map<string, Consumido[]> };
