@@ -113,8 +113,8 @@ describe("Listas de tarefas: operação ↔ componente e IA06", () => {
     const linhas = L.linhasOperacoes("ml-x", [...COMPS, COMPS[0]], ops, conf, listas, B);
     expect(linhas).toHaveLength(4); // o repetido entra uma vez
     const [rol, cor, cont] = linhas;
-    expect(rol).toMatchObject({ codigoOk: true, jaNaOperacao: true, qtdRcm: 2, um: "UN" });
-    expect(cor).toMatchObject({ codigoOk: true, jaNaOperacao: false, confirmada: { operacao: "0020" } });
+    expect(rol).toMatchObject({ codigoOk: true, jaNaLista: "0010", qtdRcm: 2, um: "UN" });
+    expect(cor).toMatchObject({ codigoOk: true, jaNaLista: "", confirmada: { operacao: "0020" } });
     expect(cont.codigoOk).toBe(false); // bloqueado
     expect(L.itensIa06(linhas, {}, false, "5000001 - PRENSA").map((i) => [i.grupo, i.numerador, i.operacao, i.material, i.quantidade, i.um]))
       .toEqual([["99001", "1", "0020", "100002", 3, "PC"]]);
@@ -213,5 +213,150 @@ describe("Código pela referência do fabricante (sugestão para o PCM confirmar
     expect(com[0]).toMatchObject({ codigoOk: true, codigoConfirmado: { codigo: "300001" } });
     expect(L.itensIa06(com, {}, false, "EQ").map((i) => [i.material, i.operacao, i.origemCodigo])).toEqual([["300001", "0010", "Sysmat pela referência"]]);
     expect(L.codigosConfirmadosDe({ a: { codigo: "300001", codigoPor: "PCM" }, b: { grupo: "X" }, c: { codigo: "abc" } })).toEqual(new Map([["a", { codigo: "300001", por: "PCM", em: "" }]]));
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Correções da revisão (dados fictícios)
+// ----------------------------------------------------------------------------
+describe("Revisão: quantidade, já na lista, confirmações e carga IA06", () => {
+  const r = L.lerListasTarefas(EXPORT);
+  if ("erro" in r) throw new Error(r.erro);
+  const listas = new Map(r.listas.map((l) => [L.chaveLista(l.grupo, l.numerador), l]));
+  const ops = L.operacoesDasListas(r.listas);
+
+  it("quantidade do RCM: ponto decimal do Excel não vira milhar; vírgula é decimal", () => {
+    expect(L.quantidadeRcm("1.0")).toBe(1);
+    expect(L.quantidadeRcm("2.5")).toBe(2.5);
+    expect(L.quantidadeRcm("1,5")).toBe(1.5);
+    expect(L.quantidadeRcm("1.000,5")).toBe(1000.5);
+    expect(L.quantidadeRcm("")).toBe(1);
+    expect(L.quantidadeRcm("abc")).toBe(1);
+  });
+
+  it("material já em outra operação da mesma lista: 'já na lista (op X)' e fora da IA06", () => {
+    expect(L.jaNaLista(listas, "99001", "1", "0100001")).toBe("0010");
+    expect(L.jaNaLista(listas, "99001", "1", "100002")).toBe("");
+    // o rolamento confirmado na 0020, mas já é Comp.mat. da 0010 da mesma lista
+    const conf = new Map([[L.chaveAssociacao("ml-r", COMPS[0]), { grupo: "99001", numerador: "1", operacao: "0020", quantidade: null, por: "T", em: "" }]]);
+    const [rol] = L.linhasOperacoes("ml-r", [COMPS[0]], ops, conf, listas, B);
+    expect(rol).toMatchObject({ jaNaLista: "0010", codigoOk: true });
+    expect(L.prontaParaIa06(rol, true)).toBe(false);
+    expect(L.itensIa06([rol], {}, true, "EQ")).toEqual([]);
+  });
+
+  it("operação confirmada que não existe mais nas listas = órfã, fora da IA06", () => {
+    const conf = new Map([[L.chaveAssociacao("ml-o", COMPS[1]), { grupo: "99001", numerador: "1", operacao: "0090", quantidade: null, por: "T", em: "" }]]);
+    const [cor] = L.linhasOperacoes("ml-o", [COMPS[1]], ops, conf, listas, B);
+    expect(cor).toMatchObject({ confirmadaOrfa: true, codigoOk: true });
+    expect(L.prontaParaIa06(cor, false)).toBe(false);
+    const ok = new Map([[L.chaveAssociacao("ml-o", COMPS[1]), { grupo: "99001", numerador: "1", operacao: "0020", quantidade: null, por: "T", em: "" }]]);
+    expect(L.linhasOperacoes("ml-o", [COMPS[1]], ops, ok, listas, B)[0].confirmadaOrfa).toBe(false);
+  });
+
+  it("mesmo material em dois componentes da mesma lista: uma linha só, quantidades somadas (contador = linhas do CSV)", () => {
+    const a = comp("TRANSMISSAO", "ACIONAMENTO", "CORREIA EM V A40", "100002", "3"), b2 = comp("TRANSMISSAO", "ACIONAMENTO 2", "CORREIA DO VENTILADOR", "100002", "2");
+    const conf = new Map([a, b2].map((x) => [L.chaveAssociacao("ml-s", x), { grupo: "99001", numerador: "1", operacao: "0020", quantidade: null, por: "T", em: "" }]));
+    const linhas = L.linhasOperacoes("ml-s", [a, b2], ops, conf, listas, B);
+    const itens = L.itensIa06(linhas, {}, false, "EQ");
+    expect(itens.map((i) => [i.material, i.quantidade])).toEqual([["100002", 5]]);
+    expect(csvInclusao(itens).trim().split("\r\n")).toHaveLength(1 + itens.length);
+  });
+
+  it("componente repetido no RCM: vale a melhor resolução entre as linhas (não só a 1ª)", () => {
+    const ruim = comp("TRANSMISSAO", "ACIONAMENTO", "CORREIA EM V A40", "999999", "1"), bom = comp("TRANSMISSAO", "ACIONAMENTO", "CORREIA EM V A40", "100002", "4");
+    const [l] = L.linhasOperacoes("ml-d", [ruim, bom], ops, new Map(), listas, B);
+    expect(l).toMatchObject({ codigo: "100002", codigoOk: true, origemCodigo: "RCM", qtdRcm: 4 });
+  });
+
+  it("coluna ATIVOS: um ativo por equipamento do ledger (como a Gestão de MRO)", () => {
+    const conf = new Map([[L.chaveAssociacao("ml-a", COMPS[1]), { grupo: "99001", numerador: "1", operacao: "0020", quantidade: null, por: "T", em: "" }]]);
+    const linhas = L.linhasOperacoes("ml-a", [COMPS[1]], ops, conf, listas, B);
+    const itens = L.itensIa06(linhas, {}, false, ["CAMPO1 (5000001) - PRENSA FICT", "5000002 - PRENSA FICT 2"]);
+    expect(csvInclusao(itens).split("\r\n")[1]).toMatch(/;CAMPO1 \(5000001\) - PRENSA FICT \| 5000002 - PRENSA FICT 2;2;$/);
+    // chamada antiga (um ativo em texto) continua igual
+    expect(csvInclusao(L.itensIa06(linhas, {}, false, "EQ")).split("\r\n")[1]).toMatch(/;EQ;1;$/);
+  });
+
+  it("IP19 sem numerador: casa todas as listas do grupo", () => {
+    const ls = L.listasDasLigadas([{ grupo: "99001", numerador: "" }, { grupo: "99002", numerador: "2" }, { grupo: "99001", numerador: "1" }], listas);
+    expect(ls.map((l) => `${l.grupo}|${l.numerador}`)).toEqual(["99001|1", "99002|2"]);
+    expect(L.listasDasLigadas([{ grupo: "99009", numerador: "" }], listas)).toEqual([]);
+  });
+});
+
+describe("Revisão: código pela referência", () => {
+  const B4 = R.indexarBase([
+    { material: "300001", sysmat: "", substituto: "", descricaoCurta: "VALVULA SOLENOIDE", descrCompleta: "FAB: FICTO - REF: XY1-AB-123CD", status: "APROVADO", pdm: "", um: "UN" },
+    { material: "300002", sysmat: "", substituto: "", descricaoCurta: "ROLAMENTO 6205-2Z", descrCompleta: "", status: "APROVADO", pdm: "", um: "UN" },
+    { material: "300003", sysmat: "", substituto: "", descricaoCurta: "ROLAMENTO", descrCompleta: "REF: 6205-2Z", status: "BLOQUEADO", pdm: "", um: "UN" },
+    // token só no MODELO / APLICACAO / REQUISITOS: não indexa
+    { material: "300010", sysmat: "", substituto: "", descricaoCurta: "CILINDRO", descrCompleta: "MODELO: QZ-77881; APLICACAO: MAQ FICT KW-55120; REQUISITOS ADICIONAIS: PN-44110", status: "APROVADO", pdm: "", um: "UN" },
+    // REFERENCIA:, DES: e o campo fabricanteRef do catálogo indexam
+    { material: "300011", sysmat: "", substituto: "", descricaoCurta: "SENSOR", descrCompleta: "REFERENCIA: RF-90011", status: "APROVADO", pdm: "", um: "UN" },
+    { material: "300012", sysmat: "", substituto: "", descricaoCurta: "EIXO", descrCompleta: "FAB: FICTO - DES: DS-90012", status: "APROVADO", pdm: "", um: "UN" },
+    { material: "300013", sysmat: "", substituto: "", descricaoCurta: "BUCHA", descrCompleta: "", fabricanteRef: "FICTO FR-90013", status: "APROVADO", pdm: "", um: "UN" },
+    // bloqueado com "Para" ativo: sugere o "Para"
+    { material: "300020", sysmat: "", substituto: "300021", descricaoCurta: "VALVULA ANTIGA", descrCompleta: "REF: VB-33020", status: "BLOQUEADO", pdm: "", um: "UN" },
+    { material: "300021", sysmat: "", substituto: "", descricaoCurta: "VALVULA NOVA", descrCompleta: "", status: "APROVADO", pdm: "", um: "UN" },
+    { material: "300022", sysmat: "", substituto: "300023", descricaoCurta: "VALVULA X", descrCompleta: "REF: VC-33022", status: "BLOQUEADO", pdm: "", um: "UN" },
+    { material: "300023", sysmat: "", substituto: "", descricaoCurta: "VALVULA Y", descrCompleta: "", status: "CANCELADO", pdm: "", um: "UN" },
+  ], null);
+
+  it("indexa só a descrição curta, REF:/REFERENCIA:/DES: e o fabricanteRef — não MODELO/APLICACAO/REQUISITOS", () => {
+    expect(R.porReferencia("CILINDRO QZ-77881", B4)).toBeNull();
+    expect(R.porReferencia("CILINDRO KW-55120", B4)).toBeNull();
+    expect(R.porReferencia("CILINDRO PN-44110", B4)).toBeNull();
+    expect(R.porReferencia("SENSOR RF-90011", B4)).toMatchObject({ codigo: "300011" });
+    expect(R.porReferencia("EIXO DS-90012", B4)).toMatchObject({ codigo: "300012" });
+    expect(R.porReferencia("BUCHA FR-90013", B4)).toMatchObject({ codigo: "300013" });
+    expect(R.porReferencia("VALVULA XY1AB123CD", B4)).toMatchObject({ codigo: "300001" });
+  });
+
+  it("rosca métrica, dimensões e polegadas não são referência", () => {
+    expect(R.tokensReferencia("PARAFUSO M8X1.25 M10X1.5X40 10X20MM 100X200X30 3/8X1/2\" 1.1/4X2 1/2X3/4")).toEqual([]);
+    expect(R.tokensReferencia("REDUTOR 9876.54.32/1")).toEqual(["987654321"]);
+    expect(R.tokensReferencia("ROLAMENTO 6205-2Z")).toEqual(["62052Z"]);
+  });
+
+  it("bloqueado com 'Para' ativo: sugere o 'Para'; 'Para' inativo fica o bloqueado", () => {
+    expect(R.porReferencia("VALVULA VB-33020", B4)).toMatchObject({ codigo: "300021", candidatos: [{ codigo: "300021" }] });
+    const c = R.codigoDoComponente({ codigo: "", componente: "VALVULA VB-33020", conjunto: "" }, new Map(), B4);
+    expect(c).toMatchObject({ codigo: "300021", situacao: "ok", sugerido: true });
+    expect(R.porReferencia("VALVULA VC-33022", B4)).toMatchObject({ codigo: "300022" });
+  });
+
+  it("referência ambígua com código inválido no RCM: sem código (o do RCM guardado à parte)", () => {
+    const amb = R.codigoDoComponente({ codigo: "999999", componente: "ROLAMENTO 6205-2Z DA BOMBA", conjunto: "" }, new Map(), B4);
+    expect(amb).toMatchObject({ codigo: "", codigoRcm: "999999", sugerido: true, candidatos: [{ codigo: "300002" }, { codigo: "300003" }] });
+    const ops = L.operacoesDasListas([{ grupo: "99011", numerador: "1", descricao: "", estrategia: "", centro: "", operacoes: [
+      { numero: "0010", texto: "TROCAR ROLAMENTO", textoLongo: "", centroTrabalho: "", chave: "", pessoas: null, trabalhoMin: null, pacote: "", componentes: [] }] }]);
+    const [l] = L.linhasOperacoes("ml-b", [comp("X", "Y", "ROLAMENTO 6205-2Z DA BOMBA", "999999")], ops, new Map(), new Map(), B4);
+    expect(l).toMatchObject({ codigo: "", codigoOk: false });
+  });
+
+  it("código confirmado que não é mais sugestão/candidato = confirmação antiga, ignorada", () => {
+    const c = comp("PNEUMATICA", "VALVULAS", "VALVULA SOLENOIDE XY1-AB-123CD", "");
+    const ops = L.operacoesDasListas([{ grupo: "99010", numerador: "1", descricao: "", estrategia: "", centro: "", operacoes: [
+      { numero: "0010", texto: "TESTAR VALVULA SOLENOIDE", textoLongo: "", centroTrabalho: "", chave: "", pessoas: null, trabalhoMin: null, pacote: "", componentes: [] }] }]);
+    const conf = new Map([[L.chaveAssociacao("ml-c", c), { grupo: "99010", numerador: "1", operacao: "0010", quantidade: null, por: "T", em: "" }]]);
+    const cods = new Map([[L.chaveAssociacao("ml-c", c), { codigo: "300002", por: "PCM", em: "" }]]);
+    const [l] = L.linhasOperacoes("ml-c", [c], ops, conf, new Map(), B4, [], cods);
+    expect(l).toMatchObject({ codigo: "300001", codigoOk: false, codigoConfirmado: null, confirmacaoAntiga: { codigo: "300002" } });
+    expect(L.itensIa06([l], {}, true, "EQ")).toEqual([]);
+    // RCM válido: confirmação guardada não vale
+    const v = comp("TRANSMISSAO", "ACIONAMENTO", "CORREIA EM V A40", "300002");
+    const [lv] = L.linhasOperacoes("ml-c", [v], ops, new Map(), new Map(), B4, [], new Map([[L.chaveAssociacao("ml-c", v), { codigo: "300001", por: "PCM", em: "" }]]));
+    expect(lv).toMatchObject({ codigo: "300002", codigoConfirmado: null, confirmacaoAntiga: { codigo: "300001" } });
+  });
+});
+
+describe("Revisão: pontuação da palavra única", () => {
+  const ops = L.operacoesDasListas([{ grupo: "99012", numerador: "1", descricao: "", estrategia: "", centro: "", operacoes: [
+    { numero: "0010", texto: "TROCAR SOLENOIDE", textoLongo: "", centroTrabalho: "", chave: "", pessoas: null, trabalhoMin: null, pacote: "", componentes: [] },
+    { numero: "0020", texto: "INSPECIONAR SOLENOIDE DO CABECOTE", textoLongo: "", centroTrabalho: "", chave: "", pessoas: null, trabalhoMin: null, pacote: "", componentes: [] }] }]);
+  it("palavra única sozinha = 55 (média); com subconjunto/conjunto = 70 (alta)", () => {
+    expect(L.sugerirOperacao({ conjunto: "X", subconjunto: "Y", componente: "SOLENOIDE" }, ops.slice(0, 1))).toMatchObject({ pontos: 55, confianca: "media" });
+    expect(L.sugerirOperacao({ conjunto: "X", subconjunto: "CABECOTE", componente: "SOLENOIDE" }, ops)).toMatchObject({ operacao: "0020", pontos: 70, confianca: "alta" });
   });
 });

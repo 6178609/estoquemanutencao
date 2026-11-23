@@ -340,7 +340,11 @@ export function idPara(arquivo: string): string {
 // ----------------------------------------------------------------------------
 // Catálogo do Sysmat e MB52 (resolução de códigos)
 // ----------------------------------------------------------------------------
-export interface ItemCat { material: string; descricao: string; descrCompleta: string; status: string; para: string; sysmat: string; pdm: string; um: string }
+export interface ItemCat {
+  material: string; descricao: string; descrCompleta: string; status: string; para: string; sysmat: string; pdm: string; um: string;
+  /** "FAB REF" do catálogo (lib/dados/materiais.fabricanteRef); vazio quando a base não traz */
+  fabricanteRef: string;
+}
 export interface BaseCodigos {
   cat: Map<string, ItemCat> | null;
   porSysmat: Map<string, string>;
@@ -351,7 +355,8 @@ export interface BaseCodigos {
 }
 export const INATIVOS = new Set(["BLOQUEADO", "CANCELADO", "DUPLICADO"]);
 
-export function indexarBase(catalogo: { material: string; sysmat: string; substituto: string; descricaoCurta: string; descrCompleta: string; status: string; pdm: string; um?: string }[] | null,
+export function indexarBase(catalogo: { material: string; sysmat: string; substituto: string; descricaoCurta: string; descrCompleta: string; status: string; pdm: string; um?: string;
+  fabricanteRef?: string }[] | null,
   estoque: { material: string; descricao: string; um: string; estoque: number }[] | null): BaseCodigos {
   let cat: Map<string, ItemCat> | null = null;
   const porSysmat = new Map<string, string>(), porDescricao = new Map<string, string | null>();
@@ -362,7 +367,7 @@ export function indexarBase(catalogo: { material: string; sysmat: string; substi
       const k = semZeros(c.material);
       if (cat.has(k)) continue;
       cat.set(k, { material: k, descricao: c.descricaoCurta, descrCompleta: c.descrCompleta, status: (c.status || "").toUpperCase(),
-        para: semZeros(c.substituto || ""), sysmat: c.sysmat, pdm: c.pdm, um: c.um ?? "" });
+        para: semZeros(c.substituto || ""), sysmat: c.sysmat, pdm: c.pdm, um: c.um ?? "", fabricanteRef: c.fabricanteRef ?? "" });
       if (c.sysmat) porSysmat.set(semZeros(c.sysmat), k);
       if (INATIVOS.has((c.status || "").toUpperCase())) continue;
       const d = norm(c.descricaoCurta);
@@ -496,17 +501,20 @@ export type OrigemCodigo = "RCM" | "peça de reposição" | "Sysmat pela descri�
 const SEPARA_PALAVRAS = /[\s,;:()[\]{}_*'"“”]+/;
 const MEDIDA = /^\d+(?:[.,]\d+)?(?:MM|CM|M|MTS?|V|VCC|VAC|VDC|A|MA|W|KW|CV|HP|BAR|PSI|RPM|KG|G|L|ML|HZ|KHZ|KVA|NM|MCA|POL|PC|UN|X\d+)$/;
 const compacta = (w: string) => w.replace(/[-./\\]/g, "");
+/** Rosca métrica (M8X1.25 → M8X125), dimensões (10X20, 100X200X30MM) e polegadas (3/8X1/2", 1.1/4X2): medidas, não referência. */
+const ROSCA_METRICA = /^M\d+(X\d+)+$/, DIMENSOES = /^\d+(X\d+)+(MM|CM)?$/;
+const POLEGADA = (w: string, c: string) => /\d\/(2|4|8|16|32|64)(?!\d)/.test(w) && /^[\dX]+(POL|NPT|BSP|BSPT|UNC|UNF)?$/.test(c);
 /**
  * Tokens de referência de um texto: palavras (separadas por espaço, vírgula, dois-pontos, parênteses, sublinhado…) com dígito e
  * letra, ou com hífen/ponto/barra, que tenham 5+ caracteres depois de tirar os separadores; medidas puras (22MM, 24VCC,
- * 220V, 1/2") ficam fora. O token sai compacto (sem - . / \\) e em maiúsculas.
+ * 220V, 1/2"), rosca métrica, dimensões (AxB) e polegadas ficam fora. O token sai compacto (sem - . / \\) e em maiúsculas.
  */
 export function tokensReferencia(texto: string): string[] {
   const out = new Set<string>();
   for (const bruto of semAcento(txt(texto, 2000)).toUpperCase().split(SEPARA_PALAVRAS)) {
     const w = bruto.replace(/^[-./\\]+|[-./\\]+$/g, "");
     const c = compacta(w);
-    if (c.length < 5 || !/^[A-Z0-9]+$/.test(c) || MEDIDA.test(c) || MEDIDA.test(w)) continue;
+    if (c.length < 5 || !/^[A-Z0-9]+$/.test(c) || MEDIDA.test(c) || MEDIDA.test(w) || ROSCA_METRICA.test(c) || DIMENSOES.test(c) || POLEGADA(w, c)) continue;
     const temSep = /[-./\\]/.test(w), temLetra = /[A-Z]/.test(c), temDigito = /\d/.test(c);
     if ((temLetra && temDigito) || (temSep && temDigito)) out.add(c);
   }
@@ -514,7 +522,16 @@ export function tokensReferencia(texto: string): string[] {
 }
 const MAX_POR_TOKEN = 6;
 const indicesRef = new WeakMap<object, Map<string, string[]>>();
-/** Token → materiais (Descr Curta + Descr Completa; aprovados e bloqueados, sem cancelado/duplicado). Guardado por catálogo. */
+/** Os trechos de referência da Descr Completa: o que vem depois de "REF:", "REFERENCIA:" ou "DES:" até o próximo ";". */
+const TRECHO_REF = /\b(?:REF|REFERENCIA|DES)\s*:\s*([^;]*)/g;
+export function trechosReferencia(descrCompleta: string): string {
+  return [...semAcento(txt(descrCompleta, 4000)).toUpperCase().matchAll(TRECHO_REF)].map((m) => m[1]).join(" ");
+}
+/**
+ * Token → materiais (aprovados e bloqueados, sem cancelado/duplicado), só de onde a referência do fabricante mora: a Descr
+ * Curta, os trechos REF:/REFERENCIA:/DES: da Descr Completa e o "FAB REF" do catálogo. MODELO, APLICACAO, REQUISITOS e o resto
+ * da Descr Completa ficam fora (modelo de máquina e aplicação casavam material errado). Guardado por catálogo.
+ */
 export function indiceReferencias(b: BaseCodigos): Map<string, string[]> {
   if (!b.cat) return new Map();
   let m = indicesRef.get(b.cat);
@@ -522,7 +539,7 @@ export function indiceReferencias(b: BaseCodigos): Map<string, string[]> {
   m = new Map();
   for (const c of b.cat.values()) {
     if (c.status === "CANCELADO" || c.status === "DUPLICADO") continue;
-    for (const t of tokensReferencia(`${c.descricao} ${c.descrCompleta}`)) {
+    for (const t of tokensReferencia(`${c.descricao} ${trechosReferencia(c.descrCompleta)} ${c.fabricanteRef}`)) {
       const l = m.get(t) ?? [];
       if (l.length < MAX_POR_TOKEN && !l.includes(c.material)) l.push(c.material);
       m.set(t, l);
@@ -531,25 +548,38 @@ export function indiceReferencias(b: BaseCodigos): Map<string, string[]> {
   indicesRef.set(b.cat, m);
   return m;
 }
-export interface PorReferencia { codigo: string; token: string; candidatos: { codigo: string; descricao: string }[] }
+export interface PorReferencia {
+  codigo: string; token: string; candidatos: { codigo: string; descricao: string }[];
+  /** materiais BLOQUEADOS trocados pelo "Para" ativo (bloqueado → para) */
+  trocados?: Record<string, string>;
+}
 /**
  * Material do Sysmat pela referência do texto: aceito só quando os tokens apontam UM único material (o primeiro token com um
  * único material; dois tokens com materiais únicos diferentes = ambíguo). Ambíguo: `codigo` vazio e até 5 candidatos.
+ * Material BLOQUEADO com "Para" ativo no catálogo vira o "Para" (o que se compra hoje).
  */
 export function porReferencia(texto: string, b: BaseCodigos): PorReferencia | null {
   const idx = indiceReferencias(b);
+  const trocados: Record<string, string> = {};
+  const atual = (k: string) => {
+    const c = b.cat?.get(k), p = c?.status === "BLOQUEADO" && c.para && c.para !== k ? b.cat?.get(c.para) : undefined;
+    if (!p || INATIVOS.has(p.status)) return k;
+    trocados[k] = p.material;
+    return p.material;
+  };
   const unicos = new Map<string, string>(); // material → token
   let ambiguo: { token: string; mats: string[] } | null = null;
   for (const t of tokensReferencia(texto)) {
-    const mats = idx.get(t);
-    if (!mats?.length) continue;
+    const mats = [...new Set((idx.get(t) ?? []).map(atual))];
+    if (!mats.length) continue;
     if (mats.length === 1) { if (!unicos.has(mats[0])) unicos.set(mats[0], t); }
     else if (!ambiguo) ambiguo = { token: t, mats };
   }
   const desc = (k: string) => ({ codigo: k, descricao: b.cat?.get(k)?.descricao ?? "" });
-  if (unicos.size === 1) { const [[codigo, token]] = [...unicos]; return { codigo, token, candidatos: [desc(codigo)] }; }
-  if (unicos.size > 1) return { codigo: "", token: [...unicos.values()].join(", "), candidatos: [...unicos.keys()].slice(0, 5).map(desc) };
-  if (ambiguo) return { codigo: "", token: ambiguo.token, candidatos: ambiguo.mats.slice(0, 5).map(desc) };
+  const extra = Object.keys(trocados).length ? { trocados } : {};
+  if (unicos.size === 1) { const [[codigo, token]] = [...unicos]; return { codigo, token, candidatos: [desc(codigo)], ...extra }; }
+  if (unicos.size > 1) return { codigo: "", token: [...unicos.values()].join(", "), candidatos: [...unicos.keys()].slice(0, 5).map(desc), ...extra };
+  if (ambiguo) return { codigo: "", token: ambiguo.token, candidatos: ambiguo.mats.slice(0, 5).map(desc), ...extra };
   return null;
 }
 /** Descrição normalizada para casar componente × peça de reposição (sem acento, maiúsculas, espaços colapsados). */
@@ -562,9 +592,11 @@ export function pecasPorDescricao(pecas: Peca[]): Map<string, Peca[]> {
 }
 /**
  * `sugerido`: código achado pela referência (precisa da confirmação do PCM para a IA06); `candidatos`: referência ambígua
- * (o PCM escolhe um); `referencia`: o token usado.
+ * (o PCM escolhe um); `referencia`: o token usado; `codigoRcm`: o código (inválido) que o RCM traz, quando a referência é
+ * ambígua (o `codigo` fica vazio: o PCM escolhe um candidato).
  */
-export type ResolvidoComOrigem = Resolvido & { origemCodigo: OrigemCodigo; sugerido?: boolean; candidatos?: { codigo: string; descricao: string }[]; referencia?: string };
+export type ResolvidoComOrigem = Resolvido & { origemCodigo: OrigemCodigo; sugerido?: boolean; candidatos?: { codigo: string; descricao: string }[]; referencia?: string;
+  codigoRcm?: string };
 /**
  * O código SAP de um componente do RCM: o do próprio RCM, se for válido; senão o da peça de reposição (GT_SPARE_PARTS) do
  * mesmo ledger com a descrição idêntica (normalizada; desempate: mesmo conjunto); senão a descrição curta exata no Sysmat.
@@ -588,7 +620,8 @@ export function codigoDoComponente(c: Pick<Componente, "codigo" | "componente" |
     return { codigo: ref.codigo, situacao: st === "BLOQUEADO" ? "bloqueado" : "ok", origem: "", para: "", status: st, origemCodigo: "Sysmat pela referência",
       sugerido: true, referencia: ref.token, candidatos: ref.candidatos };
   }
-  if (ref) return { ...r, origemCodigo: "Sysmat pela referência", sugerido: true, referencia: ref.token, candidatos: ref.candidatos };
+  if (ref) return { codigo: "", situacao: "sem_codigo", origem: "", para: "", status: "", origemCodigo: "Sysmat pela referência", sugerido: true, referencia: ref.token,
+    candidatos: ref.candidatos, ...(r.codigo ? { codigoRcm: r.codigo } : {}) };
   return { ...r, origemCodigo: r.codigo ? "RCM" : "" };
 }
 /** Origem do código de uma peça de reposição (o código dela ou a descrição curta no Sysmat). */

@@ -13,7 +13,7 @@ import { dataBr, hoje, MESES, partes } from "@/lib/wcm/util";
 import { Controles } from "../planos/_comum/Controles";
 import { hrefCom, um, type Params } from "../planos/_comum/params";
 import { AcoesAchado, ConfirmarCodigo, Correspondencia, EnviarLedger, EnviarListas } from "./Acoes";
-import { chaveAssociacao } from "@/lib/machineLedger/listasTarefas";
+import { chaveAssociacao, confirmacaoValida } from "@/lib/machineLedger/listasTarefas";
 import { OperacoesIa06 } from "./Operacoes";
 
 export const metadata: Metadata = { title: "Machine Ledger" };
@@ -151,8 +151,8 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
       </div>
     );
   }
-  const [c, b, nomes, opsLedger, codConf] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap(), D.operacoesDoLedger(l),
-    D.lerCodigosConfirmados()]);
+  const [c, b, nomes, opsLedger, codConf, ativos] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap(), D.operacoesDoLedger(l),
+    D.lerCodigosConfirmados(), D.ativosIa06(l.equipamentos)]);
   const ano = /^\d{4}$/.test(um(params, "ano")) ? Number(um(params, "ano")) : partes(hoje()).ano;
   const { afs, temAf } = await D.quebrasDos(new Set(l.equipamentos));
   const cal = R.calendarioQuebras(c.componentes, afs, ano);
@@ -205,7 +205,7 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
         {!l.equipamentos.length ? <Vazio>Sem equipamento SAP ligado (ver Correspondência).</Vazio>
           : !opsLedger.temListas ? <Vazio>O export das listas de tarefas ainda não foi enviado (sub-aba Enviar ledger).</Vazio>
           : !opsLedger.ops.length ? <Vazio>{opsLedger.ligadas.length ? "As listas de tarefas da máquina não estão no export enviado." : "Nenhuma lista de tarefas ligada aos equipamentos (IW38/IP19)."}</Vazio>
-          : <OperacoesIa06 ledger={l.id} rotulo={`${l.equipamentos.join(", ")} - ${l.nome}`.slice(0, 90)} linhas={opsLedger.linhas} grava={grava}
+          : <OperacoesIa06 ledger={l.id} ativos={ativos} linhas={opsLedger.linhas} grava={grava}
               ops={opsLedger.ops.map((o) => ({ valor: `${o.grupo}|${o.numerador}|${o.op.numero}`, rotulo: `${o.grupo}/${o.numerador} · ${o.op.numero} ${o.op.texto}`.slice(0, 90) }))} />}
       </Secao>
 
@@ -220,7 +220,7 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
             <tr key={i} className="border-t border-borda">
               <td className={`${TD} num font-semibold`}>{h ?? "—"}</td><td className={TD}>{cl ? <Selo cor={cl === "A" ? "vermelho" : cl === "B" ? "laranja" : "cinza"}>{cl}</Selo> : "—"}</td>
               <td className={`${TD} min-w-[12rem]`}>{x.componente}</td><td className={`${TD} min-w-[10rem] text-texto-2`}>{x.conjunto} › {x.subconjunto}</td>
-              <td className={`${TD} num min-w-[8rem]`}><CodigoRcm cod={cod} bruto={x.codigo} chave={chaveAssociacao(l.id, x)} conf={codConf.get(chaveAssociacao(l.id, x))?.codigo ?? null} grava={grava} /></td>
+              <td className={`${TD} num min-w-[8rem]`}><CodigoRcm cod={cod} bruto={x.codigo} chave={chaveAssociacao(l.id, x)} conf={codConf.get(chaveAssociacao(l.id, x)) ?? null} grava={grava} /></td>
               <td className={`${TD} min-w-[10rem] text-texto-2`}>{x.modo}</td>
               <td className={TD}>{sn(x.seguranca)}</td><td className={TD}>{sn(x.qualidade)}</td><td className={TD}>{sn(x.parada)}</td>
               <td className={`${TD} num`}>{x.p ?? ""}</td><td className={`${TD} num`}>{x.t ?? ""}</td><td className={`${TD} num`}>{x.v ?? ""}</td><td className={TD}>{x.tipoManut}</td>
@@ -271,12 +271,16 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
 }
 
 /** Código do componente no RCM: o resolvido, a origem e, na origem "Sysmat pela referência", a confirmação do PCM. */
-function CodigoRcm({ cod, bruto, chave, conf, grava }: { cod: R.ResolvidoComOrigem; bruto: string; chave: string; conf: string | null; grava: boolean }) {
-  if (!cod.sugerido) return cod.situacao === "ok" ? <>{cod.codigo}<div className="text-[11.5px] text-texto-3">{cod.origemCodigo}</div></> : <>{bruto || "—"}</>;
+function CodigoRcm({ cod, bruto, chave, conf: conf0, grava }: { cod: R.ResolvidoComOrigem; bruto: string; chave: string; conf: { codigo: string; por: string; em: string } | null; grava: boolean }) {
+  // confirmação antiga (o código não é mais a sugestão nem um candidato): ignorada
+  const conf = conf0 && confirmacaoValida(cod, conf0) ? conf0.codigo : null;
+  const antiga = conf0 && !conf ? <div><Selo cor="amarelo">confirmação antiga ({conf0.codigo}) ignorada</Selo></div> : null;
+  if (!cod.sugerido) return cod.situacao === "ok" ? <>{cod.codigo}<div className="text-[11.5px] text-texto-3">{cod.origemCodigo}</div>{antiga}</> : <>{bruto || "—"}{antiga}</>;
   return (
     <div className="space-y-1">
       <div>{conf ?? (cod.codigo || "ambígua")}</div>
-      <div className="text-[11.5px] text-texto-3">{cod.origemCodigo}{conf ? " · confirmado" : cod.codigo ? " · sugerido" : ` · ${cod.candidatos?.length ?? 0} candidatos`}</div>
+      <div className="text-[11.5px] text-texto-3">{cod.origemCodigo}{conf ? " · confirmado" : cod.codigo ? " · sugerido" : ` · ${cod.candidatos?.length ?? 0} candidatos`}{cod.codigoRcm ? ` · RCM: ${cod.codigoRcm} (inválido)` : ""}</div>
+      {antiga}
       {grava && <ConfirmarCodigo chave={chave} candidatos={cod.candidatos ?? []} confirmado={conf} referencia={cod.referencia ?? ""} />}
     </div>
   );

@@ -105,12 +105,12 @@ export function cadastrosLedgerDemo(catalogo: CatDemo[], estoque: EstDemo[]): { 
   const op = (numero: string, texto: string, textoLongo: string, componentes: { material: string; descricao: string; quantidade: number; um: string }[] = []) =>
     ({ numero, texto, textoLongo, centroTrabalho: "MEC_COMP", chave: "PM01", pessoas: 1, trabalhoMin: 30, pacote: "M 1 Mês", componentes });
   const listas = {
-    "90000|1": { descricao: "PREVENTIVA PRENSA HIDRAULICA (FICTICIA)", estrategia: "YPM261", centro: "A000", operacoes: [
+    "90000|1": { descricao: "PREVENTIVA PRENSA HIDRAULICA (FICTICIA)", estrategia: "YPMTST", centro: "A000", operacoes: [
       op("0010", "INSPECIONAR ROLAMENTO DA BOMBA", "Verificar ruído e temperatura do rolamento rígido de esferas da bomba.", [{ material: rolC, descricao: "ROLAMENTO", quantidade: 1, um: "UN" }]),
       op("0020", "VERIFICAR TENSAO DA CORREIA", "Conferir a tensão da correia em V do acionamento."),
       op("0030", "LIMPEZA DO PAINEL ELETRICO", "Limpar e reapertar os bornes do painel elétrico."),
       op("0040", "TESTAR SENSOR INDUTIVO DE POSICAO", "Testar o sensor indutivo de posição com a peça padrão.")] },
-    "90001|1": { descricao: "PREVENTIVA INJETORA (FICTICIA)", estrategia: "YPM261", centro: "A000", operacoes: [
+    "90001|1": { descricao: "PREVENTIVA INJETORA (FICTICIA)", estrategia: "YPMTST", centro: "A000", operacoes: [
       op("0010", "INSPECIONAR A ROSCA", "Inspecionar o rolamento axial da rosca."), op("0020", "TESTAR SENSOR DO MOLDE", "Testar o sensor de molde fechado.")] },
   };
   return { cadastros: [[ARQ_INDICE, indice], ...arquivos, [ARQ_LISTAS, listas]], vinculos };

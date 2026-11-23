@@ -8,7 +8,7 @@ import { Selo } from "@/components/ui";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 import { ansi, ARQ_CSV, ARQ_VBS, csvInclusao, scriptInclusao } from "@/app/(app)/mro/ia06";
 import { ConfirmarCodigo } from "./Acoes";
-import { itensIa06, type LinhaOperacao, prontaParaIa06 } from "@/lib/machineLedger/listasTarefas";
+import { itensIa06, juntadosIa06, type LinhaOperacao, prontaParaIa06 } from "@/lib/machineLedger/listasTarefas";
 
 const ENTRADA = "h-9 rounded-lg border border-borda bg-superficie-2 px-2 text-[13px]";
 const LINHA = "inline-flex h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] hover:bg-superficie-2 disabled:opacity-60";
@@ -25,9 +25,10 @@ const valorOp = (o: { grupo: string; numerador: string; operacao: string } | nul
 
 /**
  * Operações das listas de tarefas da máquina × componentes do RCM: sugestão por texto, confirmação do PCM e a carga IA06
- * (CSV + script VBS da Gestão de MRO) dos componentes com código válido que ainda não estão na operação.
+ * (CSV + script VBS da Gestão de MRO) dos componentes com código válido que ainda não estão na lista. `ativos`: um por
+ * equipamento do ledger (coluna ATIVOS, como na Gestão de MRO).
  */
-export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: string; rotulo: string; linhas: LinhaOperacao[];
+export function OperacoesIa06({ ledger, ativos, linhas, ops, grava }: { ledger: string; ativos: string[]; linhas: LinhaOperacao[];
   ops: { valor: string; rotulo: string }[]; grava: boolean }) {
   const router = useRouter();
   const [soCodigo, setSoCodigo] = useState(true);
@@ -39,7 +40,8 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
 
   const visiveis = linhas.filter((l) => !soCodigo || l.codigoOk || l.sugerido);
   const quantidades = useMemo(() => Object.fromEntries(Object.entries(qtd).map(([k, v]) => [k, Number(v.replace(",", "."))]).filter(([, v]) => Number(v) > 0)), [qtd]);
-  const itens = useMemo(() => itensIa06(linhas, quantidades, incluirAlta, rotulo), [linhas, quantidades, incluirAlta, rotulo]);
+  const itens = useMemo(() => itensIa06(linhas, quantidades, incluirAlta, ativos), [linhas, quantidades, incluirAlta, ativos]);
+  const juntados = juntadosIa06(linhas, incluirAlta, itens);
 
   const gravar = async (l: LinhaOperacao, remover: boolean) => {
     const v = escolha[l.chave] ?? valorOp(l.confirmada ?? l.sugestao);
@@ -68,7 +70,8 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-texto-2"><b className="num">{itens.length}</b> componente(s) prontos para a IA06</span>
+        <span className="text-[13px] text-texto-2"><b className="num">{itens.length}</b> linha(s) na carga IA06
+          {juntados > 0 && <> · {juntados} componente(s) com o mesmo material na mesma lista juntado(s), quantidades somadas</>}</span>
         <button type="button" className={BOTAO_PRIMARIO} disabled={!itens.length}
           onClick={() => baixar(ARQ_CSV, csvInclusao(itens, true, true), "text/csv;charset=windows-1252")}><Download className="size-4" /> Baixar CSV da IA06</button>
         <button type="button" className={BOTAO_SECUNDARIO}
@@ -86,9 +89,10 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
                 <span className="text-texto-3">· {l.conjunto}{l.subconjunto ? ` › ${l.subconjunto}` : ""}</span>
                 {l.sugerido && !l.codigoConfirmado ? <Selo cor="amarelo">{l.codigo ? `${l.codigo} · sugerido pela referência` : `referência ambígua (${l.candidatos.length})`}</Selo>
                   : l.codigoOk ? <Selo cor="verde">{l.codigo} · {l.origemCodigo}{l.codigoConfirmado ? " (confirmado)" : ""}</Selo> : <Selo>{l.codigo ? `${l.codigo} (inválido)` : "sem código SAP"}</Selo>}
-                {l.confirmada ? <Selo cor="azul">confirmada</Selo> : l.sugestao ? <Selo cor={l.sugestao.confianca === "alta" ? "verde" : l.sugestao.confianca === "media" ? "amarelo" : "cinza"}>sugestão {l.sugestao.confianca === "media" ? "média" : l.sugestao.confianca}</Selo>
+                {l.confirmada ? (l.confirmadaOrfa ? <Selo cor="vermelho">operação confirmada não existe mais</Selo> : <Selo cor="azul">confirmada</Selo>) : l.sugestao ? <Selo cor={l.sugestao.confianca === "alta" ? "verde" : l.sugestao.confianca === "media" ? "amarelo" : "cinza"}>sugestão {l.sugestao.confianca === "media" ? "média" : l.sugestao.confianca}</Selo>
                   : <Selo>sem operação</Selo>}
-                {l.jaNaOperacao && <Selo cor="cinza">já na operação</Selo>}
+                {l.jaNaLista && <Selo cor="cinza">já na lista (op {l.jaNaLista})</Selo>}
+                {l.confirmacaoAntiga && <Selo cor="amarelo">confirmação antiga ({l.confirmacaoAntiga.codigo}) ignorada</Selo>}
                 {prontaParaIa06(l, incluirAlta) && <Selo cor="laranja">vai na IA06</Selo>}
               </div>
               {grava && l.sugerido && <div className="mt-1.5"><ConfirmarCodigo chave={l.chave} candidatos={l.candidatos} confirmado={l.codigoConfirmado?.codigo ?? null} referencia={l.referencia} /></div>}

@@ -7,12 +7,14 @@
  * - Cadastro `listas_tarefas.json`: { "<grupo>|<numerador>": { descricao, estrategia, centro, operacoes: [...] } }.
  * - Cadastro `machine_ledger_operacoes.json`: { "<ledger>|<componente>": { grupo, numerador, operacao, quantidade, por, em } }
  *   = a operação confirmada pelo PCM para o componente (a chave do componente = hash do conjunto/subconjunto/componente).
- * - Sugestão por texto: o nome do componente (inteiro, ou as 2 primeiras palavras, ou a 1ª com 5+ letras), depois o
+ * - Sugestão por texto: o nome do componente (inteiro, ou as 2 primeiras palavras, ou a única/1ª com 5+ letras), depois o
  *   subconjunto e o conjunto, contra o texto breve + longo da operação (sem acento, plural reduzido).
+ * - Um material entra UMA vez em cada lista (grupo + numerador), em qualquer operação: já na lista = fora da carga, e
+ *   componentes com o mesmo material na mesma lista viram uma linha só (quantidades somadas).
  */
 import type { ItemInclusao } from "@/app/(app)/mro/ia06";
 
-import { type BaseCodigos, codigoDoComponente, INATIVOS, type Componente, chaveNome, frase, norm, type OrigemCodigo, pecasPorDescricao, type Peca, semZeros, txt } from "./regras";
+import { type BaseCodigos, codigoDoComponente, INATIVOS, type Componente, chaveNome, frase, norm, type OrigemCodigo, pecasPorDescricao, type Peca, type ResolvidoComOrigem, semZeros, txt } from "./regras";
 
 export const ARQ_LISTAS = "listas_tarefas.json";
 export const ARQ_OPERACOES = "machine_ledger_operacoes.json";
@@ -139,7 +141,10 @@ export type Confianca = "alta" | "media" | "baixa";
 export interface OperacaoDaMaquina { grupo: string; numerador: string; descricaoLista: string; op: OperacaoSap }
 export interface Sugestao { grupo: string; numerador: string; operacao: string; texto: string; pontos: number; confianca: Confianca; motivo: string }
 
-/** Chave estável do componente (conjunto/subconjunto/componente normalizados, hash curto). */
+/**
+ * Chave estável do componente (conjunto/subconjunto/componente normalizados, hash curto). O "equip" do RCM não entra (de
+ * propósito, para não perder as confirmações gravadas): o mesmo componente repetido em linhas de outro equip é uma chave só.
+ */
 export function chaveComponente(c: Pick<Componente, "conjunto" | "subconjunto" | "componente">): string {
   let h = 2166136261;
   for (const ch of `${norm(c.conjunto)}|${norm(c.subconjunto)}|${norm(c.componente)}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
@@ -150,8 +155,9 @@ export const confiancaDe = (pontos: number): Confianca => (pontos >= 70 ? "alta"
 
 /**
  * A melhor operação das listas da máquina para o componente (null = nenhuma casa). Pontos: nome inteiro do componente
- * no texto 100; as 2 primeiras palavras significativas (ou a única, com 5+ letras) 70 (+10 com o subconjunto ou o conjunto
- * também no texto); só a 1ª de duas (5+ letras) 40 (+10); só o subconjunto 50; só o conjunto 30. Empate: a operação que vem antes (lista, número).
+ * no texto 100; as 2 primeiras palavras significativas 70 (+10 com o subconjunto ou o conjunto também no texto); a palavra
+ * única do nome (5+ letras) 55 sozinha (média) e 70 com o subconjunto ou o conjunto (alta); só a 1ª de duas (5+ letras) 40
+ * (+10); só o subconjunto 50; só o conjunto 30. Empate: a operação que vem antes (lista, número).
  */
 export function sugerirOperacao(c: Pick<Componente, "conjunto" | "subconjunto" | "componente">, ops: OperacaoDaMaquina[]): Sugestao | null {
   const nome = frase(c.componente), k = chaveNome(c.componente), k1 = k.split(" ")[0] ?? "";
@@ -162,7 +168,10 @@ export function sugerirOperacao(c: Pick<Componente, "conjunto" | "subconjunto" |
     const temSub = !!sub.trim() && T.includes(sub), temConj = !!conj.trim() && T.includes(conj);
     let pontos = 0, motivo = "";
     if (nome.trim().split(" ").length >= 2 && T.includes(nome)) { pontos = 100; motivo = "nome do componente no texto da operação"; }
-    else if ((k.includes(" ") || k.length >= 5) && T.includes(` ${k} `)) { pontos = 70 + (temSub || temConj ? 10 : 0); motivo = `"${k.toLowerCase()}" no texto${temSub ? " + subconjunto" : temConj ? " + conjunto" : ""}`; }
+    else if ((k.includes(" ") || k.length >= 5) && T.includes(` ${k} `)) {
+      pontos = k.includes(" ") ? 70 + (temSub || temConj ? 10 : 0) : temSub || temConj ? 70 : 55;
+      motivo = `"${k.toLowerCase()}" no texto${temSub ? " + subconjunto" : temConj ? " + conjunto" : ""}`;
+    }
     else if (k1.length >= 5 && T.includes(` ${k1} `)) { pontos = 40 + (temSub || temConj ? 10 : 0); motivo = `"${k1.toLowerCase()}" no texto${temSub ? " + subconjunto" : temConj ? " + conjunto" : ""}`; }
     else if (temSub) { pontos = 50; motivo = "subconjunto citado na operação"; }
     else if (temConj) { pontos = 30; motivo = "conjunto citado na operação"; }
@@ -195,6 +204,20 @@ export function confirmadasDe(cad: Record<string, unknown>): Map<string, Confirm
   }));
 }
 
+/**
+ * As listas do cadastro das listas ligadas à máquina (sem repetir). Ligada sem numerador (IP19 sem a coluna) = todas as
+ * listas do grupo.
+ */
+export function listasDasLigadas(ligadas: { grupo: string; numerador: string }[], listas: Map<string, ListaSap>): ListaSap[] {
+  const out = new Map<string, ListaSap>();
+  for (const l of ligadas) {
+    const k = chaveLista(l.grupo, l.numerador);
+    if (String(l.numerador ?? "").trim()) { const x = listas.get(k); if (x) out.set(k, x); continue; }
+    for (const [kk, x] of listas) if (kk.startsWith(k)) out.set(kk, x);
+  }
+  return [...out.values()];
+}
+
 /** O material já está como Comp.mat. nessa operação da lista? */
 export function jaNaOperacao(listas: Map<string, ListaSap>, grupo: string, numerador: string, operacao: string, material: string): boolean {
   const l = listas.get(chaveLista(grupo, numerador));
@@ -202,8 +225,25 @@ export function jaNaOperacao(listas: Map<string, ListaSap>, grupo: string, numer
   return !!l?.operacoes.find((o) => o.numero === op4(operacao))?.componentes.some((c) => semZeros(c.material).toUpperCase() === m);
 }
 
-/** Quantidade instalada do RCM como número (padrão 1). */
-export const quantidadeRcm = (qtd: string) => { const n = numBr(String(qtd ?? "")); return n && n > 0 ? n : 1; };
+/**
+ * Em que operação da lista (grupo + numerador) o material já está como Comp.mat. ("" = em nenhuma). O SAP/script da IA06
+ * aceita o material uma vez por lista, em qualquer operação.
+ */
+export function jaNaLista(listas: Map<string, ListaSap>, grupo: string, numerador: string, material: string): string {
+  const l = listas.get(chaveLista(grupo, numerador));
+  const m = semZeros(material).toUpperCase();
+  return l?.operacoes.find((o) => o.componentes.some((c) => semZeros(c.material).toUpperCase() === m))?.numero ?? "";
+}
+
+/**
+ * Quantidade instalada do RCM como número (padrão 1). "1.0"/"2.5" (número do Excel, ponto decimal) = Number; com vírgula,
+ * formato brasileiro ("1,5", "1.000,5").
+ */
+export const quantidadeRcm = (qtd: string) => {
+  const t = String(qtd ?? "").trim();
+  const n = /^\d+(\.\d+)?$/.test(t) ? Number(t) : t.includes(",") ? numBr(t) : null;
+  return n && Number.isFinite(n) && n > 0 ? n : 1;
+};
 
 // ----------------------------------------------------------------------------
 // Linhas da seção "Operações e IA06" e a carga IA06
@@ -214,45 +254,90 @@ export interface LinhaOperacao {
   codigo: string; codigoOk: boolean; origemCodigo: OrigemCodigo; descricaoSap: string; um: string; qtdRcm: number;
   /** código sugerido pela referência (precisa de confirmação), candidatos (ambíguo), token usado e se o PCM confirmou */
   sugerido: boolean; candidatos: { codigo: string; descricao: string }[]; referencia: string; codigoConfirmado: CodigoConfirmado | null;
+  /** código confirmado antes que não é mais a sugestão nem um candidato (o RCM ou o catálogo mudou): ignorado, o PCM confere */
+  confirmacaoAntiga: CodigoConfirmado | null;
   sugestao: Sugestao | null; confirmada: Confirmada | null;
-  /** a operação em uso (confirmada, senão a sugerida) já tem o material como Comp.mat. */
-  jaNaOperacao: boolean;
+  /** a operação confirmada não existe mais nas listas da máquina (export novo ou lista desligada): fora da IA06 */
+  confirmadaOrfa: boolean;
+  /** a operação da lista em uso (confirmada, senão a sugerida) que já tem o material como Comp.mat. ("" = nenhuma) */
+  jaNaLista: string;
 }
 
-/** Uma linha por componente do RCM (o mesmo componente repetido no RCM entra uma vez). */
+/**
+ * O código confirmado pelo PCM vale só enquanto o componente ainda é "Sysmat pela referência" e o código é a sugestão ou um
+ * dos candidatos; senão é uma confirmação antiga (ignorada).
+ */
+export function confirmacaoValida(r: Pick<ResolvidoComOrigem, "sugerido" | "codigo" | "candidatos">, cc: CodigoConfirmado | null): boolean {
+  return !!cc && !!r.sugerido && (r.codigo === cc.codigo || (r.candidatos ?? []).some((x) => x.codigo === cc.codigo));
+}
+
+/** Ordem de preferência entre resoluções do mesmo componente repetido no RCM (menor = melhor). */
+function nota(r: ResolvidoComOrigem): number {
+  if (r.situacao === "ok" && !r.sugerido) return r.origemCodigo === "RCM" ? 0 : r.origemCodigo === "peça de reposição" ? 1 : 2;
+  if (r.sugerido && r.codigo) return 3;
+  if (r.sugerido) return 4;
+  return r.situacao === "bloqueado" ? 5 : r.situacao === "inexistente" ? 6 : 7;
+}
+
+/**
+ * Uma linha por componente do RCM. O mesmo componente repetido no RCM (mesmo conjunto/subconjunto/componente; o "equip" não
+ * entra na chave) entra uma vez, com a melhor resolução de código entre as linhas repetidas.
+ */
 export function linhasOperacoes(ledger: string, comps: Componente[], ops: OperacaoDaMaquina[], confirmadas: Map<string, Confirmada>,
   listas: Map<string, ListaSap>, b: BaseCodigos, pecas: Peca[] = [], codigos: Map<string, CodigoConfirmado> = new Map()): LinhaOperacao[] {
   const porDesc = pecasPorDescricao(pecas);
-  const vistos = new Set<string>();
-  const out: LinhaOperacao[] = [];
+  const grupos = new Map<string, { c: Componente; r: ResolvidoComOrigem }>();
   for (const c of comps) {
     const chave = chaveAssociacao(ledger, c);
-    if (vistos.has(chave)) continue;
-    vistos.add(chave);
-    const r0 = codigoDoComponente(c, porDesc, b);
-    const cc = codigos.get(chave) ?? null;
+    const r = codigoDoComponente(c, porDesc, b);
+    const a = grupos.get(chave);
+    if (!a || nota(r) < nota(a.r)) grupos.set(chave, { c, r });
+  }
+  const existe = new Set(ops.map((o) => `${o.grupo}|${o.numerador}|${o.op.numero}`));
+  const out: LinhaOperacao[] = [];
+  for (const [chave, { c, r: r0 }] of grupos) {
+    const cc0 = codigos.get(chave) ?? null;
+    const valida = confirmacaoValida(r0, cc0);
+    const cc = valida ? cc0 : null;
     const r = cc ? { ...r0, codigo: cc.codigo } : r0;
     const cat = r.codigo ? b.cat?.get(r.codigo) : undefined;
     const codigoOk = cc ? !!cat && !INATIVOS.has(cat.status) : r.situacao === "ok" && !r.sugerido;
     const sugestao = ops.length ? sugerirOperacao(c, ops) : null, confirmada = confirmadas.get(chave) ?? null;
+    const confirmadaOrfa = !!confirmada && !existe.has(`${confirmada.grupo}|${confirmada.numerador}|${confirmada.operacao}`);
     const usada = confirmada ?? sugestao;
     out.push({ chave, componente: c.componente, conjunto: c.conjunto, subconjunto: c.subconjunto, codigoLedger: c.codigo, codigo: r.codigo,
-      codigoOk, origemCodigo: r.origemCodigo, sugerido: !!r.sugerido, candidatos: r.candidatos ?? [], referencia: r.referencia ?? "", codigoConfirmado: cc, descricaoSap: cat?.descricao ?? "", um: cat?.um || b.saldo?.get(r.codigo)?.um || "", qtdRcm: quantidadeRcm(c.qtd),
-      sugestao, confirmada, jaNaOperacao: !!usada && !!r.codigo && jaNaOperacao(listas, usada.grupo, usada.numerador, usada.operacao, r.codigo) });
+      codigoOk, origemCodigo: r.origemCodigo, sugerido: !!r.sugerido, candidatos: r.candidatos ?? [], referencia: r.referencia ?? "", codigoConfirmado: cc,
+      confirmacaoAntiga: cc0 && !valida ? cc0 : null, descricaoSap: cat?.descricao ?? "", um: cat?.um || b.saldo?.get(r.codigo)?.um || "", qtdRcm: quantidadeRcm(c.qtd),
+      sugestao, confirmada, confirmadaOrfa, jaNaLista: usada && r.codigo ? jaNaLista(listas, usada.grupo, usada.numerador, r.codigo) : "" });
   }
   return out;
 }
 
-/** Linhas prontas para a IA06: código válido, operação confirmada (ou sugestão alta, se pedido) e ainda fora da operação. */
+/** Linhas prontas para a IA06: código válido, operação confirmada e ainda existente (ou sugestão alta, se pedido) e material fora da lista. */
 export const prontaParaIa06 = (l: LinhaOperacao, incluirAlta: boolean) =>
-  l.codigoOk && !l.jaNaOperacao && (!!l.confirmada || (incluirAlta && l.sugestao?.confianca === "alta"));
+  l.codigoOk && !l.jaNaLista && (l.confirmada ? !l.confirmadaOrfa : incluirAlta && l.sugestao?.confianca === "alta");
 
-/** Itens da carga IA06 (o mesmo formato da Gestão de MRO), com o número da operação. */
-export function itensIa06(linhas: LinhaOperacao[], quantidades: Record<string, number>, incluirAlta: boolean, equipamento: string): ItemInclusao[] {
-  return linhas.filter((l) => prontaParaIa06(l, incluirAlta)).map((l) => {
+/**
+ * Itens da carga IA06 (o mesmo formato da Gestão de MRO), com o número da operação: um por lista + material (o SAP aceita o
+ * material uma vez por lista), quantidades somadas e a operação do primeiro componente — o número de itens é o de linhas do
+ * CSV. `ativos`: o ativo (texto) ou um por equipamento do ledger (identificarAtivo), como na coluna ATIVOS da Gestão de MRO.
+ */
+export function itensIa06(linhas: LinhaOperacao[], quantidades: Record<string, number>, incluirAlta: boolean, ativos: string | string[]): ItemInclusao[] {
+  const lista = (Array.isArray(ativos) ? ativos : [ativos]).filter(Boolean);
+  const por = new Map<string, ItemInclusao>();
+  for (const l of linhas) {
+    if (!prontaParaIa06(l, incluirAlta)) continue;
     const o = (l.confirmada ?? l.sugestao)!;
-    const q = quantidades[l.chave] ?? l.confirmada?.quantidade ?? l.qtdRcm;
-    return { grupo: o.grupo, numerador: o.numerador, operacao: o.operacao, material: l.codigo, quantidade: q > 0 ? q : 1, um: l.um,
-      texto: l.descricaoSap || l.componente, equipamento, origemCodigo: l.origemCodigo };
-  });
+    const q0 = quantidades[l.chave] ?? l.confirmada?.quantidade ?? l.qtdRcm, q = q0 > 0 ? q0 : 1;
+    const k = `${chaveLista(o.grupo, o.numerador)}|${semZeros(l.codigo).toUpperCase()}`;
+    const a = por.get(k);
+    if (a) { a.quantidade = Math.round((a.quantidade + q) * 1000) / 1000; continue; }
+    por.set(k, { grupo: o.grupo, numerador: o.numerador, operacao: o.operacao, material: l.codigo, quantidade: q, um: l.um,
+      texto: l.descricaoSap || l.componente, equipamento: lista[0] ?? "", ...(lista.length > 1 ? { ativos: lista } : {}), origemCodigo: l.origemCodigo });
+  }
+  return [...por.values()];
 }
+
+/** Quantos componentes prontos foram juntados com outro do mesmo material na mesma lista (aviso da tela). */
+export const juntadosIa06 = (linhas: LinhaOperacao[], incluirAlta: boolean, itens: ItemInclusao[]) =>
+  linhas.filter((l) => prontaParaIa06(l, incluirAlta)).length - itens.length;

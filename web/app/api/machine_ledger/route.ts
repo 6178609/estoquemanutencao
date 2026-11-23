@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { registrar } from "@/lib/auditoria";
 import { autorizar } from "@/lib/auth/sessao";
+import { lerJsonLimitado } from "@/lib/corpoLimitado";
 import { FonteErro } from "@/lib/dados/fonte";
 import { gerarXlsxAbas } from "@/lib/exportacao/xlsx";
 import * as D from "@/lib/machineLedger/dados";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const ABA = "machine_ledger";
+const MAX_CORPO = 8_000_000;
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const planilha = (nome: string, bytes: Uint8Array) => new NextResponse(Buffer.from(bytes), { headers: {
   "Content-Type": XLSX, "Content-Disposition": `attachment; filename="${nome}"`, "Cache-Control": "no-store" } });
@@ -50,13 +52,15 @@ export async function GET(req: NextRequest) {
     const { linhas } = await D.operacoesDoLedger(idx);
     registrar(u.login, "exportacao", `machine_ledger_operacoes_${idx.id}.xlsx`);
     return planilha(`operacoes_${idx.id}.xlsx`, gerarXlsxAbas([{ nome: "Operações", colunas: col(["Conjunto", "Subconjunto", "Componente", "Código SAP", "Origem do código", "Código válido", "Código pela referência",
-      "Qtd. RCM", "UM", "Situação", "Grupo", "Contador", "Operação", "Texto da operação", "Confiança", "Motivo", "Já na operação"]),
+      "Qtd. RCM", "UM", "Situação", "Grupo", "Contador", "Operação", "Texto da operação", "Confiança", "Motivo", "Já na lista (operação)"]),
       linhas: linhas.map((l) => {
         const o = l.confirmada ?? l.sugestao;
         return [l.conjunto, l.subconjunto, l.componente, l.codigo, l.origemCodigo, l.codigoOk ? "Sim" : "",
-          l.codigoConfirmado ? `confirmado por ${l.codigoConfirmado.por}` : l.sugerido ? (l.codigo ? `sugerido (${l.referencia})` : `ambíguo: ${l.candidatos.map((x) => x.codigo).join(", ")}`) : "", l.qtdRcm, l.um, l.confirmada ? "Confirmada" : l.sugestao ? "Sugestão" : "Sem operação",
+          l.codigoConfirmado ? `confirmado por ${l.codigoConfirmado.por}` : l.sugerido ? (l.codigo ? `sugerido (${l.referencia})` : `ambíguo: ${l.candidatos.map((x) => x.codigo).join(", ")}`) : "",
+          l.qtdRcm, l.um, l.confirmada ? (l.confirmadaOrfa ? "Confirmada (operação não existe mais)" : "Confirmada") : l.sugestao ? "Sugestão" : "Sem operação",
           o?.grupo ?? "", o?.numerador ?? "", o?.operacao ?? "", l.sugestao && !l.confirmada ? l.sugestao.texto : "", l.confirmada ? "" : l.sugestao?.confianca ?? "",
-          l.confirmada ? `por ${l.confirmada.por}` : l.sugestao?.motivo ?? "", l.jaNaOperacao ? "Sim" : ""];
+          [l.confirmada ? `por ${l.confirmada.por}` : l.sugestao?.motivo ?? "", l.confirmacaoAntiga ? `confirmação antiga do código ${l.confirmacaoAntiga.codigo} (ignorada)` : ""]
+            .filter(Boolean).join(" · "), l.jaNaLista ? `Sim (${l.jaNaLista})` : ""];
       }) }]));
   }
   return new NextResponse("Pedido inválido.", { status: 400 });
@@ -67,8 +71,10 @@ export async function POST(req: NextRequest) {
   const u = await autorizar(ABA);
   if (!u) return NextResponse.json({ erro: "Sem acesso." }, { status: 403 });
   if (!D.podeGravarMl(u)) return NextResponse.json({ erro: "Só editores do PCM (fora de Terceiro e Manutentor) alteram o Machine Ledger e os vínculos." }, { status: 403 });
-  if (Number(req.headers.get("content-length") ?? 0) > 8_000_000) return NextResponse.json({ erro: "Planilha grande demais." }, { status: 413 });
-  const j = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  // limite pelo content-length e, sem ele (envio em partes), na leitura do corpo
+  const corpo = await lerJsonLimitado(req, MAX_CORPO);
+  if (!corpo.ok && corpo.grande) return NextResponse.json({ erro: "Planilha grande demais." }, { status: 413 });
+  const j = corpo.ok && corpo.json && typeof corpo.json === "object" && !Array.isArray(corpo.json) ? corpo.json as Record<string, unknown> : null;
   if (!j) return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
   try {
     let resposta: Record<string, unknown> = { ok: true };

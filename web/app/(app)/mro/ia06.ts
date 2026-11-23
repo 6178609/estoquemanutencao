@@ -18,6 +18,8 @@ export interface ItemInclusao {
   grupo: string; numerador: string; operacao: string; material: string; quantidade: number; um: string; texto: string; equipamento: string;
   /** quantos equipamentos usam a lista (informativo na planilha) */
   usoLista?: number;
+  /** vários ativos pedindo o mesmo item (Machine Ledger com mais de um equipamento): somam-se ao `equipamento` na coluna ATIVOS */
+  ativos?: string[];
   /** de onde veio o código (Machine Ledger: RCM, peça de reposição, Sysmat pela descrição); coluna extra no fim do CSV */
   origemCodigo?: string;
 }
@@ -148,8 +150,10 @@ export function csvInclusao(itens: ItemInclusao[], marcar = true, comOrigem = fa
     if (!i.grupo || !op || !mat) continue;
     const k = `${i.grupo.trim().toUpperCase()}|${String(i.numerador ?? "").trim()}|${mat}`;
     const x = porChave.get(k) ?? porChave.set(k, { i, op, ativos: [] }).get(k)!;
-    const eq = limpo(i.equipamento, 90);
-    if (eq && !x.ativos.includes(eq)) x.ativos.push(eq);
+    for (const a of [i.equipamento, ...(i.ativos ?? [])]) {
+      const eq = limpo(a, 90);
+      if (eq && !x.ativos.includes(eq)) x.ativos.push(eq);
+    }
   }
   const linhas = [comOrigem ? `${CABECALHO_CSV};ORIGEM_CODIGO` : CABECALHO_CSV];
   for (const { i, op, ativos } of porChave.values())
