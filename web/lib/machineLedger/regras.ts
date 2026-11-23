@@ -340,7 +340,7 @@ export function idPara(arquivo: string): string {
 // ----------------------------------------------------------------------------
 // Catálogo do Sysmat e MB52 (resolução de códigos)
 // ----------------------------------------------------------------------------
-export interface ItemCat { material: string; descricao: string; descrCompleta: string; status: string; para: string; sysmat: string; pdm: string }
+export interface ItemCat { material: string; descricao: string; descrCompleta: string; status: string; para: string; sysmat: string; pdm: string; um: string }
 export interface BaseCodigos {
   cat: Map<string, ItemCat> | null;
   porSysmat: Map<string, string>;
@@ -351,7 +351,7 @@ export interface BaseCodigos {
 }
 export const INATIVOS = new Set(["BLOQUEADO", "CANCELADO", "DUPLICADO"]);
 
-export function indexarBase(catalogo: { material: string; sysmat: string; substituto: string; descricaoCurta: string; descrCompleta: string; status: string; pdm: string }[] | null,
+export function indexarBase(catalogo: { material: string; sysmat: string; substituto: string; descricaoCurta: string; descrCompleta: string; status: string; pdm: string; um?: string }[] | null,
   estoque: { material: string; descricao: string; um: string; estoque: number }[] | null): BaseCodigos {
   let cat: Map<string, ItemCat> | null = null;
   const porSysmat = new Map<string, string>(), porDescricao = new Map<string, string | null>();
@@ -362,7 +362,7 @@ export function indexarBase(catalogo: { material: string; sysmat: string; substi
       const k = semZeros(c.material);
       if (cat.has(k)) continue;
       cat.set(k, { material: k, descricao: c.descricaoCurta, descrCompleta: c.descrCompleta, status: (c.status || "").toUpperCase(),
-        para: semZeros(c.substituto || ""), sysmat: c.sysmat, pdm: c.pdm });
+        para: semZeros(c.substituto || ""), sysmat: c.sysmat, pdm: c.pdm, um: c.um ?? "" });
       if (c.sysmat) porSysmat.set(semZeros(c.sysmat), k);
       if (INATIVOS.has((c.status || "").toUpperCase())) continue;
       const d = norm(c.descricaoCurta);
@@ -660,7 +660,7 @@ export interface Associacao { nivel: Nivel; /** índice do componente no RCM (n�
 export const NAO_ASSOCIADA = "Não associada ao componente";
 
 /** Texto normalizado com plural reduzido, entre espaços (para procurar frases inteiras). */
-const frase = (t: string) => ` ${norm(t).split(" ").filter(Boolean).map((w) => (w.length > 4 && w.endsWith("S") ? w.slice(0, -1) : w)).join(" ")} `;
+export const frase = (t: string) => ` ${norm(t).split(" ").filter(Boolean).map((w) => (w.length > 4 && w.endsWith("S") ? w.slice(0, -1) : w)).join(" ")} `;
 const SIGNIFICATIVA = (w: string) => w.length >= 3 && !PARADAS.has(w) && !/\d/.test(w);
 /** A "chave" do nome do componente: as duas primeiras palavras significativas ("VÁLVULA SOLENÓIDE NV0-TO-044CP" → "VALVULA SOLENOIDE"). */
 export function chaveNome(nome: string): string {

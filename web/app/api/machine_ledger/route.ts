@@ -44,6 +44,20 @@ export async function GET(req: NextRequest) {
           x.estrategico ? "Sim" : "", x.reserva ? "Sim" : "", x.estSegAlmox, x.estSegUbm, x.valorUnit];
       }) }]));
   }
+  if (p.get("planilha") === "operacoes") {
+    const idx = (await D.lerIndice()).find((i) => i.id === p.get("id"));
+    if (!idx) return new NextResponse("Ledger não encontrado.", { status: 404 });
+    const { linhas } = await D.operacoesDoLedger(idx);
+    registrar(u.login, "exportacao", `machine_ledger_operacoes_${idx.id}.xlsx`);
+    return planilha(`operacoes_${idx.id}.xlsx`, gerarXlsxAbas([{ nome: "Operações", colunas: col(["Conjunto", "Subconjunto", "Componente", "Código SAP", "Código válido",
+      "Qtd. RCM", "UM", "Situação", "Grupo", "Contador", "Operação", "Texto da operação", "Confiança", "Motivo", "Já na operação"]),
+      linhas: linhas.map((l) => {
+        const o = l.confirmada ?? l.sugestao;
+        return [l.conjunto, l.subconjunto, l.componente, l.codigo, l.codigoOk ? "Sim" : "", l.qtdRcm, l.um, l.confirmada ? "Confirmada" : l.sugestao ? "Sugestão" : "Sem operação",
+          o?.grupo ?? "", o?.numerador ?? "", o?.operacao ?? "", l.sugestao && !l.confirmada ? l.sugestao.texto : "", l.confirmada ? "" : l.sugestao?.confianca ?? "",
+          l.confirmada ? `por ${l.confirmada.por}` : l.sugestao?.motivo ?? "", l.jaNaOperacao ? "Sim" : ""];
+      }) }]));
+  }
   return new NextResponse("Pedido inválido.", { status: 400 });
 }
 
@@ -62,6 +76,8 @@ export async function POST(req: NextRequest) {
       for (const r of ["/mro", "/equipamentos", "/estoque"]) revalidatePath(r);
     } else if (j.acao === "conferido") await D.marcarConferido(u, String(j.chave ?? ""), j.sim !== false);
     else if (j.acao === "correspondencia") resposta = { ok: true, equipamentos: await D.gravarCorrespondencia(u, String(j.id ?? ""), j.equipamentos) };
+    else if (j.acao === "operacao") await D.gravarOperacao(u, String(j.chave ?? ""), j.alvo && typeof j.alvo === "object" ? j.alvo as never : null);
+    else if (j.acao === "listas") resposta = { ok: true, listas: await D.gravarListas(u, j.listas) };
     else if (j.acao === "envio") resposta = { ok: true, id: await D.substituirLedger(u, j.dados as D.EnvioLedger) };
     else return NextResponse.json({ erro: "Ação inválida." }, { status: 400 });
     revalidatePath("/machine_ledger");

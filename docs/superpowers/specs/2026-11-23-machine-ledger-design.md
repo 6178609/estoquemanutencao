@@ -89,3 +89,19 @@ o código é procurado pela descrição curta exata no catálogo do Sysmat.
 - Envio: conteúdo sanitizado no servidor campo a campo (`sanitizarConteudo`), abas exigidas conferidas, e o ledger do mesmo
   arquivo/nome é reaproveitado (reenviar não duplica). Classe e tipo de manutenção do RCM pelos cabeçalhos "Classificação" e
   "MANUTENÇÃO PM" (CBM/TBM/BM).
+
+## Operações das listas de tarefas e IA06 (pedido do usuário, 23/11/2026)
+- Fonte: export em texto das listas de tarefas gerais do SAP ("LTa <grupo> <numerador> <descrição>", Estratégia, Centro;
+  "Operação <nº> <texto breve>" + texto longo + Cen.trabalho, Chave de controle, Núm.de pessoas, Trabalho (min), Pac.manuten;
+  "Comp.mat. <material> <descrição>" + Quantidade/UM; "Suboperaç." entra no texto longo da operação). Parser puro em
+  `web/lib/machineLedger/listasTarefas.ts`; cadastro `listas_tarefas.json` { "<grupo>|<numerador>": { descricao, estrategia,
+  centro, operacoes } }; reenvio pela sub-aba "Enviar ledger" (lido no navegador, validado no servidor, substitui tudo).
+- Listas da máquina: pelos equipamentos SAP do ledger, o mesmo caminho da Gestão de MRO (planos das ordens da IW38 × IP19, listas
+  diretas da IP19 e as dos subconjuntos do IH08).
+- Sugestão por componente do RCM (texto breve + longo da operação, sem acento, plural reduzido): nome inteiro 100; 2 primeiras
+  palavras significativas (ou a única, 5+ letras) 70 (+10 com subconjunto/conjunto); só a 1ª palavra 40 (+10); só o
+  subconjunto 50; só o conjunto 30. Confiança alta ≥ 70, média ≥ 45, baixa abaixo. Confirmação do PCM em
+  `machine_ledger_operacoes.json` ("<ledger>|<hash do conjunto/subconjunto/componente>" → grupo, numerador, operação, quantidade).
+- IA06: componentes com código SAP válido (regra do pente fino), operação confirmada (ou sugestão alta, se marcado) e que ainda
+  não estão como Comp.mat. naquela operação; quantidade = quantidade instalada do RCM (editável), UM do catálogo; CSV e script
+  VBS iguais aos da Gestão de MRO, agora com o número da operação. Excel da associação por máquina.

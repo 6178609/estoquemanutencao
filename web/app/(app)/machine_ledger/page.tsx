@@ -12,7 +12,8 @@ import { dataBr, hoje, MESES, partes } from "@/lib/wcm/util";
 
 import { Controles } from "../planos/_comum/Controles";
 import { hrefCom, um, type Params } from "../planos/_comum/params";
-import { AcoesAchado, Correspondencia, EnviarLedger } from "./Acoes";
+import { AcoesAchado, Correspondencia, EnviarLedger, EnviarListas } from "./Acoes";
+import { OperacoesIa06 } from "./Operacoes";
 
 export const metadata: Metadata = { title: "Machine Ledger" };
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
   const visao = VISOES.includes(um(params, "visao")) ? um(params, "visao") : VISOES[0];
   const grava = D.podeGravarMl(u);
   const indice = await D.lerIndice();
+  const nListas = visao === "Enviar ledger" ? (await D.lerListas()).size : 0;
 
   return (
     <Pagina>
@@ -53,17 +55,20 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
         {!indice.length ? <Aviso>Nenhum Machine Ledger carregado ainda. {grava ? "Envie a planilha em \"Enviar ledger\"." : ""}</Aviso> : (
           <>
             {visao === "Visão geral" && <VisaoGeral indice={indice} />}
-            {visao === "Máquinas" && <Maquinas indice={indice} params={params} />}
+            {visao === "Máquinas" && <Maquinas indice={indice} params={params} grava={grava} />}
             {visao === "Pente fino do MRO" && <Pente params={params} grava={grava} />}
             {visao === "Cruzamentos" && <Cruzamentos indice={indice} params={params} />}
             {visao === "Correspondência" && <Correspondencias indice={indice} grava={grava} />}
           </>
         )}
-        {visao === "Enviar ledger" && (grava ? (
+        {visao === "Enviar ledger" && (grava ? (<>
           <Secao titulo="Enviar ledger" sub="Escolha o .xlsx do Machine Ledger: a planilha é lida no seu navegador (precisa das abas CAPA, RCM, PLANO MESTRE e GT_SPARE_PARTS) e substitui o ledger escolhido; os equipamentos SAP já ligados ficam.">
             <EnviarLedger ledgers={indice.map((i) => ({ id: i.id, nome: i.nome }))} />
           </Secao>
-        ) : <Aviso>Só editores do PCM (fora de Terceiro e Manutentor) enviam ledgers.</Aviso>)}
+          <Secao titulo="Listas de tarefas (IA06)" sub="O export em texto das listas de tarefas gerais do SAP (blocos LTa, operações, texto longo e Comp.mat.): lido no seu navegador, validado no servidor e substitui o cadastro inteiro.">
+            <EnviarListas atual={nListas} />
+          </Secao>
+        </>) : <Aviso>Só editores do PCM (fora de Terceiro e Manutentor) enviam ledgers.</Aviso>)}
       </div>
     </Pagina>
   );
@@ -126,7 +131,7 @@ async function VisaoGeral({ indice }: { indice: R.Indice[] }) {
 }
 
 // ----------------------------------------------------------------------------
-async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params }) {
+async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params: Params; grava: boolean }) {
   const l = indice.find((i) => i.id === um(params, "m"));
   if (!l) {
     return (
@@ -145,7 +150,7 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
       </div>
     );
   }
-  const [c, b, nomes] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap()]);
+  const [c, b, nomes, opsLedger] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap(), D.operacoesDoLedger(l)]);
   const ano = /^\d{4}$/.test(um(params, "ano")) ? Number(um(params, "ano")) : partes(hoje()).ano;
   const { afs, temAf } = await D.quebrasDos(new Set(l.equipamentos));
   const cal = R.calendarioQuebras(c.componentes, afs, ano);
@@ -190,6 +195,15 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
         {!l.equipamentos.length ? <Vazio>Sem equipamento SAP ligado: o calendário sai das AFs dos equipamentos do ledger.</Vazio>
           : !temAf ? <Vazio>O Gerenciador de AF ainda não foi enviado (Fontes de dados).</Vazio>
           : !cal.length ? <Vazio>Nenhuma AF desses equipamentos em {ano}.</Vazio> : <Calendario linhas={cal} />}
+      </Secao>
+
+      <Secao titulo="Operações e IA06" destaque={`· ${inteiro(opsLedger.ligadas.length)} lista(s)`}
+        sub="Listas de tarefas dos equipamentos do ledger (planos da IW38 × IP19, listas diretas e as dos subconjuntos, como na Gestão de MRO). Cada componente recebe a operação sugerida pelo texto (componente, subconjunto, conjunto); o PCM confirma ou troca e baixa a carga IA06 dos que ainda não estão na operação.">
+        {!l.equipamentos.length ? <Vazio>Sem equipamento SAP ligado (ver Correspondência).</Vazio>
+          : !opsLedger.temListas ? <Vazio>O export das listas de tarefas ainda não foi enviado (sub-aba Enviar ledger).</Vazio>
+          : !opsLedger.ops.length ? <Vazio>{opsLedger.ligadas.length ? "As listas de tarefas da máquina não estão no export enviado." : "Nenhuma lista de tarefas ligada aos equipamentos (IW38/IP19)."}</Vazio>
+          : <OperacoesIa06 ledger={l.id} rotulo={`${l.equipamentos.join(", ")} - ${l.nome}`.slice(0, 90)} linhas={opsLedger.linhas} grava={grava}
+              ops={opsLedger.ops.map((o) => ({ valor: `${o.grupo}|${o.numerador}|${o.op.numero}`, rotulo: `${o.grupo}/${o.numerador} · ${o.op.numero} ${o.op.texto}`.slice(0, 90) }))} />}
       </Secao>
 
       <Secao titulo="RCM por índice H" destaque={`· ${inteiro(rcm.length)}`} sub="Do maior índice H ao menor (H da planilha; vazio, calculado).">

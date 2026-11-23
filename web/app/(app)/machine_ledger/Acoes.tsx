@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ENTRADA, Mensagem } from "@/components/Campos";
 import { BOTAO_COMPACTO, BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 import { Xlsx } from "@/lib/leitura/xlsx";
+import { lerListasTarefas } from "@/lib/machineLedger/listasTarefas";
 import { lerLedger, type Sugestao } from "@/lib/machineLedger/regras";
 
 /** Grava pela rota da aba; devolve o erro ("" = deu certo) e a resposta. */
@@ -137,6 +138,42 @@ export function EnviarLedger({ ledgers }: { ledgers: { id: string; nome: string 
       <label className={`${BOTAO_PRIMARIO} cursor-pointer`}>
         {estado.ocupado ? <LoaderCircle className="size-4 animate-spin" /> : <FileUp className="size-4" />} Escolher o .xlsx do Machine Ledger
         <input type="file" accept=".xlsx,.xlsm" className="sr-only" onChange={ler} disabled={estado.ocupado} />
+      </label>
+      {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
+      {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
+    </div>
+  );
+}
+
+/** Enviar o export em texto das listas de tarefas gerais do SAP (lido no navegador; substitui o cadastro inteiro). */
+export function EnviarListas({ atual }: { atual: number }) {
+  const router = useRouter();
+  const [estado, setEstado] = useState({ ocupado: false, erro: "", ok: "" });
+  const ler = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arq = e.target.files?.[0];
+    e.target.value = "";
+    if (!arq) return;
+    setEstado({ ocupado: true, erro: "", ok: "" });
+    try {
+      const bytes = new Uint8Array(await arq.arrayBuffer());
+      let texto = new TextDecoder("utf-8").decode(bytes);
+      if (texto.includes("\uFFFD")) texto = new TextDecoder("windows-1252").decode(bytes); // export salvo em ANSI
+      const r = lerListasTarefas(texto);
+      if ("erro" in r) { setEstado({ ocupado: false, erro: r.erro, ok: "" }); return; }
+      const ops = r.listas.reduce((s, l) => s + l.operacoes.length, 0);
+      if (!window.confirm(`${r.listas.length} listas e ${ops} operações. Substituir as ${atual} listas atuais?`)) { setEstado({ ocupado: false, erro: "", ok: "" }); return; }
+      const resp = await enviar({ acao: "listas", listas: r.listas });
+      setEstado({ ocupado: false, erro: resp.erro, ok: resp.erro ? "" : `${resp.resposta.listas} listas de tarefas gravadas.` });
+      if (!resp.erro) router.refresh();
+    } catch (err) {
+      setEstado({ ocupado: false, erro: `Não foi possível ler o arquivo: ${(err as Error).message || "arquivo inválido"}.`, ok: "" });
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <label className={`${BOTAO_PRIMARIO} cursor-pointer`}>
+        {estado.ocupado ? <LoaderCircle className="size-4 animate-spin" /> : <FileUp className="size-4" />} Escolher o .txt das listas de tarefas
+        <input type="file" accept=".txt,text/plain" className="sr-only" onChange={ler} disabled={estado.ocupado} />
       </label>
       {estado.erro && <Mensagem>{estado.erro}</Mensagem>}
       {estado.ok && <Mensagem tipo="ok">{estado.ok}</Mensagem>}
