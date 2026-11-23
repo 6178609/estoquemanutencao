@@ -25,8 +25,10 @@ export async function GET(req: NextRequest) {
   if (p.get("planilha") === "achados") {
     const { achados } = await D.penteFinoAtual();
     registrar(u.login, "exportacao", "machine_ledger_achados.xlsx");
-    return planilha("machine_ledger_achados.xlsx", gerarXlsxAbas([{ nome: "Achados", colunas: col(["Tipo", "Ativo(s)", "Ledger", "Código", "Descrição", "Detalhe", "Para", "Sinal forte"]),
-      linhas: achados.map((a) => [R.TIPOS_ACHADO[a.tipo], a.ativos.join(", "), a.ledgerNome, a.codigo, a.descricao, a.detalhe, a.para ?? "", a.forte ? "Sim" : ""]) }]));
+    return planilha("machine_ledger_achados.xlsx", gerarXlsxAbas([{ nome: "Achados", colunas: col(["Tipo", "Abrangência", "Ativo(s)", "Ledger", "Código", "Descrição", "Detalhe",
+      "Para", "Sinal forte", "Uso geral", "Fora da MB52", "Aviso secundário"]),
+      linhas: achados.map((a) => [R.TIPOS_ACHADO[a.tipo], R.DO_LEDGER.has(a.tipo) ? `Ledger (${a.ativos.length} equip.)` : "Ativo", a.ativos.join(", "), a.ledgerNome,
+        a.codigo, a.descricao, a.detalhe, a.para ?? "", a.forte ? "Sim" : "", a.usoGeral ? "Sim" : "", a.foraMb52 ? "Sim" : "", a.secundario ? "Sim" : ""]) }]));
   }
   if (p.get("planilha") === "pecas") {
     const id = p.get("id") ?? "";
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
   const u = await autorizar(ABA);
   if (!u) return NextResponse.json({ erro: "Sem acesso." }, { status: 403 });
   if (!D.podeGravarMl(u)) return NextResponse.json({ erro: "Só editores do PCM (fora de Terceiro e Manutentor) alteram o Machine Ledger e os vínculos." }, { status: 403 });
+  if (Number(req.headers.get("content-length") ?? 0) > 8_000_000) return NextResponse.json({ erro: "Planilha grande demais." }, { status: 413 });
   const j = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!j) return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
   try {

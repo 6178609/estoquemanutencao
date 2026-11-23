@@ -74,3 +74,18 @@ o código é procurado pela descrição curta exata no catálogo do Sysmat.
 - Plano Mestre: os ledgers atuais não trazem o código do plano SAP; o cruzamento com a IP19 fica pela contagem até ser preenchido.
 - Demonstração: 4 ledgers fictícios (`lib/machineLedger/demo.ts`) com achados de todos os tipos. Testes em
   `testes/machineLedger.test.ts` e `e2e/machine_ledger.spec.ts`.
+
+## Revisão (23/11/2026, parecer do Opus)
+- Código SAP = só dígitos, 5 a 7 (".0" do Excel removido na leitura e na carga); "SysMat-<nº>" ou 8 dígitos 2006… = Sysmat
+  (convertido pelo catálogo); texto com letras/pontuação (fabricante, desenho) = sem código → descrição curta exata.
+- BLOQUEADO não é inválido: tipo próprio "Bloqueado para compra". Inválido = inexistente, CANCELADO ou DUPLICADO (com o "Para").
+- Estoque: "Estratégico sem saldo" (principal, com "nunca na MB52" quando fora do export atual) separado de "Estocagem
+  recomendada sem saldo" (secundário, recolhido).
+- "Vinculada sem respaldo": por padrão só o sinal forte; código vinculado em ≥ 3 ativos com ledger (ou ≥ 20% deles) é "uso geral".
+  Os secundários aparecem com "Mostrar avisos secundários".
+- Resumo por códigos únicos e "em N ledgers"; achados do próprio ledger contam uma vez por ledger (com a abrangência em
+  equipamentos); o ranking por ativo só usa os de vínculo. Lista paginada (200 por página); resultado guardado pela assinatura
+  das versões (índice, ledgers, conferidos, vínculos) e das bases do catálogo/MB52.
+- Envio: conteúdo sanitizado no servidor campo a campo (`sanitizarConteudo`), abas exigidas conferidas, e o ledger do mesmo
+  arquivo/nome é reaproveitado (reenviar não duplica). Classe e tipo de manutenção do RCM pelos cabeçalhos "Classificação" e
+  "MANUTENÇÃO PM" (CBM/TBM/BM).

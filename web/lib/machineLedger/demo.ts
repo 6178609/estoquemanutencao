@@ -31,7 +31,7 @@ export function ledgersDemo(catalogo: CatDemo[], estoque: EstDemo[]): { indice: 
   const inativo = catalogo.find((c) => c.status === "BLOQUEADO") ?? catalogo[0];
   const porPdm = (p: string, i = 0) => ativos.filter((c) => c.descricaoCurta.startsWith(p))[i] ?? ativos[i];
   const rol = porPdm("ROLAMENTO"), cor = porPdm("CORREIA"), sen = porPdm("SENSOR"), val = porPdm("VALVULA");
-  const usados = new Set([rol, cor, sen, val, semSaldo[0]].map((c) => c?.material));
+  const usados = new Set([rol, cor, sen, val, semSaldo[0], semSaldo[1]].map((c) => c?.material));
   const unico = ativos.find((c) => !usados.has(c.material) && /^CONTATOR/.test(c.descricaoCurta)
     && ativos.filter((x) => x.descricaoCurta === c.descricaoCurta).length === 1) ?? ativos[5];
   const base = { tipo: "maquina" as const, revisao: "01/03/2026", origem: "automatica" as const, sugestoes: [], enviadoEm: "2026-01-10T12:00:00Z",
@@ -53,6 +53,7 @@ export function ledgersDemo(catalogo: CatDemo[], estoque: EstDemo[]): { indice: 
     peca("SISTEMA HIDRAULICO", val.material, "CORREIA DENTADA HTD 8M"), // descrição trocada: o código é de uma válvula
     peca("SISTEMA HIDRAULICO", semSaldo[0].material, "PECA ESTRATEGICA SEM SALDO", { estrategico: true, estSegAlmox: 1 }),
     peca("SISTEMA HIDRAULICO", "1234567", "VALVULA DE ALIVIO (CODIGO QUE NAO EXISTE)"),
+    peca("SISTEMA HIDRAULICO", semSaldo[1].material, "PECA COM ESTOCAGEM RECOMENDADA", { reserva: true }),
     peca("SISTEMA HIDRAULICO", inativo.material, "ITEM COM CADASTRO BLOQUEADO"),
     peca("SISTEMA ELETRICO", "", unico.descricaoCurta, { estSegUbm: 1 }), // sem código: achado pela descrição curta
   ];

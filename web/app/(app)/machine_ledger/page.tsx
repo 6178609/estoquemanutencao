@@ -23,8 +23,10 @@ const TH = "px-3 py-2 text-left text-[12px] font-medium text-texto-3 whitespace-
 const TD = "px-3 py-2 align-top";
 const BOTAO_LINK = "inline-flex h-11 items-center gap-2 rounded-xl border border-borda bg-superficie px-4 text-[13.5px] hover:bg-superficie-2";
 const COR_TIPO: Record<R.TipoAchado, "laranja" | "vermelho" | "amarelo" | "azul" | "cinza"> = {
-  faltando: "laranja", sem_respaldo: "amarelo", codigo_invalido: "vermelho", descricao_divergente: "amarelo", sem_saldo: "vermelho", ledger_copiado: "azul",
+  faltando: "laranja", sem_respaldo: "amarelo", codigo_invalido: "vermelho", bloqueado: "amarelo", descricao_divergente: "amarelo",
+  estrategico_sem_saldo: "vermelho", reserva_sem_saldo: "cinza", ledger_copiado: "azul",
 };
+const POR_PAGINA = 200;
 
 /**
  * Machine Ledger — as planilhas RCM de cada máquina cruzadas com os ativos (spec docs/superpowers/specs/2026-11-23-machine-ledger-design.md).
@@ -71,6 +73,7 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
 async function VisaoGeral({ indice }: { indice: R.Indice[] }) {
   const { achados, todos, base } = await D.penteFinoAtual();
   const vinc = await D.vinculos();
+  const principais = achados.filter((a) => R.visivel(a, false));
   const res = R.resumoAchados(achados);
   const equipamentos = new Set(indice.flatMap((i) => i.equipamentos));
   let total = 0, vinculadas = 0;
@@ -94,11 +97,12 @@ async function VisaoGeral({ indice }: { indice: R.Indice[] }) {
         <Kpi rotulo="Peças do ledger vinculadas" valor={total ? `${Math.round((vinculadas / total) * 100)}%` : "—"} detalhe={`${inteiro(vinculadas)} de ${inteiro(total)} (ativo × código válido)`}
           tom={total && vinculadas / total >= 0.8 ? "verde" : "laranja"} />
       </div>
-      <Secao titulo="Achados do pente fino" destaque={`· ${inteiro(achados.length)}`} sub="Por tipo; abra o pente fino para agir.">
+      <Secao titulo="Achados do pente fino" destaque={`· ${inteiro(principais.length)}`}
+        sub="Por tipo: códigos únicos e em quantos ledgers. Os avisos secundários (sem respaldo sem sinal forte, estocagem recomendada sem saldo) ficam recolhidos no pente fino.">
         <div className="flex flex-wrap gap-2">
           {(Object.keys(R.TIPOS_ACHADO) as R.TipoAchado[]).map((t) => (
             <Link key={t} prefetch={false} href={`?visao=${encodeURIComponent("Pente fino do MRO")}&tipo=${t}`} className="rounded-xl border border-borda bg-superficie px-3 py-2 text-[13px] hover:bg-superficie-2">
-              <Selo cor={COR_TIPO[t]}>{inteiro(res.porTipo[t])}</Selo> {R.TIPOS_ACHADO[t]}
+              <Selo cor={COR_TIPO[t]}>{inteiro(res.porTipo[t].codigos)}</Selo> {R.TIPOS_ACHADO[t]} <span className="text-texto-3">· em {inteiro(res.porTipo[t].ledgers)} ledger(s)</span>
             </Link>
           ))}
         </div>
@@ -232,7 +236,7 @@ async function Maquinas({ indice, params }: { indice: R.Indice[]; params: Params
               return (
                 <tr key={i} className="border-t border-borda">
                   <td className={`${TD} num`}>{r.codigo || <span className="text-texto-3">{p.codigo || "sem código"}</span>}
-                    {r.situacao !== "ok" && r.situacao !== "sem_codigo" && <div><Selo cor="vermelho">{r.situacao === "inativo" ? r.status.toLowerCase() : "não existe"}</Selo></div>}
+                    {r.situacao !== "ok" && r.situacao !== "sem_codigo" && <div><Selo cor={r.situacao === "bloqueado" ? "amarelo" : "vermelho"}>{r.situacao === "bloqueado" ? "bloqueado" : r.status ? r.status.toLowerCase() : "não existe"}</Selo></div>}
                     {r.origem === "descricao" && <div><Selo cor="azul">pela descrição</Selo></div>}</td>
                   <td className={`${TD} min-w-[14rem]`}>{p.descricao}</td><td className={TD}>{p.conjunto}</td>
                   <td className={`${TD} num`}>{saldo == null ? "—" : saldo <= 0 && (p.estrategico || p.reserva) ? <Selo cor="vermelho">{saldo}</Selo> : saldo}</td>
@@ -287,29 +291,50 @@ function Calendario({ linhas }: { linhas: R.LinhaCalendario[] }) {
 
 // ----------------------------------------------------------------------------
 async function Pente({ params, grava }: { params: Params; grava: boolean }) {
-  const { achados, conferidos } = await D.penteFinoAtual();
+  const { achados, conferidos, todos: ledgers } = await D.penteFinoAtual();
   const tipo = um(params, "tipo") in R.TIPOS_ACHADO ? (um(params, "tipo") as R.TipoAchado) : "";
+  const todos = um(params, "todos") === "1";
   const q = um(params, "q").trim().toUpperCase();
-  const lista = achados.filter((a) => (!tipo || a.tipo === tipo) && (!q || a.ativos.some((x) => x.includes(q)) || a.ledgerNome.toUpperCase().includes(q) || a.codigo.includes(q)));
-  const res = R.resumoAchados(achados);
+  const lista = achados.filter((a) => (tipo ? a.tipo === tipo && (todos || !a.secundario || tipo === "reserva_sem_saldo") : R.visivel(a, todos))
+    && (!q || a.ativos.some((x) => x.includes(q)) || a.ledgerNome.toUpperCase().includes(q) || a.codigo.includes(q)));
+  const equips = new Map(ledgers.map((l) => [l.indice.id, l.indice.equipamentos.length]));
+  const res = R.resumoAchados(achados.filter((a) => R.visivel(a, todos)), (id) => equips.get(id) ?? 0);
+  const ocultos = achados.filter((a) => a.secundario).length;
+  const pags = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+  const pag = Math.min(pags, Math.max(1, Number(um(params, "pag")) || 1));
   return (
     <Secao titulo="Pente fino do MRO" destaque={`· ${inteiro(lista.length)}`}
-      sub={`Peças do ledger × peças vinculadas ao ativo (as mesmas da Gestão de MRO), códigos no Sysmat e saldo na MB52. ${conferidos ? `${inteiro(conferidos)} conferido(s) fora da lista.` : ""}`}
+      sub={`Peças do ledger × peças vinculadas ao ativo (as mesmas da Gestão de MRO), códigos no Sysmat e saldo na MB52. ${todos ? "" : `${inteiro(ocultos)} aviso(s) secundário(s) recolhido(s) (sem respaldo sem sinal forte, uso geral, estocagem recomendada). `}${conferidos ? `${inteiro(conferidos)} conferido(s) fora da lista.` : ""}`}
       acoes={<a href="/api/machine_ledger?planilha=achados" className={BOTAO_LINK}><Download className="size-4" /> Excel</a>}>
-      <Controles limpar={[]} controles={[
-        { tipo: "escolha", chave: "tipo", rotulo: "Tipo", valor: tipo, opcoes: [{ valor: "", rotulo: `Todos (${inteiro(achados.length)})` },
-          ...(Object.keys(R.TIPOS_ACHADO) as R.TipoAchado[]).map((t) => ({ valor: t, rotulo: `${R.TIPOS_ACHADO[t]} (${inteiro(res.porTipo[t])})` }))] },
+      <Controles limpar={["pag"]} controles={[
+        { tipo: "escolha", chave: "tipo", rotulo: "Tipo", valor: tipo, opcoes: [{ valor: "", rotulo: "Todos os tipos" },
+          ...(Object.keys(R.TIPOS_ACHADO) as R.TipoAchado[]).map((t) => ({ valor: t, rotulo: `${R.TIPOS_ACHADO[t]} (${inteiro(res.porTipo[t].codigos)} cód.)` }))] },
+        { tipo: "alternar", chave: "todos", rotulo: "Mostrar avisos secundários", valor: todos, dica: "Sem respaldo sem sinal forte (inclui uso geral) e estocagem recomendada sem saldo" },
         { tipo: "busca", chave: "q", valor: um(params, "q"), placeholder: "Ativo, ledger ou código" },
       ]} />
+      <details className="rounded-xl border border-borda bg-superficie px-4 py-2 text-[13px]">
+        <summary className="cursor-pointer py-1 font-medium">Resumo: por tipo, por ledger e por ativo</summary>
+        <div className="mt-2 grid gap-4 md:grid-cols-3">
+          <ul className="space-y-1">{(Object.keys(R.TIPOS_ACHADO) as R.TipoAchado[]).map((t) => (
+            <li key={t}>{R.TIPOS_ACHADO[t]}: <b className="num">{inteiro(res.porTipo[t].codigos)}</b> código(s) em {inteiro(res.porTipo[t].ledgers)} ledger(s) · {inteiro(res.porTipo[t].achados)} achado(s)</li>))}</ul>
+          <div><div className="mb-1 text-texto-3">Do próprio ledger (uma vez por ledger)</div><ul className="space-y-1">{res.porLedger.slice(0, 8).map((l) => (
+            <li key={l.ledger}>{l.nome}: <b className="num">{l.n}</b> <span className="text-texto-3">· vale para {l.equipamentos} equip.</span></li>))}</ul></div>
+          <div><div className="mb-1 text-texto-3">De vínculo, por ativo</div><ul className="space-y-1">{res.porAtivo.slice(0, 8).map((a) => (
+            <li key={a.ativo} className="num">{a.ativo}: <b>{a.n}</b></li>))}</ul></div>
+        </div>
+      </details>
       {!lista.length ? <Vazio>Nenhum achado{tipo ? " desse tipo" : ""}.</Vazio> : (
         <ul className="space-y-2" aria-label="Achados">
-          {lista.slice(0, MAX_LINHAS).map((a) => (
+          {lista.slice((pag - 1) * POR_PAGINA, pag * POR_PAGINA).map((a) => (
             <li key={a.chave} data-achado={a.tipo} className="rounded-xl border border-borda bg-superficie p-3">
               <div className="flex flex-wrap items-center gap-2 text-[13px]">
                 <Selo cor={COR_TIPO[a.tipo]}>{R.TIPOS_ACHADO[a.tipo]}</Selo>
                 {a.forte && <Selo cor="vermelho">sinal forte</Selo>}
-                <span className="num font-semibold">{a.ativos.join(", ") || "sem equipamento"}</span>
-                <span className="text-texto-3">· {a.ledgerNome}</span>
+                {a.usoGeral && <Selo>uso geral</Selo>}
+                {a.foraMb52 && <Selo cor="vermelho">nunca na MB52</Selo>}
+                {R.DO_LEDGER.has(a.tipo)
+                  ? <span className="text-texto-2">{a.ledgerNome} <span className="text-texto-3">· vale para {a.ativos.length ? `${a.ativos.length} equip. (${a.ativos.slice(0, 3).join(", ")}${a.ativos.length > 3 ? "…" : ""})` : "nenhum equipamento"}</span></span>
+                  : <><span className="num font-semibold">{a.ativos[0]}</span><span className="text-texto-3">· {a.ledgerNome}</span></>}
               </div>
               <div className="mt-1.5 text-[13.5px]">{a.codigo && <b className="num">{a.codigo} </b>}{a.descricao}</div>
               <div className="mt-0.5 text-[12.5px] text-texto-3">{a.detalhe}{a.para && ` Para: ${a.para}.`}</div>
@@ -318,7 +343,13 @@ async function Pente({ params, grava }: { params: Params; grava: boolean }) {
           ))}
         </ul>
       )}
-      {lista.length > MAX_LINHAS && <p className="text-[12.5px] text-texto-3">Mostrando {MAX_LINHAS} de {inteiro(lista.length)}; filtre ou baixe o Excel.</p>}
+      {pags > 1 && (
+        <nav aria-label="Páginas" className="flex flex-wrap items-center gap-2 text-[13px]">
+          {pag > 1 && <Link prefetch={false} className={BOTAO_LINK} href={hrefCom(params, { pag: String(pag - 1) })}>← Anterior</Link>}
+          <span className="text-texto-3">Página {pag} de {pags} ({inteiro(lista.length)} achados)</span>
+          {pag < pags && <Link prefetch={false} className={BOTAO_LINK} href={hrefCom(params, { pag: String(pag + 1) })}>Próxima →</Link>}
+        </nav>
+      )}
     </Secao>
   );
 }

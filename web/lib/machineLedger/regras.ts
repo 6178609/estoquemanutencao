@@ -169,9 +169,9 @@ export function lerRcm(linhas: unknown[][]): Componente[] {
     seguranca: colunaEm(cab, /IMPACTO EM SEGURANCA/), qualidade: colunaEm(cab, /IMPACTO EM QUALIDADE/),
     g: colunaEm(cab, /GRAU DE IMPACTO/), p: colunaEm(cab, /PROBABILIDADE/), t: colunaEm(cab, /TEMPO DE REPARO/),
     v: colunaEm(cab, /VALOR DO COMPONENTE/), h: colunaEm(cab, /INDICE H/),
+    // classe (A/B/C) e tipo de manutenção (CBM/TBM/BM) pelos cabeçalhos "Classificação" e "MANUTENÇÃO PM"
+    classe: colunaEm(cab, /^CLASSIFICACAO/), tipoManut: colunaEm(cab, /^MANUTENCAO PM$/),
   };
-  const classe = col.h >= 0 ? col.h + 1 : -1;
-  const tipoManut = classe >= 0 ? classe + 1 : -1;
   const out: Componente[] = [];
   // células mescladas: equipamento, conjunto e subconjunto só vêm na 1ª linha do bloco (repete o de cima)
   let equip = "", conjunto = "", subconjunto = "";
@@ -184,13 +184,13 @@ export function lerRcm(linhas: unknown[][]): Componente[] {
     if (!componente || /^(EQUIPAMENTO|MACHINE LEDGER|ESTRUTURA)/.test(norm(e0)) || /^COMPONENTE/.test(norm(componente)) || !(equip || conjunto)) continue;
     out.push({
       equip, conjunto, subconjunto,
-      componente, codigo: txt(cel(l, col.codigo), 40), qtd: txt(cel(l, col.qtd), 20), funcao: txt(cel(l, col.funcao), 300),
+      componente, codigo: limparCodigo(cel(l, col.codigo)), qtd: txt(cel(l, col.qtd), 20), funcao: txt(cel(l, col.funcao), 300),
       falha: txt(cel(l, col.falha), 300), deterioracao: txt(cel(l, col.deterioracao), 40), modo: txt(cel(l, col.modo), 300),
       efeito: txt(cel(l, col.efeito), 300), evidente: marcado(cel(l, col.evidente)), oculta: marcado(cel(l, col.oculta)),
       seguranca: sn(cel(l, col.seguranca)), qualidade: sn(cel(l, col.qualidade)), parada: sn(cel(l, col.g)),
       p: num(cel(l, col.p)), t: num(cel(l, col.t)), v: num(cel(l, col.v)), h: num(cel(l, col.h)),
-      classe: /^[ABC]$/.test(norm(cel(l, classe))) ? norm(cel(l, classe)) : "",
-      tipoManut: txt(l.slice(tipoManut, tipoManut + 8).map((x) => txt(x)).filter(Boolean).join(" "), 40),
+      classe: /^[ABC]$/.test(norm(cel(l, col.classe))) ? norm(cel(l, col.classe)) : "",
+      tipoManut: txt(cel(l, col.tipoManut), 20),
     });
     if (out.length >= MAX_LINHAS) break;
   }
@@ -214,7 +214,7 @@ export function lerPlano(linhas: unknown[][]): Atividade[] {
     out.push({ conjunto: txt(cel(l, col.conjunto), 160), subconjunto: txt(cel(l, col.subconjunto), 160), componente: txt(cel(l, col.componente), 200),
       atividade, cilr: txt(cel(l, col.cilr), 60), tipo: txt(cel(l, col.tipo), 60), tempoMin: num(cel(l, col.tempo)),
       periodicidade: txt(cel(l, col.periodicidade), 40), mec: num(cel(l, col.mec)), ele: num(cel(l, col.ele)),
-      procedimento: txt(cel(l, col.procedimento), 120), planoSap: txt(cel(l, col.plano), 40) });
+      procedimento: txt(cel(l, col.procedimento), 120), planoSap: limparCodigo(cel(l, col.plano)) });
     if (out.length >= MAX_LINHAS) break;
   }
   return out;
@@ -234,7 +234,7 @@ export function lerPecas(linhas: unknown[][]): Peca[] {
   for (const l of linhas.slice(iCab + 1)) {
     const descricao = txt(cel(l, col.descricao), 200);
     if (!descricao || /^DESCRICAO$/.test(norm(descricao))) continue;
-    out.push({ conjunto: txt(cel(l, col.conjunto), 160), codigo: txt(cel(l, col.codigo), 40), descricao, consumivel: txt(cel(l, col.consumivel), 40),
+    out.push({ conjunto: txt(cel(l, col.conjunto), 160), codigo: limparCodigo(cel(l, col.codigo)), descricao, consumivel: txt(cel(l, col.consumivel), 40),
       classe: txt(cel(l, col.classe), 40), estrategico: ehEstrategico(cel(l, col.estrategico)), reserva: ehReserva(cel(l, col.reserva)),
       estSegAlmox: num(cel(l, col.almox)), valorUnit: num(cel(l, col.valor)), area: txt(cel(l, col.area), 60),
       posicao: txt(cel(l, col.posicao), 60), estSegUbm: num(cel(l, col.ubm)) });
@@ -288,10 +288,46 @@ export function itemIndice(i: Omit<Indice, "id">): Record<string, unknown> {
   return { ...i, equipamentos: limparEquipamentos(i.equipamentos) };
 }
 
+/** Código como veio da planilha, sem o ".0" que o Excel põe em número (9990001.0 → 9990001). */
+export const limparCodigo = (v: unknown) => txt(v, 40).replace(/^(\d+)\.0+$/, "$1");
+const numOuNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : v == null || v === "" ? null : num(v));
+const boolOuNull = (v: unknown): boolean | null => (typeof v === "boolean" ? v : v == null || v === "" ? null : sn(v));
+
+/**
+ * Conteúdo de um ledger campo a campo (texto com limite, número, S/N): vale para a leitura do cadastro e para o que o
+ * navegador manda no envio (nada além desses campos é gravado). Linhas acima de MAX_LINHAS são cortadas.
+ */
+export function sanitizarConteudo(v: unknown): Conteudo {
+  const l = ehObj(v) ? v : {};
+  const comp = (x: Record<string, unknown>): Componente => ({
+    equip: txt(x.equip, 160), conjunto: txt(x.conjunto, 160), subconjunto: txt(x.subconjunto, 160), componente: txt(x.componente, 200),
+    codigo: limparCodigo(x.codigo), qtd: txt(x.qtd, 20), funcao: txt(x.funcao), falha: txt(x.falha), deterioracao: txt(x.deterioracao, 40), modo: txt(x.modo),
+    efeito: txt(x.efeito), evidente: x.evidente === true, oculta: x.oculta === true, seguranca: boolOuNull(x.seguranca), qualidade: boolOuNull(x.qualidade),
+    parada: boolOuNull(x.parada), p: numOuNull(x.p), t: numOuNull(x.t), v: numOuNull(x.v), h: numOuNull(x.h),
+    classe: /^[ABC]$/.test(txt(x.classe, 2)) ? txt(x.classe, 2) : "", tipoManut: txt(x.tipoManut, 20) });
+  const ativ = (x: Record<string, unknown>): Atividade => ({
+    conjunto: txt(x.conjunto, 160), subconjunto: txt(x.subconjunto, 160), componente: txt(x.componente, 200), atividade: txt(x.atividade),
+    cilr: txt(x.cilr, 60), tipo: txt(x.tipo, 60), tempoMin: numOuNull(x.tempoMin), periodicidade: txt(x.periodicidade, 40), mec: numOuNull(x.mec),
+    ele: numOuNull(x.ele), procedimento: txt(x.procedimento, 120), planoSap: limparCodigo(x.planoSap) });
+  const peca = (x: Record<string, unknown>): Peca => ({
+    conjunto: txt(x.conjunto, 160), codigo: limparCodigo(x.codigo), descricao: txt(x.descricao, 200), consumivel: txt(x.consumivel, 40),
+    classe: txt(x.classe, 40), estrategico: x.estrategico === true, reserva: x.reserva === true, estSegAlmox: numOuNull(x.estSegAlmox),
+    valorUnit: numOuNull(x.valorUnit), area: txt(x.area, 60), posicao: txt(x.posicao, 60), estSegUbm: numOuNull(x.estSegUbm) });
+  return {
+    componentes: lista(l.componentes).filter(ehObj).slice(0, MAX_LINHAS).map(comp).filter((c) => c.componente),
+    plano: lista(l.plano).filter(ehObj).slice(0, MAX_LINHAS).map(ativ).filter((a) => a.atividade),
+    pecas: lista(l.pecas).filter(ehObj).slice(0, MAX_LINHAS).map(peca).filter((x) => x.descricao),
+  };
+}
+
 export function conteudoDe(cad: Record<string, unknown>): Conteudo {
-  const l = ehObj(cad.ledger) ? cad.ledger : {};
-  return { componentes: lista(l.componentes).filter(ehObj) as unknown as Componente[], plano: lista(l.plano).filter(ehObj) as unknown as Atividade[],
-    pecas: lista(l.pecas).filter(ehObj) as unknown as Peca[] };
+  return sanitizarConteudo(cad.ledger);
+}
+
+/** O ledger do índice com o mesmo arquivo ou o mesmo nome (normalizados): reenviar não cria outro. */
+export function ledgerDoMesmoNome(indice: Pick<Indice, "id" | "arquivo" | "nome">[], arquivo: string, nome: string): string | null {
+  const a = norm(nomeDoArquivo(arquivo)), n = norm(nome);
+  return indice.find((i) => norm(nomeDoArquivo(i.arquivo)) === a || (!!n && norm(i.nome) === n))?.id ?? null;
 }
 
 /** id estável para um arquivo novo: "ml-" + hash curto do nome. */
@@ -344,27 +380,39 @@ export function indexarBase(catalogo: { material: string; sysmat: string; substi
   return { cat, porSysmat, porDescricao, saldo };
 }
 
-export type SituacaoCodigo = "ok" | "inexistente" | "inativo" | "sem_codigo";
+export type SituacaoCodigo = "ok" | "bloqueado" | "inexistente" | "sem_codigo";
 export interface Resolvido { codigo: string; situacao: SituacaoCodigo; origem: "ledger" | "sysmat" | "descricao" | ""; para: string; status: string }
 
 /**
- * O código SAP de uma peça/componente do ledger. 5 a 7 dígitos = código SAP; "SysMat-…"/8 dígitos = código Sysmat
- * (convertido pelo catálogo); 8 dígitos que não são Sysmat, menos de 5 ou vazio = sem código SAP (código do fabricante ou
- * nº do item) → procura a descrição curta exata no catálogo.
+ * O código SAP de uma peça/componente do ledger:
+ * - só dígitos, 5 a 7 (o ".0" do Excel já sai na leitura) = código SAP;
+ * - "SysMat-<nº>" ou 8 dígitos começando por 2006 = código Sysmat, convertido pelo catálogo;
+ * - qualquer outro texto (código do fabricante, desenho, com letras ou pontuação) ou vazio = sem código SAP → procura a
+ *   descrição curta exata (e única) no catálogo.
+ * BLOQUEADO no Sysmat = "bloqueado" (aviso de compra, não código inválido); inexistente, CANCELADO ou DUPLICADO = "inexistente"
+ * (com o "Para" do catálogo, se houver). "SysMat-…" que não está no catálogo também é inexistente; 8 dígitos sem prefixo, não.
  */
 export function resolverCodigo(bruto: string, descricao: string, b: BaseCodigos): Resolvido {
-  const d = semZeros(bruto.replace(/\D/g, ""));
+  const s = limparCodigo(bruto);
   const vazio: Resolvido = { codigo: "", situacao: "sem_codigo", origem: "", para: "", status: "" };
-  if (!b.cat) return d.length >= 5 && d.length <= 7 ? { ...vazio, codigo: d, situacao: "ok", origem: "ledger" } : vazio;
+  const sap = /^\d{5,7}$/.test(s) ? semZeros(s) : "";
+  const pref = /^SYS\s*-?\s*MAT\W*(\d{5,9})$/i.exec(s)?.[1];
+  const sysmat = pref ?? (/^2006\d{4}$/.test(s) ? s : "");
+  if (!b.cat) return sap ? { ...vazio, codigo: sap, situacao: "ok", origem: "ledger" } : vazio;
   const achou = (k: string, origem: Resolvido["origem"]): Resolvido => {
     const c = b.cat!.get(k)!;
-    return { codigo: k, situacao: INATIVOS.has(c.status) ? "inativo" : "ok", origem, para: c.para, status: c.status };
+    const situacao: SituacaoCodigo = c.status === "BLOQUEADO" ? "bloqueado" : INATIVOS.has(c.status) ? "inexistente" : "ok";
+    return { codigo: k, situacao, origem, para: c.para, status: c.status };
   };
-  const sysmat = /SYS ?MAT/i.test(bruto) || d.length === 8;
-  if (sysmat && b.porSysmat.has(d)) return achou(b.porSysmat.get(d)!, "sysmat");
-  if (d.length >= 5 && d.length <= 7) {
-    if (b.cat.has(d)) return achou(d, "ledger");
-    return { codigo: d, situacao: "inexistente", origem: "ledger", para: "", status: "" };
+  if (sap) {
+    if (b.cat.has(sap)) return achou(sap, "ledger");
+    if (b.porSysmat.has(sap)) return achou(b.porSysmat.get(sap)!, "sysmat");
+    return { codigo: sap, situacao: "inexistente", origem: "ledger", para: "", status: "" };
+  }
+  if (sysmat) {
+    const k = b.porSysmat.get(semZeros(sysmat));
+    if (k) return achou(k, "sysmat");
+    if (pref) return { codigo: semZeros(sysmat), situacao: "inexistente", origem: "sysmat", para: "", status: "" };
   }
   const porDesc = b.porDescricao.get(norm(descricao));
   if (porDesc) return achou(porDesc, "descricao");
@@ -378,11 +426,15 @@ export const TIPOS_ACHADO = {
   faltando: "Faltando no ativo",
   sem_respaldo: "Vinculada sem respaldo",
   codigo_invalido: "Código inválido",
+  bloqueado: "Bloqueado para compra",
   descricao_divergente: "Descrição divergente",
-  sem_saldo: "Estratégico/reserva sem saldo",
+  estrategico_sem_saldo: "Estratégico sem saldo",
+  reserva_sem_saldo: "Estocagem recomendada sem saldo",
   ledger_copiado: "Ledger copiado",
 } as const;
 export type TipoAchado = keyof typeof TIPOS_ACHADO;
+/** Achados do próprio ledger (valem para todos os equipamentos dele); os outros são do vínculo de um ativo. */
+export const DO_LEDGER = new Set<TipoAchado>(["codigo_invalido", "bloqueado", "descricao_divergente", "estrategico_sem_saldo", "reserva_sem_saldo", "ledger_copiado"]);
 export interface Achado {
   chave: string; tipo: TipoAchado; ledger: string; ledgerNome: string;
   /** os ativos afetados (o próprio, nos achados de vínculo; os do ledger, nos do próprio ledger) */
@@ -390,6 +442,12 @@ export interface Achado {
   /** "vincular" | "desvincular": a ação de vínculo da linha (no `ativos[0]`) */
   acao: "vincular" | "desvincular" | null;
   forte?: boolean; para?: string;
+  /** sem respaldo de código vinculado a muitos ativos (≥ 3 ou ≥ 20% dos ativos com ledger) */
+  usoGeral?: boolean;
+  /** fora da MB52 de hoje (nunca esteve no estoque, pelo export atual) */
+  foraMb52?: boolean;
+  /** aviso secundário: oculto por padrão (sem respaldo sem sinal forte; estocagem recomendada sem saldo) */
+  secundario?: boolean;
 }
 export const chaveAchado = (tipo: TipoAchado, alvo: string, codigo: string) => `${tipo}|${alvo}|${codigo}`;
 
@@ -447,6 +505,7 @@ export function pecasResolvidas(l: Conteudo, b: BaseCodigos): PecaLedger[] {
 
 /** Ledger para o pente fino: índice + conteúdo. */
 export interface EntradaPente { indice: Indice; conteudo: Conteudo }
+export const USO_GERAL_ATIVOS = 3, USO_GERAL_FRACAO = 0.2;
 
 /**
  * Os achados do pente fino. `vinculados(ativo)` = os materiais do ativo em cadastro_equipamentos.json (os mesmos da
@@ -461,28 +520,32 @@ export function penteFino(ledgers: EntradaPente[], vinculados: (ativo: string) =
     if (f) fabricantes.set(indice.id, f);
   }
   // códigos do ledger por ativo (um ativo pode ter mais de um ledger)
-  const porAtivo = new Map<string, { codigos: Map<string, { ledger: Indice; p: PecaLedger }>; fabs: Set<string> }>();
+  const porAtivo = new Map<string, { codigos: Map<string, { ledger: Indice; p: PecaLedger }>; fabs: Set<string>; ledger: Indice }>();
   const resolvidas = new Map<string, PecaLedger[]>();
   for (const { indice, conteudo } of ledgers) {
     const pecas = pecasResolvidas(conteudo, b);
     resolvidas.set(indice.id, pecas);
     for (const a of indice.equipamentos) {
-      const x = porAtivo.get(a) ?? { codigos: new Map(), fabs: new Set<string>() };
+      const x = porAtivo.get(a) ?? { codigos: new Map(), fabs: new Set<string>(), ledger: indice };
       porAtivo.set(a, x);
       if (fabricantes.has(indice.id)) x.fabs.add(fabricantes.get(indice.id)!);
-      for (const p of pecas) if (p.r.situacao === "ok" && !x.codigos.has(p.r.codigo)) x.codigos.set(p.r.codigo, { ledger: indice, p });
+      for (const p of pecas) if (p.r.situacao !== "inexistente" && p.r.situacao !== "sem_codigo" && !x.codigos.has(p.r.codigo)) x.codigos.set(p.r.codigo, { ledger: indice, p });
     }
   }
   const todosFabs = new Set(fabricantes.values());
+  const vincPorAtivo = new Map([...porAtivo.keys()].map((a) => [a, new Set(vinculados(a).map(semZeros))]));
+  // em quantos ativos com ledger cada código está vinculado (uso geral = parafuso, graxa, conexão…)
+  const usos = new Map<string, number>();
+  for (const v of vincPorAtivo.values()) for (const c of v) usos.set(c, (usos.get(c) ?? 0) + 1);
+  const limiteUso = Math.max(1, Math.min(USO_GERAL_ATIVOS, Math.ceil(porAtivo.size * USO_GERAL_FRACAO)));
   // 1 e 2: vínculos por ativo
   for (const [ativo, x] of porAtivo) {
-    const vinc = new Set(vinculados(ativo).map(semZeros));
+    const vinc = vincPorAtivo.get(ativo)!;
     for (const [cod, { ledger, p }] of x.codigos) {
-      if (vinc.has(cod)) continue;
+      if (vinc.has(cod) || p.r.situacao !== "ok") continue;
       push({ chave: chaveAchado("faltando", ativo, cod), tipo: "faltando", ledger: ledger.id, ledgerNome: ledger.nome, ativos: [ativo], codigo: cod,
         descricao: b.cat?.get(cod)?.descricao || p.descricao, detalhe: `No ledger${p.peca?.conjunto ? ` (${p.peca.conjunto})` : p.componente?.conjunto ? ` (${p.componente.conjunto})` : ""} e não vinculada ao ativo.`, acao: "vincular" });
     }
-    const ledgerDoAtivo = ledgers.find((l) => l.indice.equipamentos.includes(ativo))!.indice;
     for (const cod of vinc) {
       if (x.codigos.has(cod)) continue;
       const c = b.cat?.get(cod);
@@ -490,61 +553,90 @@ export function penteFino(ledgers: EntradaPente[], vinculados: (ativo: string) =
       const outro = [...todosFabs].find((f) => !x.fabs.has(f) && new RegExp(`\\b${f}\\b`).test(texto));
       const proprio = [...x.fabs].some((f) => new RegExp(`\\b${f}\\b`).test(texto));
       const forte = !!outro && !proprio;
-      push({ chave: chaveAchado("sem_respaldo", ativo, cod), tipo: "sem_respaldo", ledger: ledgerDoAtivo.id, ledgerNome: ledgerDoAtivo.nome, ativos: [ativo],
-        codigo: cod, descricao: c?.descricao || b.saldo?.get(cod)?.descricao || "", acao: "desvincular", forte,
-        detalhe: forte ? `Vinculada ao ativo, fora do ledger, e a descrição cita outro fabricante (${outro}).` : "Vinculada ao ativo e fora do ledger da máquina." });
+      const usoGeral = (usos.get(cod) ?? 0) >= limiteUso && porAtivo.size > 1;
+      push({ chave: chaveAchado("sem_respaldo", ativo, cod), tipo: "sem_respaldo", ledger: x.ledger.id, ledgerNome: x.ledger.nome, ativos: [ativo],
+        codigo: cod, descricao: c?.descricao || b.saldo?.get(cod)?.descricao || "", acao: "desvincular", forte, usoGeral, secundario: !forte,
+        detalhe: forte ? `Vinculada ao ativo, fora do ledger, e a descrição cita outro fabricante (${outro}).`
+          : usoGeral ? `Fora do ledger, mas vinculada em ${usos.get(cod)} ativos com ledger (uso geral).` : "Vinculada ao ativo e fora do ledger da máquina." });
     }
   }
-  // 3 a 6: o próprio ledger
+  // 3 a 7: o próprio ledger
   for (const { indice, conteudo } of ledgers) {
     const alvo = indice.id;
+    const base = { ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos, acao: null } as const;
     for (const p of resolvidas.get(alvo) ?? []) {
       const c = b.cat?.get(p.r.codigo);
-      if (p.r.situacao === "inexistente" || p.r.situacao === "inativo") {
-        const paraOk = !!p.r.para && b.cat?.get(p.r.para) && !INATIVOS.has(b.cat.get(p.r.para)!.status);
-        push({ chave: chaveAchado("codigo_invalido", alvo, p.r.codigo), tipo: "codigo_invalido", ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos,
-          codigo: p.r.codigo, descricao: p.descricao, acao: null, para: paraOk ? p.r.para : "",
-          detalhe: p.r.situacao === "inexistente" ? "Código não existe no catálogo do Sysmat (ou foi cancelado/duplicado e saiu do banco)."
-            : `Código ${p.r.status.toLowerCase()} no Sysmat${paraOk ? ` — usar o "Para" ${p.r.para}` : ""}.` });
+      const paraOk = !!p.r.para && !!b.cat?.get(p.r.para) && !INATIVOS.has(b.cat!.get(p.r.para)!.status);
+      if (p.r.situacao === "inexistente") {
+        push({ ...base, chave: chaveAchado("codigo_invalido", alvo, p.r.codigo), tipo: "codigo_invalido", codigo: p.r.codigo, descricao: p.descricao,
+          para: paraOk ? p.r.para : "", detalhe: p.r.status ? `Código ${p.r.status.toLowerCase()} no Sysmat${paraOk ? ` — usar o "Para" ${p.r.para}` : ""}.`
+            : p.r.origem === "sysmat" ? "Código Sysmat que não está no catálogo." : "Código não existe no catálogo do Sysmat (ou foi cancelado/duplicado e saiu do banco)." });
         continue;
       }
+      if (p.r.situacao === "bloqueado")
+        push({ ...base, chave: chaveAchado("bloqueado", alvo, p.r.codigo), tipo: "bloqueado", codigo: p.r.codigo, descricao: c?.descricao || p.descricao,
+          para: paraOk ? p.r.para : "", detalhe: `Cadastro bloqueado para compra no Sysmat${paraOk ? ` — "Para" ${p.r.para}` : ""}.` });
       if (p.r.origem === "ledger" && c && !semelhantes(p.descricao, `${c.descricao} ${c.descrCompleta}`))
-        push({ chave: chaveAchado("descricao_divergente", alvo, p.r.codigo), tipo: "descricao_divergente", ledger: alvo, ledgerNome: indice.nome,
-          ativos: indice.equipamentos, codigo: p.r.codigo, descricao: p.descricao, acao: null,
+        push({ ...base, chave: chaveAchado("descricao_divergente", alvo, p.r.codigo), tipo: "descricao_divergente", codigo: p.r.codigo, descricao: p.descricao,
           detalhe: `No Sysmat: "${c.descricao}" — sem palavra em comum (provável código trocado).` });
       const pc = p.peca;
       if (pc && (pc.estrategico || pc.reserva) && b.saldo) {
-        const s = b.saldo.get(p.r.codigo)?.estoque ?? 0;
-        const seg = pc.estSegAlmox ?? 0;
-        if (s <= 0 || seg > s)
-          push({ chave: chaveAchado("sem_saldo", alvo, p.r.codigo), tipo: "sem_saldo", ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos,
-            codigo: p.r.codigo, descricao: c?.descricao || p.descricao, acao: null,
-            detalhe: `${pc.estrategico ? "Estratégico" : "Deve ter reserva"}: saldo MB52 ${s}${seg ? ` · estoque de segurança Almox ${seg}` : ""}.` });
+        const e = b.saldo.get(p.r.codigo), s = e?.estoque ?? 0, seg = pc.estSegAlmox ?? 0;
+        if (s <= 0 || seg > s) {
+          const tipo: TipoAchado = pc.estrategico ? "estrategico_sem_saldo" : "reserva_sem_saldo";
+          push({ ...base, chave: chaveAchado(tipo, alvo, p.r.codigo), tipo, codigo: p.r.codigo, descricao: c?.descricao || p.descricao, foraMb52: !e,
+            secundario: tipo === "reserva_sem_saldo",
+            detalhe: `${pc.estrategico ? "Estratégico" : "Estocagem recomendada"}: ${!e ? "nunca esteve na MB52 (fora do export atual)" : `saldo MB52 ${s}`}${seg ? ` · estoque de segurança Almox ${seg}` : ""}.` });
+        }
       }
     }
     const outra = rcmDeOutraMaquina(indice.nome, conteudo.componentes);
     if (outra)
-      push({ chave: chaveAchado("ledger_copiado", alvo, ""), tipo: "ledger_copiado", ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos,
-        codigo: "", descricao: outra.texto, acao: null, detalhe: `${outra.linhas} linha(s) do RCM apontam "${outra.texto}" (outra máquina).` });
+      push({ ...base, chave: chaveAchado("ledger_copiado", alvo, ""), tipo: "ledger_copiado", codigo: "", descricao: outra.texto,
+        detalhe: `${outra.linhas} linha(s) do RCM apontam "${outra.texto}" (outra máquina).` });
   }
   return out;
 }
 
-/** Contagem por tipo e por ativo (cada achado conta para cada ativo dele). */
-export function resumoAchados(achados: Achado[]): { porTipo: Record<TipoAchado, number>; porAtivo: { ativo: string; n: number; porTipo: Partial<Record<TipoAchado, number>> }[] } {
-  const porTipo = Object.fromEntries(Object.keys(TIPOS_ACHADO).map((k) => [k, 0])) as Record<TipoAchado, number>;
+export interface ResumoTipo { achados: number; codigos: number; ledgers: number }
+export interface Resumo {
+  porTipo: Record<TipoAchado, ResumoTipo>;
+  /** achados do próprio ledger, por ledger (uma vez cada, com quantos equipamentos ele cobre) */
+  porLedger: { ledger: string; nome: string; n: number; equipamentos: number }[];
+  /** só os achados de vínculo (faltando, sem respaldo), por ativo */
+  porAtivo: { ativo: string; n: number; porTipo: Partial<Record<TipoAchado, number>> }[];
+}
+/** Resumo por tipo (achados, códigos únicos, em quantos ledgers), por ledger e por ativo (só vínculo). */
+export function resumoAchados(achados: Achado[], equipamentosDe: (ledger: string) => number = () => 0): Resumo {
+  const porTipo = Object.fromEntries(Object.keys(TIPOS_ACHADO).map((k) => [k, { achados: 0, codigos: 0, ledgers: 0 }])) as Record<TipoAchado, ResumoTipo>;
+  const cods = new Map<TipoAchado, Set<string>>(), leds = new Map<TipoAchado, Set<string>>();
+  const ledgers = new Map<string, { nome: string; n: number }>();
   const ativos = new Map<string, { n: number; porTipo: Partial<Record<TipoAchado, number>> }>();
   for (const a of achados) {
-    porTipo[a.tipo]++;
-    for (const at of a.ativos) {
+    porTipo[a.tipo].achados++;
+    (cods.get(a.tipo) ?? cods.set(a.tipo, new Set()).get(a.tipo)!).add(a.codigo || a.ledger);
+    (leds.get(a.tipo) ?? leds.set(a.tipo, new Set()).get(a.tipo)!).add(a.ledger);
+    if (DO_LEDGER.has(a.tipo)) {
+      const l = ledgers.get(a.ledger) ?? { nome: a.ledgerNome, n: 0 };
+      l.n++;
+      ledgers.set(a.ledger, l);
+    } else for (const at of a.ativos) {
       const x = ativos.get(at) ?? { n: 0, porTipo: {} };
       x.n++;
       x.porTipo[a.tipo] = (x.porTipo[a.tipo] ?? 0) + 1;
       ativos.set(at, x);
     }
   }
-  return { porTipo, porAtivo: [...ativos].map(([ativo, x]) => ({ ativo, ...x })).sort((a, b) => b.n - a.n || a.ativo.localeCompare(b.ativo)) };
+  for (const t of Object.keys(porTipo) as TipoAchado[]) { porTipo[t].codigos = cods.get(t)?.size ?? 0; porTipo[t].ledgers = leds.get(t)?.size ?? 0; }
+  return {
+    porTipo,
+    porLedger: [...ledgers].map(([ledger, x]) => ({ ledger, nome: x.nome, n: x.n, equipamentos: equipamentosDe(ledger) })).sort((a, b) => b.n - a.n || a.nome.localeCompare(b.nome)),
+    porAtivo: [...ativos].map(([ativo, x]) => ({ ativo, ...x })).sort((a, b) => b.n - a.n || a.ativo.localeCompare(b.ativo)),
+  };
 }
+
+/** Filtro padrão da lista: esconde os avisos secundários (a não ser que peça "todos"). */
+export const visivel = (a: Achado, todos: boolean) => todos || !a.secundario;
 
 // ----------------------------------------------------------------------------
 // Permissões

@@ -118,7 +118,7 @@ export function EnviarLedger({ ledgers }: { ledgers: { id: string; nome: string 
       const msg = `${lido.conteudo.componentes.length} componentes, ${lido.conteudo.plano.length} atividades e ${lido.conteudo.pecas.length} peças.`
         + (nomeAlvo ? ` Substituir o ledger "${nomeAlvo}"?` : " Criar um ledger novo (ou substituir o de mesmo nome)?");
       if (!window.confirm(msg)) { setEstado({ ocupado: false, erro: "", ok: "" }); return; }
-      const r = await enviar({ acao: "envio", dados: { id: alvo || undefined, arquivo: arq.name, nome: lido.nome, revisao: lido.revisao, capa: lido.capa, conteudo: lido.conteudo } });
+      const r = await enviar({ acao: "envio", dados: { id: alvo || undefined, arquivo: arq.name, nome: lido.nome, revisao: lido.revisao, capa: lido.capa, conteudo: lido.conteudo, abas: x.abas.map((a) => a.nome) } });
       setEstado({ ocupado: false, erro: r.erro, ok: r.erro ? "" : `Ledger gravado: ${msg.split("?")[0].replace(/ Substituir.*| Criar.*/, "")}` });
       if (!r.erro) router.refresh();
     } catch (err) {

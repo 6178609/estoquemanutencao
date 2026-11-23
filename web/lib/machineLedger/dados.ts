@@ -15,8 +15,8 @@ import { marcarQuebras, type Nota, type Ordem, prepararEquipamentos, prepararIw3
 import { dia, hoje, partes } from "../wcm/util";
 import { consumoDemo, quebrasDemo } from "./demo";
 import {
-  type Achado, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
-  idValido, type Indice, indexarBase, indiceDe, itemIndice, limparEquipamentos, MAX_LINHAS, penteFino, type PlanoSap, podeGravar, type Quebra, semZeros, txt,
+  abasFaltando, type Achado, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
+  idValido, type Indice, indexarBase, indiceDe, itemIndice, ledgerDoMesmoNome, limparEquipamentos, MAX_LINHAS, nomeDoArquivo, penteFino, sanitizarConteudo, type PlanoSap, podeGravar, type Quebra, semZeros, txt,
 } from "./regras";
 
 /**
@@ -196,23 +196,32 @@ export async function marcarConferido(u: Quem, chave: string, sim: boolean): Pro
   registrar(u.login, "machine_ledger_conferido", k, { sim });
 }
 
-/** O que o navegador manda ao enviar o .xlsx (já lido por regras.lerLedger). */
-export interface EnvioLedger { id?: string; arquivo: string; nome: string; revisao: string; capa: Capa; conteudo: Conteudo }
+/** O que o navegador manda ao enviar o .xlsx (já lido por regras.lerLedger) e os nomes das abas da planilha. */
+export interface EnvioLedger { id?: string; arquivo: string; nome: string; revisao: string; capa: Capa; conteudo: Conteudo; abas: string[] }
 
-/** Substitui o ledger (o conteúdo inteiro e a capa); mantém os equipamentos já ligados. Ledger novo entra sem equipamento. */
+/**
+ * Substitui o ledger (o conteúdo inteiro e a capa); mantém os equipamentos já ligados. Sem id escolhido, reaproveita o
+ * ledger do mesmo arquivo/nome (reenviar não duplica); senão cria um novo. Tudo validado aqui, campo a campo.
+ */
 export async function substituirLedger(u: Quem, e: EnvioLedger): Promise<string> {
   exigirGravar(u);
   const arquivo = txt(e?.arquivo, 200);
-  if (!arquivo || !e?.conteudo || !Array.isArray(e.conteudo.componentes) || !e.conteudo.componentes.length) throw new FonteErro("Planilha sem componentes no RCM.");
-  const c = e.conteudo;
-  if (c.componentes.length > MAX_LINHAS || (c.plano?.length ?? 0) > MAX_LINHAS || (c.pecas?.length ?? 0) > MAX_LINHAS) throw new FonteErro("Planilha grande demais.");
-  const id = idValido(e.id) ? e.id : idPara(arquivo);
-  const conteudo: Conteudo = { componentes: c.componentes, plano: Array.isArray(c.plano) ? c.plano : [], pecas: Array.isArray(c.pecas) ? c.pecas : [] };
+  if (!arquivo || !/\.xls[xm]$/i.test(arquivo)) throw new FonteErro("Envie o .xlsx do Machine Ledger.");
+  const abas = Array.isArray(e?.abas) ? e.abas.slice(0, 60).map((n) => ({ nome: txt(n, 80), linhas: [] })) : [];
+  const faltam = abasFaltando(abas);
+  if (faltam.length) throw new FonteErro(`Não parece um Machine Ledger: faltam as abas ${faltam.join(", ")}.`);
+  const bruto = e.conteudo as unknown as Record<string, unknown> | undefined;
+  for (const k of ["componentes", "plano", "pecas"]) if (Array.isArray(bruto?.[k]) && (bruto![k] as unknown[]).length > MAX_LINHAS) throw new FonteErro("Planilha grande demais.");
+  const conteudo = sanitizarConteudo(bruto);
+  if (!conteudo.componentes.length) throw new FonteErro("Planilha sem componentes no RCM.");
+  const nome = txt(e.nome, 120) || nomeDoArquivo(arquivo);
+  const indice = await lerIndice(true);
+  const id = idValido(e.id) && indice.some((i) => i.id === e.id) ? e.id : ledgerDoMesmoNome(indice, arquivo, nome) ?? idPara(arquivo);
   await gravarCadastroLote(arquivoLedger(id), { ledger: conteudo as unknown as Record<string, unknown> }, por(u));
   const capa: Capa = { maquina: txt(e.capa?.maquina, 120), fabricante: txt(e.capa?.fabricante, 80), modelo: txt(e.capa?.modelo, 80), area: txt(e.capa?.area, 80),
     funcao: txt(e.capa?.funcao, 600) };
   await gravarCadastroLote(ARQ_INDICE, { [id]: (atual) => itemIndice({
-    arquivo, nome: txt(e.nome, 120) || txt(atual?.nome, 120) || arquivo, tipo: atual?.tipo === "modelo" ? "modelo" : "maquina", revisao: txt(e.revisao, 20), capa,
+    arquivo, nome: txt(atual?.nome, 120) || nome, tipo: atual?.tipo === "modelo" ? "modelo" : "maquina", revisao: txt(e.revisao, 20), capa,
     equipamentos: limparEquipamentos(atual?.equipamentos), origem: atual?.origem === "confirmada" ? "confirmada" : "automatica",
     sugestoes: Array.isArray(atual?.sugestoes) ? atual!.sugestoes as never : [],
     contagens: { componentes: conteudo.componentes.length, plano: conteudo.plano.length, pecas: conteudo.pecas.length },
@@ -222,8 +231,20 @@ export async function substituirLedger(u: Quem, e: EnvioLedger): Promise<string>
   return id;
 }
 
+// O pente fino fica guardado pela assinatura das versões (índice, cada ledger, conferidos, vínculos) e pelas bases do
+// catálogo/MB52 (mesmo objeto do cache de lerBase): nada mudou = nada recalculado.
+const gp = globalThis as unknown as { __cmPenteMl?: { chave: string; base: BaseCodigos; valor: { achados: Achado[]; todos: EntradaPente[]; conferidos: number } } };
+
 /** O pente fino de agora (todos os ledgers × vínculos × catálogo/MB52), sem os conferidos. */
 export async function penteFinoAtual(): Promise<{ achados: Achado[]; todos: EntradaPente[]; base: BaseCodigos; conferidos: number }> {
-  const [todos, base, vinc, conf] = await Promise.all([lerTodos(), baseCodigos(), vinculos(), lerConferidos()]);
-  return { achados: penteFino(todos, vinc, base, new Set(conf.keys())), todos, base, conferidos: conf.size };
+  const indice = await lerIndice();
+  const f = fonte();
+  const [base, mapa] = await Promise.all([baseCodigos(), f ? f.versoes() : null]); // uma listagem só (na demonstração, sem cache)
+  const chave = mapa ? [ARQ_INDICE, ARQ_CONFERIDOS, ARQ_EQUIP, ...indice.map((i) => arquivoLedger(i.id))].map((n) => mapa.get(`app/${n}`) ?? "-").join("|") : "";
+  const c = gp.__cmPenteMl;
+  if (chave && c && c.chave === chave && c.base === base) return { ...c.valor, base };
+  const [todos, vinc, conf] = await Promise.all([lerTodos(indice), vinculos(), lerConferidos()]);
+  const valor = { achados: penteFino(todos, vinc, base, new Set(conf.keys())), todos, conferidos: conf.size };
+  if (chave) gp.__cmPenteMl = { chave, base, valor };
+  return { ...valor, base };
 }

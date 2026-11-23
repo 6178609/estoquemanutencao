@@ -104,6 +104,9 @@
 - Índice H: o da planilha; vazio = P + T + V + 6 (segurança) + 4 (qualidade) (a soma que as planilhas usam, apesar do título
   "P x G x T"). Calendário de quebras = AFs (Planos de AF) dos equipamentos do ledger, associadas pelo texto do mais específico
   (componente) ao mais geral (subconjunto, conjunto); sem casamento → "Não associada ao componente".
+- Pente fino: código SAP = só dígitos (5–7); BLOQUEADO é "Bloqueado para compra" (não inválido); estratégico sem saldo separado
+  de estocagem recomendada (secundária); sem respaldo só com sinal forte por padrão ("uso geral" = vinculado em ≥ 3 ativos ou
+  ≥ 20%); resumo por códigos únicos e ledgers; envio sanitizado no servidor e reaproveita o ledger do mesmo nome.
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
