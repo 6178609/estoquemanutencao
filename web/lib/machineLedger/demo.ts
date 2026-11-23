@@ -32,6 +32,9 @@ export function ledgersDemo(catalogo: CatDemo[], estoque: EstDemo[]): { indice: 
   const inativo = catalogo.find((c) => c.status === "BLOQUEADO") ?? catalogo[0];
   const porPdm = (p: string, i = 0) => ativos.filter((c) => c.descricaoCurta.startsWith(p))[i] ?? ativos[i];
   const rol = porPdm("ROLAMENTO"), cor = porPdm("CORREIA"), sen = porPdm("SENSOR"), val = porPdm("VALVULA");
+  // uma referência de fabricante que só um item do catálogo fictício tem (origem "Sysmat pela referência")
+  const refDe = (c: CatDemo) => /REF: (\S+?)\.?$/.exec(c.descrCompleta)?.[1] ?? "";
+  const refItem = ativos.find((c) => /^VALVULA/.test(c.descricaoCurta) && c !== val && refDe(c) && catalogo.filter((x) => x.descrCompleta.includes(refDe(c))).length === 1);
   const usados = new Set([rol, cor, sen, val, semSaldo[0], semSaldo[1]].map((c) => c?.material));
   const unico = ativos.find((c) => !usados.has(c.material) && /^CONTATOR/.test(c.descricaoCurta)
     && ativos.filter((x) => x.descricaoCurta === c.descricaoCurta).length === 1) ?? ativos[5];
@@ -44,7 +47,7 @@ export function ledgersDemo(catalogo: CatDemo[], estoque: EstDemo[]): { indice: 
     comp("TRANSMISSAO", "ACIONAMENTO", "CORREIA EM V DO ACIONAMENTO", cor.material, 4, 1, 1),
     comp("SISTEMA ELETRICO", "PAINEL ELETRICO", "FUSIVEL DE COMANDO", "", 1, 1, 1),
     comp("SISTEMA ELETRICO", "SENSORES", "SENSOR INDUTIVO DE POSICAO", `SysMat-${sen.sysmat}`, 2, 2, 2, true, true),
-    comp("SISTEMA PNEUMATICO", "CIRCUITO DE AR", "MANGUEIRA PNEUMATICA", "", 2, 1, 1),
+    comp("SISTEMA PNEUMATICO", "CIRCUITO DE AR", `VALVULA DO CIRCUITO DE AR ${refItem ? refDe(refItem) : ""}`.trim(), "", 2, 1, 1),
     comp("SISTEMA ELETRICO", "ACIONAMENTO", "MOTOR ELETRICO PRINCIPAL", "", 1, 5, 5, true),
   ];
   const prensaPecas = [

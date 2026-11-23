@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { Selo } from "@/components/ui";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO } from "@/components/ui";
 import { ansi, ARQ_CSV, ARQ_VBS, csvInclusao, scriptInclusao } from "@/app/(app)/mro/ia06";
+import { ConfirmarCodigo } from "./Acoes";
 import { itensIa06, type LinhaOperacao, prontaParaIa06 } from "@/lib/machineLedger/listasTarefas";
 
 const ENTRADA = "h-9 rounded-lg border border-borda bg-superficie-2 px-2 text-[13px]";
@@ -36,7 +37,7 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
   const [qtd, setQtd] = useState<Record<string, string>>({});
   const [estado, setEstado] = useState<{ ocupado: string; erro: string }>({ ocupado: "", erro: "" });
 
-  const visiveis = linhas.filter((l) => !soCodigo || l.codigoOk);
+  const visiveis = linhas.filter((l) => !soCodigo || l.codigoOk || l.sugerido);
   const quantidades = useMemo(() => Object.fromEntries(Object.entries(qtd).map(([k, v]) => [k, Number(v.replace(",", "."))]).filter(([, v]) => Number(v) > 0)), [qtd]);
   const itens = useMemo(() => itensIa06(linhas, quantidades, incluirAlta, rotulo), [linhas, quantidades, incluirAlta, rotulo]);
 
@@ -57,7 +58,7 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
         <label className="inline-flex h-11 items-center gap-2 rounded-xl border border-borda bg-superficie-2 px-3">
-          <input type="checkbox" checked={soCodigo} onChange={(e) => setSoCodigo(e.target.checked)} className="size-4" /> Só com código SAP válido
+          <input type="checkbox" checked={soCodigo} onChange={(e) => setSoCodigo(e.target.checked)} className="size-4" /> Só com código SAP (válido ou sugerido)
         </label>
         <label className="inline-flex h-11 items-center gap-2 rounded-xl border border-borda bg-superficie-2 px-3">
           <input type="checkbox" checked={incluirAlta} onChange={(e) => setIncluirAlta(e.target.checked)} className="size-4" /> Incluir sugestões de alta confiança na IA06
@@ -69,7 +70,7 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[13px] text-texto-2"><b className="num">{itens.length}</b> componente(s) prontos para a IA06</span>
         <button type="button" className={BOTAO_PRIMARIO} disabled={!itens.length}
-          onClick={() => baixar(ARQ_CSV, csvInclusao(itens), "text/csv;charset=windows-1252")}><Download className="size-4" /> Baixar CSV da IA06</button>
+          onClick={() => baixar(ARQ_CSV, csvInclusao(itens, true, true), "text/csv;charset=windows-1252")}><Download className="size-4" /> Baixar CSV da IA06</button>
         <button type="button" className={BOTAO_SECUNDARIO}
           onClick={() => baixar(ARQ_VBS, scriptInclusao(teste), "text/vbscript;charset=windows-1252")}><FileCode2 className="size-4" /> Baixar script VBS</button>
         <a href={`/api/machine_ledger?planilha=operacoes&id=${ledger}`} className={BOTAO_SECUNDARIO}><Download className="size-4" /> Excel da associação</a>
@@ -83,12 +84,14 @@ export function OperacoesIa06({ ledger, rotulo, linhas, ops, grava }: { ledger: 
               <div className="flex flex-wrap items-center gap-2 text-[13px]">
                 <span className="font-medium">{l.componente}</span>
                 <span className="text-texto-3">· {l.conjunto}{l.subconjunto ? ` › ${l.subconjunto}` : ""}</span>
-                {l.codigoOk ? <Selo cor="verde">{l.codigo}</Selo> : <Selo>{l.codigo ? `${l.codigo} (inválido)` : "sem código SAP"}</Selo>}
+                {l.sugerido && !l.codigoConfirmado ? <Selo cor="amarelo">{l.codigo ? `${l.codigo} · sugerido pela referência` : `referência ambígua (${l.candidatos.length})`}</Selo>
+                  : l.codigoOk ? <Selo cor="verde">{l.codigo} · {l.origemCodigo}{l.codigoConfirmado ? " (confirmado)" : ""}</Selo> : <Selo>{l.codigo ? `${l.codigo} (inválido)` : "sem código SAP"}</Selo>}
                 {l.confirmada ? <Selo cor="azul">confirmada</Selo> : l.sugestao ? <Selo cor={l.sugestao.confianca === "alta" ? "verde" : l.sugestao.confianca === "media" ? "amarelo" : "cinza"}>sugestão {l.sugestao.confianca === "media" ? "média" : l.sugestao.confianca}</Selo>
                   : <Selo>sem operação</Selo>}
                 {l.jaNaOperacao && <Selo cor="cinza">já na operação</Selo>}
                 {prontaParaIa06(l, incluirAlta) && <Selo cor="laranja">vai na IA06</Selo>}
               </div>
+              {grava && l.sugerido && <div className="mt-1.5"><ConfirmarCodigo chave={l.chave} candidatos={l.candidatos} confirmado={l.codigoConfirmado?.codigo ?? null} referencia={l.referencia} /></div>}
               {l.sugestao && !l.confirmada && <div className="mt-1 text-[12.5px] text-texto-3">{l.sugestao.grupo}/{l.sugestao.numerador} · {l.sugestao.operacao} {l.sugestao.texto} — {l.sugestao.motivo}</div>}
               {grava ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2">

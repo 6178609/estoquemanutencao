@@ -12,7 +12,8 @@ import { dataBr, hoje, MESES, partes } from "@/lib/wcm/util";
 
 import { Controles } from "../planos/_comum/Controles";
 import { hrefCom, um, type Params } from "../planos/_comum/params";
-import { AcoesAchado, Correspondencia, EnviarLedger, EnviarListas } from "./Acoes";
+import { AcoesAchado, ConfirmarCodigo, Correspondencia, EnviarLedger, EnviarListas } from "./Acoes";
+import { chaveAssociacao } from "@/lib/machineLedger/listasTarefas";
 import { OperacoesIa06 } from "./Operacoes";
 
 export const metadata: Metadata = { title: "Machine Ledger" };
@@ -150,12 +151,14 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
       </div>
     );
   }
-  const [c, b, nomes, opsLedger] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap(), D.operacoesDoLedger(l)]);
+  const [c, b, nomes, opsLedger, codConf] = await Promise.all([D.lerConteudo(l.id), D.baseCodigos(), D.equipamentosSap(), D.operacoesDoLedger(l),
+    D.lerCodigosConfirmados()]);
   const ano = /^\d{4}$/.test(um(params, "ano")) ? Number(um(params, "ano")) : partes(hoje()).ano;
   const { afs, temAf } = await D.quebrasDos(new Set(l.equipamentos));
   const cal = R.calendarioQuebras(c.componentes, afs, ano);
   const classe = um(params, "classe"), tm = um(params, "tm"), imp = um(params, "imp");
-  const rcm = c.componentes.map((x) => ({ x, h: R.indiceH(x), classe: R.classeDe(x) }))
+  const porDesc = R.pecasPorDescricao(c.pecas);
+  const rcm = c.componentes.map((x) => ({ x, h: R.indiceH(x), classe: R.classeDe(x), cod: R.codigoDoComponente(x, porDesc, b) }))
     .filter((r) => (!classe || r.classe === classe) && (!tm || r.x.tipoManut === tm)
       && (!imp || (imp === "seg" ? r.x.seguranca : imp === "qual" ? r.x.qualidade : r.x.parada)))
     .sort((a, b2) => (b2.h ?? -1) - (a.h ?? -1));
@@ -213,11 +216,12 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
           { tipo: "escolha", chave: "imp", rotulo: "Impacto", valor: imp, opcoes: [{ valor: "", rotulo: "Qualquer" }, { valor: "seg", rotulo: "Segurança" }, { valor: "qual", rotulo: "Qualidade" }, { valor: "parada", rotulo: "Para a máquina" }] },
         ]} />
         <Tabela cab={["H", "Classe", "Componente", "Conjunto › subconjunto", "Código", "Modo de falha", "Seg.", "Qual.", "Para", "P", "T", "V", "Manutenção"]}>
-          {rcm.slice(0, MAX_LINHAS).map(({ x, h, classe: cl }, i) => (
+          {rcm.slice(0, MAX_LINHAS).map(({ x, h, classe: cl, cod }, i) => (
             <tr key={i} className="border-t border-borda">
               <td className={`${TD} num font-semibold`}>{h ?? "—"}</td><td className={TD}>{cl ? <Selo cor={cl === "A" ? "vermelho" : cl === "B" ? "laranja" : "cinza"}>{cl}</Selo> : "—"}</td>
               <td className={`${TD} min-w-[12rem]`}>{x.componente}</td><td className={`${TD} min-w-[10rem] text-texto-2`}>{x.conjunto} › {x.subconjunto}</td>
-              <td className={`${TD} num`}>{x.codigo || "—"}</td><td className={`${TD} min-w-[10rem] text-texto-2`}>{x.modo}</td>
+              <td className={`${TD} num min-w-[8rem]`}><CodigoRcm cod={cod} bruto={x.codigo} chave={chaveAssociacao(l.id, x)} conf={codConf.get(chaveAssociacao(l.id, x))?.codigo ?? null} grava={grava} /></td>
+              <td className={`${TD} min-w-[10rem] text-texto-2`}>{x.modo}</td>
               <td className={TD}>{sn(x.seguranca)}</td><td className={TD}>{sn(x.qualidade)}</td><td className={TD}>{sn(x.parada)}</td>
               <td className={`${TD} num`}>{x.p ?? ""}</td><td className={`${TD} num`}>{x.t ?? ""}</td><td className={`${TD} num`}>{x.v ?? ""}</td><td className={TD}>{x.tipoManut}</td>
             </tr>
@@ -251,7 +255,7 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
                 <tr key={i} className="border-t border-borda">
                   <td className={`${TD} num`}>{r.codigo || <span className="text-texto-3">{p.codigo || "sem código"}</span>}
                     {r.situacao !== "ok" && r.situacao !== "sem_codigo" && <div><Selo cor={r.situacao === "bloqueado" ? "amarelo" : "vermelho"}>{r.situacao === "bloqueado" ? "bloqueado" : r.status ? r.status.toLowerCase() : "não existe"}</Selo></div>}
-                    {r.origem === "descricao" && <div><Selo cor="azul">pela descrição</Selo></div>}</td>
+                    {r.origem === "descricao" && <div><Selo cor="azul">Sysmat pela descrição</Selo></div>}</td>
                   <td className={`${TD} min-w-[14rem]`}>{p.descricao}</td><td className={TD}>{p.conjunto}</td>
                   <td className={`${TD} num`}>{saldo == null ? "—" : saldo <= 0 && (p.estrategico || p.reserva) ? <Selo cor="vermelho">{saldo}</Selo> : saldo}</td>
                   <td className={TD}>{p.estrategico ? "Sim" : ""}</td><td className={TD}>{p.reserva ? "Sim" : ""}</td>
@@ -262,6 +266,18 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
           </Tabela>
         )}
       </Secao>
+    </div>
+  );
+}
+
+/** Código do componente no RCM: o resolvido, a origem e, na origem "Sysmat pela referência", a confirmação do PCM. */
+function CodigoRcm({ cod, bruto, chave, conf, grava }: { cod: R.ResolvidoComOrigem; bruto: string; chave: string; conf: string | null; grava: boolean }) {
+  if (!cod.sugerido) return cod.situacao === "ok" ? <>{cod.codigo}<div className="text-[11.5px] text-texto-3">{cod.origemCodigo}</div></> : <>{bruto || "—"}</>;
+  return (
+    <div className="space-y-1">
+      <div>{conf ?? (cod.codigo || "ambígua")}</div>
+      <div className="text-[11.5px] text-texto-3">{cod.origemCodigo}{conf ? " · confirmado" : cod.codigo ? " · sugerido" : ` · ${cod.candidatos?.length ?? 0} candidatos`}</div>
+      {grava && <ConfirmarCodigo chave={chave} candidatos={cod.candidatos ?? []} confirmado={conf} referencia={cod.referencia ?? ""} />}
     </div>
   );
 }
@@ -350,7 +366,7 @@ async function Pente({ params, grava }: { params: Params; grava: boolean }) {
                   ? <span className="text-texto-2">{a.ledgerNome} <span className="text-texto-3">· vale para {a.ativos.length ? `${a.ativos.length} equip. (${a.ativos.slice(0, 3).join(", ")}${a.ativos.length > 3 ? "…" : ""})` : "nenhum equipamento"}</span></span>
                   : <><span className="num font-semibold">{a.ativos[0]}</span><span className="text-texto-3">· {a.ledgerNome}</span></>}
               </div>
-              <div className="mt-1.5 text-[13.5px]">{a.codigo && <b className="num">{a.codigo} </b>}{a.descricao}</div>
+              <div className="mt-1.5 text-[13.5px]">{a.codigo && <b className="num">{a.codigo} </b>}{a.descricao}{a.origemCodigo && <span className="text-[12px] text-texto-3"> · código: {a.origemCodigo}</span>}</div>
               <div className="mt-0.5 text-[12.5px] text-texto-3">{a.detalhe}{a.para && ` Para: ${a.para}.`}</div>
               {grava && <div className="mt-2"><AcoesAchado chave={a.chave} acao={a.acao} ativo={a.ativos[0] ?? ""} codigo={a.codigo} /></div>}
             </li>
@@ -436,9 +452,10 @@ async function Cruzamentos({ indice, params }: { indice: R.Indice[]; params: Par
       <Secao titulo="Sugestões para a UBM" destaque={`· ${inteiro(ubm.length)}`} sub="Peças com estoque de segurança UBM > 0 no ledger: candidatas ao kit do armário."
         acoes={<Link prefetch={false} href="/ubm?visao=Arm%C3%A1rios" className={BOTAO_LINK}>Abrir a UBM <ArrowRight className="size-4" /></Link>}>
         {!ubm.length ? <Vazio>Nenhuma peça com estoque de segurança UBM nos ledgers.</Vazio> : (
-          <Tabela cab={["Ledger", "Código", "Descrição", "Est. seg. UBM"]}>
+          <Tabela cab={["Ledger", "Código", "Origem do código", "Descrição", "Est. seg. UBM"]}>
             {ubm.slice(0, 200).map(({ i, p, r }, k) => (
               <tr key={k} className="border-t border-borda"><td className={TD}>{i.nome}</td><td className={`${TD} num`}>{r.codigo || p.codigo || "—"}</td>
+                <td className={TD}>{r.situacao === "ok" ? R.origemDaPeca(r) : r.situacao === "sem_codigo" ? "sem código" : r.situacao}</td>
                 <td className={TD}>{p.descricao}</td><td className={`${TD} num`}>{p.estSegUbm}</td></tr>
             ))}
           </Tabela>

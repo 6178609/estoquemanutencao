@@ -49,6 +49,7 @@ export const ACOES: Record<string, string> = {
   machine_ledger_correspondencia: "Alterou os equipamentos SAP de um Machine Ledger",
   machine_ledger_envio: "Enviou planilha de Machine Ledger",
   machine_ledger_operacao: "Associou operação da lista de tarefas a componente (Machine Ledger)",
+  machine_ledger_codigo: "Confirmou código SAP de componente pela referência (Machine Ledger)",
   machine_ledger_listas: "Enviou o export das listas de tarefas (Machine Ledger)",
   ubm_lancada: "Marcou retirada da UBM como lançada na ordem (antigo)",
 };

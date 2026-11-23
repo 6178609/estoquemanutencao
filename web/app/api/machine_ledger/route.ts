@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
   if (p.get("planilha") === "achados") {
     const { achados } = await D.penteFinoAtual();
     registrar(u.login, "exportacao", "machine_ledger_achados.xlsx");
-    return planilha("machine_ledger_achados.xlsx", gerarXlsxAbas([{ nome: "Achados", colunas: col(["Tipo", "Abrangência", "Ativo(s)", "Ledger", "Código", "Descrição", "Detalhe",
+    return planilha("machine_ledger_achados.xlsx", gerarXlsxAbas([{ nome: "Achados", colunas: col(["Tipo", "Abrangência", "Ativo(s)", "Ledger", "Código", "Origem do código", "Descrição", "Detalhe",
       "Para", "Sinal forte", "Uso geral", "Fora da MB52", "Aviso secundário"]),
       linhas: achados.map((a) => [R.TIPOS_ACHADO[a.tipo], R.DO_LEDGER.has(a.tipo) ? `Ledger (${a.ativos.length} equip.)` : "Ativo", a.ativos.join(", "), a.ledgerNome,
-        a.codigo, a.descricao, a.detalhe, a.para ?? "", a.forte ? "Sim" : "", a.usoGeral ? "Sim" : "", a.foraMb52 ? "Sim" : "", a.secundario ? "Sim" : ""]) }]));
+        a.codigo, a.origemCodigo ?? "", a.descricao, a.detalhe, a.para ?? "", a.forte ? "Sim" : "", a.usoGeral ? "Sim" : "", a.foraMb52 ? "Sim" : "", a.secundario ? "Sim" : ""]) }]));
   }
   if (p.get("planilha") === "pecas") {
     const id = p.get("id") ?? "";
@@ -36,11 +36,11 @@ export async function GET(req: NextRequest) {
     if (!idx) return new NextResponse("Ledger não encontrado.", { status: 404 });
     const [c, b] = await Promise.all([D.lerConteudo(id), D.baseCodigos()]);
     registrar(u.login, "exportacao", `machine_ledger_pecas_${id}.xlsx`);
-    return planilha(`pecas_${id}.xlsx`, gerarXlsxAbas([{ nome: "Peças", colunas: col(["Conjunto", "Código no ledger", "Código SAP", "Situação do código", "Descrição",
+    return planilha(`pecas_${id}.xlsx`, gerarXlsxAbas([{ nome: "Peças", colunas: col(["Conjunto", "Código no ledger", "Código SAP", "Origem do código", "Situação do código", "Descrição",
       "Descrição no Sysmat", "Saldo MB52", "Estratégico", "Deve ter reserva", "Est. seg. Almox", "Est. seg. UBM", "Valor unitário"]),
       linhas: c.pecas.map((x) => {
         const r = R.resolverCodigo(x.codigo, x.descricao, b);
-        return [x.conjunto, x.codigo, r.codigo, r.situacao, x.descricao, b.cat?.get(r.codigo)?.descricao ?? "", r.codigo ? b.saldo?.get(r.codigo)?.estoque ?? 0 : null,
+        return [x.conjunto, x.codigo, r.codigo, R.origemDaPeca(r), r.situacao, x.descricao, b.cat?.get(r.codigo)?.descricao ?? "", r.codigo ? b.saldo?.get(r.codigo)?.estoque ?? 0 : null,
           x.estrategico ? "Sim" : "", x.reserva ? "Sim" : "", x.estSegAlmox, x.estSegUbm, x.valorUnit];
       }) }]));
   }
@@ -49,11 +49,12 @@ export async function GET(req: NextRequest) {
     if (!idx) return new NextResponse("Ledger não encontrado.", { status: 404 });
     const { linhas } = await D.operacoesDoLedger(idx);
     registrar(u.login, "exportacao", `machine_ledger_operacoes_${idx.id}.xlsx`);
-    return planilha(`operacoes_${idx.id}.xlsx`, gerarXlsxAbas([{ nome: "Operações", colunas: col(["Conjunto", "Subconjunto", "Componente", "Código SAP", "Código válido",
+    return planilha(`operacoes_${idx.id}.xlsx`, gerarXlsxAbas([{ nome: "Operações", colunas: col(["Conjunto", "Subconjunto", "Componente", "Código SAP", "Origem do código", "Código válido", "Código pela referência",
       "Qtd. RCM", "UM", "Situação", "Grupo", "Contador", "Operação", "Texto da operação", "Confiança", "Motivo", "Já na operação"]),
       linhas: linhas.map((l) => {
         const o = l.confirmada ?? l.sugestao;
-        return [l.conjunto, l.subconjunto, l.componente, l.codigo, l.codigoOk ? "Sim" : "", l.qtdRcm, l.um, l.confirmada ? "Confirmada" : l.sugestao ? "Sugestão" : "Sem operação",
+        return [l.conjunto, l.subconjunto, l.componente, l.codigo, l.origemCodigo, l.codigoOk ? "Sim" : "",
+          l.codigoConfirmado ? `confirmado por ${l.codigoConfirmado.por}` : l.sugerido ? (l.codigo ? `sugerido (${l.referencia})` : `ambíguo: ${l.candidatos.map((x) => x.codigo).join(", ")}`) : "", l.qtdRcm, l.um, l.confirmada ? "Confirmada" : l.sugestao ? "Sugestão" : "Sem operação",
           o?.grupo ?? "", o?.numerador ?? "", o?.operacao ?? "", l.sugestao && !l.confirmada ? l.sugestao.texto : "", l.confirmada ? "" : l.sugestao?.confianca ?? "",
           l.confirmada ? `por ${l.confirmada.por}` : l.sugestao?.motivo ?? "", l.jaNaOperacao ? "Sim" : ""];
       }) }]));
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
     } else if (j.acao === "conferido") await D.marcarConferido(u, String(j.chave ?? ""), j.sim !== false);
     else if (j.acao === "correspondencia") resposta = { ok: true, equipamentos: await D.gravarCorrespondencia(u, String(j.id ?? ""), j.equipamentos) };
     else if (j.acao === "operacao") await D.gravarOperacao(u, String(j.chave ?? ""), j.alvo && typeof j.alvo === "object" ? j.alvo as never : null);
+    else if (j.acao === "codigo") await D.gravarCodigo(u, String(j.chave ?? ""), j.codigo ? String(j.codigo) : null);
     else if (j.acao === "listas") resposta = { ok: true, listas: await D.gravarListas(u, j.listas) };
     else if (j.acao === "envio") resposta = { ok: true, id: await D.substituirLedger(u, j.dados as D.EnvioLedger) };
     else return NextResponse.json({ erro: "Ação inválida." }, { status: 400 });

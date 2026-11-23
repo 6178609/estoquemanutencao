@@ -17,11 +17,11 @@ import { comListasDosSubconjuntos, listasDiretasDaIp19, listasPorEquipamento, li
 
 import { consumoDemo, quebrasDemo } from "./demo";
 import {
-  ARQ_LISTAS, ARQ_OPERACOES, chaveAssociacao, chaveLista, type Confirmada, confirmadasDe, itemLista, type LinhaOperacao, type ListaSap, listasDe, linhasOperacoes,
+  ARQ_LISTAS, ARQ_OPERACOES, chaveAssociacao, chaveLista, type CodigoConfirmado, codigosConfirmadosDe, type Confirmada, confirmadasDe, itemLista, type LinhaOperacao, type ListaSap, listasDe, linhasOperacoes,
   MAX_LISTAS, type OperacaoDaMaquina, operacoesDasListas, sanitizarLista,
 } from "./listasTarefas";
 import {
-  abasFaltando, type Achado, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
+  abasFaltando, type Achado, codigoDoComponente, pecasPorDescricao, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
   idValido, type Indice, indexarBase, indiceDe, itemIndice, ledgerDoMesmoNome, limparEquipamentos, MAX_LINHAS, nomeDoArquivo, penteFino, sanitizarConteudo, type PlanoSap, podeGravar, type Quebra, semZeros, txt,
 } from "./regras";
 
@@ -264,6 +264,9 @@ export async function lerListas(fresco = false): Promise<Map<string, ListaSap>> 
 export async function lerConfirmadas(fresco = false): Promise<Map<string, Confirmada>> {
   return confirmadasDe(await lerCadastro(ARQ_OPERACOES, { fresco }));
 }
+export async function lerCodigosConfirmados(fresco = false): Promise<Map<string, CodigoConfirmado>> {
+  return codigosConfirmadosDe(await lerCadastro(ARQ_OPERACOES, { fresco }));
+}
 
 const memoListas = new WeakMap<object, WeakMap<object, WeakMap<object, Map<string, ListaTarefas[]>>>>();
 /** Equipamento (sem zeros) → listas de tarefas: planos das ordens da IW38 × IP19, listas diretas da IP19 e as dos subconjuntos (IH08). */
@@ -301,8 +304,9 @@ export async function listasDaMaquina(equipamentos: string[]): Promise<{ ligadas
 
 /** As linhas da seção "Operações e IA06" de um ledger. */
 export async function operacoesDoLedger(indice: Indice): Promise<{ linhas: LinhaOperacao[]; ligadas: ListaTarefas[]; ops: OperacaoDaMaquina[]; temListas: boolean }> {
-  const [c, b, m, conf] = await Promise.all([lerConteudo(indice.id), baseCodigos(), listasDaMaquina(indice.equipamentos), lerConfirmadas()]);
-  return { linhas: linhasOperacoes(indice.id, c.componentes, m.ops, conf, m.listas, b), ligadas: m.ligadas, ops: m.ops, temListas: m.listas.size > 0 };
+  const [c, b, m, conf, cods] = await Promise.all([lerConteudo(indice.id), baseCodigos(), listasDaMaquina(indice.equipamentos), lerConfirmadas(),
+    lerCodigosConfirmados()]);
+  return { linhas: linhasOperacoes(indice.id, c.componentes, m.ops, conf, m.listas, b, c.pecas, cods), ligadas: m.ligadas, ops: m.ops, temListas: m.listas.size > 0 };
 }
 
 /** Confirma (ou troca) a operação de um componente; `null` remove a associação. A operação tem de ser de uma lista da máquina. */
@@ -319,9 +323,14 @@ export async function gravarOperacao(u: Quem, chave: string, alvo: { grupo: stri
     const op = ops.find((o) => o.grupo === txt(alvo.grupo, 20).toUpperCase() && o.numerador === txt(alvo.numerador, 4) && o.op.numero === txt(alvo.operacao, 4));
     if (!op) throw new FonteErro("Essa operação não é de uma lista de tarefas dos equipamentos do ledger.");
     const q = Number(alvo.quantidade);
-    await gravarCadastroLote(ARQ_OPERACOES, { [k]: { grupo: op.grupo, numerador: op.numerador, operacao: op.op.numero,
-      quantidade: Number.isFinite(q) && q > 0 && q < 100_000 ? q : null, por: por(u), em: new Date().toISOString() } }, por(u));
-  } else await gravarCadastroLote(ARQ_OPERACOES, { [k]: null }, por(u));
+    // o item guarda também o código confirmado do componente: só os campos da operação mudam
+    await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => ({ ...(atual ?? {}), grupo: op.grupo, numerador: op.numerador, operacao: op.op.numero,
+      quantidade: Number.isFinite(q) && q > 0 && q < 100_000 ? q : null, por: por(u), em: new Date().toISOString() }) }, por(u));
+  } else await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => {
+    if (!atual) return undefined;
+    const { grupo: _g, numerador: _n, operacao: _o, quantidade: _q, por: _p, em: _e, ...resto } = atual;
+    return Object.keys(resto).some((x) => x.startsWith("codigo")) ? resto : null;
+  } }, por(u));
   registrar(u.login, "machine_ledger_operacao", k, alvo ? { grupo: alvo.grupo, numerador: alvo.numerador, operacao: alvo.operacao } : { removida: true });
 }
 
@@ -343,4 +352,28 @@ export async function gravarListas(u: Quem, brutas: unknown): Promise<number> {
   await gravarCadastroLote(ARQ_LISTAS, itens, por(u));
   registrar(u.login, "machine_ledger_listas", "", { listas: novas.size });
   return novas.size;
+}
+
+/**
+ * Confirma (ou desfaz, com `null`) o código SAP de um componente cuja origem é "Sysmat pela referência": o código tem de ser o
+ * sugerido ou um dos candidatos da referência ambígua. Gravado no item da associação (machine_ledger_operacoes.json).
+ */
+export async function gravarCodigo(u: Quem, chave: string, codigo: string | null): Promise<void> {
+  exigirGravar(u);
+  const k = txt(chave, 80);
+  const [ledger] = k.split("|");
+  const [c, b] = await Promise.all([lerConteudo(ledger), baseCodigos()]);
+  const comp = c.componentes.find((x) => chaveAssociacao(ledger, x) === k);
+  if (!comp) throw new FonteErro("Componente não encontrado no RCM do ledger.");
+  if (codigo) {
+    const r = codigoDoComponente(comp, pecasPorDescricao(c.pecas), b);
+    const cod = semZeros(txt(codigo, 10));
+    if (!r.sugerido || !(r.candidatos ?? []).some((x) => x.codigo === cod)) throw new FonteErro("Esse código não é uma sugestão pela referência deste componente.");
+    await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => ({ ...(atual ?? {}), codigo: cod, codigoPor: por(u), codigoEm: new Date().toISOString() }) }, por(u));
+  } else await gravarCadastroLote(ARQ_OPERACOES, { [k]: (atual) => {
+    if (!atual) return undefined;
+    const { codigo: _c, codigoPor: _p, codigoEm: _e, ...resto } = atual;
+    return Object.keys(resto).some((x) => !x.startsWith("atualizado")) ? resto : null;
+  } }, por(u));
+  registrar(u.login, "machine_ledger_codigo", k, { codigo: codigo ?? null });
 }

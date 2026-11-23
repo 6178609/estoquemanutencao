@@ -12,7 +12,7 @@
  */
 import type { ItemInclusao } from "@/app/(app)/mro/ia06";
 
-import { type BaseCodigos, type Componente, chaveNome, frase, norm, resolverCodigo, semZeros, txt } from "./regras";
+import { type BaseCodigos, codigoDoComponente, INATIVOS, type Componente, chaveNome, frase, norm, type OrigemCodigo, pecasPorDescricao, type Peca, semZeros, txt } from "./regras";
 
 export const ARQ_LISTAS = "listas_tarefas.json";
 export const ARQ_OPERACOES = "machine_ledger_operacoes.json";
@@ -178,6 +178,15 @@ export function operacoesDasListas(listas: ListaSap[]): OperacaoDaMaquina[] {
 }
 
 export interface Confirmada { grupo: string; numerador: string; operacao: string; quantidade: number | null; por: string; em: string }
+/** Código do componente confirmado pelo PCM (origem "Sysmat pela referência"), no mesmo item da associação. */
+export interface CodigoConfirmado { codigo: string; por: string; em: string }
+export function codigosConfirmadosDe(cad: Record<string, unknown>): Map<string, CodigoConfirmado> {
+  return new Map(Object.entries(cad).filter(([, v]) => ehObj(v) && /^\d{5,7}$/.test(txt(v.codigo, 10))).map(([k, v0]) => {
+    const v = v0 as Record<string, unknown>;
+    return [k, { codigo: txt(v.codigo, 10), por: txt(v.codigoPor, 80), em: txt(v.codigoEm, 40) }];
+  }));
+}
+
 export function confirmadasDe(cad: Record<string, unknown>): Map<string, Confirmada> {
   return new Map(Object.entries(cad).filter(([, v]) => ehObj(v) && txt(v.grupo, 20)).map(([k, v0]) => {
     const v = v0 as Record<string, unknown>;
@@ -202,7 +211,9 @@ export const quantidadeRcm = (qtd: string) => { const n = numBr(String(qtd ?? ""
 export interface LinhaOperacao {
   chave: string; componente: string; conjunto: string; subconjunto: string; codigoLedger: string;
   /** código SAP resolvido (regra resolverCodigo) e se serve para a IA06 (situação "ok") */
-  codigo: string; codigoOk: boolean; descricaoSap: string; um: string; qtdRcm: number;
+  codigo: string; codigoOk: boolean; origemCodigo: OrigemCodigo; descricaoSap: string; um: string; qtdRcm: number;
+  /** código sugerido pela referência (precisa de confirmação), candidatos (ambíguo), token usado e se o PCM confirmou */
+  sugerido: boolean; candidatos: { codigo: string; descricao: string }[]; referencia: string; codigoConfirmado: CodigoConfirmado | null;
   sugestao: Sugestao | null; confirmada: Confirmada | null;
   /** a operação em uso (confirmada, senão a sugerida) já tem o material como Comp.mat. */
   jaNaOperacao: boolean;
@@ -210,19 +221,23 @@ export interface LinhaOperacao {
 
 /** Uma linha por componente do RCM (o mesmo componente repetido no RCM entra uma vez). */
 export function linhasOperacoes(ledger: string, comps: Componente[], ops: OperacaoDaMaquina[], confirmadas: Map<string, Confirmada>,
-  listas: Map<string, ListaSap>, b: BaseCodigos): LinhaOperacao[] {
+  listas: Map<string, ListaSap>, b: BaseCodigos, pecas: Peca[] = [], codigos: Map<string, CodigoConfirmado> = new Map()): LinhaOperacao[] {
+  const porDesc = pecasPorDescricao(pecas);
   const vistos = new Set<string>();
   const out: LinhaOperacao[] = [];
   for (const c of comps) {
     const chave = chaveAssociacao(ledger, c);
     if (vistos.has(chave)) continue;
     vistos.add(chave);
-    const r = resolverCodigo(c.codigo, c.componente, b);
+    const r0 = codigoDoComponente(c, porDesc, b);
+    const cc = codigos.get(chave) ?? null;
+    const r = cc ? { ...r0, codigo: cc.codigo } : r0;
     const cat = r.codigo ? b.cat?.get(r.codigo) : undefined;
+    const codigoOk = cc ? !!cat && !INATIVOS.has(cat.status) : r.situacao === "ok" && !r.sugerido;
     const sugestao = ops.length ? sugerirOperacao(c, ops) : null, confirmada = confirmadas.get(chave) ?? null;
     const usada = confirmada ?? sugestao;
     out.push({ chave, componente: c.componente, conjunto: c.conjunto, subconjunto: c.subconjunto, codigoLedger: c.codigo, codigo: r.codigo,
-      codigoOk: r.situacao === "ok", descricaoSap: cat?.descricao ?? "", um: cat?.um || b.saldo?.get(r.codigo)?.um || "", qtdRcm: quantidadeRcm(c.qtd),
+      codigoOk, origemCodigo: r.origemCodigo, sugerido: !!r.sugerido, candidatos: r.candidatos ?? [], referencia: r.referencia ?? "", codigoConfirmado: cc, descricaoSap: cat?.descricao ?? "", um: cat?.um || b.saldo?.get(r.codigo)?.um || "", qtdRcm: quantidadeRcm(c.qtd),
       sugestao, confirmada, jaNaOperacao: !!usada && !!r.codigo && jaNaOperacao(listas, usada.grupo, usada.numerador, usada.operacao, r.codigo) });
   }
   return out;
@@ -238,6 +253,6 @@ export function itensIa06(linhas: LinhaOperacao[], quantidades: Record<string, n
     const o = (l.confirmada ?? l.sugestao)!;
     const q = quantidades[l.chave] ?? l.confirmada?.quantidade ?? l.qtdRcm;
     return { grupo: o.grupo, numerador: o.numerador, operacao: o.operacao, material: l.codigo, quantidade: q > 0 ? q : 1, um: l.um,
-      texto: l.descricaoSap || l.componente, equipamento };
+      texto: l.descricaoSap || l.componente, equipamento, origemCodigo: l.origemCodigo };
   });
 }

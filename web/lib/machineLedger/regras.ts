@@ -448,6 +448,8 @@ export interface Achado {
   foraMb52?: boolean;
   /** aviso secundário: oculto por padrão (sem respaldo sem sinal forte; estocagem recomendada sem saldo) */
   secundario?: boolean;
+  /** de onde veio o código do ledger (RCM, peça de reposição, Sysmat pela descrição) */
+  origemCodigo?: OrigemCodigo;
 }
 export const chaveAchado = (tipo: TipoAchado, alvo: string, codigo: string) => `${tipo}|${alvo}|${codigo}`;
 
@@ -486,20 +488,130 @@ export function rcmDeOutraMaquina(nome: string, componentes: Pick<Componente, "e
   return { texto, linhas: [...conta.values()].reduce((s, n) => s + n, 0) || linhas };
 }
 
-/** As peças do ledger (spare parts + componentes do RCM com código), cada código uma vez, já resolvidas. */
-export interface PecaLedger { codigoLedger: string; descricao: string; r: Resolvido; peca: Peca | null; componente: Componente | null }
+export type OrigemCodigo = "RCM" | "peça de reposição" | "Sysmat pela descrição" | "Sysmat pela referência" | "";
+
+// ----------------------------------------------------------------------------
+// Referência do fabricante (código do componente no nome: XY1-AB-123CD, 9876.54.32/1, 6205-2Z)
+// ----------------------------------------------------------------------------
+const SEPARA_PALAVRAS = /[\s,;:()[\]{}_*'"“”]+/;
+const MEDIDA = /^\d+(?:[.,]\d+)?(?:MM|CM|M|MTS?|V|VCC|VAC|VDC|A|MA|W|KW|CV|HP|BAR|PSI|RPM|KG|G|L|ML|HZ|KHZ|KVA|NM|MCA|POL|PC|UN|X\d+)$/;
+const compacta = (w: string) => w.replace(/[-./\\]/g, "");
+/**
+ * Tokens de referência de um texto: palavras (separadas por espaço, vírgula, dois-pontos, parênteses, sublinhado…) com dígito e
+ * letra, ou com hífen/ponto/barra, que tenham 5+ caracteres depois de tirar os separadores; medidas puras (22MM, 24VCC,
+ * 220V, 1/2") ficam fora. O token sai compacto (sem - . / \\) e em maiúsculas.
+ */
+export function tokensReferencia(texto: string): string[] {
+  const out = new Set<string>();
+  for (const bruto of semAcento(txt(texto, 2000)).toUpperCase().split(SEPARA_PALAVRAS)) {
+    const w = bruto.replace(/^[-./\\]+|[-./\\]+$/g, "");
+    const c = compacta(w);
+    if (c.length < 5 || !/^[A-Z0-9]+$/.test(c) || MEDIDA.test(c) || MEDIDA.test(w)) continue;
+    const temSep = /[-./\\]/.test(w), temLetra = /[A-Z]/.test(c), temDigito = /\d/.test(c);
+    if ((temLetra && temDigito) || (temSep && temDigito)) out.add(c);
+  }
+  return [...out];
+}
+const MAX_POR_TOKEN = 6;
+const indicesRef = new WeakMap<object, Map<string, string[]>>();
+/** Token → materiais (Descr Curta + Descr Completa; aprovados e bloqueados, sem cancelado/duplicado). Guardado por catálogo. */
+export function indiceReferencias(b: BaseCodigos): Map<string, string[]> {
+  if (!b.cat) return new Map();
+  let m = indicesRef.get(b.cat);
+  if (m) return m;
+  m = new Map();
+  for (const c of b.cat.values()) {
+    if (c.status === "CANCELADO" || c.status === "DUPLICADO") continue;
+    for (const t of tokensReferencia(`${c.descricao} ${c.descrCompleta}`)) {
+      const l = m.get(t) ?? [];
+      if (l.length < MAX_POR_TOKEN && !l.includes(c.material)) l.push(c.material);
+      m.set(t, l);
+    }
+  }
+  indicesRef.set(b.cat, m);
+  return m;
+}
+export interface PorReferencia { codigo: string; token: string; candidatos: { codigo: string; descricao: string }[] }
+/**
+ * Material do Sysmat pela referência do texto: aceito só quando os tokens apontam UM único material (o primeiro token com um
+ * único material; dois tokens com materiais únicos diferentes = ambíguo). Ambíguo: `codigo` vazio e até 5 candidatos.
+ */
+export function porReferencia(texto: string, b: BaseCodigos): PorReferencia | null {
+  const idx = indiceReferencias(b);
+  const unicos = new Map<string, string>(); // material → token
+  let ambiguo: { token: string; mats: string[] } | null = null;
+  for (const t of tokensReferencia(texto)) {
+    const mats = idx.get(t);
+    if (!mats?.length) continue;
+    if (mats.length === 1) { if (!unicos.has(mats[0])) unicos.set(mats[0], t); }
+    else if (!ambiguo) ambiguo = { token: t, mats };
+  }
+  const desc = (k: string) => ({ codigo: k, descricao: b.cat?.get(k)?.descricao ?? "" });
+  if (unicos.size === 1) { const [[codigo, token]] = [...unicos]; return { codigo, token, candidatos: [desc(codigo)] }; }
+  if (unicos.size > 1) return { codigo: "", token: [...unicos.values()].join(", "), candidatos: [...unicos.keys()].slice(0, 5).map(desc) };
+  if (ambiguo) return { codigo: "", token: ambiguo.token, candidatos: ambiguo.mats.slice(0, 5).map(desc) };
+  return null;
+}
+/** Descrição normalizada para casar componente × peça de reposição (sem acento, maiúsculas, espaços colapsados). */
+export const descricaoNorm = (t: string) => semAcento(txt(t, 400)).toUpperCase().replace(/\s+/g, " ").trim();
+/** Peças de reposição do ledger por descrição normalizada. */
+export function pecasPorDescricao(pecas: Peca[]): Map<string, Peca[]> {
+  const m = new Map<string, Peca[]>();
+  for (const p of pecas) { const k = descricaoNorm(p.descricao); if (k) m.set(k, [...(m.get(k) ?? []), p]); }
+  return m;
+}
+/**
+ * `sugerido`: código achado pela referência (precisa da confirmação do PCM para a IA06); `candidatos`: referência ambígua
+ * (o PCM escolhe um); `referencia`: o token usado.
+ */
+export type ResolvidoComOrigem = Resolvido & { origemCodigo: OrigemCodigo; sugerido?: boolean; candidatos?: { codigo: string; descricao: string }[]; referencia?: string };
+/**
+ * O código SAP de um componente do RCM: o do próprio RCM, se for válido; senão o da peça de reposição (GT_SPARE_PARTS) do
+ * mesmo ledger com a descrição idêntica (normalizada; desempate: mesmo conjunto); senão a descrição curta exata no Sysmat.
+ * Sem nada disso, o resultado do RCM (inexistente, bloqueado ou sem código).
+ */
+export function codigoDoComponente(c: Pick<Componente, "codigo" | "componente" | "conjunto">, porDesc: Map<string, Peca[]>, b: BaseCodigos): ResolvidoComOrigem {
+  const r = resolverCodigo(c.codigo, "", b);
+  if (r.situacao === "ok") return { ...r, origemCodigo: "RCM" };
+  const cands = porDesc.get(descricaoNorm(c.componente)) ?? [];
+  const ordem = [...cands.filter((p) => norm(p.conjunto) === norm(c.conjunto)), ...cands.filter((p) => norm(p.conjunto) !== norm(c.conjunto))];
+  for (const p of ordem) {
+    const rp = resolverCodigo(p.codigo, p.descricao, b);
+    if (rp.situacao === "ok") return { ...rp, origemCodigo: rp.origem === "descricao" ? "Sysmat pela descrição" : "peça de reposição" };
+  }
+  const rd = resolverCodigo("", c.componente, b);
+  if (rd.situacao === "ok") return { ...rd, origemCodigo: "Sysmat pela descrição" };
+  // pela referência: o nome do componente e as peças de reposição de mesma descrição (sugestão para o PCM confirmar)
+  const ref = porReferencia([c.componente, ...ordem.map((p) => p.descricao)].join(" "), b);
+  if (ref?.codigo) {
+    const st = b.cat!.get(ref.codigo)!.status;
+    return { codigo: ref.codigo, situacao: st === "BLOQUEADO" ? "bloqueado" : "ok", origem: "", para: "", status: st, origemCodigo: "Sysmat pela referência",
+      sugerido: true, referencia: ref.token, candidatos: ref.candidatos };
+  }
+  if (ref) return { ...r, origemCodigo: "Sysmat pela referência", sugerido: true, referencia: ref.token, candidatos: ref.candidatos };
+  return { ...r, origemCodigo: r.codigo ? "RCM" : "" };
+}
+/** Origem do código de uma peça de reposição (o código dela ou a descrição curta no Sysmat). */
+export const origemDaPeca = (r: Resolvido): OrigemCodigo => (r.origem === "descricao" ? "Sysmat pela descrição" : r.codigo ? "peça de reposição" : "");
+
+/** As peças do ledger (spare parts + componentes do RCM), cada código uma vez, já resolvidas e com a origem do código. */
+export interface PecaLedger { codigoLedger: string; descricao: string; r: Resolvido; peca: Peca | null; componente: Componente | null; origemCodigo: OrigemCodigo }
 export function pecasResolvidas(l: Conteudo, b: BaseCodigos): PecaLedger[] {
   const out = new Map<string, PecaLedger>();
-  const add = (codigoLedger: string, descricao: string, peca: Peca | null, componente: Componente | null) => {
-    const r = resolverCodigo(codigoLedger, descricao, b);
+  const add = (codigoLedger: string, descricao: string, r: Resolvido, origemCodigo: OrigemCodigo, peca: Peca | null, componente: Componente | null) => {
     if (r.situacao === "sem_codigo") return;
-    const k = r.codigo;
-    const a = out.get(k);
+    const a = out.get(r.codigo);
     if (a) { if (!a.peca && peca) a.peca = peca; if (!a.componente && componente) a.componente = componente; return; }
-    out.set(k, { codigoLedger, descricao, r, peca, componente });
+    out.set(r.codigo, { codigoLedger, descricao, r, peca, componente, origemCodigo });
   };
-  for (const p of l.pecas) add(p.codigo, p.descricao, p, null);
-  for (const c of l.componentes) add(c.codigo, c.componente, null, c);
+  for (const p of l.pecas) { const r = resolverCodigo(p.codigo, p.descricao, b); add(p.codigo, p.descricao, r, origemDaPeca(r), p, null); }
+  const porDesc = pecasPorDescricao(l.pecas);
+  for (const c of l.componentes) {
+    // o código do próprio RCM entra sempre (inválido = achado); sem código válido, o da peça de reposição/Sysmat
+    const r0 = resolverCodigo(c.codigo, "", b);
+    if (r0.situacao !== "sem_codigo") add(c.codigo, c.componente, r0, "RCM", null, c);
+    if (r0.situacao !== "ok") { const rc = codigoDoComponente(c, porDesc, b); if (rc.situacao === "ok" && !rc.sugerido) add(c.codigo, c.componente, rc, rc.origemCodigo, null, c); }
+  }
   return [...out.values()];
 }
 
@@ -543,7 +655,7 @@ export function penteFino(ledgers: EntradaPente[], vinculados: (ativo: string) =
     const vinc = vincPorAtivo.get(ativo)!;
     for (const [cod, { ledger, p }] of x.codigos) {
       if (vinc.has(cod) || p.r.situacao !== "ok") continue;
-      push({ chave: chaveAchado("faltando", ativo, cod), tipo: "faltando", ledger: ledger.id, ledgerNome: ledger.nome, ativos: [ativo], codigo: cod,
+      push({ chave: chaveAchado("faltando", ativo, cod), tipo: "faltando", ledger: ledger.id, ledgerNome: ledger.nome, ativos: [ativo], codigo: cod, origemCodigo: p.origemCodigo,
         descricao: b.cat?.get(cod)?.descricao || p.descricao, detalhe: `No ledger${p.peca?.conjunto ? ` (${p.peca.conjunto})` : p.componente?.conjunto ? ` (${p.componente.conjunto})` : ""} e não vinculada ao ativo.`, acao: "vincular" });
     }
     for (const cod of vinc) {
@@ -563,8 +675,8 @@ export function penteFino(ledgers: EntradaPente[], vinculados: (ativo: string) =
   // 3 a 7: o próprio ledger
   for (const { indice, conteudo } of ledgers) {
     const alvo = indice.id;
-    const base = { ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos, acao: null } as const;
     for (const p of resolvidas.get(alvo) ?? []) {
+      const base = { ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos, acao: null, origemCodigo: p.origemCodigo } as const;
       const c = b.cat?.get(p.r.codigo);
       const paraOk = !!p.r.para && !!b.cat?.get(p.r.para) && !INATIVOS.has(b.cat!.get(p.r.para)!.status);
       if (p.r.situacao === "inexistente") {
@@ -592,7 +704,7 @@ export function penteFino(ledgers: EntradaPente[], vinculados: (ativo: string) =
     }
     const outra = rcmDeOutraMaquina(indice.nome, conteudo.componentes);
     if (outra)
-      push({ ...base, chave: chaveAchado("ledger_copiado", alvo, ""), tipo: "ledger_copiado", codigo: "", descricao: outra.texto,
+      push({ ledger: alvo, ledgerNome: indice.nome, ativos: indice.equipamentos, acao: null, chave: chaveAchado("ledger_copiado", alvo, ""), tipo: "ledger_copiado", codigo: "", descricao: outra.texto,
         detalhe: `${outra.linhas} linha(s) do RCM apontam "${outra.texto}" (outra máquina).` });
   }
   return out;
@@ -662,7 +774,7 @@ export const NAO_ASSOCIADA = "Não associada ao componente";
 /** Texto normalizado com plural reduzido, entre espaços (para procurar frases inteiras). */
 export const frase = (t: string) => ` ${norm(t).split(" ").filter(Boolean).map((w) => (w.length > 4 && w.endsWith("S") ? w.slice(0, -1) : w)).join(" ")} `;
 const SIGNIFICATIVA = (w: string) => w.length >= 3 && !PARADAS.has(w) && !/\d/.test(w);
-/** A "chave" do nome do componente: as duas primeiras palavras significativas ("VÁLVULA SOLENÓIDE NV0-TO-044CP" → "VALVULA SOLENOIDE"). */
+/** A "chave" do nome do componente: as duas primeiras palavras significativas ("VÁLVULA SOLENÓIDE XY1-AB-123CD" → "VALVULA SOLENOIDE"). */
 export function chaveNome(nome: string): string {
   const ws = frase(nome).trim().split(" ").filter(SIGNIFICATIVA);
   return ws.slice(0, 2).join(" ");

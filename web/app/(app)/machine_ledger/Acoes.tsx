@@ -180,3 +180,35 @@ export function EnviarListas({ atual }: { atual: number }) {
     </div>
   );
 }
+
+/** Confirmar o código SAP sugerido pela referência (ou escolher entre os candidatos de uma referência ambígua). */
+export function ConfirmarCodigo({ chave, candidatos, confirmado, referencia }: { chave: string; candidatos: { codigo: string; descricao: string }[];
+  confirmado: string | null; referencia: string }) {
+  const router = useRouter();
+  const [escolha, setEscolha] = useState(confirmado ?? (candidatos.length === 1 ? candidatos[0].codigo : ""));
+  const [estado, setEstado] = useState({ ocupado: false, erro: "" });
+  const gravar = async (codigo: string | null) => {
+    setEstado({ ocupado: true, erro: "" });
+    const r = await enviar({ acao: "codigo", chave, codigo });
+    setEstado({ ocupado: false, erro: r.erro });
+    if (!r.erro) router.refresh();
+  };
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5" title={`Referência: ${referencia}`}>
+      {candidatos.length > 1 && !confirmado && (
+        <select aria-label="Código candidato" value={escolha} onChange={(e) => setEscolha(e.target.value)} className="h-9 max-w-[16rem] rounded-lg border border-borda bg-superficie-2 px-2 text-[12.5px]">
+          <option value="">Escolha o código…</option>
+          {candidatos.map((c) => <option key={c.codigo} value={c.codigo}>{c.codigo} · {c.descricao}</option>)}
+        </select>
+      )}
+      {confirmado ? (
+        <button type="button" className={LINHA} disabled={estado.ocupado} onClick={() => gravar(null)}><X className="size-3.5" /> Desfazer código</button>
+      ) : (
+        <button type="button" className={LINHA} disabled={estado.ocupado || !escolha} onClick={() => gravar(escolha)}>
+          {estado.ocupado ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Confirmar código
+        </button>
+      )}
+      {estado.erro && <span role="alert" className="w-full text-[12px] text-[var(--st-critico)]">{estado.erro}</span>}
+    </span>
+  );
+}
