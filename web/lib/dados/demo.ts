@@ -6,6 +6,7 @@ import { agendaDemo } from "../agendaHh/demo";
 import { ARQ as ARQ_AGENDA, hojeIso, itemProgramacao, itemTecnico, PREFIXO_PROGRAMACAO, PREFIXO_TECNICO } from "../agendaHh/regras";
 import { AG_ALMOX, AG_PCM, ARQ_PEDIDOS, CONCLUIDO } from "../cadastroMaterial/regras";
 import { ARQ_ARMARIOS as ARQ_UBM_ARMARIOS } from "../ubm/regras";
+import { cadastrosLedgerDemo } from "../machineLedger/demo";
 import { armariosUbmDemo, movimentosUbmDemoPorArquivo, validacoesUbmDemo } from "../ubm/demo";
 import { ARQ_VALIDACOES as ARQ_UBM_VALIDACOES } from "../ubm/validacao";
 import { chaveMes } from "../wcm/orcamento";
@@ -140,7 +141,10 @@ function agendaHhDemo(): Record<string, Record<string, unknown>> {
 const globalDemo = globalThis as unknown as { __cmCadastrosDemo?: Map<string, Record<string, Record<string, unknown>>> };
 const cadastrosDemo = (globalDemo.__cmCadastrosDemo ??= new Map<string, Record<string, Record<string, unknown>>>([
   ["cadastro_materiais.json", {}],
-  ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] } }],
+  ["cadastro_equipamentos.json", { "PRENSA-01": { nome: "Prensa hidráulica 1", criticidade: "Alta", materiais: [] },
+    ...cadastrosLedgerDemo(dadosDemo().catalogo, dadosDemo().estoque).vinculos }],
+  // Machine Ledger: ledgers fictícios (lib/machineLedger/demo.ts)
+  ...cadastrosLedgerDemo(dadosDemo().catalogo, dadosDemo().estoque).cadastros,
   ["metas_wcm.json", orcamentoDemo(hoje())],
   [ARQ_PEDIDOS, pedidosDemo()],
   [ARQ_AGENDA, agendaHhDemo()],

@@ -91,6 +91,20 @@
   abre com os itens e saldo, e a porta só com o QR real de SOLICITAÇÃO. Teste em `testes/ubmArmario.test.ts`.
 - Login com volta: quem abre uma página sem sessão entra e volta a ela (`lib/auth/volta.ts`, só caminho interno).
 
+## Machine Ledger (aba `machine_ledger`, pedido do usuário, 23/11/2026)
+- Planilhas WCM/RCM por máquina (grupo Confiabilidade). Spec `docs/superpowers/specs/2026-11-23-machine-ledger-design.md`. Regras puras
+  em `web/lib/machineLedger/regras.ts` (leitura pelos cabeçalhos, H, códigos, pente fino, AF → componente, calendário), gravação em
+  `lib/machineLedger/dados.ts`, rota `app/api/machine_ledger`. Índice `machine_ledger.json` + um cadastro por ledger
+  `machine_ledger/<id>.json` + `machine_ledger_conferidos.json` (só no repositório de dados).
+- Sub-abas: Visão geral, Máquinas (capa, árvore, calendário de quebras, RCM por H, Plano Mestre, peças com MB52), Pente fino do MRO
+  (faltando, sem respaldo, código inválido, descrição divergente, estratégico sem saldo, ledger copiado; Vincular/Desvincular/
+  Conferido gravam `materiais` em cadastro_equipamentos.json pelo `aplicarPecas` da Gestão de MRO), Cruzamentos (IW13, IP19, quebras
+  × H, sugestões UBM), Correspondência (equipamentos SAP) e Enviar ledger (.xlsx lido no navegador; exige CAPA/RCM/PLANO MESTRE/
+  GT_SPARE_PARTS). Grava: `podeEditar`, vê a aba e fora de Terceiro/Manutentor; auditoria `machine_ledger_*`.
+- Índice H: o da planilha; vazio = P + T + V + 6 (segurança) + 4 (qualidade) (a soma que as planilhas usam, apesar do título
+  "P x G x T"). Calendário de quebras = AFs (Planos de AF) dos equipamentos do ledger, associadas pelo texto do mais específico
+  (componente) ao mais geral (subconjunto, conjunto); sem casamento → "Não associada ao componente".
+
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
   (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET` (criado em 20/11/2026) — **pendente: sem SMTP na
