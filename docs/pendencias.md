@@ -23,6 +23,8 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
     (loja bloqueia); fila do almoxarifado ≈ 940.
     22/11: 110 buscados (50 pelo Firecrawl até o crédito acabar, 60 pela busca web), 10 fotos novas; total 667 com
     foto, 498 baixadas no padrão; fila ≈ 830. (21/11 não rodou: a sessão reiniciou.)
+    23/11: 180 buscados pela busca web (sem Firecrawl), 13 fotos novas; 81 fotos que não baixavam (loja bloqueia)
+    trocadas por outra página com a mesma REF das buscas já feitas → 36 baixaram; total 680 com foto, 540 no padrão.
     A rotina automática da Vercel (`/api/fotos/buscar`) depende do `CRON_SECRET` (ver `docs/liberacoes.md`).
   - Download e padrão: a rotina do repositório de dados (03:47) grava as fotos em JPEG 1600×1600 quadrado e miniatura
     400×400. Falta o segredo `FIRECRAWL_API_KEY` no repositório de dados para as lojas que bloqueiam o download.
