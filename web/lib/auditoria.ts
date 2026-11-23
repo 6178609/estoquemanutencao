@@ -44,6 +44,10 @@ export const ACOES: Record<string, string> = {
   ubm_solicitacao: "Solicitação da UBM",
   ubm_reposicao: "Reposição ou contagem da UBM",
   ubm_armario: "Cadastro de armário da UBM",
+  machine_ledger_vinculo: "Vinculou/desvinculou peça pelo Machine Ledger",
+  machine_ledger_conferido: "Marcou achado do pente fino como conferido (Machine Ledger)",
+  machine_ledger_correspondencia: "Alterou os equipamentos SAP de um Machine Ledger",
+  machine_ledger_envio: "Enviou planilha de Machine Ledger",
   ubm_lancada: "Marcou retirada da UBM como lançada na ordem (antigo)",
 };
 

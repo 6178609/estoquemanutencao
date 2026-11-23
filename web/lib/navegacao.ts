@@ -23,6 +23,7 @@ export const GRUPOS: { titulo: string; abas: Aba[] }[] = [
     { id: "preditiva", titulo: "Preditiva (SEMEQ)", icone: "Radar", rota: "/preditiva" },
     { id: "equipamentos", titulo: "Equipamentos", icone: "Factory", rota: "/equipamentos" },
     { id: "manuais", titulo: "Manuais", icone: "BookOpen", rota: "/manuais" },
+    { id: "machine_ledger", titulo: "Machine Ledger", icone: "ScrollText", rota: "/machine_ledger" },
     { id: "notas", titulo: "Notas", icone: "BellRing", rota: "/notas" },
   ] },
   { titulo: "Análise de falhas", abas: [
