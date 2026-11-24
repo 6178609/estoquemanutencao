@@ -198,6 +198,15 @@ describe("Machine Ledger: envio validado e ids estáveis", () => {
     expect(R.ledgerDoMesmoNome(ind, "Machine Ledger - Prensa Fict 05.xlsx", "")).toBe("ml-abc1234567");
     expect(R.ledgerDoMesmoNome(ind, "outro.xlsx", "prensa fict 05")).toBe("ml-abc1234567");
     expect(R.ledgerDoMesmoNome(ind, "outro.xlsx", "outra")).toBeNull();
+    // o mesmo arquivo baixado com "_" no lugar dos espaços (anexo de e-mail, chat)
+    expect(R.ledgerDoMesmoNome(ind, "MACHINE_LEDGER_-_PRENSA_FICT_05.xlsx", R.nomeDoArquivo("MACHINE_LEDGER_-_PRENSA_FICT_05.xlsx"))).toBe("ml-abc1234567");
+    expect(R.nomeDoArquivo("Machine_Ledger_-_Prensa_Fict.xlsx")).toBe("Prensa_Fict");
+  });
+  it("reconhece o mesmo conteúdo enviado com outro nome de arquivo", () => {
+    const c = R.sanitizarConteudo({ componentes: [{ conjunto: "A", subconjunto: "B", componente: "C", codigo: "99001" }], plano: [], pecas: [] });
+    const d = R.sanitizarConteudo({ componentes: [{ conjunto: "A", subconjunto: "B", componente: "D", codigo: "99001" }], plano: [], pecas: [] });
+    expect(R.mesmoConteudo(c, R.sanitizarConteudo(JSON.parse(JSON.stringify(c))))).toBe(true);
+    expect(R.mesmoConteudo(c, d)).toBe(false);
   });
 });
 
