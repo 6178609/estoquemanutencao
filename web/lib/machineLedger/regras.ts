@@ -245,7 +245,7 @@ export function lerPecas(linhas: unknown[][]): Peca[] {
 
 /** Nome do ledger pelo arquivo: "MACHINE LEDGER - MOINHO SF 05.xlsx" → "MOINHO SF 05". */
 export const nomeDoArquivo = (arquivo: string) =>
-  txt(arquivo.replace(/\.(xlsx|xlsm|md)$/i, "").replace(/machine\s*ledger/ig, "").replace(/^[\s\-_]+|[\s\-_]+$/g, ""), 120);
+  txt(arquivo.replace(/\.(xlsx|xlsm|md)$/i, "").replace(/machine[\s_]*ledger/ig, "").replace(/^[\s\-_]+|[\s\-_]+$/g, ""), 120);
 
 /** A planilha inteira: erro se faltar aba obrigatória ou se o RCM vier sem componentes. */
 export function lerLedger(arquivo: string, abas: AbaLida[]): { erro: string } | { capa: Capa; revisao: string; nome: string; conteudo: Conteudo } {
@@ -329,6 +329,11 @@ export function ledgerDoMesmoNome(indice: Pick<Indice, "id" | "arquivo" | "nome"
   const a = norm(nomeDoArquivo(arquivo)), n = norm(nome);
   return indice.find((i) => norm(nomeDoArquivo(i.arquivo)) === a || (!!n && norm(i.nome) === n))?.id ?? null;
 }
+
+/** Mesmo conteúdo (já sanitizado): o mesmo ledger enviado com outro nome de arquivo não vira um ledger novo. */
+export const mesmoConteudo = (a: Conteudo, b: Conteudo): boolean =>
+  a.componentes.length === b.componentes.length && a.plano.length === b.plano.length && a.pecas.length === b.pecas.length
+  && JSON.stringify(a) === JSON.stringify(b);
 
 /** id estável para um arquivo novo: "ml-" + hash curto do nome. */
 export function idPara(arquivo: string): string {

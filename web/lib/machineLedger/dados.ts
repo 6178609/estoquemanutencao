@@ -23,7 +23,7 @@ import {
 } from "./listasTarefas";
 import {
   abasFaltando, type Achado, codigoDoComponente, pecasPorDescricao, ARQ_CONFERIDOS, ARQ_INDICE, arquivoLedger, type BaseCodigos, type Capa, type Consumido, type Conteudo, conteudoDe, type EntradaPente, idPara,
-  idValido, type Indice, indexarBase, indiceDe, itemIndice, ledgerDoMesmoNome, limparEquipamentos, MAX_LINHAS, nomeDoArquivo, penteFino, sanitizarConteudo, type PlanoSap, podeGravar, type Quebra, semZeros, txt,
+  idValido, type Indice, indexarBase, indiceDe, itemIndice, ledgerDoMesmoNome, limparEquipamentos, mesmoConteudo, MAX_LINHAS, nomeDoArquivo, penteFino, sanitizarConteudo, type PlanoSap, podeGravar, type Quebra, semZeros, txt,
 } from "./regras";
 
 /**
@@ -212,6 +212,14 @@ export async function marcarConferido(u: Quem, chave: string, sim: boolean): Pro
   registrar(u.login, "machine_ledger_conferido", k, { sim });
 }
 
+/** O ledger já gravado com o mesmo conteúdo (lê só os de mesmas contagens). */
+async function ledgerDeMesmoConteudo(indice: Indice[], conteudo: Conteudo): Promise<string | null> {
+  const n = conteudo, cands = indice.filter((i) => i.contagens.componentes === n.componentes.length && i.contagens.plano === n.plano.length
+    && i.contagens.pecas === n.pecas.length);
+  for (const i of cands.slice(0, 20)) if (mesmoConteudo(await lerConteudo(i.id), conteudo)) return i.id;
+  return null;
+}
+
 /** O que o navegador manda ao enviar o .xlsx (já lido por regras.lerLedger) e os nomes das abas da planilha. */
 export interface EnvioLedger { id?: string; arquivo: string; nome: string; revisao: string; capa: Capa; conteudo: Conteudo; abas: string[] }
 
@@ -232,7 +240,8 @@ export async function substituirLedger(u: Quem, e: EnvioLedger): Promise<string>
   if (!conteudo.componentes.length) throw new FonteErro("Planilha sem componentes no RCM.");
   const nome = txt(e.nome, 120) || nomeDoArquivo(arquivo);
   const indice = await lerIndice(true);
-  const id = idValido(e.id) && indice.some((i) => i.id === e.id) ? e.id : ledgerDoMesmoNome(indice, arquivo, nome) ?? idPara(arquivo);
+  const id = idValido(e.id) && indice.some((i) => i.id === e.id) ? e.id
+    : ledgerDoMesmoNome(indice, arquivo, nome) ?? await ledgerDeMesmoConteudo(indice, conteudo) ?? idPara(arquivo);
   await gravarCadastroLote(arquivoLedger(id), { ledger: conteudo as unknown as Record<string, unknown> }, por(u));
   const capa: Capa = { maquina: txt(e.capa?.maquina, 120), fabricante: txt(e.capa?.fabricante, 80), modelo: txt(e.capa?.modelo, 80), area: txt(e.capa?.area, 80),
     funcao: txt(e.capa?.funcao, 600) };
