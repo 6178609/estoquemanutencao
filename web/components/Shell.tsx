@@ -158,8 +158,10 @@ export function Shell({ grupos, pessoa, sair, children }: {
 
   return (
     <div className="min-h-dvh lg:flex">
-      {/* barra lateral (computador) */}
-      <aside className={clsx("nao-imprimir sticky top-0 hidden h-dvh shrink-0 flex-col bg-menu text-menu-texto lg:flex",
+      {/* barra lateral (computador): fixa na janela, não no contêiner — algo de fora que aumente a página (extensão do
+          navegador, widget) não a faz parar no meio da tela; o espaço dela no fluxo fica com o espaçador */}
+      <div aria-hidden className={clsx("nao-imprimir hidden shrink-0 lg:block", recolhido ? "w-[72px]" : "w-[256px]")} />
+      <aside className={clsx("nao-imprimir fixed inset-y-0 left-0 z-20 hidden flex-col bg-menu text-menu-texto lg:flex",
         recolhido ? "w-[72px]" : "w-[256px]")}>
         <div className="flex items-center justify-between px-4 pb-4 pt-5">
           <Marca compacta={recolhido} claro />

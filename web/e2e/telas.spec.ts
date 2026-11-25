@@ -297,3 +297,13 @@ test("UBM (demonstração): abas, validação do líder no celular (Veio da UBM 
   await expect(page.getByRole("group", { name: "Baixar solicitação · UBM-01" }).getByRole("link", { name: "Baixar QR (SVG)" })).toBeVisible();
   expect(erros).toEqual([]);
 });
+
+// regressão: algo de fora do layout que aumente a página (extensão do navegador, widget) não pode cortar o menu lateral
+test("menu lateral ocupa a altura toda mesmo com elemento extra no fim da página", async ({ page }) => {
+  const erros = await entrarNaDemo(page);
+  await page.goto("/estoque");
+  await page.evaluate(() => { const d = document.createElement("div"); d.style.height = "545px"; document.body.appendChild(d); scrollTo(0, 1e7); });
+  const { fundo, altura } = await page.evaluate(() => ({ fundo: document.querySelector("aside")!.getBoundingClientRect().bottom, altura: innerHeight }));
+  expect(Math.round(fundo)).toBe(altura);
+  expect(erros).toEqual([]);
+});
