@@ -11,6 +11,7 @@
  *   descrição e para a análise (a associação é feita na leitura, nunca gravada).
  * - Saldo por armário e item: a contagem fixa o saldo naquele momento; depois soma as reposições e tira as retiradas.
  */
+import { somarValores, valorDe, type Precos } from "../dados/custoMaterial";
 
 export const ARQ_ARMARIOS = "ubm_armarios.json";
 /** Prefixo dos cadastros mensais de movimentos: `ubm_movimentos_<AAAA-MM>.json`. */
@@ -452,3 +453,23 @@ export function analisar(armarios: Armario[], movs: Movimento[], f: Filtro, orde
 
 /** Quantidade para a tela: até 2 casas, vírgula decimal. */
 export const fmtQtd = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(n);
+
+// ----------------------------------------------------------------------------
+// Valores (preço médio do SAP, base custo_material; só para quem vê valores)
+// ----------------------------------------------------------------------------
+/** Valor do kit pela quantidade padrão × preço médio (os sem preço, ou com outra UM, ficam de fora e são contados). */
+export function valorDoKit(itens: Pick<ItemKit, "codigo" | "um" | "maximo">[], precos: Precos | null) {
+  return somarValores(itens.map((i) => valorDe(precos, i.codigo, i.maximo, i.um)));
+}
+
+/** Valor da lista de reposição: quantidade a separar × preço médio. */
+export function valorDaReposicao(linhas: Pick<LinhaSaldo, "codigo" | "um" | "separar">[], precos: Precos | null) {
+  return somarValores(linhas.map((l) => valorDe(precos, l.codigo, l.separar, l.um)));
+}
+
+/** Valor das retiradas do filtro (quantidade × preço; a UM é a do item no kit do armário). */
+export function valorDasRetiradas(armarios: Armario[], movs: Movimento[], f: Filtro, precos: Precos | null) {
+  const porId = new Map(armarios.map((a) => [a.id, a]));
+  return somarValores(filtrar(movs, f).filter((m) => m.tipo === "retirada")
+    .map((m) => valorDe(precos, m.codigo, m.quantidade, itemDoKit(porId.get(m.armario), m.codigo)?.um ?? "")));
+}

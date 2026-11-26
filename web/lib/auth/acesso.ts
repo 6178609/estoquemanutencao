@@ -85,6 +85,14 @@ export function podeVer(u: Usuario | null, pagina: string): boolean {
   return veInteira(u, pagina);
 }
 
+/**
+ * Vê preços e valores de material (custo dos materiais, valor em estoque, valor do kit da UBM e das peças do Machine
+ * Ledger): quem vê a aba Custos pela regra de abas. Terceiro e Manutentor sem a aba Custos na lista não veem preço.
+ */
+export function podeVerValores(u: Usuario | null): boolean {
+  return podeVer(u, "custos");
+}
+
 export function podeEditar(u: Usuario | null): boolean {
   return !!u && (u.perfil === "admin" || u.perfil === "editor");
 }

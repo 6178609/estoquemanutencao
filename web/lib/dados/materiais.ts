@@ -159,6 +159,10 @@ export interface ItemAlmox extends ItemEstoque {
   /** Foto do fabricante (pela referência do item), se o cadastro de fotos tem uma. */
   fotoRef: FotoExterna | null;
   usadoEm: string;
+  /** Preço médio do SAP (base custo_material; só para quem vê valores): null = sem preço; ausente = sem a base. */
+  preco?: number | null;
+  /** Saldo MB52 × preço (null = sem preço). */
+  valorEstoque?: number | null;
 }
 
 const semZeros = (c: string) => c.replace(/^0+/, "");

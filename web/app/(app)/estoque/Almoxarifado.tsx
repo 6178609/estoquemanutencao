@@ -13,6 +13,7 @@ import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
 import { MAX_FOTOS, type FotoDoItem, fotoDoItem, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMaterial";
 import { FotoDetalhe, MiniaturaFoto } from "./FotoItem";
+import { somarValores } from "@/lib/dados/custoMaterial";
 import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
@@ -27,13 +28,18 @@ const COR_CADASTRO: Record<string, "verde" | "laranja" | "vermelho" | "amarelo" 
   "Sem catálogo": "cinza",
 };
 
-function baixarCsv(itens: ItemAlmox[]) {
+/** Valor que a ordenação "Maior valor" usa: saldo × preço médio quando há a lista de preços; senão o valor da MB52. */
+const valorDoItem = (i: ItemAlmox, comPreco: boolean) => (comPreco ? i.valorEstoque ?? 0 : i.valor);
+
+function baixarCsv(itens: ItemAlmox[], valores: boolean, comPreco: boolean) {
   const cab = ["Material", "Descrição", "Descr Completa", "UM", "Estoque", "Mínimo", "Situação", "Cadastro Sysmat",
-    "Categoria", "Fabricante / referência", "Depósitos", "Valor", "Usado em"];
+    "Categoria", "Fabricante / referência", "Depósitos", ...(valores ? ["Valor (MB52)"] : []),
+    ...(comPreco ? ["Preço médio", "Valor em estoque"] : []), "Usado em"];
   const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
-  const num = (v: number | null) => (v == null ? "" : String(v).replace(".", ","));
+  const num = (v: number | null | undefined) => (v == null ? "" : String(v).replace(".", ","));
   const linhas = itens.map((i) => [i.material, i.descricao, i.descrCompleta, i.um, num(i.estoque), num(i.minimo), i.situacao,
-    i.cadastro, i.categoria, i.fabricanteRef, i.depositos, num(i.valor), i.usadoEm].map(esc).join(";"));
+    i.cadastro, i.categoria, i.fabricanteRef, i.depositos, ...(valores ? [num(i.valor)] : []),
+    ...(comPreco ? [num(i.preco), num(i.valorEstoque)] : []), i.usadoEm].map(esc).join(";"));
   const blob = new Blob(["﻿" + [cab.map(esc).join(";"), ...linhas].join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -88,7 +94,7 @@ function Pilulas({ opcoes, valor, aoMudar }: { opcoes: { valor: Situacao; rotulo
   );
 }
 
-function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
+function Linha({ it, aoAbrir, comPreco }: { it: ItemAlmox; aoAbrir: () => void; comPreco: boolean }) {
   const cob = cobertura(it.estoque, it.minimo);
   return (
     <button onClick={aoAbrir}
@@ -113,6 +119,11 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
         <div>
           <div className={clsx("num font-display text-[26px] font-medium leading-none tracking-[-0.03em]", it.estoque <= 0 && "text-perigo-500")}>{numero(it.estoque)}</div>
           <div className="mt-1 text-xs text-texto-3">{it.um || "—"} em estoque</div>
+          {comPreco && (
+            <div className="mt-1 text-xs text-texto-3" data-preco>
+              {it.preco == null ? "sem preço" : <><span className="num font-semibold text-texto-2">{brl(it.valorEstoque)}</span> · {brl(it.preco)}/{it.um || "UM"}</>}
+            </div>
+          )}
         </div>
         <div className="text-xs text-texto-3">
           mín. <span className="num font-semibold text-texto-2">{it.minimo == null ? "—" : numero(it.minimo)}</span>
@@ -128,8 +139,8 @@ function Linha({ it, aoAbrir }: { it: ItemAlmox; aoAbrir: () => void }) {
   );
 }
 
-export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais }: { itens: ItemAlmox[]; edita: boolean;
-  sugestoes: Record<string, SugestaoPublica[]> }) {
+export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais, valores = false, comPreco = false }: { itens: ItemAlmox[]; edita: boolean;
+  sugestoes: Record<string, SugestaoPublica[]>; valores?: boolean; comPreco?: boolean }) {
   const [itens, setItens] = useState(iniciais);
   const [sugestoes, setSugestoes] = useState(sugestoesIniciais);
   const [busca, setBusca] = useState("");
@@ -186,10 +197,12 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       situacao: (a, b) => peso[a.situacao] - peso[b.situacao] || a.descricao.localeCompare(b.descricao, "pt-BR"),
       descricao: (a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"),
       estoque: (a, b) => b.estoque - a.estoque,
-      valor: (a, b) => b.valor - a.valor,
+      valor: (a, b) => valorDoItem(b, comPreco) - valorDoItem(a, comPreco),
     };
     return r.sort(cmp[ordem]);
-  }, [recorte, comSaldo, situacao, ordem]);
+  }, [recorte, comSaldo, situacao, ordem, comPreco]);
+  // valor em estoque do que está na lista (filtros e pílula), com quantos ficaram sem preço
+  const totalValor = useMemo(() => (comPreco ? somarValores(visiveis.map((i) => i.valorEstoque ?? null)) : null), [visiveis, comPreco]);
 
   const listaRef = useRef<HTMLDivElement>(null);
   const [margem, setMargem] = useState(0);
@@ -227,9 +240,9 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       <select id={id} value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)}
         className="h-11 rounded-lg border border-borda bg-superficie px-2 text-sm focus:border-[var(--acao)] lg:h-9">
         <option value="situacao">Situação</option><option value="descricao">Descrição</option>
-        <option value="estoque">Maior estoque</option><option value="valor">Maior valor</option>
+        <option value="estoque">Maior estoque</option>{valores && <option value="valor">Maior valor</option>}
       </select>
-      <button onClick={() => baixarCsv(visiveis)} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 font-medium text-texto-2 hover:text-texto lg:h-9">
+      <button onClick={() => baixarCsv(visiveis, valores, comPreco)} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 font-medium text-texto-2 hover:text-texto lg:h-9">
         <Download className="size-4" /> Excel (CSV)
       </button>
     </div>
@@ -275,6 +288,14 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
 
       <p className="text-[13px] text-texto-3"><span className="num font-semibold text-texto">{inteiro(visiveis.length)}</span> material(is){situacao === "Zerado" ? " sem saldo (zerados)" : situacao === "todos" ? " com saldo" : ""} — todos numa rolagem só, sem limite. Toque num item para ver a visão geral, a ficha técnica e a foto (qualquer pessoa pode incluir ou trocar as fotos){edita ? " e ajustar o mínimo" : ""}.</p>
 
+      {totalValor && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-cartao border border-borda bg-superficie px-4 py-3" aria-label="Valor em estoque da lista">
+          <span className="text-[13px] text-texto-3">Valor em estoque da lista (saldo × preço médio)</span>
+          <span className="num font-display text-[22px] font-medium tracking-[-0.02em]" data-valor-total>{brl(totalValor.total)}</span>
+          {totalValor.semPreco > 0 && <span className="text-[12.5px] text-texto-3">{inteiro(totalValor.semPreco)} material(is) sem preço</span>}
+        </div>
+      )}
+
       <div ref={listaRef} className="overflow-hidden rounded-cartao border border-borda bg-superficie">
         {visiveis.length === 0 ? (
           <div className="grid place-items-center gap-2 px-6 py-16 text-center text-texto-3">
@@ -285,7 +306,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
             {virt.getVirtualItems().map((v) => (
               <div key={visiveis[v.index].material} data-index={v.index} ref={virt.measureElement}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}>
-                <Linha it={visiveis[v.index]} aoAbrir={() => setAberto(visiveis[v.index])} />
+                <Linha it={visiveis[v.index]} aoAbrir={() => setAberto(visiveis[v.index])} comPreco={comPreco} />
               </div>
             ))}
           </div>
@@ -295,7 +316,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       <Gaveta aberta={!!aberto} aoFechar={() => setAberto(null)}
         titulo={aberto && <><span className="num font-mono text-acao-500">{aberto.material}</span> · {aberto.descricao}</>}
         subtitulo={aberto && `${aberto.cadastro === "Ativo" ? "Cadastro ativo" : aberto.cadastro}${aberto.sysmat ? ` · Sysmat ${aberto.sysmat}` : ""}`}>
-        {aberto && <Detalhe it={aberto} edita={edita} aoSalvar={aoSalvar} aoFotos={aoFotos} sugestoes={sugestoes[aberto.material] ?? []} aoSugestoes={aoSugestoes}
+        {aberto && <Detalhe it={aberto} edita={edita} valores={valores} comPreco={comPreco} aoSalvar={aoSalvar} aoFotos={aoFotos} sugestoes={sugestoes[aberto.material] ?? []} aoSugestoes={aoSugestoes}
           pedirFoto={pedirFoto} lerPedido={lerPedido} />}
       </Gaveta>
     </div>
@@ -614,7 +635,8 @@ function SugestoesFoto({ material, lista, cheio, aoFotos, aoSugestoes, pedirFoto
   );
 }
 
-function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFoto, lerPedido }: { it: ItemAlmox; edita: boolean;
+function Detalhe({ it, edita, valores, comPreco, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFoto, lerPedido }: { it: ItemAlmox; edita: boolean;
+  valores: boolean; comPreco: boolean;
   aoSalvar: (m: string, v: number | null) => void; aoFotos: (m: string, fotos: string[]) => void;
   sugestoes: SugestaoPublica[]; aoSugestoes: (m: string, lista: SugestaoPublica[]) => void;
   pedirFoto: (p: PedidoFoto) => void; lerPedido: () => PedidoFoto }) {
@@ -634,7 +656,10 @@ function Detalhe({ it, edita, aoSalvar, aoFotos, sugestoes, aoSugestoes, pedirFo
   };
   const cartoes = [
     { r: "Estoque", v: `${numero(it.estoque)} ${it.um}` }, { r: "Mínimo", v: it.minimo == null ? "—" : numero(it.minimo) },
-    { r: "Valor", v: it.valor ? brl(it.valor) : "—" }, { r: "Depósitos", v: it.depositos || "—" },
+    ...(comPreco ? [{ r: "Preço médio", v: it.preco == null ? "sem preço" : `${brl(it.preco)}/${it.um || "UM"}` },
+      { r: "Valor em estoque", v: it.valorEstoque == null ? "—" : brl(it.valorEstoque) }]
+      : valores ? [{ r: "Valor", v: it.valor ? brl(it.valor) : "—" }] : []),
+    { r: "Depósitos", v: it.depositos || "—" },
   ];
   return (
     <>

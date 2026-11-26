@@ -1,6 +1,7 @@
 import { chave } from "../dados/texto";
 import { avisosDeColunas } from "./colunasImportantes";
 import { lerArquivo, LeituraErro, paraTexto, sondar } from "./leitura";
+import { recortarCusto } from "./custoMaterial";
 import { recortarPilarMp, recortarRoadmap } from "./indicadoresSim";
 import type { Tabela } from "./leitura";
 import { emPartes } from "./parquet";
@@ -50,7 +51,7 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
     const achados = sondar(arquivo, bytes, x);
     if (!achados.length) return { arquivo, bases: [], erro: /filtrad/i.test(arquivo)
       ? "é um recorte filtrado (baixado do site), não o export completo"
-      : "não reconheci nenhuma base pelos cabeçalhos (IW38, MB52, IW28, IH08, IP19, IW47, IW13, requisições, Sysmat, Gestão de HH, Gerenciador de AF, Indicadores e Roadmap SIM)" };
+      : "não reconheci nenhuma base pelos cabeçalhos (IW38, MB52, IW28, IH08, IP19, IW47, IW13, requisições, Sysmat, Gestão de HH, Gerenciador de AF, Indicadores e Roadmap SIM, custo dos materiais)" };
     const bases = achados.map((a) => {
       if (a.tipo === "indicadores_sim" && !x) throw new LeituraErro("a planilha de indicadores precisa ser .xlsx (as porcentagens só são lidas certo nele)");
       if (x) x.percentualEmPontos = a.tipo === "indicadores_sim"; // no painel, "2,85%" e "2,85" são o mesmo valor
@@ -60,6 +61,10 @@ export function processar(arquivo: string, bytes: Uint8Array): Processado {
         if (!t.linhas.length) throw new LeituraErro("a base mensal não tem linhas do pilar MP");
       }
       if (a.tipo === "catalogo_materiais") t = semCanceladosDuplicados(t);
+      if (a.tipo === "custo_material") {
+        t = recortarCusto(t);
+        if (!t.linhas.length) throw new LeituraErro("a lista de custo não tem nenhum material");
+      }
       if (a.tipo === "roadmap_sim") {
         t = recortarRoadmap(t);
         if (!t.linhas.length) throw new LeituraErro("o roadmap não tem nenhuma máquina");

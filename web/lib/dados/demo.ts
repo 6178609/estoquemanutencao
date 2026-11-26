@@ -82,6 +82,20 @@ export function dadosDemo() {
   return memo;
 }
 
+/**
+ * Lista de custo FICTÍCIA (base custo_material) para os materiais fictícios do catálogo: preço médio sorteado; 1 em 12 só
+ * com o preço standard e 1 em 15 sem preço nenhum (para a tela mostrar "sem preço").
+ */
+export function custoDemo(): Record<string, unknown>[] {
+  const r = gerador(1126);
+  return dadosDemo().catalogo.filter((c) => c.material).map((c, i) => {
+    const preco = Math.round((3 + r() * 600) * 100) / 100;
+    const so = i % 15 === 7 ? "nada" : i % 12 === 5 ? "standard" : "medio";
+    return { Material: c.material, "Descrição": c.descricaoCurta, UM: c.um, "Preço médio": so === "medio" ? String(preco) : "0",
+      "Preço standard": so === "nada" ? "0" : String(Math.round(preco * 0.95 * 100) / 100) };
+  });
+}
+
 // cadastros da demonstração ficam só na memória do servidor
 // (em globalThis: as rotas de API e as páginas podem ter cópias separadas deste módulo no mesmo processo)
 /** Orçamento fictício: de 3 meses atrás até 2 meses à frente do mês de hoje, valores redondos que variam por mês. */

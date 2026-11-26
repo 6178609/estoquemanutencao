@@ -7,7 +7,7 @@ import { exigir } from "@/lib/auth/sessao";
 import { manifesto, type InfoBase } from "@/lib/dados/bases";
 import { fonte, modo } from "@/lib/dados/fonte";
 import { dataHora, idade, inteiro } from "@/lib/formato";
-import { DESTINO, NOMES_BASE, TIPOS, TIPOS_SEM_ENVIO, type Tipo } from "@/lib/leitura/tipos";
+import { AJUDA_BASE, DESTINO, NOMES_BASE, TIPOS, TIPOS_SEM_ENVIO, type Tipo } from "@/lib/leitura/tipos";
 import { Envio } from "./Envio";
 import { FotosAutomaticas } from "./FotosAutomaticas";
 import { resumoFotosAutomaticas } from "@/lib/fotos/rodadaFotos";
@@ -17,10 +17,10 @@ export const dynamic = "force-dynamic";
 
 const DIAS_ALERTA = 2; // base mais velha que isso aparece como desatualizada
 /**
- * Bases com atualização mais espaçada (prazo + folga): o catálogo do Sysmat e o Roadmap SIM são mensais; os Indicadores
+ * Bases com atualização mais espaçada (prazo + folga): o catálogo do Sysmat, o Roadmap SIM e o custo dos materiais são mensais; os Indicadores
  * SIM, quinzenais.
  */
-const DIAS_ALERTA_POR_BASE: Partial<Record<Tipo, number>> = { catalogo_materiais: 35, roadmap_sim: 35, indicadores_sim: 17 };
+const DIAS_ALERTA_POR_BASE: Partial<Record<Tipo, number>> = { catalogo_materiais: 35, roadmap_sim: 35, indicadores_sim: 17, custo_material: 35 };
 
 export default async function FontesDeDados() {
   const u = await exigir("dados");
@@ -46,7 +46,7 @@ export default async function FontesDeDados() {
     <Pagina>
       <Cabecalho titulo="Fontes de dados," destaque="os exports do SAP num lugar só."
         sobre={<Pilula>{modo() === "demo" ? "Demonstração" : `${carregadas} de ${bases.length} bases carregadas`}</Pilula>}
-        subtitulo="Anexe os exports (IW38, MB52, IW28, IH08, IP19, IW47, IW13, requisições, Sysmat, Gerenciador de AF; a equipe é cadastrada no Gerenciador de HH). O site reconhece cada base pelos cabeçalhos, compacta no seu navegador e grava no repositório de dados — vale sempre o envio mais recente." />
+        subtitulo="Anexe os exports (IW38, MB52, IW28, IH08, IP19, IW47, IW13, requisições, Sysmat, Gerenciador de AF, custo dos materiais; a equipe é cadastrada no Gerenciador de HH). O site reconhece cada base pelos cabeçalhos, compacta no seu navegador e grava no repositório de dados — vale sempre o envio mais recente." />
 
       <FotosAutomaticas resumo={fotos} pode={podeEditar(u)} />
 
@@ -64,6 +64,7 @@ export default async function FontesDeDados() {
                   tom={!b.carregada ? "neutro" : b.velha ? "laranja" : "verde"} />
                 <div className="min-w-0 flex-1">
                   <h3 className="break-words font-display text-[15px] font-medium leading-snug">{b.nome}</h3>
+                  {AJUDA_BASE[b.tipo] && <p className="mt-1 text-[12px] leading-snug text-texto-3">{AJUDA_BASE[b.tipo]}</p>}
                   {b.carregada ? (
                     <div className="mt-1.5 space-y-0.5 text-[12.5px] text-texto-3">
                       {/* quebra a linha no celular: o selo (sem quebra interna) não pode empurrar o cartão para fora da tela */}

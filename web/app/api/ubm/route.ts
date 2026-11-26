@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { registrar } from "@/lib/auditoria";
+import { podeVerValores } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
+import { precosOuNada } from "@/lib/dados/custo";
+import { precoDe, valorDe } from "@/lib/dados/custoMaterial";
 import { LIMITE_DOCUMENTO } from "@/lib/dados/documentos";
 import { FonteErro } from "@/lib/dados/fonte";
 import { podeEnviar } from "@/lib/dados/fotos";
@@ -84,11 +87,15 @@ export async function GET(req: NextRequest) {
     const filtro = { armario: p.get("u") ?? "", de: p.get("de") ?? "", ate: p.get("ate") ?? "" };
     if (qual === "reposicao") {
       const lista = R.listaReposicao(armarios.filter((a) => !R.idArmarioValido(filtro.armario) || a.id === filtro.armario), movs);
+      // preço médio e valor a separar só para quem vê valores (e com a base de custo carregada)
+      const precos = podeVerValores(u) ? await precosOuNada() : null;
       registrar(u.login, "exportacao", "ubm_reposicao.xlsx", { itens: lista.length });
       return planilha("ubm_reposicao.xlsx", gerarXlsx("Reposição", [
         { titulo: "Armário", largura: 12 }, { titulo: "Código", largura: 14 }, { titulo: "Descrição", largura: 40 }, { titulo: "UM", largura: 8 },
         { titulo: "Saldo", largura: 10 }, { titulo: "Mínimo", largura: 10 }, { titulo: "Padrão", largura: 10 }, { titulo: "Separar", largura: 10 },
-      ], lista.map((l) => [l.armario, l.codigo, l.descricao, l.um, l.saldo, l.minimo, l.maximo, l.separar])));
+        ...(precos ? [{ titulo: "Preço médio", largura: 14 }, { titulo: "Valor a separar", largura: 16 }] : []),
+      ], lista.map((l) => [l.armario, l.codigo, l.descricao, l.um, l.saldo, l.minimo, l.maximo, l.separar,
+        ...(precos ? [precoDe(precos, l.codigo), valorDe(precos, l.codigo, l.separar, l.um)] : [])])));
     }
     if (qual === "validacao") {
       const [iw13, ordens, vs] = await Promise.all([D.linhasIw13(), D.ordensDeQuebra(), D.lerValidacoes()]);

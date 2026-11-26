@@ -4,7 +4,7 @@ import { chave } from "../dados/texto";
  * As bases que o site entende — tipos, nomes e destinos no repositório de dados.
  */
 export const TIPOS = ["iw38", "ip19", "iw38op", "iw28", "ih08", "mb52", "catalogo_materiais", "requisicoes", "iw47",
-  "iw13", "equipe", "af", "acoes_af", "indicadores_sim", "roadmap_sim"] as const;
+  "iw13", "equipe", "af", "acoes_af", "indicadores_sim", "roadmap_sim", "custo_material"] as const;
 export type Tipo = (typeof TIPOS)[number];
 
 export const NOMES_BASE: Record<Tipo, string> = {
@@ -14,6 +14,7 @@ export const NOMES_BASE: Record<Tipo, string> = {
   iw47: "Apontamentos de horas (IW47)", iw13: "Consumo de materiais das ordens (IW13)", equipe: "Equipe de manutenção (Gestão de HH)",
   af: "Análises de falha (Gerenciador de AF)", acoes_af: "Ações das análises de falha (Gerenciador de AF)",
   indicadores_sim: "Indicadores SIM — pilar MP (Dashboard F26)", roadmap_sim: "Roadmap SIM — passos por máquina (previsto × realizado)",
+  custo_material: "Custo dos materiais (preço médio)",
 };
 
 export const DESTINO: Record<Tipo, string> = {
@@ -21,7 +22,13 @@ export const DESTINO: Record<Tipo, string> = {
   ip19: "bases/IP19.parquet", iw38op: "bases/IW38OP.parquet", iw28: "bases/IW28.parquet", ih08: "bases/IH08.parquet",
   iw47: "bases/IW47.parquet", iw13: "bases/IW13.parquet", equipe: "bases/EQUIPE.parquet", af: "bases/AF.parquet", acoes_af: "bases/AF_ACOES.parquet",
   catalogo_materiais: "bases/CATALOGO_MATERIAIS.parquet", indicadores_sim: "bases/INDICADORES_SIM.parquet",
-  roadmap_sim: "bases/ROADMAP_SIM.parquet",
+  roadmap_sim: "bases/ROADMAP_SIM.parquet", custo_material: "bases/CUSTO_MATERIAL.parquet",
+};
+
+/** De onde exportar cada base (texto de ajuda em Fontes de dados), quando não é óbvio pelo nome. */
+export const AJUDA_BASE: Partial<Record<Tipo, string>> = {
+  custo_material: "Lista de materiais do SAP com o preço médio (Moving Average Price) e o preço standard: ex.: MM60, ou a MB52/ME2M "
+    + "com as colunas de preço, exportada para Excel. Basta uma linha por material com Material e o preço (cabeçalhos em inglês ou português).",
 };
 
 /**
@@ -37,6 +44,9 @@ export function ehTipo(t: unknown): t is Tipo {
 
 // Colunas que só existem nas planilhas baixadas do próprio site (botão "Baixar Excel"): recortes, nunca a base.
 const COLUNAS_DO_APP = /^(NATUREZA|SITUACAO|DIAS EM ABERTO|DIAS AGUARDANDO|PECAS EM FALTA|USADO EM|COM PLANO|ATRASADA)$/;
+
+/** Coluna de preço da lista de custo dos materiais (inglês ou português do SAP). */
+export const CUSTO_PRECO = /MOVING AVERAGE PRICE|^PRECO MEDIO|^PRC MEDIO|^PRECO MED |^PRC STANDARD$|^PRECO STANDARD$|^STANDARD PRICE$|PRECO MEDIO MOVEL/;
 
 /** De qual base é a tabela, pelos cabeçalhos (não pelo nome do arquivo) — a mesma ordem de leitura.identificar. */
 export function identificar(colunas: unknown[]): Tipo | null {
@@ -58,6 +68,8 @@ export function identificar(colunas: unknown[]): Tipo | null {
   if (tem(/^PLANO|PLANO (DE )?MANUT/) && tem(/DATA PLAN|DT PLAN|DATA (DE )?CHAMADA|DT CHAM/) && !tem(/DATA BASE DO INICIO/)) return "ip19";
   if (tem(/^ORDEM$/) && (tem(/STATUS USUARIO/) || tem(/STATUS DO SISTEMA/) || tem(/TIPO DE ORDEM/))) return "iw38";
   if ((tem(/N(UMERO)? DA REQ/) || tem(/REQUISI/)) && tem(/^TOTAL$/)) return "requisicoes";
+  // antes da MB52 (a lista de preços pode trazer a utilização livre); uma MB52 com o valor do estoque continua MB52
+  if (tem(/^MATERIAL$/) && tem(CUSTO_PRECO) && !tem(/VALOR UTILIZ|VALOR.*LIVRE/)) return "custo_material";
   if (tem(/^MATERIAL$|^CODIGO/) && tem(/UTILIZACAO LIVRE|UTILIZ LIVRE|LIVRE UTILIZ|ESTOQUE|SALDO/)) return "mb52";
   return null;
 }

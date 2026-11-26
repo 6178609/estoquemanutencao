@@ -14,6 +14,11 @@ const IMPORTANTES: Partial<Record<Tipo, Importante[]>> = {
     { coluna: "Valor (valor utilização livre)", padroes: ["VALOR UTILIZ", "VALOR.*LIVRE", "^VALOR$", "VALOR"], impacto: "o valor do estoque fica R$ 0 em Estoque, Custos, MRO e Busca" },
     { coluna: "Depósito", padroes: ["^DEPOSITO$", "DEPOSITO"], excluir: "DENOMINACAO|DESCR", impacto: "o filtro Depósito do Estoque fica vazio" },
   ],
+  // nomes fixos do recorte (lib/leitura/custoMaterial.ts)
+  custo_material: [
+    { coluna: "Preço médio (Moving Average Price)", padroes: ["^PRECO MEDIO$"], impacto: "o site usa o preço standard (sem ele, o material fica sem preço)" },
+    { coluna: "Unidade de medida básica", padroes: ["^UM$"], impacto: "o preço não é conferido com a UM do kit da UBM" },
+  ],
   ih08: [
     { coluna: "Código ABC", padroes: ["CODIGO ABC", "^ABC$"], impacto: "a criticidade dos equipamentos fica sem classe (Saúde, MRO, Custos por classe)" },
     { coluna: "Equipamento superior", padroes: ["EQUIPAMENTO SUPERIOR"], impacto: "a Biblioteca do ativo não mostra o equipamento superior" },
