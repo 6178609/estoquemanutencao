@@ -21,7 +21,7 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
   - A IP19 nas bases do site é a antiga (out–dez): reenviar a IP19 atual (nov–jan) em Fontes de dados.
 
 - **Fotos e datasheets dos materiais (só almoxarifado desde 16/11)**
-  - Estado (25/11): 568 de 709 fotos já baixadas no padrão 1600×1600; cerca de 380 materiais do almoxarifado na fila de busca.
+  - Estado (26/11): 584 de 726 fotos já baixadas no padrão 1600×1600; cerca de 50 materiais do almoxarifado ainda na fila de busca (depois, nova tentativa dos "sem foto" com outra consulta).
     Em 16/11, 1.725 materiais com fabricante e REF ainda não tinham foto.
   - A busca é feita em rodadas manuais: Firecrawl (cerca de 50 buscas por dia, conforme o crédito) e, desde 20/11/2026, também
     a busca web do Claude (sem crédito; melhor para fabricante + REF internacionais). 20/11: 300 buscados (240 pela busca web, 60 pelo Firecrawl), 53 fotos novas (25 pela busca web,
