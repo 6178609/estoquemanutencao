@@ -2,7 +2,9 @@ import { revalidatePath } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { registrar } from "@/lib/auditoria";
+import { podeVerValores } from "@/lib/auth/acesso";
 import { autorizar } from "@/lib/auth/sessao";
+import { precosOuNada } from "@/lib/dados/custo";
 import { lerJsonLimitado } from "@/lib/corpoLimitado";
 import { FonteErro } from "@/lib/dados/fonte";
 import { gerarXlsxAbas } from "@/lib/exportacao/xlsx";
@@ -25,25 +27,32 @@ export async function GET(req: NextRequest) {
   if (!u) return new NextResponse("Sem acesso.", { status: 403 });
   const p = req.nextUrl.searchParams;
   if (p.get("planilha") === "achados") {
-    const { achados } = await D.penteFinoAtual();
+    const [{ achados }, precos] = await Promise.all([D.penteFinoAtual(), podeVerValores(u) ? precosOuNada() : null]);
     registrar(u.login, "exportacao", "machine_ledger_achados.xlsx");
+    // preço médio e valor do estoque de segurança (estratégico/estocagem sem saldo): só para quem vê valores
     return planilha("machine_ledger_achados.xlsx", gerarXlsxAbas([{ nome: "Achados", colunas: col(["Tipo", "Abrangência", "Ativo(s)", "Ledger", "Código", "Origem do código", "Descrição", "Detalhe",
-      "Para", "Sinal forte", "Uso geral", "Fora da MB52", "Aviso secundário"]),
-      linhas: achados.map((a) => [R.TIPOS_ACHADO[a.tipo], R.DO_LEDGER.has(a.tipo) ? `Ledger (${a.ativos.length} equip.)` : "Ativo", a.ativos.join(", "), a.ledgerNome,
-        a.codigo, a.origemCodigo ?? "", a.descricao, a.detalhe, a.para ?? "", a.forte ? "Sim" : "", a.usoGeral ? "Sim" : "", a.foraMb52 ? "Sim" : "", a.secundario ? "Sim" : ""]) }]));
+      "Para", "Sinal forte", "Uso geral", "Fora da MB52", "Aviso secundário", ...(precos ? ["Preço médio", "Est. seg. Almox", "Valor est. seg."] : [])]),
+      linhas: achados.map((a) => {
+        const v = precos ? R.valorPeca(a.codigo, a.estSegAlmox, precos) : null;
+        return [R.TIPOS_ACHADO[a.tipo], R.DO_LEDGER.has(a.tipo) ? `Ledger (${a.ativos.length} equip.)` : "Ativo", a.ativos.join(", "), a.ledgerNome,
+          a.codigo, a.origemCodigo ?? "", a.descricao, a.detalhe, a.para ?? "", a.forte ? "Sim" : "", a.usoGeral ? "Sim" : "", a.foraMb52 ? "Sim" : "", a.secundario ? "Sim" : "",
+          ...(v ? [v.preco, a.estSegAlmox ?? null, v.valorSeg] : [])];
+      }) }]));
   }
   if (p.get("planilha") === "pecas") {
     const id = p.get("id") ?? "";
     const idx = (await D.lerIndice()).find((i) => i.id === id);
     if (!idx) return new NextResponse("Ledger não encontrado.", { status: 404 });
-    const [c, b] = await Promise.all([D.lerConteudo(id), D.baseCodigos()]);
+    const [c, b, precos] = await Promise.all([D.lerConteudo(id), D.baseCodigos(), podeVerValores(u) ? precosOuNada() : null]);
     registrar(u.login, "exportacao", `machine_ledger_pecas_${id}.xlsx`);
     return planilha(`pecas_${id}.xlsx`, gerarXlsxAbas([{ nome: "Peças", colunas: col(["Conjunto", "Código no ledger", "Código SAP", "Origem do código", "Situação do código", "Descrição",
-      "Descrição no Sysmat", "Saldo MB52", "Estratégico", "Deve ter reserva", "Est. seg. Almox", "Est. seg. UBM", "Valor unitário"]),
+      "Descrição no Sysmat", "Saldo MB52", "Estratégico", "Deve ter reserva", "Est. seg. Almox", "Est. seg. UBM", "Valor unitário",
+      ...(precos ? ["Preço médio (SAP)", "Valor est. seg. (SAP)"] : [])]),
       linhas: c.pecas.map((x) => {
         const r = R.resolverCodigo(x.codigo, x.descricao, b);
+        const v = precos ? R.valorPeca(r.codigo, x.estSegAlmox, precos) : null;
         return [x.conjunto, x.codigo, r.codigo, R.origemDaPeca(r), r.situacao, x.descricao, b.cat?.get(r.codigo)?.descricao ?? "", r.codigo ? b.saldo?.get(r.codigo)?.estoque ?? 0 : null,
-          x.estrategico ? "Sim" : "", x.reserva ? "Sim" : "", x.estSegAlmox, x.estSegUbm, x.valorUnit];
+          x.estrategico ? "Sim" : "", x.reserva ? "Sim" : "", x.estSegAlmox, x.estSegUbm, x.valorUnit, ...(v ? [v.preco, v.valorSeg] : [])];
       }) }]));
   }
   if (p.get("planilha") === "operacoes") {

@@ -4,8 +4,11 @@ import Link from "next/link";
 
 import { AbasVisao, Aviso, Secao } from "@/components/PaginaWcm";
 import { Cabecalho, Kpi, Pagina, Selo } from "@/components/ui";
+import { podeVerValores } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
-import { inteiro } from "@/lib/formato";
+import { precosOuNada } from "@/lib/dados/custo";
+import type { Precos } from "@/lib/dados/custoMaterial";
+import { brl, inteiro } from "@/lib/formato";
 import * as D from "@/lib/machineLedger/dados";
 import * as R from "@/lib/machineLedger/regras";
 import { dataBr, hoje, MESES, partes } from "@/lib/wcm/util";
@@ -41,6 +44,8 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
   const grava = D.podeGravarMl(u);
   const indice = await D.lerIndice();
   const nListas = visao === "Enviar ledger" ? (await D.lerListas()).size : 0;
+  // preço médio do SAP (base custo_material): só para quem vê valores, nas sub-abas com peças
+  const precos = podeVerValores(u) && (visao === "Máquinas" || visao === "Pente fino do MRO") ? await precosOuNada() : null;
 
   return (
     <Pagina>
@@ -56,8 +61,8 @@ export default async function MachineLedger(props: { searchParams: Promise<Param
         {!indice.length ? <Aviso>Nenhum Machine Ledger carregado ainda. {grava ? "Envie a planilha em \"Enviar ledger\"." : ""}</Aviso> : (
           <>
             {visao === "Visão geral" && <VisaoGeral indice={indice} />}
-            {visao === "Máquinas" && <Maquinas indice={indice} params={params} grava={grava} />}
-            {visao === "Pente fino do MRO" && <Pente params={params} grava={grava} />}
+            {visao === "Máquinas" && <Maquinas indice={indice} params={params} grava={grava} precos={precos} />}
+            {visao === "Pente fino do MRO" && <Pente params={params} grava={grava} precos={precos} />}
             {visao === "Cruzamentos" && <Cruzamentos indice={indice} params={params} />}
             {visao === "Correspondência" && <Correspondencias indice={indice} grava={grava} />}
           </>
@@ -132,7 +137,7 @@ async function VisaoGeral({ indice }: { indice: R.Indice[] }) {
 }
 
 // ----------------------------------------------------------------------------
-async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params: Params; grava: boolean }) {
+async function Maquinas({ indice, params, grava, precos }: { indice: R.Indice[]; params: Params; grava: boolean; precos: Precos | null }) {
   const l = indice.find((i) => i.id === um(params, "m"));
   if (!l) {
     return (
@@ -247,7 +252,7 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
       <Secao titulo="Peças de reposição" destaque={`· ${inteiro(c.pecas.length)}`} sub="Código resolvido no Sysmat (código SAP, código Sysmat ou descrição curta exata) e saldo na MB52."
         acoes={<a href={`/api/machine_ledger?planilha=pecas&id=${l.id}`} className={BOTAO_LINK}><Download className="size-4" /> Excel</a>}>
         {!c.pecas.length ? <Vazio>A aba GT_SPARE_PARTS deste ledger está vazia.</Vazio> : (
-          <Tabela cab={["Código", "Descrição", "Conjunto", "Saldo MB52", "Estratégico", "Reserva", "Est. seg. Almox", "Est. seg. UBM"]}>
+          <Tabela cab={["Código", "Descrição", "Conjunto", "Saldo MB52", "Estratégico", "Reserva", "Est. seg. Almox", "Est. seg. UBM", ...(precos ? ["Preço médio", "Valor est. seg."] : [])]}>
             {c.pecas.slice(0, MAX_LINHAS).map((p, i) => {
               const r = R.resolverCodigo(p.codigo, p.descricao, b);
               const saldo = r.codigo ? b.saldo?.get(r.codigo)?.estoque ?? 0 : null;
@@ -260,6 +265,11 @@ async function Maquinas({ indice, params, grava }: { indice: R.Indice[]; params:
                   <td className={`${TD} num`}>{saldo == null ? "—" : saldo <= 0 && (p.estrategico || p.reserva) ? <Selo cor="vermelho">{saldo}</Selo> : saldo}</td>
                   <td className={TD}>{p.estrategico ? "Sim" : ""}</td><td className={TD}>{p.reserva ? "Sim" : ""}</td>
                   <td className={`${TD} num`}>{p.estSegAlmox ?? ""}</td><td className={`${TD} num`}>{p.estSegUbm ?? ""}</td>
+                  {precos && (() => {
+                    const v = R.valorPeca(r.codigo, p.estSegAlmox, precos);
+                    return <><td className={`${TD} num`}>{v.preco == null ? <span className="text-texto-3">{r.codigo ? "sem preço" : "—"}</span> : brl(v.preco)}</td>
+                      <td className={`${TD} num`}>{v.valorSeg == null ? "" : brl(v.valorSeg)}</td></>;
+                  })()}
                 </tr>
               );
             })}
@@ -324,7 +334,7 @@ function Calendario({ linhas }: { linhas: R.LinhaCalendario[] }) {
 }
 
 // ----------------------------------------------------------------------------
-async function Pente({ params, grava }: { params: Params; grava: boolean }) {
+async function Pente({ params, grava, precos }: { params: Params; grava: boolean; precos: Precos | null }) {
   const { achados, conferidos, todos: ledgers } = await D.penteFinoAtual();
   const tipo = um(params, "tipo") in R.TIPOS_ACHADO ? (um(params, "tipo") as R.TipoAchado) : "";
   const todos = um(params, "todos") === "1";
@@ -372,6 +382,11 @@ async function Pente({ params, grava }: { params: Params; grava: boolean }) {
               </div>
               <div className="mt-1.5 text-[13.5px]">{a.codigo && <b className="num">{a.codigo} </b>}{a.descricao}{a.origemCodigo && <span className="text-[12px] text-texto-3"> · código: {a.origemCodigo}</span>}</div>
               <div className="mt-0.5 text-[12.5px] text-texto-3">{a.detalhe}{a.para && ` Para: ${a.para}.`}</div>
+              {precos && (a.tipo === "estrategico_sem_saldo" || a.tipo === "reserva_sem_saldo") && (() => {
+                const v = R.valorPeca(a.codigo, a.estSegAlmox, precos);
+                return <div className="mt-0.5 text-[12.5px] text-texto-2" data-valor-achado>{v.preco == null ? "Sem preço médio no SAP."
+                  : <>Preço médio <b className="num">{brl(v.preco)}</b>{v.valorSeg != null && <> · estoque de segurança × preço: <b className="num">{brl(v.valorSeg)}</b></>}</>}</div>;
+              })()}
               {grava && <div className="mt-2"><AcoesAchado chave={a.chave} acao={a.acao} ativo={a.ativos[0] ?? ""} codigo={a.codigo} /></div>}
             </li>
           ))}

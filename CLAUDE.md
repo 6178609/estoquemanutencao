@@ -117,6 +117,12 @@
   (`csvInclusao`/`scriptInclusao`) com o nº da operação, só código válido, operação confirmada que ainda existe (ou alta, opcional),
   material fora de toda a lista (uma vez por lista; repetidos somados numa linha); ATIVOS por `identificarAtivo`; qtd = qtd instalada.
 
+## Custo dos materiais (base `custo_material`, pedido do usuário, 26/11/2026)
+- Preço médio do SAP (standard quando o médio é 0; os dois 0 = "sem preço") em `bases/CUSTO_MATERIAL.parquet`, enviado em Fontes de
+  dados (recorte em `lib/leitura/custoMaterial.ts`, leitura `lib/dados/custo.ts` + `custoMaterial.ts`). Só quem vê a aba Custos
+  (`podeVerValores`) vê preço/valor: Estoque (valor em estoque), UBM (kit, reposição, retiradas) e Machine Ledger (peças, pente fino).
+  Spec `docs/superpowers/specs/2026-11-26-custo-material-design.md`.
+
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h
   (cron no `web/vercel.json` → `/api/avisos/treinamentos`, protegido por `CRON_SECRET` (criado em 20/11/2026) — **pendente: sem SMTP na

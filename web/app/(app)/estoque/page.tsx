@@ -4,9 +4,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Cabecalho, Pagina, Pilula } from "@/components/ui";
-import { podeEditar } from "@/lib/auth/acesso";
+import { podeEditar, podeVerValores } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
+import { precosOuNada } from "@/lib/dados/custo";
+import { precoDe, type Precos } from "@/lib/dados/custoMaterial";
 import { resumoCatalogo } from "@/lib/dados/catalogoBusca";
 import { dataHora, idade } from "@/lib/formato";
 import { campoDoEquipamentoDasBases } from "@/lib/wcm/campoGeral";
@@ -29,6 +31,19 @@ function comCampo(itens: ItemAlmox[], campoEq: (codigo: string) => string): Item
   } : i);
 }
 
+/**
+ * Preço e valor em estoque (saldo × preço médio) só para quem vê valores; para os demais, nem o valor da MB52 vai ao
+ * navegador.
+ */
+function comValores(itens: ItemAlmox[], valores: boolean, precos: Precos | null): ItemAlmox[] {
+  if (!valores) return itens.map((i) => ({ ...i, valor: 0 }));
+  if (!precos) return itens;
+  return itens.map((i) => {
+    const preco = precoDe(precos, i.material);
+    return { ...i, preco, valorEstoque: preco == null ? null : Math.round(i.estoque * preco * 100) / 100 };
+  });
+}
+
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex gap-3 rounded-cartao border border-borda bg-superficie-2 px-4 py-3 text-[13.5px] text-texto-2">
@@ -45,9 +60,11 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
     { id: "cadastrado", titulo: "Material cadastrado", icone: BookOpen, href: "/estoque?aba=cadastrado" },
   ];
   // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material; só a base de ordens, em paralelo
-  const [almox, campoEq] = aba === "almox" ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases()]) : [null, null];
+  const valores = podeVerValores(u);
+  const [almox, campoEq, precos] = aba === "almox"
+    ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases(), valores ? precosOuNada() : null]) : [null, null, null];
   // todos os itens do MB52; a lista abre no que tem saldo e a pílula "Zerados" mostra as faltas (saldo zero ou negativo)
-  const itensAlmox = almox && campoEq ? comCampo(almox.itens, campoEq) : [];
+  const itensAlmox = almox && campoEq ? comValores(comCampo(almox.itens, campoEq), valores, precos) : [];
   const resumo = aba === "cadastrado" ? await resumoCatalogo() : null;
   const base = almox?.estoque;
 
@@ -72,7 +89,7 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
               <Link prefetch={false} href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
-          <Almoxarifado itens={itensAlmox} edita={podeEditar(u) && !u.demo} sugestoes={almox.sugestoes} />
+          <Almoxarifado itens={itensAlmox} edita={podeEditar(u) && !u.demo} sugestoes={almox.sugestoes} valores={valores} comPreco={valores && !!precos} />
         </>
       )}
       {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} edita={podeEditar(u) && !u.demo} /> : (

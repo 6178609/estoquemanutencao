@@ -15,6 +15,7 @@
  * - Código do material: resolvido na leitura (nunca gravado) contra o catálogo do Sysmat — código SAP (5 a 7 dígitos),
  *   código Sysmat ("SysMat-2006…", 8 dígitos) ou, sem código SAP, pela descrição curta exata (só se for única).
  */
+import { precoDe, type Precos } from "../dados/custoMaterial";
 import { semAcento } from "../dados/texto";
 import { partes, type Dia } from "../wcm/util";
 
@@ -460,6 +461,8 @@ export interface Achado {
   secundario?: boolean;
   /** de onde veio o código do ledger (RCM, peça de reposição, Sysmat pela descrição) */
   origemCodigo?: OrigemCodigo;
+  /** estratégico/estocagem sem saldo: o estoque de segurança Almox do ledger (para o valor: seg. × preço médio) */
+  estSegAlmox?: number;
 }
 export const chaveAchado = (tipo: TipoAchado, alvo: string, codigo: string) => `${tipo}|${alvo}|${codigo}`;
 
@@ -735,7 +738,7 @@ export function penteFino(ledgers: EntradaPente[], vinculados: (ativo: string) =
         if (s <= 0 || seg > s) {
           const tipo: TipoAchado = pc.estrategico ? "estrategico_sem_saldo" : "reserva_sem_saldo";
           push({ ...base, chave: chaveAchado(tipo, alvo, p.r.codigo), tipo, codigo: p.r.codigo, descricao: c?.descricao || p.descricao, foraMb52: !e,
-            secundario: tipo === "reserva_sem_saldo",
+            secundario: tipo === "reserva_sem_saldo", ...(seg > 0 ? { estSegAlmox: seg } : {}),
             detalhe: `${pc.estrategico ? "Estratégico" : "Estocagem recomendada"}: ${!e ? "nunca esteve na MB52 (fora do export atual)" : `saldo MB52 ${s}`}${seg ? ` · estoque de segurança Almox ${seg}` : ""}.` });
         }
       }
@@ -957,4 +960,11 @@ export function arvore(comps: Componente[]): { conjunto: string; subs: { subconj
     s.push(c);
   }
   return [...m].map(([conjunto, subs]) => ({ conjunto, subs: [...subs].map(([subconjunto, cs]) => ({ subconjunto, comps: cs })) }));
+}
+
+/** Preço médio do SAP da peça e o valor do estoque de segurança Almox (seg. × preço, quando há os dois). */
+export function valorPeca(codigo: string, estSegAlmox: number | null | undefined, precos: Precos | null): { preco: number | null; valorSeg: number | null } {
+  const preco = codigo ? precoDe(precos, codigo) : null;
+  const seg = Number(estSegAlmox);
+  return { preco, valorSeg: preco != null && Number.isFinite(seg) && seg > 0 ? Math.round(seg * preco * 100) / 100 : null };
 }

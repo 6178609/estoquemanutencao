@@ -4,6 +4,8 @@ Lido no início de toda retomada (regra "Retomada após limite" do CLAUDE.md). S
 
 ## Em andamento
 
+- **Custo dos materiais (26/11):** base nova em Fontes de dados (preço médio do SAP); preço e valor no Estoque, UBM e Machine Ledger só para quem vê a aba Custos. Reenviar a planilha quando os preços mudarem (aviso de desatualizada após 35 dias).
+
 - **Machine Ledger — operações e IA06 (publicado em 23/11)**
   - Associação operação ↔ componente (sugestão + confirmação do PCM), código pela referência do fabricante (o PCM confirma) e
     download da IA06 (CSV + VBS com a operação) no ar.

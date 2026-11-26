@@ -4,8 +4,11 @@ import Link from "next/link";
 
 import { AbasVisao, Aviso, Secao } from "@/components/PaginaWcm";
 import { Cabecalho, Kpi, Pagina, Selo } from "@/components/ui";
+import { podeVerValores } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
-import { inteiro } from "@/lib/formato";
+import { precosOuNada } from "@/lib/dados/custo";
+import { precoDe, valorDe, type Precos } from "@/lib/dados/custoMaterial";
+import { brl, inteiro } from "@/lib/formato";
 import * as D from "@/lib/ubm/dados";
 import * as R from "@/lib/ubm/regras";
 import * as V from "@/lib/ubm/validacao";
@@ -76,6 +79,9 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
   const kitDesc = new Map(armarios.flatMap((a) => a.itens.map((i) => [`${a.id}|${i.codigo}`, i.descricao] as const)));
   const descr = (armarioId: string, codigo: string) => catalogo.get(codigo) || kitDesc.get(`${armarioId}|${codigo}`) || "";
   const qs = new URLSearchParams({ u: armario, de, ate }).toString();
+  // preço médio do SAP (base custo_material): só para quem vê valores e nas sub-abas que mostram valor
+  const precos = podeVerValores(u) && (visao === "Visão geral" || visao === "Análise" || visao === "Armários") ? await precosOuNada() : null;
+  const valorRepor = precos ? R.valorDaReposicao(repor, precos) : null;
 
   const controles = (
     <Controles className="min-w-0 flex-1" controles={[
@@ -127,15 +133,17 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
             )}
 
             <div id="reposicao" className="scroll-mt-20">
-              <Secao titulo="Lista de reposição" destaque={`· ${inteiro(repor.length)}`} sub="Saldo abaixo do mínimo: separar a quantidade padrão − saldo."
+              <Secao titulo="Lista de reposição" destaque={`· ${inteiro(repor.length)}`}
+                sub={`Saldo abaixo do mínimo: separar a quantidade padrão − saldo.${valorRepor ? ` Valor a separar: ${brl(valorRepor.total)} (preço médio do SAP${valorRepor.semPreco ? `; ${inteiro(valorRepor.semPreco)} item(ns) sem preço` : ""}).` : ""}`}
                 acoes={<a href={`/api/ubm?planilha=reposicao&${qs}`} className={BOTAO_LINK}><Download className="size-4" /> Excel</a>}>
                 {!repor.length ? <Vazio>Nada para repor{armario ? ` no ${armario}` : ""}.</Vazio> : (
-                  <Tabela cab={["Armário", "Código", "Descrição", "UM", "Saldo", "Mínimo", "Padrão", "Separar"]}>
+                  <Tabela cab={["Armário", "Código", "Descrição", "UM", "Saldo", "Mínimo", "Padrão", "Separar", ...(precos ? ["Preço médio", "Valor"] : [])]}>
                     {repor.map((l) => (
                       <tr key={`${l.armario}|${l.codigo}`} className="border-t border-borda">
                         <td className={TD}>{l.armario}</td><td className={`${TD} num`}>{l.codigo}</td><td className={TD}>{descr(l.armario, l.codigo) || l.descricao}</td>
                         <td className={TD}>{l.um}</td><td className={`${TD} num`}>{R.fmtQtd(l.saldo)}</td><td className={`${TD} num`}>{R.fmtQtd(l.minimo)}</td>
                         <td className={`${TD} num`}>{R.fmtQtd(l.maximo)}</td><td className={`${TD} num font-semibold`}>{R.fmtQtd(l.separar)}</td>
+                        {precos && <ColunasValor precos={precos} codigo={l.codigo} quantidade={l.separar} um={l.um} />}
                       </tr>
                     ))}
                   </Tabela>
@@ -147,10 +155,14 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
               {!doArmario.length ? <Vazio>Nenhum armário cadastrado. {gere ? "Cadastre em “Armários”." : ""}</Vazio> : doArmario.filter((a) => a.ativo).map((a) => {
                 const linhas = saldo.filter((l) => l.armario === a.id);
                 const tela = linhas.map((l) => ({ codigo: l.codigo, descricao: descr(a.id, l.codigo) || l.descricao, um: l.um, saldo: l.saldo, separar: l.separar }));
+                const kit = precos ? R.valorDoKit(a.itens, precos) : null;
                 return (
                   <div key={a.id} className="space-y-2 rounded-cartao border border-borda bg-superficie p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-display text-[16px] font-medium">{a.id} · {a.nome}{a.local && <span className="text-[13px] font-normal text-texto-3"> · {a.local}</span>}</div>
+                      <div>
+                        <div className="font-display text-[16px] font-medium">{a.id} · {a.nome}{a.local && <span className="text-[13px] font-normal text-texto-3"> · {a.local}</span>}</div>
+                        {kit && <ValorKit v={kit} />}
+                      </div>
                       {gere && !!linhas.length && <div className="flex flex-wrap gap-2"><Lancamento armario={a.id} itens={tela} tipo="reposicao" /><Lancamento armario={a.id} itens={tela} tipo="contagem" /></div>}
                     </div>
                     {!linhas.length ? <p className="text-[13px] text-texto-3">Kit vazio.</p> : (
@@ -253,7 +265,7 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
             decisao={um(params, "dec")} gere={gere} valida={valida} descr={descr} qs={qs} />
         )}
 
-        {visao === "Análise" && <Analise armarios={armarios} movs={movs} filtro={filtro} ordens={ordens} hoje={hoje} descr={descr} validacoes={validacoes} />}
+        {visao === "Análise" && <Analise armarios={armarios} movs={movs} filtro={filtro} ordens={ordens} hoje={hoje} descr={descr} validacoes={validacoes} precos={precos} />}
 
         {visao === "Armários" && (
           <Secao titulo="Armários kanban" destaque={`· ${inteiro(armarios.length)}`} sub="Identificação, local e o kit (código, UM, quantidade padrão e mínimo)."
@@ -266,6 +278,7 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
                       <div>
                         <div className="flex flex-wrap items-center gap-2 font-display text-[16px] font-medium">{a.id} · {a.nome}{!a.ativo && <Selo>Desativado</Selo>}</div>
                         <div className="text-[12.5px] text-texto-3">{a.local || "Sem local"} · {inteiro(a.itens.length)} itens no kit</div>
+                        {precos && !!a.itens.length && <ValorKit v={R.valorDoKit(a.itens, precos)} />}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {a.ativo && <Link href={`/ubm/qr?u=${encodeURIComponent(a.id)}`} className="inline-flex h-9 items-center gap-1 rounded-lg border border-borda px-2.5 text-[12.5px] hover:bg-superficie-2"><QrCode className="size-3.5" /> Imprimir QR</Link>}
@@ -306,6 +319,22 @@ export default async function Ubm(props: { searchParams: Promise<Params> }) {
   );
 }
 
+/** Preço médio e quantidade × preço (sem preço, ou com outra UM que a do SAP: "—"). */
+function ColunasValor({ precos, codigo, quantidade, um: umQtd }: { precos: Precos; codigo: string; quantidade: number; um: string }) {
+  const p = precoDe(precos, codigo), v = valorDe(precos, codigo, quantidade, umQtd);
+  return <><td className={`${TD} num`}>{p == null ? <span className="text-texto-3">sem preço</span> : brl(p)}</td>
+    <td className={`${TD} num`}>{v == null ? <span className="text-texto-3" title={p == null ? undefined : "UM do kit diferente da UM do SAP"}>—</span> : brl(v)}</td></>;
+}
+
+/** "Valor do kit: R$ … (quantidade padrão × preço médio)". */
+function ValorKit({ v }: { v: { total: number; semPreco: number } }) {
+  return (
+    <div className="text-[12.5px] text-texto-3" data-valor-kit>
+      Valor do kit: <span className="num font-semibold text-texto-2">{brl(v.total)}</span> (padrão × preço médio{v.semPreco ? `; ${inteiro(v.semPreco)} item(ns) sem preço` : ""})
+    </div>
+  );
+}
+
 function Vazio({ children }: { children: React.ReactNode }) {
   return <p className="rounded-cartao border border-dashed border-borda px-5 py-6 text-center text-[13.5px] text-texto-3">{children}</p>;
 }
@@ -342,15 +371,18 @@ function Barras({ titulo, grupos, max = 12 }: { titulo: string; grupos: R.Grupo[
   );
 }
 
-function Analise({ armarios, movs, filtro, ordens, hoje, descr, validacoes }: { armarios: R.Armario[]; movs: R.Movimento[]; filtro: R.Filtro;
-  ordens: Map<string, R.OrdemIw38> | null; hoje: string; descr: (a: string, c: string) => string; validacoes: V.Validacao[] }) {
+function Analise({ armarios, movs, filtro, ordens, hoje, descr, validacoes, precos }: { armarios: R.Armario[]; movs: R.Movimento[]; filtro: R.Filtro;
+  ordens: Map<string, R.OrdemIw38> | null; hoje: string; descr: (a: string, c: string) => string; validacoes: V.Validacao[]; precos: Precos | null }) {
   const a = R.analisar(armarios, movs, filtro, ordens, hoje);
   const v = V.analisarValidacoes(validacoes, armarios, movs, filtro);
   const descricaoDe = (c: string) => armarios.map((x) => descr(x.id, c)).find(Boolean) || "";
   const comDescricao = (g: R.Grupo) => ({ ...g, rotulo: descricaoDe(g.chave) ? `${g.chave} · ${descricaoDe(g.chave)}` : g.chave });
+  const valorRet = precos ? R.valorDasRetiradas(armarios, movs, filtro, precos) : null;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className={`grid grid-cols-2 gap-3 ${valorRet ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-5"}`}>
+        {valorRet && <Kpi rotulo="Valor das retiradas" valor={brl(valorRet.total)}
+          detalhe={`quantidade × preço médio do SAP${valorRet.semPreco ? ` · ${inteiro(valorRet.semPreco)} sem preço` : ""}`} tom="azul" />}
         <Kpi rotulo="Retiradas" valor={inteiro(a.retiradas)} detalhe={`${R.fmtQtd(a.quantidade)} unidades no período`} tom="azul" />
         <Kpi rotulo="Veio da UBM" valor={v.pctUbm == null ? "—" : `${R.fmtQtd(v.pctUbm)}%`} detalhe={`${inteiro(v.ubm)} UBM · ${inteiro(v.almox)} Almox nas validações`}
           tom={v.pctUbm == null || v.pctUbm >= 50 ? "verde" : "laranja"} />
