@@ -122,6 +122,9 @@
   dados (recorte em `lib/leitura/custoMaterial.ts`, leitura `lib/dados/custo.ts` + `custoMaterial.ts`). Só quem vê a aba Custos
   (`podeVerValores`) vê preço/valor: Estoque (valor em estoque), UBM (kit, reposição, retiradas) e Machine Ledger (peças, pente fino).
   Spec `docs/superpowers/specs/2026-11-26-custo-material-design.md`.
+- **Depósito do almoxarifado = I26 (pedido do usuário, 27/11/2026):** o estoque do site é só o I26 (`DEPOSITO_ALMOX` em
+  `lib/dados/materiais.ts`): MB52 com a coluna Depósito conta só o I26; sem a coluna, a aba Estoque fica com os materiais da base de
+  custo (que vem só do I26; `soDoDepositoAlmox`); a base de custo ignora linhas de outro depósito.
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

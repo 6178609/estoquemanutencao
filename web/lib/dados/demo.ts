@@ -72,11 +72,11 @@ export function dadosDemo() {
     if (estoque.some((e) => e.material === c.material)) continue;
     const q = r() < 0.08 ? 0 : Math.floor(r() * 60);
     estoque.push({ material: c.material, descricao: c.descricaoCurta, um: c.um, estoque: q,
-      valor: Math.round(q * (5 + r() * 400) * 100) / 100, depositos: r() > 0.3 ? "MA01" : "MA01, MA02" });
+      valor: Math.round(q * (5 + r() * 400) * 100) / 100, depositos: (r(), "I26") });
   }
   for (let i = 0; i < 40; i++) {
     estoque.push({ material: String(500000 + i * 13), descricao: `ITEM SEM CADASTRO ${i + 1}`, um: "UN",
-      estoque: Math.floor(r() * 10), valor: 0, depositos: "MA01" });
+      estoque: Math.floor(r() * 10), valor: 0, depositos: "I26" });
   }
   memo = { estoque, catalogo };
   return memo;

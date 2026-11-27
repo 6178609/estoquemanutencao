@@ -8,8 +8,11 @@ import type { SugestaoPublica } from "../fotoMaterial";
 import { dadosDemo } from "./demo";
 import { fonte } from "./fonte";
 import { lerParquet } from "./parquet";
+import { DESTINO } from "../leitura/tipos";
+import { semZerosCodigo } from "../leitura/custoMaterial";
+import { prepararCusto } from "./custoMaterial";
 import {
-  montarAlmox, prepararCatalogo, prepararMb52, soMateriaisDoSysmat, usoDosMateriais, type ItemAlmox, type ItemCatalogo, type ItemEstoque,
+  montarAlmox, prepararCatalogo, prepararMb52, soDoDepositoAlmox, soMateriaisDoSysmat, usoDosMateriais, type ItemAlmox, type ItemCatalogo, type ItemEstoque,
 } from "./materiais";
 
 /** As bases gravadas no repositório de dados pelo envio em Fontes de dados. */
@@ -138,12 +141,23 @@ interface Almoxarifado {
   sugestoes: Record<string, SugestaoPublica[]>;
 }
 
+/** Materiais da base de custo (só o depósito I26); null sem a base: aí nada é filtrado. */
+async function materiaisDoDepositoAlmox(): Promise<((material: string) => boolean) | null> {
+  const b = await lerBase(DESTINO.custo_material, prepararCusto).catch(() => null);
+  const precos = b?.dados;
+  if (!precos?.size) return null;
+  return (m) => precos.has(semZerosCodigo(String(m).toUpperCase()));
+}
+
 export async function almoxarifado(): Promise<Almoxarifado> {
   const [est, cat, cadMat, cadEq, cadRef] = await Promise.all([
     estoque(), catalogo(), lerCadastro("cadastro_materiais.json"), lerCadastro("cadastro_equipamentos.json"),
     lerCadastro(ARQUIVO_REFERENCIA),
   ]);
-  const itens = est.dados ? soMateriaisDoSysmat(montarAlmox(est.dados, cat.dados, cadMat, usoDosMateriais(cadEq))).map((i) => ({
+  // MB52 sem a coluna Depósito: o depósito do almoxarifado (I26) vem da base de custo, que só traz o I26
+  const semDeposito = !!est.dados?.length && est.dados.every((e) => !e.depositos);
+  const noI26 = semDeposito && fonte() ? await materiaisDoDepositoAlmox() : null;
+  const itens = est.dados ? soDoDepositoAlmox(soMateriaisDoSysmat(montarAlmox(est.dados, cat.dados, cadMat, usoDosMateriais(cadEq))), noI26).map((i) => ({
     ...i, ...fotosExternasDoItem(i.material, cadRef),
   })) : [];
   const sugestoes = await sugestoesDosMateriais(new Set(itens.map((i) => i.material)));

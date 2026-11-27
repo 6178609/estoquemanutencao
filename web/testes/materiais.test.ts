@@ -42,18 +42,21 @@ describe("catálogo do Sysmat", () => {
 
 describe("almoxarifado", () => {
   const mb52 = prepararMb52([
-    { Material: "111", "Texto breve material": "ROL", Depósito: "MA01", "Unidade medida básica": "UN", "Utilização livre": "2" },
-    { Material: "111", "Texto breve material": "ROL", Depósito: "MA02", "Unidade medida básica": "UN", "Utilização livre": "1,5" },
-    { Material: "0222", "Texto breve material": "PAR", Depósito: "MA01", "Unidade medida básica": "PC", "Utilização livre": "0" },
-    { Material: "444", "Texto breve material": "CABO", Depósito: "MA01", "Unidade medida básica": "M", "Utilização livre": "5" },
+    { Material: "111", "Texto breve material": "ROL", Depósito: "I26", "Unidade medida básica": "UN", "Utilização livre": "2" },
+    { Material: "111", "Texto breve material": "ROL", Depósito: "i26", "Unidade medida básica": "UN", "Utilização livre": "1,5" },
+    { Material: "111", "Texto breve material": "ROL", Depósito: "P01", "Unidade medida básica": "UN", "Utilização livre": "40" },
+    { Material: "0222", "Texto breve material": "PAR", Depósito: "I26", "Unidade medida básica": "PC", "Utilização livre": "0" },
+    { Material: "444", "Texto breve material": "CABO", Depósito: "I26", "Unidade medida básica": "M", "Utilização livre": "5" },
+    { Material: "555", "Texto breve material": "SO PRODUCAO", Depósito: "P01", "Unidade medida básica": "UN", "Utilização livre": "9" },
     { Material: "999", "Texto breve material": "X", Depósito: "", "Unidade medida básica": "UN", "Utilização livre": "1" },
     { Material: "", "Texto breve material": "linha vazia", Depósito: "", "Unidade medida básica": "", "Utilização livre": "" },
   ]);
-  it("soma por material e junta os depósitos", () => {
+  it("soma por material só o depósito do almoxarifado (I26); outros depósitos ficam de fora", () => {
     expect(mb52.resumo).toHaveLength(4);
+    expect(mb52.resumo.some((x) => x.material === "555")).toBe(false);
     const r = mb52.resumo.find((x) => x.material === "111")!;
     expect(r.estoque).toBe(3.5);
-    expect(r.depositos).toBe("MA01, MA02");
+    expect(r.depositos).toBe("I26");
   });
   it("cruza com o catálogo (zeros à esquerda), mínimo e uso em equipamento", () => {
     const uso = usoDosMateriais({ "PRENSA-1": { criticidade: "Alta", materiais: ["111", "111"] } });

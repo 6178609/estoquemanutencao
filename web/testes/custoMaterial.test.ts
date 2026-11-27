@@ -16,7 +16,7 @@ const CAB_EN = ["Plant", "Material", "Material.1", "Material type", "Profit Cent
   "Storage location", "Issue Storage Location", "Exp", "Utiliz.livre", "MRP controller", "Moving Average Price/Periodic Unit Price", "Prç.standard",
   "SM.1", "Nome", "Procurement Type"];
 const linhaEn = (mat: string, desc: string, um: string, livre: string, medio: string, std: string) =>
-  ["A000", mat, desc, "ZMRO", "PC01", um, "9999", "", "VB", "MA01", "", "", livre, "X01", medio, std, "", "PESSOA FICTICIA", "F"];
+  ["A000", mat, desc, "ZMRO", "PC01", um, "9999", "", "VB", "I26", "", "", livre, "X01", medio, std, "", "PESSOA FICTICIA", "F"];
 
 describe("custo dos materiais: reconhecimento pelos cabeçalhos", () => {
   it("export do SAP em inglês e em português", () => {
@@ -46,8 +46,8 @@ describe("recorte da lista de custo", () => {
       "Depósito", "Utilização livre", "Tipo de MRP", "Tipo de suprimento"]);
     expect(t.colunas).not.toContain("Nome"); // o nome do planejador nunca sai do computador
     expect(t.linhas).toEqual([
-      ["99001", "ROLAMENTO FICTICIO", "PC", "12.5", "11", "9999", "ZMRO", "MA01", "4", "VB", "F"],
-      ["99002", "CORREIA FICTICIA", "UN", "0", "8.75", "9999", "ZMRO", "MA01", "0", "VB", "F"],
+      ["99001", "ROLAMENTO FICTICIO", "PC", "12.5", "11", "9999", "ZMRO", "I26", "4", "VB", "F"],
+      ["99002", "CORREIA FICTICIA", "UN", "0", "8.75", "9999", "ZMRO", "I26", "0", "VB", "F"],
     ]);
   });
   it("processar: CSV do SAP vira a base custo_material em parquet, legível pelo preparo do site", async () => {
@@ -126,5 +126,32 @@ describe("demonstração", () => {
     const comPreco = mats.filter((c) => precoDe(precos, c) != null).length;
     expect(comPreco).toBeGreaterThan(mats.length * 0.8);
     expect(comPreco).toBeLessThan(mats.length);
+  });
+});
+
+describe("depósito do almoxarifado (I26)", () => {
+  it("MB52 com a coluna Depósito: só o I26 entra no estoque", async () => {
+    const { prepararMb52 } = await import("@/lib/dados/materiais");
+    const r = prepararMb52([
+      { Material: "99001", "Texto breve material": "PECA A", "Depósito": "I26", UM: "UN", "Utilização livre": 3 },
+      { Material: "99001", "Texto breve material": "PECA A", "Depósito": "P01", UM: "UN", "Utilização livre": 50 },
+      { Material: "99002", "Texto breve material": "PECA B", "Depósito": "P01", UM: "UN", "Utilização livre": 7 },
+    ]);
+    expect(r.resumo.map((i) => [i.material, i.estoque])).toEqual([["99001", 3]]);
+  });
+  it("MB52 sem a coluna: tudo entra; a base de custo decide quem é do I26", async () => {
+    const { prepararMb52, soDoDepositoAlmox } = await import("@/lib/dados/materiais");
+    const r = prepararMb52([{ Material: "99001", UM: "UN", "Utilização livre": 3 }, { Material: "99002", UM: "UN", "Utilização livre": 1 }]);
+    expect(r.resumo).toHaveLength(2);
+    expect(soDoDepositoAlmox(r.resumo, (m) => m === "99001").map((i) => i.material)).toEqual(["99001"]);
+    expect(soDoDepositoAlmox(r.resumo, null)).toHaveLength(2);
+  });
+  it("base de custo: linhas de outro depósito não entram", async () => {
+    const { prepararCusto } = await import("@/lib/dados/custoMaterial");
+    const p = prepararCusto([
+      { Material: "99001", "Preço médio": 10, "Preço standard": 0, UM: "UN", "Depósito": "I26" },
+      { Material: "99003", "Preço médio": 5, "Preço standard": 0, UM: "UN", "Depósito": "P01" },
+    ]);
+    expect([...p.keys()]).toEqual(["99001"]);
   });
 });
