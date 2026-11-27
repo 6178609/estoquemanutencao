@@ -4,6 +4,7 @@
  * zerados ou vazios: "sem preço" (null). Valores absurdos não são corrigidos: aparecem como vieram do SAP.
  */
 import { semZerosCodigo } from "../leitura/custoMaterial";
+import { doAlmox } from "./materiais";
 import { acharColuna, paraNumero, texto } from "./texto";
 
 export interface PrecoMaterial {
@@ -29,9 +30,11 @@ export function prepararCusto(cru: Record<string, unknown>[]): Precos {
   const med = acharColuna(cols, ["^PRECO MEDIO$", "MOVING AVERAGE PRICE", "PRECO MEDIO", "PRC MEDIO"]);
   const std = acharColuna(cols, ["^PRECO STANDARD$", "^PRC STANDARD$", "^STANDARD PRICE$"]);
   const um = acharColuna(cols, ["^UM$", "BASE UNIT OF MEASURE", "UNIDADE (DE )?MEDIDA"]);
+  const dep = acharColuna(cols, ["^DEPOSITO$", "^STORAGE LOCATION$"]);
   const out: Precos = new Map();
   if (!mat) return out;
   for (const r of cru) {
+    if (dep && !doAlmox(texto(r[dep]))) continue; // só o depósito do almoxarifado (I26)
     const codigo = semZerosCodigo(texto(r[mat]).toUpperCase());
     if (!codigo) continue;
     const precoMedio = med ? positivo(r[med]) : null, precoStandard = std ? positivo(r[std]) : null;

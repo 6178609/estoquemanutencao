@@ -39,6 +39,10 @@ function colunasDe(linhas: Linha[]): string[] {
   return linhas.length ? Object.keys(linhas[0]) : [];
 }
 
+/** Depósito do almoxarifado de manutenção (pedido do usuário, 27/11/2026): todo o estoque do site é do I26. */
+export const DEPOSITO_ALMOX = "I26";
+export const doAlmox = (deposito: string) => !deposito.trim() || deposito.trim().toUpperCase() === DEPOSITO_ALMOX;
+
 export function prepararMb52(cru: Linha[]): { resumo: ItemEstoque[]; detalhe: (ItemEstoque & { deposito: string })[] } {
   const cols = colunasDe(cru);
   const mat = acharColuna(cols, ["^MATERIAL$", "CODIGO", "MATERIAL"], "TEXTO|DESCR|TIPO|GRUPO");
@@ -54,10 +58,12 @@ export function prepararMb52(cru: Linha[]): { resumo: ItemEstoque[]; detalhe: (I
   for (const r of cru) {
     const material = texto(r[mat]);
     if (!material) continue;
+    // MB52 com a coluna Depósito: só o I26 conta (outros depósitos são de produção)
+    if (dep && !doAlmox(texto(r[dep]))) continue;
     const q = qtd ? paraNumero(r[qtd]) : 0;
     const v = val ? paraNumero(r[val]) : 0;
     detalhe.push({
-      material, descricao: desc ? texto(r[desc]) : "", deposito: dep ? texto(r[dep]) : "", um: um ? texto(r[um]) : "",
+      material, descricao: desc ? texto(r[desc]) : "", deposito: dep ? texto(r[dep]).toUpperCase() : "", um: um ? texto(r[um]) : "",
       estoque: Number.isNaN(q) ? 0 : q, valor: Number.isNaN(v) ? 0 : v, depositos: "",
     });
   }
@@ -205,6 +211,13 @@ export function montarAlmox(
  * Só os materiais do almoxarifado que existem no catálogo do Sysmat (pedido do PCM, 16/11/2026): o que está na MB52 e
  * não está no Sysmat é item de produção, fora da manutenção, e sai da aba Estoque. Sem catálogo carregado, fica tudo.
  */
+/**
+ * MB52 sem a coluna Depósito: o que não está no depósito I26 sai pela base de custo (que vem só do I26). Sem a base, fica tudo.
+ */
+export function soDoDepositoAlmox<T extends { material: string }>(itens: T[], noDeposito: ((material: string) => boolean) | null): T[] {
+  return noDeposito ? itens.filter((i) => noDeposito(i.material)) : itens;
+}
+
 export function soMateriaisDoSysmat(itens: ItemAlmox[]): ItemAlmox[] {
   return itens.filter((i) => i.cadastro !== "Não encontrado no Sysmat" && !foraDoEstoque(i.pdm));
 }
