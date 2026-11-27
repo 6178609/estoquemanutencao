@@ -12,6 +12,7 @@ import { fotoDoItem } from "@/lib/fotoMaterial";
 import type { ItemCatalogoTela } from "@/lib/dados/catalogoBusca";
 import { inteiro, numero } from "@/lib/formato";
 import { DatasheetMaterial } from "./DatasheetMaterial";
+import { HistoricoRetiradas } from "./HistoricoRetiradas";
 import { FotoDetalhe, MiniaturaFoto, MOLDURA_FOTO } from "./FotoItem";
 
 type Onde = "todos" | "almox" | "fora";
@@ -171,6 +172,7 @@ export function Catalogo({ resumo, edita = false }: { resumo: ResumoCatalogo; ed
             </section>
             {aberto.material && <DatasheetMaterial key={aberto.material} material={aberto.material} fabricanteRef={aberto.fabricanteRef}
               descricao={aberto.descricaoCurta} edita={edita} />}
+            {aberto.material && <HistoricoRetiradas key={`h-${aberto.material}`} material={aberto.material} />}
             <section className="grid gap-2 text-sm">
               {[["Categoria", [aberto.categoria, aberto.subcategoria].filter(Boolean).join(" › ")], ["PDM", aberto.pdm],
                 ["Fabricante / referência", aberto.fabricanteRef], ["NCM", aberto.ncm], ["Unidade", aberto.um],

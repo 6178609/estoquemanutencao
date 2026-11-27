@@ -125,6 +125,11 @@
 - **Depósito do almoxarifado = I26 (pedido do usuário, 27/11/2026):** o estoque do site é só o I26 (`DEPOSITO_ALMOX` em
   `lib/dados/materiais.ts`): MB52 com a coluna Depósito conta só o I26; sem a coluna, a aba Estoque fica com os materiais da base de
   custo (que vem só do I26; `soDoDepositoAlmox`); a base de custo ignora linhas de outro depósito.
+- **Histórico de retiradas pela IW13 na aba Estoque (pedido do usuário, 27/11/2026):** no detalhamento do material (almoxarifado e
+  cadastrado), resumo dos 12 meses (mês atual + 11, dia de Brasília), barras por mês, tabela com ordem/tipo/equipamento (IW38), selos
+  Quebra/Devolução/Veio da UBM, valor só com `podeVerValores` e CSV; na lista, "consumo 12 m" e a ordenação. Tomados < 0 = devolução,
+  abatida (totais líquidos). Regras `lib/estoque/historicoIw13.ts`, servidor `lib/dados/historicoIw13.ts`, rota `/api/estoque/historico`.
+  Spec `docs/superpowers/specs/2026-11-27-estoque-historico-iw13-design.md`.
 
 ## Avisos por e-mail
 - Aviso semanal de treinamentos vencendo aos líderes (função Líder, ativo, com e-mail em Usuários): toda segunda 8h

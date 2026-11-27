@@ -8,6 +8,8 @@ import { podeEditar, podeVerValores } from "@/lib/auth/acesso";
 import { exigir } from "@/lib/auth/sessao";
 import { almoxarifado } from "@/lib/dados/bases";
 import { precosOuNada } from "@/lib/dados/custo";
+import { consumo12mPorMaterial } from "@/lib/dados/historicoIw13";
+import { codigoMaterial } from "@/lib/estoque/historicoIw13";
 import { precoDe, type Precos } from "@/lib/dados/custoMaterial";
 import { resumoCatalogo } from "@/lib/dados/catalogoBusca";
 import { dataHora, idade } from "@/lib/formato";
@@ -44,6 +46,12 @@ function comValores(itens: ItemAlmox[], valores: boolean, precos: Precos | null)
   });
 }
 
+/** Consumo líquido dos 12 meses (IW13) de cada material; sem a IW13 o campo fica ausente e a coluna some. */
+function comConsumo(itens: ItemAlmox[], consumo: Map<string, number> | null): ItemAlmox[] {
+  if (!consumo) return itens;
+  return itens.map((i) => ({ ...i, consumo12m: consumo.get(codigoMaterial(i.material)) ?? 0 }));
+}
+
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex gap-3 rounded-cartao border border-borda bg-superficie-2 px-4 py-3 text-[13.5px] text-texto-2">
@@ -61,10 +69,10 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
   ];
   // o "Usado em" mostra o campo de ordenação de cada equipamento (TAG) que usa o material; só a base de ordens, em paralelo
   const valores = podeVerValores(u);
-  const [almox, campoEq, precos] = aba === "almox"
-    ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases(), valores ? precosOuNada() : null]) : [null, null, null];
+  const [almox, campoEq, precos, consumo] = aba === "almox"
+    ? await Promise.all([almoxarifado(), campoDoEquipamentoDasBases(), valores ? precosOuNada() : null, consumo12mPorMaterial()]) : [null, null, null, null];
   // todos os itens do MB52; a lista abre no que tem saldo e a pílula "Zerados" mostra as faltas (saldo zero ou negativo)
-  const itensAlmox = almox && campoEq ? comValores(comCampo(almox.itens, campoEq), valores, precos) : [];
+  const itensAlmox = almox && campoEq ? comConsumo(comValores(comCampo(almox.itens, campoEq), valores, precos), consumo) : [];
   const resumo = aba === "cadastrado" ? await resumoCatalogo() : null;
   const base = almox?.estoque;
 
@@ -89,7 +97,7 @@ export default async function Estoque(props: { searchParams: Promise<{ aba?: str
             <Aviso>O <b>catálogo de materiais (Sysmat)</b> não está carregado, por isso a Descr Completa aparece vazia. Envie a extração em
               <Link prefetch={false} href="/dados" className="font-medium underline"> Configuração › Fontes de dados</Link>.</Aviso>
           )}
-          <Almoxarifado itens={itensAlmox} edita={podeEditar(u) && !u.demo} sugestoes={almox.sugestoes} valores={valores} comPreco={valores && !!precos} />
+          <Almoxarifado itens={itensAlmox} edita={podeEditar(u) && !u.demo} sugestoes={almox.sugestoes} valores={valores} comPreco={valores && !!precos} comConsumo={!!consumo} />
         </>
       )}
       {aba === "cadastrado" && (resumo ? <Catalogo resumo={resumo} edita={podeEditar(u) && !u.demo} /> : (
