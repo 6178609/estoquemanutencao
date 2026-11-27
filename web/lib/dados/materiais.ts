@@ -169,6 +169,8 @@ export interface ItemAlmox extends ItemEstoque {
   preco?: number | null;
   /** Saldo MB52 × preço (null = sem preço). */
   valorEstoque?: number | null;
+  /** Consumo líquido dos últimos 12 meses na IW13 (lib/estoque/historicoIw13.ts); ausente = sem a IW13 carregada. */
+  consumo12m?: number;
 }
 
 const semZeros = (c: string) => c.replace(/^0+/, "");

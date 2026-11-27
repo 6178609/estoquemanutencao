@@ -9,6 +9,7 @@ import { DescrCorrida, FichaTecnica } from "@/components/FichaTecnica";
 import { CampoBusca, MultiEscolha } from "@/components/Filtros";
 import { Gaveta } from "@/components/Gaveta";
 import { DatasheetMaterial } from "./DatasheetMaterial";
+import { HistoricoRetiradas } from "./HistoricoRetiradas";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO, Selo } from "@/components/ui";
 import { cobertura, type ItemAlmox } from "@/lib/dados/materiais";
 import { MAX_FOTOS, type FotoDoItem, fotoDoItem, type SugestaoPublica, urlFotoMaterial } from "@/lib/fotoMaterial";
@@ -18,7 +19,7 @@ import { casaBusca, normalizarBusca } from "@/lib/dados/texto";
 import { brl, inteiro, numero } from "@/lib/formato";
 
 type Situacao = "todos" | "Zerado" | "Abaixo do mínimo" | "OK" | "vinculado" | "com_foto" | "sem_foto";
-type Ordem = "situacao" | "descricao" | "estoque" | "valor";
+type Ordem = "situacao" | "descricao" | "estoque" | "valor" | "consumo";
 
 const COR_SITUACAO = { Zerado: "vermelho", "Abaixo do mínimo": "laranja", OK: "verde" } as const;
 /** Cor da barra de cobertura do mínimo, a mesma do selo da situação. */
@@ -31,15 +32,15 @@ const COR_CADASTRO: Record<string, "verde" | "laranja" | "vermelho" | "amarelo" 
 /** Valor que a ordenação "Maior valor" usa: saldo × preço médio quando há a lista de preços; senão o valor da MB52. */
 const valorDoItem = (i: ItemAlmox, comPreco: boolean) => (comPreco ? i.valorEstoque ?? 0 : i.valor);
 
-function baixarCsv(itens: ItemAlmox[], valores: boolean, comPreco: boolean) {
+function baixarCsv(itens: ItemAlmox[], valores: boolean, comPreco: boolean, comConsumo: boolean) {
   const cab = ["Material", "Descrição", "Descr Completa", "UM", "Estoque", "Mínimo", "Situação", "Cadastro Sysmat",
     "Categoria", "Fabricante / referência", "Depósitos", ...(valores ? ["Valor (MB52)"] : []),
-    ...(comPreco ? ["Preço médio", "Valor em estoque"] : []), "Usado em"];
+    ...(comPreco ? ["Preço médio", "Valor em estoque"] : []), ...(comConsumo ? ["Consumo 12 m (IW13)"] : []), "Usado em"];
   const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
   const num = (v: number | null | undefined) => (v == null ? "" : String(v).replace(".", ","));
   const linhas = itens.map((i) => [i.material, i.descricao, i.descrCompleta, i.um, num(i.estoque), num(i.minimo), i.situacao,
     i.cadastro, i.categoria, i.fabricanteRef, i.depositos, ...(valores ? [num(i.valor)] : []),
-    ...(comPreco ? [num(i.preco), num(i.valorEstoque)] : []), i.usadoEm].map(esc).join(";"));
+    ...(comPreco ? [num(i.preco), num(i.valorEstoque)] : []), ...(comConsumo ? [num(i.consumo12m ?? 0)] : []), i.usadoEm].map(esc).join(";"));
   const blob = new Blob(["﻿" + [cab.map(esc).join(";"), ...linhas].join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -94,7 +95,7 @@ function Pilulas({ opcoes, valor, aoMudar }: { opcoes: { valor: Situacao; rotulo
   );
 }
 
-function Linha({ it, aoAbrir, comPreco }: { it: ItemAlmox; aoAbrir: () => void; comPreco: boolean }) {
+function Linha({ it, aoAbrir, comPreco, comConsumo }: { it: ItemAlmox; aoAbrir: () => void; comPreco: boolean; comConsumo: boolean }) {
   const cob = cobertura(it.estoque, it.minimo);
   return (
     <button onClick={aoAbrir}
@@ -127,6 +128,11 @@ function Linha({ it, aoAbrir, comPreco }: { it: ItemAlmox; aoAbrir: () => void; 
         </div>
         <div className="text-xs text-texto-3">
           mín. <span className="num font-semibold text-texto-2">{it.minimo == null ? "—" : numero(it.minimo)}</span>
+          {comConsumo && (
+            <div className="mt-0.5" data-consumo title="Consumo líquido dos últimos 12 meses na IW13 (devoluções abatidas)">
+              consumo 12 m <span className="num font-semibold text-texto-2">{numero(it.consumo12m ?? 0)}</span>
+            </div>
+          )}
           {it.depositos && <div className="mt-0.5 truncate">{it.depositos}</div>}
           {cob != null && (
             <div className="mt-2 h-1.5 w-28 rounded-full bg-superficie-3 md:ml-auto" role="img" aria-label={`Cobre ${cob}% do mínimo`}>
@@ -139,8 +145,8 @@ function Linha({ it, aoAbrir, comPreco }: { it: ItemAlmox; aoAbrir: () => void; 
   );
 }
 
-export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais, valores = false, comPreco = false }: { itens: ItemAlmox[]; edita: boolean;
-  sugestoes: Record<string, SugestaoPublica[]>; valores?: boolean; comPreco?: boolean }) {
+export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesIniciais, valores = false, comPreco = false, comConsumo = false }: { itens: ItemAlmox[]; edita: boolean;
+  sugestoes: Record<string, SugestaoPublica[]>; valores?: boolean; comPreco?: boolean; comConsumo?: boolean }) {
   const [itens, setItens] = useState(iniciais);
   const [sugestoes, setSugestoes] = useState(sugestoesIniciais);
   const [busca, setBusca] = useState("");
@@ -198,6 +204,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
       descricao: (a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"),
       estoque: (a, b) => b.estoque - a.estoque,
       valor: (a, b) => valorDoItem(b, comPreco) - valorDoItem(a, comPreco),
+      consumo: (a, b) => (b.consumo12m ?? 0) - (a.consumo12m ?? 0) || a.descricao.localeCompare(b.descricao, "pt-BR"),
     };
     return r.sort(cmp[ordem]);
   }, [recorte, comSaldo, situacao, ordem, comPreco]);
@@ -241,8 +248,9 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
         className="h-11 rounded-lg border border-borda bg-superficie px-2 text-sm focus:border-[var(--acao)] lg:h-9">
         <option value="situacao">Situação</option><option value="descricao">Descrição</option>
         <option value="estoque">Maior estoque</option>{valores && <option value="valor">Maior valor</option>}
+        {comConsumo && <option value="consumo">Maior consumo 12 m</option>}
       </select>
-      <button onClick={() => baixarCsv(visiveis, valores, comPreco)} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 font-medium text-texto-2 hover:text-texto lg:h-9">
+      <button onClick={() => baixarCsv(visiveis, valores, comPreco, comConsumo)} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-borda bg-superficie px-3 font-medium text-texto-2 hover:text-texto lg:h-9">
         <Download className="size-4" /> Excel (CSV)
       </button>
     </div>
@@ -306,7 +314,7 @@ export function Almoxarifado({ itens: iniciais, edita, sugestoes: sugestoesInici
             {virt.getVirtualItems().map((v) => (
               <div key={visiveis[v.index].material} data-index={v.index} ref={virt.measureElement}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}>
-                <Linha it={visiveis[v.index]} aoAbrir={() => setAberto(visiveis[v.index])} comPreco={comPreco} />
+                <Linha it={visiveis[v.index]} aoAbrir={() => setAberto(visiveis[v.index])} comPreco={comPreco} comConsumo={comConsumo} />
               </div>
             ))}
           </div>
@@ -694,6 +702,7 @@ function Detalhe({ it, edita, valores, comPreco, aoSalvar, aoFotos, sugestoes, a
         <FichaTecnica texto={it.descrCompleta} />
       </section>
       <DatasheetMaterial key={it.material} material={it.material} fabricanteRef={it.fabricanteRef} descricao={it.descricao} edita={edita} />
+      <HistoricoRetiradas key={`h-${it.material}`} material={it.material} />
       <section className="grid gap-2 text-sm">
         {[["Categoria", [it.categoria, it.subcategoria].filter(Boolean).join(" › ")], ["Fabricante / referência", it.fabricanteRef],
           ["NCM", it.ncm], ["Status no Sysmat", it.status], ["Substituído por", it.substituto], ["Usado em", it.usadoEm]]

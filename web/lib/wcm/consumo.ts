@@ -45,6 +45,11 @@ export interface Consumo {
    * (lib/ubm/validacao.ts) confere material × ordem de quebra. Lidas daqui para usar o mesmo cache da base.
    */
   tomadas: LinhaTomada[];
+  /**
+   * As devoluções/estornos (Tomados < 0) uma a uma, com a quantidade negativa: o histórico de retiradas da aba Estoque
+   * (lib/estoque/historicoIw13.ts) abate do consumo. A validação da UBM não as usa.
+   */
+  devolucoes: LinhaTomada[];
 }
 
 /** Uma linha da IW13 com retirada (Tomados > 0). */
@@ -68,11 +73,16 @@ export function prepararConsumo(linhas: Record<string, unknown>[]): Consumo {
   type Acc = ItemConsumo & { ordensSet: Set<string>; reservaSet: Set<string> };
   const por = new Map<string, Map<string, Acc>>();
   let de: Dia | null = null, ate: Dia | null = null, n = 0;
-  const tomadas: LinhaTomada[] = [];
+  const tomadas: LinhaTomada[] = [], devolucoes: LinhaTomada[] = [];
   for (const l of linhas) {
     const mat = semZeros(texto(cMat ? l[cMat] : ""));
     const eq = semZeros(texto(cEq ? l[cEq] : ""));
     const ordem = semZeros(texto(cOrdem ? l[cOrdem] : ""));
+    if (mat && ordem) {
+      const tom = paraNumero(cTom ? l[cTom] : "");
+      if (Number.isFinite(tom) && tom < 0) devolucoes.push({ ordem, material: mat, quantidade: tom, um: texto(cUm2 ? l[cUm2] : "") || texto(cUm ? l[cUm] : ""),
+        descricao: texto(cTxt ? l[cTxt] : ""), equipamento: eq, data: cData ? paraData(l[cData]) : null });
+    }
     if (mat && ordem && !eq) {
       // sem equipamento não entra no consumo por ativo, mas a validação da UBM olha só ordem × material
       const tom = paraNumero(cTom ? l[cTom] : "");
@@ -118,7 +128,7 @@ export function prepararConsumo(linhas: Record<string, unknown>[]): Consumo {
     }
     if (itens.length) porEquipamento.set(eq, ordenar(itens));
   }
-  return { porEquipamento, ativosPorMaterial, linhas: n, de, ate, tomadas };
+  return { porEquipamento, ativosPorMaterial, linhas: n, de, ate, tomadas, devolucoes };
 }
 
 function ordenar(itens: ItemConsumo[]): ItemConsumo[] {
